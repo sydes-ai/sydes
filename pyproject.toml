@@ -20,5 +20,10 @@ dependencies = [
 [project.scripts]
 sydes = "sydes.cli.main:app"
 
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0,<9.0"
+]
+
 [tool.hatch.build.targets.wheel]
 packages = ["src/sydes"]
