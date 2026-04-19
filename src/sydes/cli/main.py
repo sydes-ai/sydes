@@ -2,12 +2,12 @@
 
 import typer
 
-from sydes.cli.routes import app as routes_app
-from sydes.cli.trace import app as trace_app
+from sydes.cli.routes import routes_command
+from sydes.cli.trace import trace_command
 
 app = typer.Typer(help="Sydes CLI")
-app.add_typer(trace_app, name="trace")
-app.add_typer(routes_app, name="routes")
+app.command(name="trace")(trace_command)
+app.command(name="routes")(routes_command)
 
 if __name__ == "__main__":
     app()

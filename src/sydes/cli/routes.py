@@ -1,11 +1,7 @@
-"""Routes CLI command group for future endpoint route discovery commands."""
+"""Routes command placeholder for future endpoint discovery UX."""
 
 import typer
 
-app = typer.Typer(help="Inspect discovered routes.")
-
-
-@app.callback(invoke_without_command=True)
-def routes() -> None:
+def routes_command() -> None:
     """Run placeholder routes command."""
     typer.echo("Not implemented yet")
