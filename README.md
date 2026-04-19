@@ -1,28 +1,25 @@
 # Sydes
 
 Sydes is an AI-assisted system understanding tool for tracing API flows from code.
-Phase 1 is focused on locking a practical CLI surface and internal data contracts.
+Sydes now performs a first-pass API endpoint discovery flow before deeper tracing.
 
-## Current status (Phase 1)
+## Current status (Phase 2)
 
-- Repository scaffold is in place under `src/sydes/`.
-- CLI contract for `trace` and `routes` is implemented.
-- Graph-backed V1 result models are defined.
-- Commands are currently stubbed (no real tracing yet).
+- Shallow repo sensing and file inventory are implemented.
+- Candidate file ranking and bounded selective file reads are implemented.
+- First-pass endpoint discovery pipeline is wired behind `routes` and used by `trace` target resolution.
+- Run artifacts are persisted under `~/.sydes/` (workspace-scoped JSON files).
 
 ## Commands available now
 
 ```bash
-sydes trace "/checkout" --method POST --repo api=./api
-sydes trace "/checkout" --method POST --repo api=./api --format json
 sydes routes --repo api=./api
+sydes trace "/checkout" --method POST --repo api=./api
 ```
 
 ## Near-term roadmap
 
-Real tracing behavior is upcoming and will be added incrementally:
+Next tracing phases are focused on:
 
-- Endpoint discovery
-- Selective flow expansion
+- Downstream flow tracing expansion
 - Sink detection
-- Integration test suggestions
