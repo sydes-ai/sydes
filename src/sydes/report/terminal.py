@@ -28,6 +28,10 @@ def render_terminal(result: TraceResult) -> str:
                 method_value = node.method or "?"
                 lines.append(f"  - {method_value} {path_value}")
                 details: list[str] = []
+                if node.repo:
+                    details.append(f"repo={node.repo}")
+                if node.service:
+                    details.append(f"service={node.service}")
                 if node.symbol:
                     details.append(f"handler={node.symbol}")
                 if node.file:
@@ -41,6 +45,10 @@ def render_terminal(result: TraceResult) -> str:
         for item in ambiguous:
             lines.append(f"  - {item.description}")
             details: list[str] = []
+            if item.repo:
+                details.append(f"repo={item.repo}")
+            if item.service:
+                details.append(f"service={item.service}")
             if item.file:
                 details.append(f"file={item.file}")
             if item.symbol:

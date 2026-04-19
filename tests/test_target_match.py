@@ -44,3 +44,31 @@ def test_resolve_trace_target_returns_alternatives_when_ambiguous() -> None:
     assert result.selected.file == "b.py"
     assert len(result.alternatives) == 1
     assert any("Multiple candidate endpoints matched target" in note for note in result.notes)
+
+
+def test_resolve_trace_target_notes_cross_repo_service_ambiguity() -> None:
+    """Resolver should note ambiguity that spans repos/services."""
+    endpoints = [
+        EndpointCandidate(
+            method="POST",
+            path="/checkout",
+            file="a.py",
+            repo="gateway",
+            service="edge",
+            confidence=0.6,
+        ),
+        EndpointCandidate(
+            method="POST",
+            path="/checkout",
+            file="b.py",
+            repo="api",
+            service="orders",
+            confidence=0.7,
+        ),
+    ]
+
+    result = resolve_trace_target(endpoints, path="/checkout", method="POST")
+
+    assert result.selected is not None
+    assert any("multiple repos" in note.lower() for note in result.notes)
+    assert any("multiple services" in note.lower() for note in result.notes)

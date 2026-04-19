@@ -78,7 +78,19 @@ def resolve_trace_target(
             confidence=confidence,
         )
 
+    repos = sorted({endpoint.repo for endpoint in method_matches})
+    services = sorted(
+        {
+            endpoint.service
+            for endpoint in method_matches
+            if isinstance(endpoint.service, str) and endpoint.service
+        }
+    )
     notes.append("Multiple candidate endpoints matched target; selecting highest-confidence.")
+    if len(repos) > 1:
+        notes.append(f"Ambiguous match spans multiple repos: {', '.join(repos)}.")
+    if len(services) > 1:
+        notes.append(f"Ambiguous match spans multiple services: {', '.join(services)}.")
     ranked = sorted(
         method_matches,
         key=lambda endpoint: endpoint.confidence if endpoint.confidence is not None else 0.0,
