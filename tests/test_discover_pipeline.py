@@ -132,3 +132,71 @@ def test_run_llm_endpoint_discovery_accepts_top_level_list() -> None:
     assert len(result.endpoints) == 1
     assert result.endpoints[0].method == "GET"
     assert result.endpoints[0].path == "/health"
+
+
+def test_run_llm_endpoint_discovery_normalizes_fields_and_filters_weak_candidates() -> None:
+    """Discovery should normalize method/path and drop weak ungrounded partials."""
+    client = _FakeEndpointClient(
+        payload=(
+            '{"endpoints":['
+            '{"method":" post ","path":"checkout/","handler":" checkout_handler ","file":"src\\\\routes.py","repo":" api ","evidence":[{"file":"src/routes.py","label":"route"}]},'
+            '{"file":"src/unknown.py","repo":"api","evidence":[{"file":"src/unknown.py","label":"maybe"}]}'
+            ']}'
+        )
+    )
+    from sydes.core.models import CandidateFileRead, ReadFileSnippet
+
+    candidates = [
+        CandidateFileRead(
+            repo="api",
+            relative_path="src/routes.py",
+            snippet=ReadFileSnippet(
+                repo="api",
+                relative_path="src/routes.py",
+                text="router.post('/checkout', checkout_handler)",
+                line_count=1,
+                char_count=42,
+            ),
+        )
+    ]
+    result = run_llm_endpoint_discovery(candidates, llm_client=client)
+
+    assert len(result.endpoints) == 1
+    endpoint = result.endpoints[0]
+    assert endpoint.method == "POST"
+    assert endpoint.path == "/checkout"
+    assert endpoint.handler == "checkout_handler"
+    assert endpoint.file == "src/routes.py"
+    assert endpoint.repo == "api"
+    assert any("Dropped endpoint" in note for note in result.notes)
+
+
+def test_run_llm_endpoint_discovery_keeps_strong_evidence_partial_candidate() -> None:
+    """Partial endpoints without path/handler may be kept with strong evidence."""
+    client = _FakeEndpointClient(
+        payload=(
+            '{"endpoints":['
+            '{"file":"src/routes.py","repo":"api","confidence":0.9,"evidence":[{"file":"src/routes.py","label":"route registration"}]}'
+            ']}'
+        )
+    )
+    from sydes.core.models import CandidateFileRead, ReadFileSnippet
+
+    candidates = [
+        CandidateFileRead(
+            repo="api",
+            relative_path="src/routes.py",
+            snippet=ReadFileSnippet(
+                repo="api",
+                relative_path="src/routes.py",
+                text="router.use(routes)",
+                line_count=1,
+                char_count=18,
+            ),
+        )
+    ]
+    result = run_llm_endpoint_discovery(candidates, llm_client=client)
+
+    assert len(result.endpoints) == 1
+    assert result.endpoints[0].path is None
+    assert result.endpoints[0].handler is None

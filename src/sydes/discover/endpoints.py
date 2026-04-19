@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 from typing import Any
 
 from sydes.core.models import (
@@ -107,6 +108,82 @@ def _normalize_evidence(raw: Any, fallback_file: str) -> list[EvidenceRef]:
     return evidence
 
 
+def _normalize_method(method: str | None) -> str | None:
+    """Normalize HTTP method values when present."""
+    if method is None:
+        return None
+    normalized = method.strip().upper()
+    return normalized or None
+
+
+def _normalize_path(path: str | None) -> str | None:
+    """Normalize endpoint path values when present."""
+    if path is None:
+        return None
+    normalized = path.strip()
+    if not normalized:
+        return None
+    if not normalized.startswith("/"):
+        normalized = "/" + normalized
+    if normalized != "/" and normalized.endswith("/"):
+        normalized = normalized[:-1]
+    return normalized
+
+
+def _normalize_handler(handler: str | None) -> str | None:
+    """Normalize handler symbol/name values when present."""
+    if handler is None:
+        return None
+    normalized = handler.strip()
+    return normalized or None
+
+
+def _normalize_file_path(path: str | None) -> str | None:
+    """Normalize file path values into stable relative-posix form."""
+    if path is None:
+        return None
+    normalized = path.strip()
+    if not normalized:
+        return None
+    normalized = normalized.replace("\\", "/")
+    return Path(normalized).as_posix()
+
+
+def _has_strong_evidence(endpoint: EndpointCandidate) -> bool:
+    """Return true for unusually strong evidence when path+handler are both missing."""
+    if endpoint.confidence is not None and endpoint.confidence >= 0.85:
+        return True
+    labels = [
+        (item.label or "").lower()
+        for item in endpoint.evidence
+    ]
+    strong_markers = ("route", "router", "endpoint", "http")
+    return any(any(marker in label for marker in strong_markers) for label in labels)
+
+
+def _apply_quality_filters(
+    endpoints: list[EndpointCandidate],
+) -> tuple[list[EndpointCandidate], list[str]]:
+    """Filter out very weak/unusable endpoint candidates."""
+    kept: list[EndpointCandidate] = []
+    notes: list[str] = []
+    for idx, endpoint in enumerate(endpoints, start=1):
+        if not endpoint.file:
+            notes.append(f"Dropped endpoint #{idx}: missing file grounding.")
+            continue
+        if not endpoint.repo:
+            notes.append(f"Dropped endpoint #{idx}: missing repo grounding.")
+            continue
+        if endpoint.path is None and endpoint.handler is None and not _has_strong_evidence(endpoint):
+            notes.append(
+                f"Dropped endpoint #{idx} ({endpoint.repo}:{endpoint.file}): "
+                "missing both path and handler with weak evidence."
+            )
+            continue
+        kept.append(endpoint)
+    return kept, notes
+
+
 def _build_candidate_index(
     candidates: list[CandidateFileRead],
 ) -> tuple[dict[str, CandidateFileRead], str | None]:
@@ -134,7 +211,19 @@ def _normalize_endpoints(
 
     for idx, raw in enumerate(raw_endpoints):
         if isinstance(raw, EndpointCandidate):
-            normalized.append(raw)
+            normalized.append(
+                EndpointCandidate(
+                    method=_normalize_method(raw.method),
+                    path=_normalize_path(raw.path),
+                    handler=_normalize_handler(raw.handler),
+                    file=_normalize_file_path(raw.file) or raw.file,
+                    repo=raw.repo.strip(),
+                    service=raw.service.strip() if isinstance(raw.service, str) and raw.service.strip() else None,
+                    evidence=raw.evidence,
+                    confidence=raw.confidence,
+                    status=raw.status.strip() if isinstance(raw.status, str) and raw.status.strip() else None,
+                )
+            )
             continue
         if not isinstance(raw, dict):
             notes.append(f"Ignored endpoint #{idx + 1}: not an object.")
@@ -172,36 +261,54 @@ def _normalize_endpoints(
         if not isinstance(confidence, (int, float)):
             confidence = None
         status = raw.get("status") if isinstance(raw.get("status"), str) else None
+        file_value = _normalize_file_path(file_value)
+        if file_value is None:
+            notes.append(f"Ignored endpoint #{idx + 1}: missing file grounding.")
+            continue
+        repo_value = repo_value.strip()
+        if not repo_value:
+            notes.append(f"Ignored endpoint #{idx + 1}: missing repo grounding.")
+            continue
         evidence = _normalize_evidence(raw.get("evidence"), fallback_file=file_value)
 
         normalized.append(
             EndpointCandidate(
-                method=method.upper() if isinstance(method, str) else None,
-                path=path,
-                handler=handler,
+                method=_normalize_method(method),
+                path=_normalize_path(path),
+                handler=_normalize_handler(handler),
                 file=file_value,
                 repo=repo_value,
-                service=service,
+                service=service.strip() if isinstance(service, str) and service.strip() else None,
                 evidence=evidence,
                 confidence=float(confidence) if confidence is not None else None,
-                status=status,
+                status=status.strip() if isinstance(status, str) and status.strip() else None,
             )
         )
 
     return normalized, notes
 
 
+def _endpoint_dedupe_key(endpoint: EndpointCandidate) -> tuple[str, ...]:
+    """Build a dedupe key that stays safe for partial endpoints."""
+    method = endpoint.method or ""
+    path = endpoint.path or ""
+    handler = endpoint.handler or ""
+    if method or path or handler:
+        return (endpoint.repo, endpoint.file, method, path, handler)
+
+    evidence_symbols = sorted(
+        {item.symbol for item in endpoint.evidence if isinstance(item.symbol, str) and item.symbol}
+    )
+    if evidence_symbols:
+        return (endpoint.repo, endpoint.file, "", "", "|".join(evidence_symbols))
+    return (endpoint.repo, endpoint.file, "", "", "__unresolved__")
+
+
 def _dedupe_endpoints(endpoints: list[EndpointCandidate]) -> list[EndpointCandidate]:
     """Merge obvious duplicates while preserving strongest confidence/evidence."""
-    deduped: dict[tuple[str, str, str, str, str], EndpointCandidate] = {}
+    deduped: dict[tuple[str, ...], EndpointCandidate] = {}
     for endpoint in endpoints:
-        key = (
-            endpoint.repo,
-            endpoint.file,
-            endpoint.method or "",
-            endpoint.path or "",
-            endpoint.handler or "",
-        )
+        key = _endpoint_dedupe_key(endpoint)
         existing = deduped.get(key)
         if existing is None:
             deduped[key] = endpoint
@@ -265,7 +372,8 @@ def run_llm_endpoint_discovery(
 
     raw_endpoints, shape_notes = _coerce_raw_endpoints(payload)
     endpoints, normalize_notes = _normalize_endpoints(raw_endpoints, candidates)
-    deduped = _dedupe_endpoints(endpoints)
+    filtered, filter_notes = _apply_quality_filters(endpoints)
+    deduped = _dedupe_endpoints(filtered)
     notes: list[str] = []
 
     if isinstance(payload, dict):
@@ -274,6 +382,7 @@ def run_llm_endpoint_discovery(
             notes.extend(str(note) for note in raw_notes)
     notes.extend(shape_notes)
     notes.extend(normalize_notes)
+    notes.extend(filter_notes)
 
     confidences = [item.confidence for item in deduped if item.confidence is not None]
     summary_confidence = None
