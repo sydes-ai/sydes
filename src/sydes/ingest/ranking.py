@@ -1,1 +1,143 @@
-"""Heuristics for prioritizing repositories and files for analysis."""
+"""Heuristics for ranking candidate files for endpoint discovery."""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+from sydes.core.models import RankedFileCandidate, RepoInventory, RepoSenseSummary
+
+PATH_SIGNAL_WEIGHTS = {
+    "route": 2.0,
+    "routes": 2.0,
+    "router": 2.0,
+    "controller": 1.8,
+    "controllers": 1.8,
+    "handler": 1.6,
+    "handlers": 1.6,
+    "api": 1.6,
+    "view": 1.0,
+    "views": 1.0,
+    "endpoint": 1.6,
+    "endpoints": 1.6,
+    "server": 1.4,
+    "main": 1.2,
+    "app": 1.2,
+}
+
+BOOTSTRAP_FILENAME_WEIGHTS = {
+    "main.py": 2.6,
+    "app.py": 2.4,
+    "server.py": 2.4,
+    "server.js": 2.4,
+    "server.ts": 2.4,
+    "main.go": 2.6,
+    "main.rs": 2.6,
+    "index.js": 1.8,
+    "index.ts": 1.8,
+}
+
+SOURCE_DIR_NAMES = {"src", "app", "api", "server", "backend", "services"}
+EXTENSION_HINT_WEIGHTS = {
+    ".py": 1.0,
+    ".ts": 1.0,
+    ".tsx": 0.8,
+    ".js": 0.8,
+    ".go": 1.0,
+    ".rs": 1.0,
+    ".java": 0.8,
+    ".kt": 0.8,
+}
+
+EXTENSION_BY_LANGUAGE_FAMILY = {
+    "python": {".py"},
+    "typescript": {".ts", ".tsx"},
+    "javascript": {".js", ".mjs", ".cjs"},
+    "go": {".go"},
+    "rust": {".rs"},
+    "java": {".java"},
+    "kotlin": {".kt"},
+    "ruby": {".rb"},
+    "php": {".php"},
+    "dotnet": {".cs"},
+    "scala": {".scala"},
+}
+
+
+def _score_file(path: str, sense: RepoSenseSummary) -> tuple[float, list[str]]:
+    """Score one file path and return score plus explainable reason labels."""
+    score = 0.0
+    reasons: list[str] = []
+    p = Path(path)
+    filename = p.name.lower()
+    parts = [part.lower() for part in p.parts]
+    suffix = p.suffix.lower()
+
+    for token, weight in PATH_SIGNAL_WEIGHTS.items():
+        if token in parts or token in filename:
+            score += weight
+            reasons.append(f"path:{token}")
+
+    if filename in BOOTSTRAP_FILENAME_WEIGHTS:
+        score += BOOTSTRAP_FILENAME_WEIGHTS[filename]
+        reasons.append("bootstrap:filename")
+
+    if any(part in SOURCE_DIR_NAMES for part in parts):
+        score += 0.7
+        reasons.append("location:source_dir")
+
+    if len(parts) <= 2:
+        score += 0.6
+        reasons.append("location:top_level-ish")
+
+    if suffix in EXTENSION_HINT_WEIGHTS:
+        score += EXTENSION_HINT_WEIGHTS[suffix]
+        reasons.append(f"extension:{suffix}")
+
+    dominant_extensions = set(sense.dominant_extensions.keys())
+    if suffix and suffix in dominant_extensions:
+        score += 0.4
+        reasons.append("extension:repo_dominant")
+
+    preferred_extensions = {
+        ext
+        for family in sense.likely_language_families
+        for ext in EXTENSION_BY_LANGUAGE_FAMILY.get(family, set())
+    }
+    if suffix and suffix in preferred_extensions:
+        score += 0.6
+        reasons.append("language:family_match")
+
+    matched_backend_signals = [
+        signal for signal in sense.backend_signals if signal in parts or signal in filename
+    ]
+    if matched_backend_signals:
+        score += 0.8
+        reasons.append("signal:backend_hint")
+
+    return score, sorted(set(reasons))
+
+
+def rank_candidate_files(
+    inventory: RepoInventory,
+    sense: RepoSenseSummary,
+    *,
+    top_k: int = 60,
+    min_score: float = 0.1,
+) -> list[RankedFileCandidate]:
+    """Rank inventory files for likely endpoint-entry discovery usefulness."""
+    candidates: list[RankedFileCandidate] = []
+    for item in inventory.files:
+        score, reasons = _score_file(item.path, sense)
+        if score < min_score:
+            continue
+        candidates.append(
+            RankedFileCandidate(
+                file=item.path,
+                score=round(score, 3),
+                reasons=reasons,
+                repo=inventory.repo,
+            )
+        )
+
+    candidates.sort(key=lambda candidate: (-candidate.score, candidate.file))
+    return candidates[:top_k]

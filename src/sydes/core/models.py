@@ -56,6 +56,16 @@ class RepoSenseSummary(BaseModel):
     notes: list[str] = Field(default_factory=list)
 
 
+class RankedFileCandidate(BaseModel):
+    """Ranked file candidate for downstream endpoint discovery exploration."""
+
+    file: str
+    score: float
+    reasons: list[str] = Field(default_factory=list)
+    repo: str | None = None
+    service: str | None = None
+
+
 class TargetSpec(BaseModel):
     """Requested target for trace entrypoint discovery."""
 
