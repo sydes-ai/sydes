@@ -82,14 +82,14 @@ def render_routes_terminal(result: RoutesResult) -> str:
         lines.append(f"Average confidence: {result.confidence_summary.average:.2f}")
 
     if result.routes:
-        grouped: dict[str, list] = defaultdict(list)
+        grouped: dict[tuple[str, str], list] = defaultdict(list)
         for route in result.routes:
-            grouped[route.repo].append(route)
+            grouped[(route.repo, route.service or "(unknown-service)")].append(route)
 
-        lines.append("Discovered routes by repo:")
-        for repo_name in sorted(grouped):
-            lines.append(f"  {repo_name}:")
-            for route in grouped[repo_name]:
+        lines.append("Discovered routes by repo/service:")
+        for repo_name, service_name in sorted(grouped):
+            lines.append(f"  {repo_name} / {service_name}:")
+            for route in grouped[(repo_name, service_name)]:
                 method = route.method or "?"
                 path = route.path or "?"
                 entry = f"    - {method} {path}".strip()
@@ -99,6 +99,10 @@ def render_routes_terminal(result: RoutesResult) -> str:
                     details.append(f"handler={route.handler}")
                 if route.file:
                     details.append(f"file={route.file}")
+                if route.confidence is not None:
+                    details.append(f"confidence={route.confidence:.2f}")
+                if route.status:
+                    details.append(f"status={route.status}")
                 if details:
                     lines.append(f"      ({', '.join(details)})")
     else:

@@ -52,7 +52,9 @@ def test_routes_command_handles_one_endpoint(tmp_path: Path, monkeypatch) -> Non
                     handler="checkout_handler",
                     file="src/routes.py",
                     repo="api",
+                    service="backend",
                     confidence=0.8,
+                    status="inferred",
                 )
             ],
             candidate_files=4,
@@ -64,9 +66,13 @@ def test_routes_command_handles_one_endpoint(tmp_path: Path, monkeypatch) -> Non
 
     assert result.exit_code == 0
     assert "Routes discovered: 1" in result.stdout
+    assert "Discovered routes by repo/service:" in result.stdout
+    assert "api / backend:" in result.stdout
     assert "POST /checkout" in result.stdout
     assert "handler=checkout_handler" in result.stdout
     assert "file=src/routes.py" in result.stdout
+    assert "confidence=0.80" in result.stdout
+    assert "status=inferred" in result.stdout
 
 
 def test_routes_command_handles_ambiguous_endpoints_json(
