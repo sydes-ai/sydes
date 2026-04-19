@@ -197,6 +197,10 @@ class EndpointDiscoveryResult(BaseModel):
     endpoints: list[EndpointCandidate] = Field(default_factory=list)
     notes: list[str] = Field(default_factory=list)
     confidence: float | None = None
+    files_sent_to_llm: int = 0
+    prompt_chars: int = 0
+    timeout_seconds: float | None = None
+    truncated_files: int = 0
 
 
 class TargetMatchResult(BaseModel):
@@ -224,6 +228,10 @@ class RoutesResult(BaseModel):
     routes: list[EndpointCandidate] = Field(default_factory=list)
     candidate_files: int = 0
     files_examined: int = 0
+    files_sent_to_llm: int = 0
+    prompt_chars: int = 0
+    timeout_seconds: float | None = None
+    truncated_files: int = 0
     notes: list[str] = Field(default_factory=list)
     confidence_summary: ConfidenceSummary | None = None
 

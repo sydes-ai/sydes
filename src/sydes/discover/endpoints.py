@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 from typing import Any
 
@@ -17,11 +18,15 @@ from sydes.core.models import (
 )
 from sydes.ingest.inventory import build_repo_inventory
 from sydes.ingest.ranking import rank_candidate_files
-from sydes.ingest.readers import read_ranked_candidate_files
+from sydes.ingest.readers import read_ranked_candidate_files_for_discovery
 from sydes.ingest.repos import validate_repo_roots
 from sydes.ingest.sense import sense_repo
 from sydes.llm.client import LLMClient, LLMRequest
-from sydes.llm.client import LLMClientError, create_default_llm_client
+from sydes.llm.client import (
+    LLMClientError,
+    create_default_llm_client,
+    load_llm_settings_from_env,
+)
 from sydes.llm.prompts import build_endpoint_discovery_prompt
 
 
@@ -342,32 +347,55 @@ def run_llm_endpoint_discovery(
     method_hint: str | None = None,
 ) -> EndpointDiscoveryResult:
     """Run LLM-guided endpoint extraction with fallback-safe behavior."""
+    timeout_seconds: float | None = None
+    files_sent_to_llm = len(candidates)
+    truncated_files = sum(
+        1
+        for candidate in candidates
+        if candidate.snippet is not None and candidate.snippet.truncated
+    )
     if llm_client is None:
+        settings = load_llm_settings_from_env()
+        timeout_seconds = settings.timeout_seconds
         try:
             llm_client = create_default_llm_client()
         except LLMClientError as exc:
             return EndpointDiscoveryResult(
                 endpoints=[],
                 notes=[f"LLM discovery unavailable: {exc}"],
+                files_sent_to_llm=files_sent_to_llm,
+                timeout_seconds=timeout_seconds,
+                truncated_files=truncated_files,
             )
+    else:
+        timeout_seconds = getattr(llm_client, "timeout_seconds", None)
 
     prompt = build_endpoint_discovery_prompt(
         candidates,
         target_hint=target_hint,
         method_hint=method_hint,
     )
+    prompt_chars = len(prompt)
     try:
         response = llm_client.generate(LLMRequest(prompt=prompt))
     except LLMClientError as exc:
         return EndpointDiscoveryResult(
             endpoints=[],
             notes=[f"LLM discovery unavailable: {exc}"],
+            files_sent_to_llm=files_sent_to_llm,
+            prompt_chars=prompt_chars,
+            timeout_seconds=timeout_seconds,
+            truncated_files=truncated_files,
         )
     payload = _extract_json_payload(response.text)
     if payload is None:
         return EndpointDiscoveryResult(
             endpoints=[],
             notes=["Model output was not valid JSON; returning empty endpoint set."],
+            files_sent_to_llm=files_sent_to_llm,
+            prompt_chars=prompt_chars,
+            timeout_seconds=timeout_seconds,
+            truncated_files=truncated_files,
         )
 
     raw_endpoints, shape_notes = _coerce_raw_endpoints(payload)
@@ -393,6 +421,10 @@ def run_llm_endpoint_discovery(
         endpoints=deduped,
         notes=notes,
         confidence=summary_confidence,
+        files_sent_to_llm=files_sent_to_llm,
+        prompt_chars=prompt_chars,
+        timeout_seconds=timeout_seconds,
+        truncated_files=truncated_files,
     )
 
 
@@ -419,7 +451,7 @@ def discover_endpoints(
     llm_client: LLMClient | None = None,
     inventory_max_files: int = 5000,
     rank_top_k: int = 80,
-    read_top_n: int = 30,
+    read_top_n: int = 5,
 ) -> RoutesResult:
     """Run end-to-end shallow endpoint discovery across input repositories."""
     validated = validate_repo_roots(repos)
@@ -427,6 +459,21 @@ def discover_endpoints(
     notes: list[str] = []
     candidate_files = 0
     files_examined = 0
+    files_sent_to_llm = 0
+    total_prompt_chars = 0
+    timeout_seconds: float | None = None
+    truncated_files = 0
+
+    files_to_llm_default = 5
+    files_to_llm_raw = os.getenv("SYDES_DISCOVERY_FILES_TO_LLM", str(files_to_llm_default))
+    try:
+        files_to_llm = int(files_to_llm_raw)
+    except ValueError:
+        files_to_llm = files_to_llm_default
+    if files_to_llm <= 0:
+        files_to_llm = files_to_llm_default
+    if files_to_llm > 10:
+        files_to_llm = 10
 
     for repo in validated:
         inventory = build_repo_inventory(
@@ -437,19 +484,31 @@ def discover_endpoints(
         )
         sense = sense_repo(repo.name, repo.root, inventory)
         ranked = rank_candidate_files(inventory, sense, top_k=rank_top_k)
-        reads = read_ranked_candidate_files(
+        reads = read_ranked_candidate_files_for_discovery(
             repo.name,
             repo.root,
             ranked,
             top_n=read_top_n,
         )
+        llm_candidates = reads[:files_to_llm]
 
         candidate_files += len(ranked)
         files_examined += sum(1 for item in reads if not item.skipped and item.snippet is not None)
+        files_sent_to_llm += len(llm_candidates)
 
         discovery = run_llm_endpoint_discovery(
-            reads,
+            llm_candidates,
             llm_client=llm_client,
+        )
+        total_prompt_chars += discovery.prompt_chars
+        truncated_files += discovery.truncated_files
+        if timeout_seconds is None and discovery.timeout_seconds is not None:
+            timeout_seconds = discovery.timeout_seconds
+
+        notes.append(
+            f"{repo.name}: candidate_files={len(ranked)}, "
+            f"files_sent_to_llm={len(llm_candidates)}, "
+            f"prompt_chars={discovery.prompt_chars}"
         )
         endpoints.extend(discovery.endpoints)
         notes.extend([f"{repo.name}: {note}" for note in discovery.notes])
@@ -469,6 +528,10 @@ def discover_endpoints(
         routes=deduped,
         candidate_files=candidate_files,
         files_examined=files_examined,
+        files_sent_to_llm=files_sent_to_llm,
+        prompt_chars=total_prompt_chars,
+        timeout_seconds=timeout_seconds,
+        truncated_files=truncated_files,
         notes=notes,
         confidence_summary=confidence_summary,
     )

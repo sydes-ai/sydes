@@ -31,10 +31,10 @@ def test_build_endpoint_discovery_prompt_encodes_rules_and_grounding() -> None:
         method_hint="POST",
     )
 
-    assert "Only use evidence present" in prompt
-    assert "set it to null instead of guessing" in prompt
+    assert "Task: extract likely HTTP API endpoints" in prompt
+    assert "use null" in prompt
     assert "Return JSON only" in prompt
-    assert '"target_hint": "/checkout"' in prompt
+    assert '"target_hint":"/checkout"' in prompt
     assert "src/routes.py" in prompt
 
 
@@ -46,7 +46,7 @@ class _FakeClient:
 
     def generate(self, request: LLMRequest) -> LLMResponse:
         self.call_count += 1
-        assert "Response format:" in request.prompt
+        assert "Return JSON only" in request.prompt
         return LLMResponse(text='{"endpoints":[],"notes":[]}')
 
 

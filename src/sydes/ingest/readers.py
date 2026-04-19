@@ -12,6 +12,10 @@ DEFAULT_MAX_FILE_SIZE_BYTES = 1_000_000
 DEFAULT_MAX_READ_BYTES = 200_000
 DEFAULT_MAX_READ_CHARS = 60_000
 DEFAULT_MAX_READ_LINES = 1_200
+DISCOVERY_MAX_FILE_SIZE_BYTES = 250_000
+DISCOVERY_MAX_READ_BYTES = 24_000
+DISCOVERY_MAX_READ_CHARS = 12_000
+DISCOVERY_MAX_READ_LINES = 220
 
 BINARY_SUFFIXES = {
     ".png",
@@ -166,3 +170,23 @@ def read_ranked_candidate_files(
         )
         results.append(read_result)
     return results
+
+
+def read_ranked_candidate_files_for_discovery(
+    repo: str,
+    repo_root: Path | str,
+    ranked_candidates: Iterable[RankedFileCandidate],
+    *,
+    top_n: int = 5,
+) -> list[CandidateFileRead]:
+    """Batch-read candidates with tighter caps for endpoint discovery prompts."""
+    return read_ranked_candidate_files(
+        repo=repo,
+        repo_root=repo_root,
+        ranked_candidates=ranked_candidates,
+        top_n=top_n,
+        max_file_size_bytes=DISCOVERY_MAX_FILE_SIZE_BYTES,
+        max_read_bytes=DISCOVERY_MAX_READ_BYTES,
+        max_read_chars=DISCOVERY_MAX_READ_CHARS,
+        max_read_lines=DISCOVERY_MAX_READ_LINES,
+    )

@@ -84,10 +84,17 @@ def render_routes_terminal(result: RoutesResult) -> str:
 
     lines.append(f"Candidate files considered: {result.candidate_files}")
     lines.append(f"Files examined: {result.files_examined}")
+    lines.append(f"Files sent to LLM: {result.files_sent_to_llm}")
     lines.append(f"Routes discovered: {len(result.routes)}")
 
     if result.confidence_summary and result.confidence_summary.average is not None:
         lines.append(f"Average confidence: {result.confidence_summary.average:.2f}")
+    if result.prompt_chars:
+        lines.append(f"Prompt chars (total): {result.prompt_chars}")
+    if result.timeout_seconds is not None:
+        lines.append(f"LLM timeout: {result.timeout_seconds:.0f}s")
+    if result.truncated_files:
+        lines.append(f"Truncated files sent: {result.truncated_files}")
 
     if result.routes:
         grouped: dict[tuple[str, str], list] = defaultdict(list)

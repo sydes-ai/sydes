@@ -43,14 +43,25 @@ class LLMSettings:
     provider: str = "ollama"
     model: str = "llama3.1:8b"
     base_url: str = "http://localhost:11434"
+    timeout_seconds: float = 90.0
+    keep_alive: str = "10m"
 
 
 class OllamaClient:
     """Local Ollama-backed text generation client."""
 
-    def __init__(self, *, model: str, base_url: str) -> None:
+    def __init__(
+        self,
+        *,
+        model: str,
+        base_url: str,
+        timeout_seconds: float = 90.0,
+        keep_alive: str = "10m",
+    ) -> None:
         self.model = model
         self.base_url = base_url.rstrip("/")
+        self.timeout_seconds = timeout_seconds
+        self.keep_alive = keep_alive
 
     def generate(self, request_data: LLMRequest) -> LLMResponse:
         """Generate text using Ollama's non-streaming generate endpoint."""
@@ -58,6 +69,7 @@ class OllamaClient:
             "model": self.model,
             "prompt": request_data.prompt,
             "stream": False,
+            "keep_alive": self.keep_alive,
         }
         if request_data.system:
             payload["system"] = request_data.system
@@ -72,7 +84,7 @@ class OllamaClient:
             headers={"Content-Type": "application/json"},
         )
         try:
-            with request.urlopen(req, timeout=30) as resp:
+            with request.urlopen(req, timeout=self.timeout_seconds) as resp:
                 raw = resp.read().decode("utf-8")
         except error.HTTPError as exc:
             detail = exc.read().decode("utf-8", errors="replace")
@@ -90,7 +102,10 @@ class OllamaClient:
                 "Start it with `ollama serve` and ensure the URL is reachable."
             ) from exc
         except TimeoutError as exc:
-            raise LLMClientError("Ollama request timed out.") from exc
+            raise LLMClientError(
+                f"Ollama request timed out for model '{self.model}' "
+                f"after {self.timeout_seconds:.0f}s."
+            ) from exc
 
         try:
             data = json.loads(raw)
@@ -109,14 +124,47 @@ def load_llm_settings_from_env() -> LLMSettings:
     model = os.getenv("SYDES_LLM_MODEL", "llama3.1:8b").strip() or "llama3.1:8b"
     base_url = os.getenv("SYDES_LLM_BASE_URL", "http://localhost:11434").strip()
     base_url = base_url or "http://localhost:11434"
-    return LLMSettings(provider=provider, model=model, base_url=base_url)
+    timeout_raw = os.getenv("SYDES_LLM_TIMEOUT_SECONDS", "90").strip()
+    keep_alive = os.getenv("SYDES_LLM_KEEP_ALIVE", "10m").strip() or "10m"
+    try:
+        timeout_seconds = float(timeout_raw)
+    except ValueError:
+        timeout_seconds = 90.0
+    if timeout_seconds <= 0:
+        timeout_seconds = 90.0
+    return LLMSettings(
+        provider=provider,
+        model=model,
+        base_url=base_url,
+        timeout_seconds=timeout_seconds,
+        keep_alive=keep_alive,
+    )
 
 
 def create_default_llm_client() -> LLMClient:
     """Create the default LLM client from environment configuration."""
     settings = load_llm_settings_from_env()
     if settings.provider == "ollama":
-        return OllamaClient(model=settings.model, base_url=settings.base_url)
+        return OllamaClient(
+            model=settings.model,
+            base_url=settings.base_url,
+            timeout_seconds=settings.timeout_seconds,
+            keep_alive=settings.keep_alive,
+        )
     raise LLMClientError(
         f"Unsupported SYDES_LLM_PROVIDER '{settings.provider}'. Supported: ollama."
     )
+
+
+def ollama_connectivity_check(client: OllamaClient | None = None) -> tuple[bool, str]:
+    """Run a tiny non-streaming generation to validate local Ollama connectivity."""
+    active_client = client or create_default_llm_client()
+    if not isinstance(active_client, OllamaClient):
+        return False, "Connectivity check currently supports Ollama client only."
+    try:
+        response = active_client.generate(
+            LLMRequest(prompt='Return JSON: {"endpoints":[]}', temperature=0)
+        )
+    except LLMClientError as exc:
+        return False, str(exc)
+    return bool(response.text.strip()), "ok"
