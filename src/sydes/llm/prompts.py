@@ -34,24 +34,37 @@ def build_endpoint_discovery_prompt(
     method_hint: str | None = None,
 ) -> str:
     """Build an endpoint discovery prompt grounded in bounded candidate files."""
+    repo_names = sorted({candidate.repo for candidate in candidates})
+    candidate_files = [candidate.relative_path for candidate in candidates]
     payload = {
+        "repos": repo_names,
         "target_hint": target_hint,
         "method_hint": method_hint,
+        "candidate_files": candidate_files,
         "candidates": [_serialize_candidate(candidate) for candidate in candidates],
     }
     return (
-        "You are extracting likely HTTP API endpoint candidates from source files.\n"
-        "Only use evidence present in the provided file snippets.\n\n"
+        "You are extracting likely HTTP API endpoint candidates from backend-oriented source files.\n"
+        "Only use evidence present in the provided candidate snippets.\n\n"
+        "What counts as an endpoint:\n"
+        "- Clear route/handler registration for HTTP APIs (e.g. router/app/server route bindings).\n"
+        "- Endpoint-like declarations with clear method/path linkage in code.\n"
+        "- Ignore business logic functions that are not API entrypoints.\n\n"
         "Rules:\n"
-        "1. Identify likely HTTP endpoints with method and path when supported by evidence.\n"
-        "2. Infer handler symbol/name only when directly supported by code context.\n"
-        "3. If method/path/handler is unclear, leave it null rather than guessing.\n"
-        "4. Preserve grounding with repo+file and evidence entries (file, symbol, label).\n"
-        "5. Preserve uncertainty using status/confidence, avoid invented certainty.\n"
-        "6. Return partial endpoint objects when only some fields are supported.\n\n"
-        "Return JSON object with shape:\n"
-        "{\n"
-        '  "endpoints": [\n'
+        "1. Report only likely HTTP API endpoints grounded in provided files.\n"
+        "2. Do not invent routes, handlers, methods, or paths that are not supported.\n"
+        "3. If method/path/handler is unclear, set it to null instead of guessing.\n"
+        "4. If multiple handlers seem possible, prefer uncertainty/status notes over invention.\n"
+        "5. Prefer candidates with clearer route-registration evidence.\n"
+        "6. Preserve grounding with repo, file, and evidence labels.\n\n"
+        "Response format:\n"
+        "- Return JSON only (no markdown fences, no prose).\n"
+        "- You may return either:\n"
+        "  a) top-level object with `endpoints` and optional `notes`, or\n"
+        "  b) top-level list of endpoint objects.\n"
+        "- Keep structure tolerant of missing fields.\n\n"
+        "Endpoint object shape (soft fields allowed):\n"
+        "[\n"
         "    {\n"
         '      "method": string|null,\n'
         '      "path": string|null,\n'
@@ -63,9 +76,7 @@ def build_endpoint_discovery_prompt(
         '      "confidence": number|null,\n'
         '      "status": string|null\n'
         "    }\n"
-        "  ],\n"
-        '  "notes": [string]\n'
-        "}\n\n"
-        "Candidate inputs:\n"
+        "]\n\n"
+        "Candidate input payload:\n"
         f"{json.dumps(payload, indent=2)}\n"
     )

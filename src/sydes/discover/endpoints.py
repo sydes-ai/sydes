@@ -24,25 +24,66 @@ from sydes.llm.client import LLMClientError, create_default_llm_client
 from sydes.llm.prompts import build_endpoint_discovery_prompt
 
 
-def _extract_json_object(text: str) -> dict[str, Any] | None:
-    """Best-effort parse for JSON object responses from model output."""
+def _strip_markdown_fences(text: str) -> str:
+    """Remove common markdown code-fence wrappers around JSON payloads."""
+    stripped = text.strip()
+    if stripped.startswith("```") and stripped.endswith("```"):
+        lines = stripped.splitlines()
+        if len(lines) >= 3:
+            return "\n".join(lines[1:-1]).strip()
+    if stripped.startswith("```json"):
+        stripped = stripped[len("```json") :].strip()
+    if stripped.startswith("```"):
+        stripped = stripped[len("```") :].strip()
+    if stripped.endswith("```"):
+        stripped = stripped[: -len("```")].strip()
+    return stripped
+
+
+def _extract_json_payload(text: str) -> Any | None:
+    """Best-effort parse for JSON object or list responses from model output."""
+    text = _strip_markdown_fences(text)
     text = text.strip()
     try:
-        data = json.loads(text)
-        if isinstance(data, dict):
-            return data
+        return json.loads(text)
     except json.JSONDecodeError:
         pass
 
-    start = text.find("{")
-    end = text.rfind("}")
-    if start < 0 or end <= start:
+    brace_start = text.find("{")
+    brace_end = text.rfind("}")
+    list_start = text.find("[")
+    list_end = text.rfind("]")
+    slices: list[tuple[int, int]] = []
+    if brace_start >= 0 and brace_end > brace_start:
+        slices.append((brace_start, brace_end + 1))
+    if list_start >= 0 and list_end > list_start:
+        slices.append((list_start, list_end + 1))
+    if not slices:
         return None
-    try:
-        data = json.loads(text[start : end + 1])
-    except json.JSONDecodeError:
-        return None
-    return data if isinstance(data, dict) else None
+
+    slices.sort(key=lambda item: item[0])
+    for start, end in slices:
+        try:
+            return json.loads(text[start:end])
+        except json.JSONDecodeError:
+            continue
+    return None
+
+
+def _coerce_raw_endpoints(payload: Any) -> tuple[list[Any], list[str]]:
+    """Coerce supported payload shapes into a raw endpoint list."""
+    if isinstance(payload, list):
+        return payload, []
+    if isinstance(payload, dict):
+        raw = payload.get("endpoints")
+        if isinstance(raw, list):
+            return raw, []
+        if isinstance(payload.get("routes"), list):
+            return payload["routes"], ["Using 'routes' field as endpoint list."]
+        if isinstance(payload.get("candidates"), list):
+            return payload["candidates"], ["Using 'candidates' field as endpoint list."]
+        return [], ["Model output missing endpoint list; treated as empty."]
+    return [], ["Model output was neither object nor list; treated as empty."]
 
 
 def _normalize_evidence(raw: Any, fallback_file: str) -> list[EvidenceRef]:
@@ -215,21 +256,23 @@ def run_llm_endpoint_discovery(
             endpoints=[],
             notes=[f"LLM discovery unavailable: {exc}"],
         )
-    payload = _extract_json_object(response.text)
+    payload = _extract_json_payload(response.text)
     if payload is None:
         return EndpointDiscoveryResult(
             endpoints=[],
             notes=["Model output was not valid JSON; returning empty endpoint set."],
         )
 
-    raw_endpoints = payload.get("endpoints", [])
+    raw_endpoints, shape_notes = _coerce_raw_endpoints(payload)
     endpoints, normalize_notes = _normalize_endpoints(raw_endpoints, candidates)
     deduped = _dedupe_endpoints(endpoints)
     notes: list[str] = []
 
-    raw_notes = payload.get("notes")
-    if isinstance(raw_notes, list):
-        notes.extend(str(note) for note in raw_notes)
+    if isinstance(payload, dict):
+        raw_notes = payload.get("notes")
+        if isinstance(raw_notes, list):
+            notes.extend(str(note) for note in raw_notes)
+    notes.extend(shape_notes)
     notes.extend(normalize_notes)
 
     confidences = [item.confidence for item in deduped if item.confidence is not None]

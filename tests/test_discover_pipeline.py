@@ -74,3 +74,61 @@ def test_run_llm_endpoint_discovery_normalizes_and_dedupes() -> None:
     assert first.confidence == 0.7
     assert len(first.evidence) >= 2
     assert "model-note" in result.notes
+
+
+def test_run_llm_endpoint_discovery_accepts_markdown_fenced_json() -> None:
+    """Discovery parser should handle markdown-fenced JSON from local models."""
+    client = _FakeEndpointClient(
+        payload=(
+            "```json\n"
+            '{"endpoints":[{"method":"GET","path":"/status","file":"src/routes.py","repo":"api"}]}\n'
+            "```"
+        )
+    )
+    from sydes.core.models import CandidateFileRead, ReadFileSnippet
+
+    candidates = [
+        CandidateFileRead(
+            repo="api",
+            relative_path="src/routes.py",
+            snippet=ReadFileSnippet(
+                repo="api",
+                relative_path="src/routes.py",
+                text="router.get('/status', status)",
+                line_count=1,
+                char_count=29,
+            ),
+        )
+    ]
+
+    result = run_llm_endpoint_discovery(candidates, llm_client=client)
+
+    assert len(result.endpoints) == 1
+    assert result.endpoints[0].path == "/status"
+
+
+def test_run_llm_endpoint_discovery_accepts_top_level_list() -> None:
+    """Discovery parser should accept top-level list payloads."""
+    client = _FakeEndpointClient(
+        payload='[{"method":"GET","path":"/health","file":"app.py","repo":"api"}]'
+    )
+    from sydes.core.models import CandidateFileRead, ReadFileSnippet
+
+    candidates = [
+        CandidateFileRead(
+            repo="api",
+            relative_path="app.py",
+            snippet=ReadFileSnippet(
+                repo="api",
+                relative_path="app.py",
+                text="@app.get('/health')",
+                line_count=1,
+                char_count=18,
+            ),
+        )
+    ]
+    result = run_llm_endpoint_discovery(candidates, llm_client=client)
+
+    assert len(result.endpoints) == 1
+    assert result.endpoints[0].method == "GET"
+    assert result.endpoints[0].path == "/health"
