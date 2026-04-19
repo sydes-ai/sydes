@@ -25,6 +25,37 @@ class RepoRef(BaseModel):
     root: str
 
 
+class InventoryFile(BaseModel):
+    """Single shallow file inventory item."""
+
+    path: str
+    size_bytes: int | None = None
+
+
+class RepoInventory(BaseModel):
+    """Shallow file inventory for a repository root."""
+
+    repo: str
+    root: str
+    files: list[InventoryFile] = Field(default_factory=list)
+    file_count: int = 0
+    total_size_bytes: int | None = None
+
+
+class RepoSenseSummary(BaseModel):
+    """Heuristic, shallow repo-level sensing summary."""
+
+    repo: str
+    root: str
+    top_level_files: list[str] = Field(default_factory=list)
+    top_level_dirs: list[str] = Field(default_factory=list)
+    manifests: list[str] = Field(default_factory=list)
+    dominant_extensions: dict[str, int] = Field(default_factory=dict)
+    likely_language_families: list[str] = Field(default_factory=list)
+    backend_signals: list[str] = Field(default_factory=list)
+    notes: list[str] = Field(default_factory=list)
+
+
 class TargetSpec(BaseModel):
     """Requested target for trace entrypoint discovery."""
 
