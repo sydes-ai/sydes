@@ -6,10 +6,10 @@ from sydes.core.models import RoutesResult, TraceResult
 
 
 def render_terminal(result: TraceResult) -> str:
-    """Build a minimal terminal summary for a trace result."""
+    """Build a target-grounded terminal summary for a trace result."""
     method = result.target.method or "ANY"
     lines = [
-        "Sydes Trace (V1 Placeholder)",
+        "Sydes Trace Target Resolution",
         f"Target: {method} {result.target.path}",
         "Repos:",
     ]
@@ -19,10 +19,46 @@ def render_terminal(result: TraceResult) -> str:
     else:
         lines.append("  - (none)")
 
+    if result.nodes:
+        endpoint_nodes = [node for node in result.nodes if node.type == "api_endpoint"]
+        if endpoint_nodes:
+            lines.append("Matched endpoint:")
+            for node in endpoint_nodes:
+                path_value = node.path or "?"
+                method_value = node.method or "?"
+                lines.append(f"  - {method_value} {path_value}")
+                details: list[str] = []
+                if node.symbol:
+                    details.append(f"handler={node.symbol}")
+                if node.file:
+                    details.append(f"file={node.file}")
+                if details:
+                    lines.append(f"    ({', '.join(details)})")
+
+    ambiguous = [item for item in result.unknowns if item.kind == "ambiguous_target_candidate"]
+    if ambiguous:
+        lines.append("Alternatives:")
+        for item in ambiguous:
+            lines.append(f"  - {item.description}")
+            details: list[str] = []
+            if item.file:
+                details.append(f"file={item.file}")
+            if item.symbol:
+                details.append(f"handler={item.symbol}")
+            if details:
+                lines.append(f"    ({', '.join(details)})")
+
     if result.summary.confidence is not None:
         lines.append(f"Confidence: {result.summary.confidence:.2f}")
 
-    lines.append("No flow discovered yet")
+    unmatched = [item for item in result.unknowns if item.kind == "unmatched_target"]
+    if unmatched:
+        lines.append("No endpoint match found for the requested target.")
+    lines.append("Downstream flow tracing is planned for the next phase.")
+
+    if result.notes:
+        lines.append("Notes:")
+        lines.extend(f"  - {note}" for note in result.notes)
     return "\n".join(lines)
 
 

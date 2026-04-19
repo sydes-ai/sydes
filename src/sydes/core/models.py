@@ -199,6 +199,15 @@ class EndpointDiscoveryResult(BaseModel):
     confidence: float | None = None
 
 
+class TargetMatchResult(BaseModel):
+    """Target-to-endpoint resolution outcome for trace grounding."""
+
+    selected: EndpointCandidate | None = None
+    alternatives: list[EndpointCandidate] = Field(default_factory=list)
+    notes: list[str] = Field(default_factory=list)
+    confidence: float | None = None
+
+
 class ConfidenceSummary(BaseModel):
     """Soft confidence aggregate for endpoint discovery output."""
 
@@ -237,4 +246,5 @@ class TraceResult(BaseModel):
     flows: list[Flow] = Field(default_factory=list)
     tests: list[GeneratedTest] = Field(default_factory=list)
     unknowns: list[Unknown] = Field(default_factory=list)
+    notes: list[str] = Field(default_factory=list)
     summary: TraceSummary

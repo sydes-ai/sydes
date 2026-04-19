@@ -1,29 +1,123 @@
-"""Trace command plumbing for V1 placeholder execution."""
+"""Trace command plumbing with target grounding against discovered endpoints."""
 
+from __future__ import annotations
+
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated, Literal
 
 import typer
 
-from sydes.core.models import TargetSpec, TraceResult, TraceSummary
+from sydes.core.models import (
+    EndpointCandidate,
+    GraphNode,
+    TargetSpec,
+    TraceResult,
+    TraceSummary,
+    Unknown,
+)
+from sydes.discover.endpoints import discover_endpoints
+from sydes.discover.target_match import resolve_trace_target
 from sydes.ingest.repos import parse_repo_specs
 from sydes.report.json_report import render_json
 from sydes.report.terminal import render_terminal
+from sydes.store.workspace import compute_workspace_id, create_run_id, save_run_artifact
 
 
-def _build_placeholder_result(
-    path: str,
-    method: str | None,
-    repo_specs: list[str],
-) -> TraceResult:
-    """Create a minimal V1 placeholder trace result."""
+def _node_from_match_endpoint(endpoint: EndpointCandidate) -> GraphNode:
+    """Create a trace graph node from a matched endpoint candidate."""
+    node_id = f"endpoint:{endpoint.repo}:{endpoint.file}:{endpoint.path or '?'}:{endpoint.method or '?'}"
+    node_id = node_id.replace(" ", "_")
+    return GraphNode(
+        id=node_id,
+        type="api_endpoint",
+        name=endpoint.path or endpoint.file,
+        service=endpoint.service,
+        repo=endpoint.repo,
+        file=endpoint.file,
+        symbol=endpoint.handler,
+        method=endpoint.method,
+        path=endpoint.path,
+        evidence=endpoint.evidence,
+        confidence=endpoint.confidence,
+        status=endpoint.status,
+    )
+
+
+def _build_trace_result(path: str, method: str | None, repo_specs: list[str]) -> TraceResult:
+    """Run endpoint discovery and target resolution to ground a trace target."""
     try:
         repos = parse_repo_specs(repo_specs)
     except ValueError as exc:
         raise typer.BadParameter(str(exc), param_hint="--repo") from exc
 
     target = TargetSpec(path=path, method=method)
-    return TraceResult(target=target, repos=repos, summary=TraceSummary())
+    routes = discover_endpoints(repos)
+    match = resolve_trace_target(
+        routes.routes,
+        path=target.path,
+        method=target.method,
+    )
+
+    nodes: list[GraphNode] = []
+    unknowns: list[Unknown] = []
+    notes: list[str] = []
+    notes.extend(routes.notes)
+    notes.extend(match.notes)
+
+    if match.selected is not None:
+        endpoint_node = _node_from_match_endpoint(match.selected)
+        nodes.append(endpoint_node)
+        if match.alternatives:
+            notes.append(
+                f"{len(match.alternatives)} alternative endpoint candidate(s) available for target."
+            )
+    else:
+        unknowns.append(
+            Unknown(
+                id=f"target:{target.path}:{target.method or 'ANY'}",
+                kind="unmatched_target",
+                description=(
+                    f"No discovered endpoint matched target {target.method or 'ANY'} {target.path}."
+                ),
+                confidence=0.0,
+            )
+        )
+
+    for idx, alternative in enumerate(match.alternatives, start=1):
+        unknowns.append(
+            Unknown(
+                id=f"alternative:{idx}:{alternative.repo}:{alternative.file}",
+                kind="ambiguous_target_candidate",
+                service=alternative.service,
+                repo=alternative.repo,
+                file=alternative.file,
+                symbol=alternative.handler,
+                description=(
+                    f"Alternative candidate {alternative.method or '?'} {alternative.path or '?'}"
+                ),
+                confidence=alternative.confidence,
+            )
+        )
+
+    if match.selected is not None:
+        summary_confidence = match.confidence
+    elif routes.confidence_summary is not None:
+        summary_confidence = routes.confidence_summary.average
+    else:
+        summary_confidence = 0.0
+
+    result = TraceResult(
+        target=target,
+        repos=routes.repos,
+        nodes=nodes,
+        unknowns=unknowns,
+        notes=notes,
+        summary=TraceSummary(confidence=summary_confidence),
+    )
+    if nodes:
+        result.summary.key_flow_id = nodes[0].id
+    return result
 
 
 def _write_output(path: Path, content: str) -> None:
@@ -44,15 +138,37 @@ def trace_command(
     max_hops: Annotated[int | None, typer.Option("--max-hops")] = None,
     max_files: Annotated[int | None, typer.Option("--max-files")] = None,
 ) -> None:
-    """Run the V1 placeholder trace pipeline with parsed CLI inputs."""
+    """Run target-grounded trace preparation without downstream flow expansion yet."""
     _ = emit_tests, max_hops, max_files
-    result = _build_placeholder_result(
-        path=path,
-        method=method,
-        repo_specs=repo or [],
-    )
-    rendered = render_json(result) if output_format == "json" else render_terminal(result)
+    try:
+        result = _build_trace_result(
+            path=path,
+            method=method,
+            repo_specs=repo or [],
+        )
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc), param_hint="--repo") from exc
 
+    artifact_payload = {
+        "timestamp": datetime.now(tz=UTC).isoformat(),
+        "repo_inputs": [item.model_dump() for item in result.repos],
+        "target": result.target.model_dump(),
+        "result": result.model_dump(),
+    }
+    try:
+        workspace_id = compute_workspace_id(result.repos)
+        run_id = create_run_id()
+        artifact_path = save_run_artifact(
+            workspace_id=workspace_id,
+            run_id=run_id,
+            artifact_name="trace_result",
+            payload=artifact_payload,
+        )
+        result.notes.append(f"Saved trace artifact: {artifact_path}")
+    except OSError as exc:
+        result.notes.append(f"Could not save trace artifact: {exc}")
+
+    rendered = render_json(result) if output_format == "json" else render_terminal(result)
     typer.echo(rendered)
     if output is not None:
         _write_output(output, rendered)

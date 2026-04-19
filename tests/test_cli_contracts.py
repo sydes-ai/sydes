@@ -10,8 +10,15 @@ from sydes.cli.main import app
 runner = CliRunner()
 
 
-def test_trace_terminal_output_contains_target_and_repos() -> None:
+def test_trace_terminal_output_contains_target_and_repos(tmp_path: Path) -> None:
     """Trace terminal mode should include target and selected repos."""
+    gateway_dir = tmp_path / "gateway"
+    api_dir = tmp_path / "api"
+    gateway_dir.mkdir()
+    api_dir.mkdir()
+    (api_dir / "src").mkdir()
+    (api_dir / "src" / "routes.py").write_text("router.post('/checkout', checkout)\n")
+
     result = runner.invoke(
         app,
         [
@@ -20,21 +27,25 @@ def test_trace_terminal_output_contains_target_and_repos() -> None:
             "--method",
             "POST",
             "--repo",
-            "gateway=./gateway",
+            f"gateway={gateway_dir}",
             "--repo",
-            "api=./api",
+            f"api={api_dir}",
         ],
     )
 
     assert result.exit_code == 0
-    assert "Sydes Trace (V1 Placeholder)" in result.stdout
+    assert "Sydes Trace Target Resolution" in result.stdout
     assert "Target: POST /checkout" in result.stdout
-    assert "gateway: ./gateway" in result.stdout
-    assert "api: ./api" in result.stdout
+    assert "gateway:" in result.stdout
+    assert "api:" in result.stdout
+    assert "Downstream flow tracing is planned for the next phase." in result.stdout
 
 
-def test_trace_json_output_contains_expected_fields() -> None:
+def test_trace_json_output_contains_expected_fields(tmp_path: Path) -> None:
     """Trace JSON mode should emit stable structured fields."""
+    gateway_dir = tmp_path / "gateway"
+    gateway_dir.mkdir()
+
     result = runner.invoke(
         app,
         [
@@ -43,7 +54,7 @@ def test_trace_json_output_contains_expected_fields() -> None:
             "--method",
             "POST",
             "--repo",
-            "gateway=./gateway",
+            f"gateway={gateway_dir}",
             "--format",
             "json",
         ],
@@ -55,6 +66,7 @@ def test_trace_json_output_contains_expected_fields() -> None:
     assert payload["target"]["path"] == "/checkout"
     assert payload["target"]["method"] == "POST"
     assert payload["repos"][0]["name"] == "gateway"
+    assert "notes" in payload
 
 
 def test_routes_terminal_output_runs_successfully(tmp_path: Path) -> None:
