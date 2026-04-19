@@ -1,0 +1,23 @@
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[project]
+name = "sydes"
+version = "0.1.0"
+description = "CLI-first tool for tracing API flows across multiple repositories."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [
+  { name = "Sydes Contributors" }
+]
+dependencies = [
+  "typer>=0.12,<1.0"
+]
+
+[project.scripts]
+sydes = "sydes.cli.main:app"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/sydes"]
