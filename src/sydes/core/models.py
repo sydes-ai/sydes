@@ -170,13 +170,32 @@ class Unknown(BaseModel):
 
 
 class EndpointCandidate(BaseModel):
-    """Candidate API endpoint discovered from repository code."""
+    """Soft candidate API endpoint discovered from repository code."""
 
     method: str | None = None
-    path: str
-    repo: str | None = None
-    file: str | None = None
-    symbol: str | None = None
+    path: str | None = None
+    handler: str | None = None
+    file: str
+    repo: str
+    service: str | None = None
+    evidence: list[EvidenceRef] = Field(default_factory=list)
+    confidence: float | None = None
+    status: str | None = None
+
+
+class EndpointDiscoveryBatch(BaseModel):
+    """LLM-facing discovery request payload over bounded candidate file reads."""
+
+    candidates: list[CandidateFileRead] = Field(default_factory=list)
+    target_hint: str | None = None
+    method_hint: str | None = None
+
+
+class EndpointDiscoveryResult(BaseModel):
+    """LLM-facing discovery response payload with soft endpoint candidates."""
+
+    endpoints: list[EndpointCandidate] = Field(default_factory=list)
+    notes: list[str] = Field(default_factory=list)
     confidence: float | None = None
 
 
