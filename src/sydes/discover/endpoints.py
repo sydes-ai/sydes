@@ -20,6 +20,7 @@ from sydes.ingest.readers import read_ranked_candidate_files
 from sydes.ingest.repos import validate_repo_roots
 from sydes.ingest.sense import sense_repo
 from sydes.llm.client import LLMClient, LLMRequest
+from sydes.llm.client import LLMClientError, create_default_llm_client
 from sydes.llm.prompts import build_endpoint_discovery_prompt
 
 
@@ -194,17 +195,26 @@ def run_llm_endpoint_discovery(
 ) -> EndpointDiscoveryResult:
     """Run LLM-guided endpoint extraction with fallback-safe behavior."""
     if llm_client is None:
-        return EndpointDiscoveryResult(
-            endpoints=[],
-            notes=["LLM discovery unavailable; returning empty endpoint set."],
-        )
+        try:
+            llm_client = create_default_llm_client()
+        except LLMClientError as exc:
+            return EndpointDiscoveryResult(
+                endpoints=[],
+                notes=[f"LLM discovery unavailable: {exc}"],
+            )
 
     prompt = build_endpoint_discovery_prompt(
         candidates,
         target_hint=target_hint,
         method_hint=method_hint,
     )
-    response = llm_client.generate(LLMRequest(prompt=prompt))
+    try:
+        response = llm_client.generate(LLMRequest(prompt=prompt))
+    except LLMClientError as exc:
+        return EndpointDiscoveryResult(
+            endpoints=[],
+            notes=[f"LLM discovery unavailable: {exc}"],
+        )
     payload = _extract_json_object(response.text)
     if payload is None:
         return EndpointDiscoveryResult(
@@ -310,4 +320,3 @@ def discover_endpoints(
         notes=notes,
         confidence_summary=confidence_summary,
     )
-
