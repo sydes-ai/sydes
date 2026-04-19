@@ -13,6 +13,7 @@ authors = [
   { name = "Sydes Contributors" }
 ]
 dependencies = [
+  "pydantic>=2.7,<3.0",
   "typer>=0.12,<1.0"
 ]
 
