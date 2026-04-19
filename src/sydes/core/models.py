@@ -199,12 +199,24 @@ class EndpointDiscoveryResult(BaseModel):
     confidence: float | None = None
 
 
+class ConfidenceSummary(BaseModel):
+    """Soft confidence aggregate for endpoint discovery output."""
+
+    average: float | None = None
+    minimum: float | None = None
+    maximum: float | None = None
+
+
 class RoutesResult(BaseModel):
     """V1 placeholder contract for route discovery output."""
 
     version: str = "v1"
     repos: list[RepoRef] = Field(default_factory=list)
     routes: list[EndpointCandidate] = Field(default_factory=list)
+    candidate_files: int = 0
+    files_examined: int = 0
+    notes: list[str] = Field(default_factory=list)
+    confidence_summary: ConfidenceSummary | None = None
 
 
 class TraceSummary(BaseModel):

@@ -1,17 +1,237 @@
-"""Endpoint discovery interfaces over bounded candidate file reads."""
+"""Endpoint discovery pipeline over bounded candidate file reads."""
 
-from sydes.core.models import CandidateFileRead, EndpointCandidate, RepoRef
+from __future__ import annotations
+
+import json
+from typing import Any
+
+from sydes.core.models import (
+    CandidateFileRead,
+    ConfidenceSummary,
+    EndpointCandidate,
+    EndpointDiscoveryResult,
+    EvidenceRef,
+    RepoRef,
+    RoutesResult,
+)
+from sydes.ingest.inventory import build_repo_inventory
+from sydes.ingest.ranking import rank_candidate_files
+from sydes.ingest.readers import read_ranked_candidate_files
+from sydes.ingest.repos import validate_repo_roots
+from sydes.ingest.sense import sense_repo
 from sydes.llm.client import LLMClient, LLMRequest
 from sydes.llm.prompts import build_endpoint_discovery_prompt
 
 
-def discover_endpoints(repos: list[RepoRef]) -> list[EndpointCandidate]:
-    """Return discovered endpoint candidates for the provided repositories.
+def _extract_json_object(text: str) -> dict[str, Any] | None:
+    """Best-effort parse for JSON object responses from model output."""
+    text = text.strip()
+    try:
+        data = json.loads(text)
+        if isinstance(data, dict):
+            return data
+    except json.JSONDecodeError:
+        pass
 
-    V1 placeholder behavior: returns no endpoints until parser-based discovery is added.
-    """
-    _ = repos
-    return []
+    start = text.find("{")
+    end = text.rfind("}")
+    if start < 0 or end <= start:
+        return None
+    try:
+        data = json.loads(text[start : end + 1])
+    except json.JSONDecodeError:
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def _normalize_evidence(raw: Any, fallback_file: str) -> list[EvidenceRef]:
+    """Normalize evidence entries from loose model JSON output."""
+    evidence: list[EvidenceRef] = []
+    if not isinstance(raw, list):
+        return [EvidenceRef(file=fallback_file, label="inferred-from-file")]
+
+    for entry in raw:
+        if not isinstance(entry, dict):
+            continue
+        file_value = entry.get("file")
+        if not isinstance(file_value, str) or not file_value.strip():
+            file_value = fallback_file
+        symbol = entry.get("symbol") if isinstance(entry.get("symbol"), str) else None
+        label = entry.get("label") if isinstance(entry.get("label"), str) else None
+        evidence.append(EvidenceRef(file=file_value, symbol=symbol, label=label))
+
+    if not evidence:
+        evidence.append(EvidenceRef(file=fallback_file, label="inferred-from-file"))
+    return evidence
+
+
+def _build_candidate_index(
+    candidates: list[CandidateFileRead],
+) -> tuple[dict[str, CandidateFileRead], str | None]:
+    """Index candidates by file path and infer a shared repo when possible."""
+    by_file: dict[str, CandidateFileRead] = {}
+    repos: set[str] = set()
+    for candidate in candidates:
+        by_file[candidate.relative_path] = candidate
+        repos.add(candidate.repo)
+    shared_repo = next(iter(repos)) if len(repos) == 1 else None
+    return by_file, shared_repo
+
+
+def _normalize_endpoints(
+    raw_endpoints: Any,
+    candidates: list[CandidateFileRead],
+) -> tuple[list[EndpointCandidate], list[str]]:
+    """Coerce loose endpoint output into soft endpoint candidate models."""
+    notes: list[str] = []
+    if not isinstance(raw_endpoints, list):
+        return [], ["Model output missing 'endpoints' list; treated as empty."]
+
+    by_file, shared_repo = _build_candidate_index(candidates)
+    normalized: list[EndpointCandidate] = []
+
+    for idx, raw in enumerate(raw_endpoints):
+        if isinstance(raw, EndpointCandidate):
+            normalized.append(raw)
+            continue
+        if not isinstance(raw, dict):
+            notes.append(f"Ignored endpoint #{idx + 1}: not an object.")
+            continue
+
+        file_value = raw.get("file") if isinstance(raw.get("file"), str) else None
+        repo_value = raw.get("repo") if isinstance(raw.get("repo"), str) else None
+        if file_value is None:
+            evidence_file = None
+            raw_evidence = raw.get("evidence")
+            if isinstance(raw_evidence, list):
+                for entry in raw_evidence:
+                    if isinstance(entry, dict) and isinstance(entry.get("file"), str):
+                        evidence_file = entry["file"]
+                        break
+            file_value = evidence_file
+
+        if file_value is None:
+            notes.append(f"Ignored endpoint #{idx + 1}: missing file grounding.")
+            continue
+
+        if repo_value is None and file_value in by_file:
+            repo_value = by_file[file_value].repo
+        if repo_value is None:
+            repo_value = shared_repo
+        if repo_value is None:
+            notes.append(f"Ignored endpoint #{idx + 1}: missing repo grounding.")
+            continue
+
+        method = raw.get("method") if isinstance(raw.get("method"), str) else None
+        path = raw.get("path") if isinstance(raw.get("path"), str) else None
+        handler = raw.get("handler") if isinstance(raw.get("handler"), str) else None
+        service = raw.get("service") if isinstance(raw.get("service"), str) else None
+        confidence = raw.get("confidence")
+        if not isinstance(confidence, (int, float)):
+            confidence = None
+        status = raw.get("status") if isinstance(raw.get("status"), str) else None
+        evidence = _normalize_evidence(raw.get("evidence"), fallback_file=file_value)
+
+        normalized.append(
+            EndpointCandidate(
+                method=method.upper() if isinstance(method, str) else None,
+                path=path,
+                handler=handler,
+                file=file_value,
+                repo=repo_value,
+                service=service,
+                evidence=evidence,
+                confidence=float(confidence) if confidence is not None else None,
+                status=status,
+            )
+        )
+
+    return normalized, notes
+
+
+def _dedupe_endpoints(endpoints: list[EndpointCandidate]) -> list[EndpointCandidate]:
+    """Merge obvious duplicates while preserving strongest confidence/evidence."""
+    deduped: dict[tuple[str, str, str, str, str], EndpointCandidate] = {}
+    for endpoint in endpoints:
+        key = (
+            endpoint.repo,
+            endpoint.file,
+            endpoint.method or "",
+            endpoint.path or "",
+            endpoint.handler or "",
+        )
+        existing = deduped.get(key)
+        if existing is None:
+            deduped[key] = endpoint
+            continue
+
+        merged_evidence = existing.evidence + endpoint.evidence
+        best_confidence = existing.confidence
+        if endpoint.confidence is not None and (
+            best_confidence is None or endpoint.confidence > best_confidence
+        ):
+            best_confidence = endpoint.confidence
+        deduped[key] = EndpointCandidate(
+            method=existing.method or endpoint.method,
+            path=existing.path or endpoint.path,
+            handler=existing.handler or endpoint.handler,
+            file=existing.file,
+            repo=existing.repo,
+            service=existing.service or endpoint.service,
+            evidence=merged_evidence,
+            confidence=best_confidence,
+            status=existing.status or endpoint.status,
+        )
+    return list(deduped.values())
+
+
+def run_llm_endpoint_discovery(
+    candidates: list[CandidateFileRead],
+    *,
+    llm_client: LLMClient | None = None,
+    target_hint: str | None = None,
+    method_hint: str | None = None,
+) -> EndpointDiscoveryResult:
+    """Run LLM-guided endpoint extraction with fallback-safe behavior."""
+    if llm_client is None:
+        return EndpointDiscoveryResult(
+            endpoints=[],
+            notes=["LLM discovery unavailable; returning empty endpoint set."],
+        )
+
+    prompt = build_endpoint_discovery_prompt(
+        candidates,
+        target_hint=target_hint,
+        method_hint=method_hint,
+    )
+    response = llm_client.generate(LLMRequest(prompt=prompt))
+    payload = _extract_json_object(response.text)
+    if payload is None:
+        return EndpointDiscoveryResult(
+            endpoints=[],
+            notes=["Model output was not valid JSON; returning empty endpoint set."],
+        )
+
+    raw_endpoints = payload.get("endpoints", [])
+    endpoints, normalize_notes = _normalize_endpoints(raw_endpoints, candidates)
+    deduped = _dedupe_endpoints(endpoints)
+    notes: list[str] = []
+
+    raw_notes = payload.get("notes")
+    if isinstance(raw_notes, list):
+        notes.extend(str(note) for note in raw_notes)
+    notes.extend(normalize_notes)
+
+    confidences = [item.confidence for item in deduped if item.confidence is not None]
+    summary_confidence = None
+    if confidences:
+        summary_confidence = sum(confidences) / len(confidences)
+
+    return EndpointDiscoveryResult(
+        endpoints=deduped,
+        notes=notes,
+        confidence=summary_confidence,
+    )
 
 
 def discover_endpoints_from_candidates(
@@ -21,18 +241,73 @@ def discover_endpoints_from_candidates(
     target_hint: str | None = None,
     method_hint: str | None = None,
 ) -> list[EndpointCandidate]:
-    """Discover endpoint candidates from bounded file reads.
-
-    This phase defines the contract and prompt shape only.
-    Provider-backed parsing/validation is added in later phases.
-    """
-    if llm_client is None:
-        return []
-
-    prompt = build_endpoint_discovery_prompt(
+    """Discover endpoint candidates from bounded file reads."""
+    result = run_llm_endpoint_discovery(
         candidates,
+        llm_client=llm_client,
         target_hint=target_hint,
         method_hint=method_hint,
     )
-    _ = llm_client.generate(LLMRequest(prompt=prompt))
-    return []
+    return result.endpoints
+
+
+def discover_endpoints(
+    repos: list[RepoRef],
+    *,
+    llm_client: LLMClient | None = None,
+    inventory_max_files: int = 5000,
+    rank_top_k: int = 80,
+    read_top_n: int = 30,
+) -> RoutesResult:
+    """Run end-to-end shallow endpoint discovery across input repositories."""
+    validated = validate_repo_roots(repos)
+    endpoints: list[EndpointCandidate] = []
+    notes: list[str] = []
+    candidate_files = 0
+    files_examined = 0
+
+    for repo in validated:
+        inventory = build_repo_inventory(
+            repo.name,
+            repo.root,
+            include_sizes=False,
+            max_files=inventory_max_files,
+        )
+        sense = sense_repo(repo.name, repo.root, inventory)
+        ranked = rank_candidate_files(inventory, sense, top_k=rank_top_k)
+        reads = read_ranked_candidate_files(
+            repo.name,
+            repo.root,
+            ranked,
+            top_n=read_top_n,
+        )
+
+        candidate_files += len(ranked)
+        files_examined += sum(1 for item in reads if not item.skipped and item.snippet is not None)
+
+        discovery = run_llm_endpoint_discovery(
+            reads,
+            llm_client=llm_client,
+        )
+        endpoints.extend(discovery.endpoints)
+        notes.extend([f"{repo.name}: {note}" for note in discovery.notes])
+
+    deduped = _dedupe_endpoints(endpoints)
+    confidences = [item.confidence for item in deduped if item.confidence is not None]
+    confidence_summary = None
+    if confidences:
+        confidence_summary = ConfidenceSummary(
+            average=sum(confidences) / len(confidences),
+            minimum=min(confidences),
+            maximum=max(confidences),
+        )
+
+    return RoutesResult(
+        repos=validated,
+        routes=deduped,
+        candidate_files=candidate_files,
+        files_examined=files_examined,
+        notes=notes,
+        confidence_summary=confidence_summary,
+    )
+

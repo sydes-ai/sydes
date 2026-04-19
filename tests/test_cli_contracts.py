@@ -1,6 +1,7 @@
 """Contract tests for the current Sydes CLI surface."""
 
 import json
+from pathlib import Path
 
 from typer.testing import CliRunner
 
@@ -56,20 +57,26 @@ def test_trace_json_output_contains_expected_fields() -> None:
     assert payload["repos"][0]["name"] == "gateway"
 
 
-def test_routes_terminal_output_runs_successfully() -> None:
-    """Routes command should run and report placeholder discovery state."""
+def test_routes_terminal_output_runs_successfully(tmp_path: Path) -> None:
+    """Routes command should run and report discovery status."""
+    gateway_dir = tmp_path / "gateway"
+    api_dir = tmp_path / "api"
+    gateway_dir.mkdir()
+    api_dir.mkdir()
+    (api_dir / "app.py").write_text("print('ok')\n", encoding="utf-8")
+
     result = runner.invoke(
         app,
         [
             "routes",
             "--repo",
-            "gateway=./gateway",
+            f"gateway={gateway_dir}",
             "--repo",
-            "api=./api",
+            f"api={api_dir}",
         ],
     )
 
     assert result.exit_code == 0
-    assert "Sydes Routes (V1 Placeholder)" in result.stdout
+    assert "Sydes Routes Discovery" in result.stdout
     assert "Routes discovered:" in result.stdout
-    assert "No routes discovered yet" in result.stdout
+    assert "Files examined:" in result.stdout
