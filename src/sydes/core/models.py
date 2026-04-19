@@ -107,6 +107,25 @@ class Unknown(BaseModel):
     confidence: float | None = None
 
 
+class EndpointCandidate(BaseModel):
+    """Candidate API endpoint discovered from repository code."""
+
+    method: str | None = None
+    path: str
+    repo: str | None = None
+    file: str | None = None
+    symbol: str | None = None
+    confidence: float | None = None
+
+
+class RoutesResult(BaseModel):
+    """V1 placeholder contract for route discovery output."""
+
+    version: str = "v1"
+    repos: list[RepoRef] = Field(default_factory=list)
+    routes: list[EndpointCandidate] = Field(default_factory=list)
+
+
 class TraceSummary(BaseModel):
     """Top-level summary for the best-known traced flow."""
 

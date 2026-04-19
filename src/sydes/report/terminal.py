@@ -1,6 +1,6 @@
-"""Terminal rendering for human-readable trace summaries."""
+"""Terminal rendering for human-readable Sydes summaries."""
 
-from sydes.core.models import TraceResult
+from sydes.core.models import RoutesResult, TraceResult
 
 
 def render_terminal(result: TraceResult) -> str:
@@ -21,4 +21,23 @@ def render_terminal(result: TraceResult) -> str:
         lines.append(f"Confidence: {result.summary.confidence:.2f}")
 
     lines.append("No flow discovered yet")
+    return "\n".join(lines)
+
+
+def render_routes_terminal(result: RoutesResult) -> str:
+    """Build a minimal terminal summary for routes discovery."""
+    lines = [
+        "Sydes Routes (V1 Placeholder)",
+        "Repos:",
+    ]
+
+    if result.repos:
+        lines.extend(f"  - {repo.name}: {repo.root}" for repo in result.repos)
+    else:
+        lines.append("  - (none)")
+
+    lines.append(f"Routes discovered: {len(result.routes)}")
+    if not result.routes:
+        lines.append("No routes discovered yet")
+
     return "\n".join(lines)
