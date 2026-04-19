@@ -66,6 +66,27 @@ class RankedFileCandidate(BaseModel):
     service: str | None = None
 
 
+class ReadFileSnippet(BaseModel):
+    """Bounded text snippet loaded from a repository file."""
+
+    repo: str
+    relative_path: str
+    truncated: bool = False
+    text: str = ""
+    line_count: int = 0
+    char_count: int = 0
+
+
+class CandidateFileRead(BaseModel):
+    """Read attempt result for a ranked candidate file."""
+
+    repo: str
+    relative_path: str
+    snippet: ReadFileSnippet | None = None
+    skipped: bool = False
+    skip_reason: str | None = None
+
+
 class TargetSpec(BaseModel):
     """Requested target for trace entrypoint discovery."""
 
