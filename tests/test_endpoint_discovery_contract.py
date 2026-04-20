@@ -2,10 +2,17 @@
 
 from dataclasses import dataclass
 
-from sydes.core.models import CandidateFileRead, ReadFileSnippet
+from sydes.core.models import (
+    CandidateFileRead,
+    EndpointCandidate,
+    ExpansionContextFile,
+    FlowExpansionContext,
+    ReadFileSnippet,
+)
 from sydes.discover.endpoints import discover_endpoints_from_candidates
 from sydes.llm.client import LLMRequest, LLMResponse
-from sydes.llm.prompts import build_endpoint_discovery_prompt
+from sydes.llm.prompts import build_endpoint_discovery_prompt, build_flow_expansion_prompt
+from sydes.trace.expand import build_flow_expansion_prompt_from_context
 
 
 def test_build_endpoint_discovery_prompt_encodes_rules_and_grounding() -> None:
@@ -66,3 +73,67 @@ def test_discover_endpoints_from_candidates_calls_client_when_provided() -> None
 
     assert client.call_count == 1
     assert result == []
+
+
+def test_build_flow_expansion_prompt_encodes_rules_and_compact_json_contract() -> None:
+    """Flow expansion prompt should enforce grounding and JSON-only output contract."""
+    endpoint = EndpointCandidate(
+        method="POST",
+        path="/checkout",
+        handler="create_checkout",
+        file="src/routes.py",
+        repo="api",
+    )
+    context = FlowExpansionContext(
+        anchor_repo="api",
+        anchor_file="src/routes.py",
+        files=[
+            ExpansionContextFile(
+                repo="api",
+                file="src/routes.py",
+                selection_reasons=["anchor_endpoint_file"],
+                read=CandidateFileRead(
+                    repo="api",
+                    relative_path="src/routes.py",
+                    snippet=ReadFileSnippet(
+                        repo="api",
+                        relative_path="src/routes.py",
+                        truncated=False,
+                        text="router.post('/checkout', create_checkout)",
+                        line_count=1,
+                        char_count=42,
+                    ),
+                ),
+            )
+        ],
+    )
+
+    prompt = build_flow_expansion_prompt(endpoint, context)
+
+    assert "Task: expand one likely downstream API flow" in prompt
+    assert "Use only the provided files" in prompt
+    assert "Do not invent calls" in prompt
+    assert "Return concise JSON only" in prompt
+    assert '"steps":' in prompt
+    assert '"sinks":' in prompt
+    assert '"path":"/checkout"' in prompt
+    assert "src/routes.py" in prompt
+
+
+def test_build_flow_expansion_prompt_from_context_wires_prompt_builder() -> None:
+    """Trace expansion helper should delegate prompt construction for prepared context."""
+    endpoint = EndpointCandidate(
+        method="GET",
+        path="/status",
+        file="src/routes.py",
+        repo="api",
+    )
+    context = FlowExpansionContext(
+        anchor_repo="api",
+        anchor_file="src/routes.py",
+    )
+
+    prompt = build_flow_expansion_prompt_from_context(endpoint, context)
+
+    assert "downstream API flow" in prompt
+    assert '"anchor_file":"src/routes.py"' in prompt

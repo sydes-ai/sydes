@@ -224,3 +224,16 @@ def prepare_flow_expansion_context(
         files=files,
         notes=notes,
     )
+
+
+def build_flow_expansion_prompt_from_context(
+    matched_endpoint: EndpointCandidate,
+    context: FlowExpansionContext,
+) -> str:
+    """Build the LLM prompt text for downstream flow expansion from prepared context."""
+    from sydes.llm.prompts import build_flow_expansion_prompt
+
+    return build_flow_expansion_prompt(
+        matched_endpoint=matched_endpoint,
+        context=context,
+    )
