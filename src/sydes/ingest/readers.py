@@ -16,6 +16,10 @@ DISCOVERY_MAX_FILE_SIZE_BYTES = 250_000
 DISCOVERY_MAX_READ_BYTES = 24_000
 DISCOVERY_MAX_READ_CHARS = 12_000
 DISCOVERY_MAX_READ_LINES = 220
+FLOW_EXPANSION_MAX_FILE_SIZE_BYTES = 350_000
+FLOW_EXPANSION_MAX_READ_BYTES = 40_000
+FLOW_EXPANSION_MAX_READ_CHARS = 18_000
+FLOW_EXPANSION_MAX_READ_LINES = 320
 
 BINARY_SUFFIXES = {
     ".png",
@@ -189,4 +193,21 @@ def read_ranked_candidate_files_for_discovery(
         max_read_bytes=DISCOVERY_MAX_READ_BYTES,
         max_read_chars=DISCOVERY_MAX_READ_CHARS,
         max_read_lines=DISCOVERY_MAX_READ_LINES,
+    )
+
+
+def read_text_file_for_flow_expansion(
+    repo: str,
+    repo_root: Path | str,
+    relative_path: str,
+) -> CandidateFileRead:
+    """Read one file with flow-expansion caps for bounded context building."""
+    return read_text_file_safely(
+        repo=repo,
+        repo_root=repo_root,
+        relative_path=relative_path,
+        max_file_size_bytes=FLOW_EXPANSION_MAX_FILE_SIZE_BYTES,
+        max_read_bytes=FLOW_EXPANSION_MAX_READ_BYTES,
+        max_read_chars=FLOW_EXPANSION_MAX_READ_CHARS,
+        max_read_lines=FLOW_EXPANSION_MAX_READ_LINES,
     )

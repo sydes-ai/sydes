@@ -87,6 +87,25 @@ class CandidateFileRead(BaseModel):
     skip_reason: str | None = None
 
 
+class ExpansionContextFile(BaseModel):
+    """Selected file for flow expansion context with grounding metadata."""
+
+    repo: str
+    file: str
+    selection_reasons: list[str] = Field(default_factory=list)
+    read: CandidateFileRead | None = None
+    truncated: bool | None = None
+
+
+class FlowExpansionContext(BaseModel):
+    """Bounded contextual file set prepared for downstream flow expansion."""
+
+    anchor_repo: str
+    anchor_file: str
+    files: list[ExpansionContextFile] = Field(default_factory=list)
+    notes: list[str] = Field(default_factory=list)
+
+
 class TargetSpec(BaseModel):
     """Requested target for trace entrypoint discovery."""
 
