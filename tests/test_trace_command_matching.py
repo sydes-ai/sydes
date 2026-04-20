@@ -82,4 +82,6 @@ def test_trace_command_renders_match_and_alternatives(tmp_path: Path, monkeypatc
     assert json_result.exit_code == 0
     payload = json.loads(json_result.stdout)
     assert payload["nodes"][0]["type"] == "api_endpoint"
+    assert payload["flows"]
+    assert payload["flows"][0]["entry_node"] == payload["nodes"][0]["id"]
     assert any(item["kind"] == "ambiguous_target_candidate" for item in payload["unknowns"])

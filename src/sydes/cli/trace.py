@@ -9,14 +9,13 @@ from typing import Annotated, Literal
 import typer
 
 from sydes.core.models import (
-    EndpointCandidate,
     FlowExpansionResult,
-    GraphNode,
     TargetSpec,
     TraceResult,
     TraceSummary,
     Unknown,
 )
+from sydes.core.graph import build_graph_from_inferred_flow
 from sydes.discover.endpoints import discover_endpoints
 from sydes.discover.target_match import resolve_trace_target
 from sydes.ingest.repos import parse_repo_specs
@@ -24,26 +23,6 @@ from sydes.report.json_report import render_json
 from sydes.report.terminal import render_terminal
 from sydes.store.workspace import compute_workspace_id, create_run_id, save_run_artifact
 from sydes.trace.expand import run_flow_expansion
-
-
-def _node_from_match_endpoint(endpoint: EndpointCandidate) -> GraphNode:
-    """Create a trace graph node from a matched endpoint candidate."""
-    node_id = f"endpoint:{endpoint.repo}:{endpoint.file}:{endpoint.path or '?'}:{endpoint.method or '?'}"
-    node_id = node_id.replace(" ", "_")
-    return GraphNode(
-        id=node_id,
-        type="api_endpoint",
-        name=endpoint.path or endpoint.file,
-        service=endpoint.service,
-        repo=endpoint.repo,
-        file=endpoint.file,
-        symbol=endpoint.handler,
-        method=endpoint.method,
-        path=endpoint.path,
-        evidence=endpoint.evidence,
-        confidence=endpoint.confidence,
-        status=endpoint.status,
-    )
 
 
 def _build_trace_result(
@@ -63,7 +42,9 @@ def _build_trace_result(
         method=target.method,
     )
 
-    nodes: list[GraphNode] = []
+    nodes = []
+    edges = []
+    flows = []
     unknowns: list[Unknown] = []
     notes: list[str] = []
     notes.extend(routes.notes)
@@ -71,9 +52,14 @@ def _build_trace_result(
     flow_expansion: FlowExpansionResult | None = None
 
     if match.selected is not None:
-        endpoint_node = _node_from_match_endpoint(match.selected)
-        nodes.append(endpoint_node)
         flow_expansion = run_flow_expansion(match.selected, routes.repos)
+        graph_nodes, graph_edges, graph_flows = build_graph_from_inferred_flow(
+            match.selected,
+            flow_expansion,
+        )
+        nodes.extend(graph_nodes)
+        edges.extend(graph_edges)
+        flows.extend(graph_flows)
         notes.extend(flow_expansion.notes)
         notes.append(
             f"Flow expansion extracted {len(flow_expansion.steps)} step(s) and "
@@ -111,7 +97,9 @@ def _build_trace_result(
             )
         )
 
-    if match.selected is not None:
+    if flow_expansion is not None and flow_expansion.confidence is not None:
+        summary_confidence = flow_expansion.confidence
+    elif match.selected is not None:
         summary_confidence = match.confidence
     elif routes.confidence_summary is not None:
         summary_confidence = routes.confidence_summary.average
@@ -122,11 +110,15 @@ def _build_trace_result(
         target=target,
         repos=routes.repos,
         nodes=nodes,
+        edges=edges,
+        flows=flows,
         unknowns=unknowns,
         notes=notes,
         summary=TraceSummary(confidence=summary_confidence),
     )
-    if nodes:
+    if flows:
+        result.summary.key_flow_id = flows[0].id
+    elif nodes:
         result.summary.key_flow_id = nodes[0].id
     return result, flow_expansion
 
@@ -149,7 +141,7 @@ def trace_command(
     max_hops: Annotated[int | None, typer.Option("--max-hops")] = None,
     max_files: Annotated[int | None, typer.Option("--max-files")] = None,
 ) -> None:
-    """Run target-grounded trace preparation without downstream flow expansion yet."""
+    """Run target-grounded trace preparation with first-pass downstream expansion."""
     _ = emit_tests, max_hops, max_files
     try:
         result, flow_expansion = _build_trace_result(
