@@ -160,7 +160,7 @@ def test_trace_command_renders_flow_steps_sinks_and_graph_artifact(
 
     assert result.exit_code == 0
     assert "Flow:" in result.stdout
-    assert "handler: checkout_primary" in result.stdout
+    assert "step: checkout_primary" in result.stdout
     assert "Sinks:" in result.stdout
     assert "database: write orders_db" in result.stdout
     assert "trace_result" in saved_names

@@ -69,14 +69,12 @@ def _serialize_expansion_context_file(context_file: ExpansionContextFile) -> dic
         return {
             "repo": context_file.repo,
             "file": context_file.file,
-            "selection_reasons": context_file.selection_reasons,
             "missing_read": True,
         }
     if context_file.read.skipped or context_file.read.snippet is None:
         return {
             "repo": context_file.repo,
             "file": context_file.file,
-            "selection_reasons": context_file.selection_reasons,
             "skipped": True,
             "skip_reason": context_file.read.skip_reason,
         }
@@ -84,10 +82,7 @@ def _serialize_expansion_context_file(context_file: ExpansionContextFile) -> dic
     return {
         "repo": context_file.repo,
         "file": context_file.file,
-        "selection_reasons": context_file.selection_reasons,
         "truncated": snippet.truncated,
-        "line_count": snippet.line_count,
-        "char_count": snippet.char_count,
         "content": snippet.text,
     }
 
@@ -103,38 +98,23 @@ def build_flow_expansion_prompt(
             "path": matched_endpoint.path,
             "handler": matched_endpoint.handler,
             "repo": matched_endpoint.repo,
-            "service": matched_endpoint.service,
             "file": matched_endpoint.file,
-            "evidence": [
-                {"file": item.file, "symbol": item.symbol, "label": item.label}
-                for item in matched_endpoint.evidence
-            ],
         },
-        "context": {
-            "anchor_repo": context.anchor_repo,
-            "anchor_file": context.anchor_file,
-            "notes": context.notes,
-            "files": [_serialize_expansion_context_file(item) for item in context.files],
-        },
+        "files": [_serialize_expansion_context_file(item) for item in context.files],
     }
     return (
-        "Task: expand one likely downstream API flow from the matched endpoint.\n"
-        "Focus on the main happy-path only.\n"
-        "Return concise JSON only.\n"
+        "Task: infer one short happy-path flow for the matched API endpoint.\n"
         "Rules:\n"
-        "- Use only the provided files.\n"
-        "- Do not invent calls, symbols, or files.\n"
-        "- Return partial flow when evidence is limited.\n"
-        "- Preserve uncertainty instead of guessing.\n"
-        "- Prefer ordered execution steps from endpoint handler outward.\n"
-        "- Detect likely sinks when grounded: database read/write, external API call, queue publish/consume, file write.\n"
-        "- If sink type is likely but exact target is unclear, mark status as inferred and keep name/action soft.\n"
-        "- Include evidence with file and symbol when available.\n\n"
-        "Return shape:\n"
-        '{"steps":[{"kind":"","name":"","repo":null,"service":null,"file":null,"symbol":null,'
-        '"evidence":[{"file":"","symbol":null,"label":null}],"confidence":null,"status":null}],'
-        '"sinks":[{"kind":"","name":"","repo":null,"service":null,"file":null,"symbol":null,'
-        '"action":null,"evidence":[{"file":"","symbol":null,"label":null}],"confidence":null,"status":null}],'
+        "- Use only provided files; do not invent code paths.\n"
+        "- Prefer short high-confidence flow over broad speculation.\n"
+        "- Keep useful intermediate steps even without exact symbol.\n"
+        "- Step names may be operation-like: db.add, db.commit, create User object, call payment_client.\n"
+        "- If uncertain, keep partial steps/sinks and set status='inferred'.\n"
+        "- Sinks: database, external_api, queue, file_sink.\n"
+        "- Output JSON only.\n\n"
+        "JSON shape:\n"
+        '{"steps":[{"kind":"internal_step","name":"","symbol":null,"file":null,"repo":null,"service":null,"evidence":[],"confidence":null,"status":"inferred"}],'
+        '"sinks":[{"kind":"database","name":"","action":null,"symbol":null,"file":null,"repo":null,"service":null,"evidence":[],"confidence":null,"status":"inferred"}],'
         '"notes":[],"confidence":null}\n\n'
         "Input:\n"
         f"{json.dumps(payload, separators=(',', ':'))}\n"

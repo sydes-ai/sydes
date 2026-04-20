@@ -27,7 +27,7 @@ class _FakeFlowClient:
     payload: str
 
     def generate(self, request: LLMRequest) -> LLMResponse:
-        assert "Task: expand one likely downstream API flow" in request.prompt
+        assert "infer one short happy-path flow" in request.prompt
         return LLMResponse(text=self.payload)
 
 
@@ -56,7 +56,8 @@ def test_run_flow_expansion_normalizes_steps_and_sinks(tmp_path: Path) -> None:
         payload=(
             "```json\n"
             '{"steps":[{"kind":" handler ","name":" create_checkout ","file":"src/routes.py","repo":"api","confidence":0.82},'
-            '{"kind":"external http","name":"payments_call","symbol":"call_payments","file":"src/checkout_service.py"}],'
+            '{"kind":"external http","name":"call payment_client","file":"src/checkout_service.py"},'
+            '{"kind":"service_call","name":"   ","symbol":"   "}],'
             '"sinks":[{"kind":"sql-db","name":"orders","action":"write","file":"src/checkout_service.py"}],'
             '"notes":["partial flow"]}\n'
             "```"
@@ -69,9 +70,12 @@ def test_run_flow_expansion_normalizes_steps_and_sinks(tmp_path: Path) -> None:
     assert result.steps[0].kind == "handler"
     assert result.steps[0].status == "inferred"
     assert result.steps[1].kind == "external_api_call"
+    assert result.steps[1].name == "call payment_client"
+    assert result.steps[1].symbol is None
     assert len(result.sinks) == 1
     assert result.sinks[0].kind == "database"
     assert result.sinks[0].status == "inferred"
+    assert any("missing meaningful content" in note for note in result.notes)
     assert result.confidence is not None
 
 

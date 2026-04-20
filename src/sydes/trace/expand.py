@@ -24,8 +24,9 @@ from sydes.llm.client import LLMClient, LLMClientError, LLMRequest, create_defau
 from sydes.llm.client import load_llm_settings_from_env
 from sydes.trace.sinks import normalize_sink_candidate
 
-DEFAULT_RELATED_FILE_LIMIT = 4
+DEFAULT_RELATED_FILE_LIMIT = 1
 DEFAULT_INVENTORY_MAX_FILES = 8_000
+STRONG_RELATED_SCORE_THRESHOLD = 4.2
 RELATED_FILE_KEYWORDS = {
     "service",
     "services",
@@ -154,7 +155,32 @@ def _select_related_files(
         scored.append((score, file_path, sorted(set(reasons))))
 
     scored.sort(key=lambda item: (-item[0], item[1]))
-    return [(path, reasons) for _, path, reasons in scored[:max_related_files]]
+    strong: list[tuple[str, list[str]]] = []
+    for score, path, reasons in scored:
+        if score < STRONG_RELATED_SCORE_THRESHOLD:
+            continue
+        if "name_matches_symbol" not in reasons and "related_filename_keyword" not in reasons:
+            continue
+        strong.append((path, reasons))
+        if len(strong) >= max_related_files:
+            break
+    return strong
+
+
+def _anchor_appears_sufficient(anchor: ExpansionContextFile) -> bool:
+    """Heuristic check for whether anchor content alone is likely enough."""
+    if anchor.read is None or anchor.read.skipped or anchor.read.snippet is None:
+        return False
+    if anchor.read.snippet.truncated:
+        return False
+    text = anchor.read.snippet.text.lower()
+    signal_groups = [
+        ("router.", "@app.", "route(", "post(", "get(", "put(", "delete("),
+        ("db.", ".commit(", ".add(", ".save(", "insert", "update", "delete"),
+        ("client.", "requests.", "httpx.", "fetch(", "queue", "publish", "enqueue"),
+    ]
+    matched_groups = sum(1 for group in signal_groups if any(signal in text for signal in group))
+    return matched_groups >= 2
 
 
 def _build_context_file(repo: str, path: str, reasons: list[str], repo_root: str) -> ExpansionContextFile:
@@ -178,6 +204,7 @@ def prepare_flow_expansion_context(
     inventory_max_files: int = DEFAULT_INVENTORY_MAX_FILES,
 ) -> FlowExpansionContext:
     """Prepare bounded contextual files anchored on a matched endpoint file."""
+    max_related_files = max(0, min(max_related_files, 2))
     root_by_repo = _repo_root_map(repos)
     repo_root = root_by_repo.get(matched_endpoint.repo)
     if repo_root is None:
@@ -190,21 +217,25 @@ def prepare_flow_expansion_context(
     files: list[ExpansionContextFile] = []
     notes: list[str] = []
 
-    files.append(
-        _build_context_file(
-            repo=matched_endpoint.repo,
-            path=matched_endpoint.file,
-            reasons=["anchor_endpoint_file"],
-            repo_root=repo_root,
+    anchor_file = _build_context_file(
+        repo=matched_endpoint.repo,
+        path=matched_endpoint.file,
+        reasons=["anchor_endpoint_file"],
+        repo_root=repo_root,
+    )
+    files.append(anchor_file)
+    notes.append(f"Using anchor file: {matched_endpoint.file}.")
+    if _anchor_appears_sufficient(anchor_file):
+        notes.append("Anchor file appears sufficient; no extra contextual files added.")
+        related: list[tuple[str, list[str]]] = []
+    else:
+        related = _select_related_files(
+            matched_endpoint,
+            repo_root,
+            max_related_files=max_related_files,
+            inventory_max_files=inventory_max_files,
         )
-    )
 
-    related = _select_related_files(
-        matched_endpoint,
-        repo_root,
-        max_related_files=max_related_files,
-        inventory_max_files=inventory_max_files,
-    )
     for related_path, reasons in related:
         files.append(
             _build_context_file(
@@ -217,7 +248,9 @@ def prepare_flow_expansion_context(
 
     notes.append(f"Selected {len(files)} contextual files for flow expansion.")
     if related:
-        notes.append(f"Included {len(related)} nearby files beyond the anchor endpoint file.")
+        notes.append(f"Included {len(related)} extra contextual files beyond the anchor endpoint file.")
+        for related_path, reasons in related:
+            notes.append(f"Included {related_path} because: {', '.join(reasons)}.")
     else:
         notes.append("No nearby related files were selected beyond the anchor endpoint file.")
 
@@ -372,6 +405,27 @@ def _normalize_step_kind(value: Any) -> str:
     return "unknown"
 
 
+def _normalize_step_name(value: Any) -> str | None:
+    """Normalize a step name while preserving concise operation-like phrases."""
+    if not isinstance(value, str):
+        return None
+    normalized = " ".join(value.strip().split())
+    if not normalized:
+        return None
+    normalized = normalized.strip(" ,;:")
+    return normalized or None
+
+
+def _derive_step_name(raw: dict[str, Any], symbol: str | None) -> str | None:
+    """Derive a useful step name from available soft fields."""
+    candidate_fields = ("name", "operation", "description", "label", "action")
+    for field in candidate_fields:
+        name = _normalize_step_name(raw.get(field))
+        if name:
+            return name
+    return symbol
+
+
 def _coerce_items(payload: Any, key: str) -> list[Any]:
     """Extract list payload by key or treat top-level list as step list."""
     if isinstance(payload, dict):
@@ -390,14 +444,10 @@ def _normalize_steps(raw_steps: list[Any], fallback_repo: str) -> tuple[list[Tra
         if not isinstance(item, dict):
             notes.append(f"Ignored flow step #{idx}: not an object.")
             continue
-        name_raw = item.get("name")
         symbol = _normalize_symbol(item.get("symbol"))
-        if isinstance(name_raw, str) and name_raw.strip():
-            name = name_raw.strip()
-        elif symbol:
-            name = symbol
-        else:
-            notes.append(f"Ignored flow step #{idx}: missing name/symbol.")
+        name = _derive_step_name(item, symbol)
+        if name is None:
+            notes.append(f"Ignored flow step #{idx}: missing meaningful content.")
             continue
 
         file_value = _normalize_file_path(item.get("file"))
@@ -506,13 +556,13 @@ def run_flow_expansion(
     llm_client: LLMClient | None = None,
 ) -> FlowExpansionResult:
     """Run bounded context + LLM flow expansion with graceful fallback behavior."""
-    related_default = 4
+    related_default = 1
     related_raw = os.getenv("SYDES_FLOW_EXPANSION_FILES", str(related_default)).strip()
     try:
         max_related_files = int(related_raw)
     except ValueError:
         max_related_files = related_default
-    max_related_files = max(0, min(max_related_files, 8))
+    max_related_files = max(0, min(max_related_files, 2))
 
     context = prepare_flow_expansion_context(
         matched_endpoint=matched_endpoint,

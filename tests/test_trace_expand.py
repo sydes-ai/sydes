@@ -40,10 +40,38 @@ def test_prepare_flow_expansion_context_selects_anchor_and_related_files(tmp_pat
     assert context.files[0].file == "src/routes.py"
     assert context.files[0].selection_reasons == ["anchor_endpoint_file"]
     selected_files = [item.file for item in context.files]
-    assert "src/user_service.py" in selected_files
-    assert len(context.files) <= 4
+    assert len(selected_files) > 1
+    assert len(context.files) <= 3
     non_anchor_reasons = [reason for item in context.files[1:] for reason in item.selection_reasons]
     assert any(reason in {"same_directory", "related_filename_keyword", "name_matches_symbol"} for reason in non_anchor_reasons)
+
+
+def test_prepare_flow_expansion_context_prefers_anchor_only_when_sufficient(tmp_path: Path) -> None:
+    """Anchor-first mode should skip nearby files when anchor has enough direct signal."""
+    repo_root = tmp_path / "api"
+    (repo_root / "src").mkdir(parents=True)
+    (repo_root / "src" / "routes.py").write_text(
+        "router.post('/users', create_user)\n"
+        "user = User(payload)\n"
+        "db.add(user)\n"
+        "db.commit()\n",
+        encoding="utf-8",
+    )
+    (repo_root / "src" / "user_service.py").write_text("def create_user(payload): return payload\n", encoding="utf-8")
+    endpoint = EndpointCandidate(
+        method="POST",
+        path="/users",
+        handler="create_user",
+        file="src/routes.py",
+        repo="api",
+    )
+    repos = [RepoRef(name="api", root=str(repo_root))]
+
+    context = prepare_flow_expansion_context(endpoint, repos)
+
+    assert len(context.files) == 1
+    assert context.files[0].file == "src/routes.py"
+    assert any("anchor file appears sufficient" in note.lower() for note in context.notes)
 
 
 def test_prepare_flow_expansion_context_handles_missing_repo_root() -> None:

@@ -110,14 +110,52 @@ def test_build_flow_expansion_prompt_encodes_rules_and_compact_json_contract() -
 
     prompt = build_flow_expansion_prompt(endpoint, context)
 
-    assert "Task: expand one likely downstream API flow" in prompt
-    assert "Use only the provided files" in prompt
-    assert "Do not invent calls" in prompt
-    assert "Return concise JSON only" in prompt
+    assert "Task: infer one short happy-path flow" in prompt
+    assert "Use only provided files" in prompt
+    assert "short high-confidence flow" in prompt
+    assert "Output JSON only" in prompt
     assert '"steps":' in prompt
     assert '"sinks":' in prompt
     assert '"path":"/checkout"' in prompt
     assert "src/routes.py" in prompt
+
+
+def test_build_flow_expansion_prompt_is_compact_for_small_context() -> None:
+    """Flow expansion prompt should stay compact for local model reliability."""
+    endpoint = EndpointCandidate(
+        method="POST",
+        path="/users",
+        handler="create_user",
+        file="src/routes.py",
+        repo="api",
+    )
+    context = FlowExpansionContext(
+        anchor_repo="api",
+        anchor_file="src/routes.py",
+        files=[
+            ExpansionContextFile(
+                repo="api",
+                file="src/routes.py",
+                selection_reasons=["anchor_endpoint_file"],
+                read=CandidateFileRead(
+                    repo="api",
+                    relative_path="src/routes.py",
+                    snippet=ReadFileSnippet(
+                        repo="api",
+                        relative_path="src/routes.py",
+                        truncated=False,
+                        text=("router.post('/users', create_user)\n" * 30),
+                        line_count=30,
+                        char_count=900,
+                    ),
+                ),
+            )
+        ],
+    )
+
+    prompt = build_flow_expansion_prompt(endpoint, context)
+
+    assert len(prompt) < 6000
 
 
 def test_build_flow_expansion_prompt_from_context_wires_prompt_builder() -> None:
@@ -135,5 +173,5 @@ def test_build_flow_expansion_prompt_from_context_wires_prompt_builder() -> None
 
     prompt = build_flow_expansion_prompt_from_context(endpoint, context)
 
-    assert "downstream API flow" in prompt
-    assert '"anchor_file":"src/routes.py"' in prompt
+    assert "happy-path flow" in prompt
+    assert '"file":"src/routes.py"' in prompt

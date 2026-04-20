@@ -51,9 +51,14 @@ def render_terminal(result: TraceResult) -> str:
         for index, step in enumerate(flow.steps, start=1):
             node = node_by_id.get(step.node_id)
             if node is None:
-                lines.append(f"  {index}. {step.kind}: {step.node_id}")
+                lines.append(f"  {index}. step: {step.node_id}")
                 continue
-            lines.append(f"  {index}. {step.kind}: {node.name}")
+            label = "step"
+            if step.kind == "endpoint":
+                label = "endpoint"
+            elif step.kind.startswith("sink:"):
+                label = "sink"
+            lines.append(f"  {index}. {label}: {node.name}")
             details: list[str] = []
             if node.file:
                 details.append(f"file={node.file}")
