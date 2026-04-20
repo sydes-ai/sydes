@@ -1,7 +1,7 @@
 # Sydes
 
 Sydes is an AI-assisted system understanding tool for tracing API flows from code.
-Phase 2 supports local endpoint discovery with Ollama and trace target resolution from discovered routes.
+Phase 3 supports first real route -> flow -> sink tracing using bounded code context and local Ollama inference.
 
 ## Quick Ollama setup
 
@@ -16,14 +16,30 @@ Phase 2 supports local endpoint discovery with Ollama and trace target resolutio
 
 ```bash
 sydes routes --repo api=./api
-sydes trace "/checkout" --method POST --repo api=./api
+sydes trace "/users" --method POST --repo api=./api
 ```
 
 ## Current capability
 
-- Endpoint discovery works locally via Ollama on a bounded candidate file set.
-- Route matching works for grounding `trace` targets to discovered endpoints.
-- Downstream flow tracing and sink detection are next.
+- Discover API routes from bounded, selectively ranked files.
+- Match a requested target route to discovered endpoint candidates.
+- Infer one likely downstream flow from matched endpoint + nearby contextual files.
+- Detect major sink types (database, external API, queue, file sink).
+- Export graph-backed trace results (`nodes`, `edges`, `flows`) via terminal or JSON.
+
+Flow tracing is inferred from code and bounded context. Results are partial but useful, not full architecture reconstruction.
+
+## Current scope
+
+- Bounded selective exploration rather than deep repo-wide parsing.
+- Partial but useful inferred flows with explicit uncertainty.
+- Local artifacts stored under `~/.sydes/`.
+
+## Near-term roadmap
+
+- Cross-repo linking for multi-service flows.
+- Integration test suggestions from traced key flows.
+- Richer graph analysis on top of exported trace structure.
 
 ## Artifacts
 
