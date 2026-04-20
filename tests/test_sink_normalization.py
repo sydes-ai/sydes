@@ -39,3 +39,21 @@ def test_normalize_sink_candidate_preserves_name_and_maps_kind_action() -> None:
     assert normalized.name == "orders_db"
     assert normalized.kind == "database"
     assert normalized.action == "write"
+
+
+def test_normalize_sink_candidate_maps_queue_external_and_file_variants() -> None:
+    """Additional sink families should normalize into V1 taxonomy consistently."""
+    queue_candidate = SinkCandidate(kind="kafka-topic", name="order-events", action="enqueue")
+    external_candidate = SinkCandidate(kind="http-client", name="payments-service", action="fetch")
+    file_candidate = SinkCandidate(kind="s3", name="invoice-bucket", action="upload")
+
+    normalized_queue = normalize_sink_candidate(queue_candidate)
+    normalized_external = normalize_sink_candidate(external_candidate)
+    normalized_file = normalize_sink_candidate(file_candidate)
+
+    assert normalized_queue.kind == "queue"
+    assert normalized_queue.action == "publish"
+    assert normalized_external.kind == "external_api"
+    assert normalized_external.action == "read"
+    assert normalized_file.kind == "file_sink"
+    assert normalized_file.action == "write"

@@ -166,3 +166,53 @@ def test_trace_command_renders_flow_steps_sinks_and_graph_artifact(
     assert "trace_result" in saved_names
     assert "flow_expansion" in saved_names
     assert "trace_graph" in saved_names
+
+
+def test_trace_command_graceful_when_flow_expansion_fails_after_match(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """Trace should remain successful when expansion returns fallback-unavailable notes."""
+    repo_root = tmp_path / "api"
+    repo_root.mkdir()
+
+    def _fake_discovery(repos: list[RepoRef]) -> RoutesResult:
+        return RoutesResult(
+            repos=repos,
+            routes=[
+                EndpointCandidate(
+                    method="GET",
+                    path="/status",
+                    handler="status_handler",
+                    file="src/routes.py",
+                    repo="api",
+                    service="orders",
+                    confidence=0.9,
+                )
+            ],
+        )
+
+    monkeypatch.setattr(trace_module, "discover_endpoints", _fake_discovery)
+    monkeypatch.setattr(
+        trace_module,
+        "run_flow_expansion",
+        lambda matched_endpoint, repos: FlowExpansionResult(
+            notes=["Flow expansion unavailable: mock timeout."],
+        ),
+    )
+    monkeypatch.setattr(trace_module, "compute_workspace_id", lambda repos: "ws-test")
+    monkeypatch.setattr(trace_module, "create_run_id", lambda: "run-test")
+    monkeypatch.setattr(
+        trace_module,
+        "save_run_artifact",
+        lambda **kwargs: Path(f"/tmp/{kwargs['artifact_name']}.json"),
+    )
+
+    result = runner.invoke(
+        app,
+        ["trace", "/status", "--method", "GET", "--repo", f"api={repo_root}"],
+    )
+
+    assert result.exit_code == 0
+    assert "Matched endpoint:" in result.stdout
+    assert "GET /status" in result.stdout
+    assert "Flow expansion unavailable: mock timeout." in result.stdout

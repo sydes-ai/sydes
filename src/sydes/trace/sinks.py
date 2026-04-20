@@ -69,10 +69,10 @@ def normalize_sink_action(raw_action: str | None, *, kind: str | None = None) ->
 
     if token in V1_SINK_ACTIONS:
         return token
-    if any(marker in token for marker in ("read", "select", "query", "fetch", "get", "load")):
-        return SINK_ACTION_READ
     if any(marker in token for marker in ("write", "insert", "update", "delete", "save", "upsert", "create", "upload")):
         return SINK_ACTION_WRITE
+    if any(marker in token for marker in ("read", "select", "query", "fetch", "get", "load")):
+        return SINK_ACTION_READ
     if any(marker in token for marker in ("publish", "enqueue", "push", "produce", "send", "emit")):
         return SINK_ACTION_PUBLISH
     if any(marker in token for marker in ("consume", "dequeue", "poll", "read_message", "subscribe")):

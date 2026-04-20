@@ -66,28 +66,48 @@ def test_build_graph_from_inferred_flow_maps_endpoint_steps_and_sinks() -> None:
                 confidence=0.65,
                 status="inferred",
             ),
+            SinkCandidate(
+                kind="queue",
+                name="orders-events",
+                repo="api",
+                file="src/queue.py",
+                action="publish",
+                confidence=0.7,
+                status="inferred",
+            ),
+            SinkCandidate(
+                kind="file_sink",
+                name="invoices-bucket",
+                repo="api",
+                file="src/storage.py",
+                action="write",
+                confidence=0.6,
+                status="inferred",
+            ),
         ],
         confidence=0.77,
     )
 
     nodes, edges, flows = build_graph_from_inferred_flow(endpoint, expansion)
 
-    assert len(nodes) == 5
+    assert len(nodes) == 7
     assert nodes[0].type == "api_endpoint"
     assert [node.type for node in nodes[1:3]] == ["internal_step", "internal_step"]
-    assert [node.type for node in nodes[3:]] == ["database", "external_api"]
+    assert [node.type for node in nodes[3:]] == ["database", "external_api", "queue", "file_sink"]
 
     edge_types = [edge.type for edge in edges]
     assert edge_types[:2] == ["CALLS_INTERNAL", "CALLS_INTERNAL"]
     assert "WRITES_DB" in edge_types
     assert "CALLS_EXTERNAL" in edge_types
+    assert "PUBLISHES_QUEUE" in edge_types
+    assert "WRITES_FILE" in edge_types
 
     assert len(flows) == 1
     flow = flows[0]
     assert flow.id == "flow:checkout"
     assert flow.entry_node == nodes[0].id
     assert flow.confidence == 0.77
-    assert len(flow.steps) == 5
+    assert len(flow.steps) == 7
 
 
 def test_build_graph_from_inferred_flow_with_no_expansion_keeps_endpoint_only() -> None:
