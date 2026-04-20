@@ -7,7 +7,14 @@ from typer.testing import CliRunner
 
 import sydes.cli.trace as trace_module
 from sydes.cli.main import app
-from sydes.core.models import EndpointCandidate, RepoRef, RoutesResult
+from sydes.core.models import (
+    EndpointCandidate,
+    FlowExpansionResult,
+    RepoRef,
+    RoutesResult,
+    SinkCandidate,
+    TraceStep,
+)
 
 runner = CliRunner()
 
@@ -85,3 +92,77 @@ def test_trace_command_renders_match_and_alternatives(tmp_path: Path, monkeypatc
     assert payload["flows"]
     assert payload["flows"][0]["entry_node"] == payload["nodes"][0]["id"]
     assert any(item["kind"] == "ambiguous_target_candidate" for item in payload["unknowns"])
+
+
+def test_trace_command_renders_flow_steps_sinks_and_graph_artifact(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """Trace terminal output should include ordered flow steps and sinks."""
+    repo_root = tmp_path / "api"
+    repo_root.mkdir()
+    saved_names: list[str] = []
+
+    def _fake_discovery(repos: list[RepoRef]) -> RoutesResult:
+        return RoutesResult(
+            repos=repos,
+            routes=[
+                EndpointCandidate(
+                    method="POST",
+                    path="/checkout",
+                    handler="checkout_primary",
+                    file="src/routes.py",
+                    repo="api",
+                    service="orders",
+                    confidence=0.9,
+                )
+            ],
+        )
+
+    def _fake_save_run_artifact(**kwargs):
+        saved_names.append(kwargs["artifact_name"])
+        return Path(f"/tmp/{kwargs['artifact_name']}.json")
+
+    monkeypatch.setattr(trace_module, "discover_endpoints", _fake_discovery)
+    monkeypatch.setattr(
+        trace_module,
+        "run_flow_expansion",
+        lambda matched_endpoint, repos: FlowExpansionResult(
+            steps=[
+                TraceStep(
+                    kind="handler",
+                    name="checkout_primary",
+                    repo="api",
+                    file="src/routes.py",
+                    symbol="checkout_primary",
+                )
+            ],
+            sinks=[
+                SinkCandidate(
+                    kind="database",
+                    name="orders_db",
+                    action="write",
+                    repo="api",
+                    file="src/repo.py",
+                )
+            ],
+            notes=["mock expansion"],
+            confidence=0.8,
+        ),
+    )
+    monkeypatch.setattr(trace_module, "compute_workspace_id", lambda repos: "ws-test")
+    monkeypatch.setattr(trace_module, "create_run_id", lambda: "run-test")
+    monkeypatch.setattr(trace_module, "save_run_artifact", _fake_save_run_artifact)
+
+    result = runner.invoke(
+        app,
+        ["trace", "/checkout", "--method", "POST", "--repo", f"api={repo_root}"],
+    )
+
+    assert result.exit_code == 0
+    assert "Flow:" in result.stdout
+    assert "handler: checkout_primary" in result.stdout
+    assert "Sinks:" in result.stdout
+    assert "database: write orders_db" in result.stdout
+    assert "trace_result" in saved_names
+    assert "flow_expansion" in saved_names
+    assert "trace_graph" in saved_names

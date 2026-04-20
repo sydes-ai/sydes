@@ -39,6 +39,49 @@ def render_terminal(result: TraceResult) -> str:
                 if details:
                     lines.append(f"    ({', '.join(details)})")
 
+    if result.flows:
+        lines.append("Flow:")
+        node_by_id = {node.id: node for node in result.nodes}
+        flow = None
+        if result.summary.key_flow_id is not None:
+            flow = next((item for item in result.flows if item.id == result.summary.key_flow_id), None)
+        if flow is None:
+            flow = result.flows[0]
+
+        for index, step in enumerate(flow.steps, start=1):
+            node = node_by_id.get(step.node_id)
+            if node is None:
+                lines.append(f"  {index}. {step.kind}: {step.node_id}")
+                continue
+            lines.append(f"  {index}. {step.kind}: {node.name}")
+            details: list[str] = []
+            if node.file:
+                details.append(f"file={node.file}")
+            if node.symbol:
+                details.append(f"symbol={node.symbol}")
+            if node.repo:
+                details.append(f"repo={node.repo}")
+            if details:
+                lines.append(f"     ({', '.join(details)})")
+
+    sink_types = {"database", "external_api", "queue", "file_sink", "sink"}
+    sink_nodes = [node for node in result.nodes if node.type in sink_types]
+    if sink_nodes:
+        lines.append("Sinks:")
+        for sink in sink_nodes:
+            action = sink.metadata.get("action") if isinstance(sink.metadata, dict) else None
+            action_value = f"{action} " if isinstance(action, str) and action else ""
+            lines.append(f"  - {sink.type}: {action_value}{sink.name}")
+            details: list[str] = []
+            if sink.file:
+                details.append(f"file={sink.file}")
+            if sink.symbol:
+                details.append(f"symbol={sink.symbol}")
+            if sink.repo:
+                details.append(f"repo={sink.repo}")
+            if details:
+                lines.append(f"    ({', '.join(details)})")
+
     ambiguous = [item for item in result.unknowns if item.kind == "ambiguous_target_candidate"]
     if ambiguous:
         lines.append("Alternatives:")

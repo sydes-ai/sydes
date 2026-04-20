@@ -23,6 +23,7 @@ from sydes.report.json_report import render_json
 from sydes.report.terminal import render_terminal
 from sydes.store.workspace import compute_workspace_id, create_run_id, save_run_artifact
 from sydes.trace.expand import run_flow_expansion
+from sydes.trace.sinks import normalize_sink_candidates
 
 
 def _build_trace_result(
@@ -53,6 +54,7 @@ def _build_trace_result(
 
     if match.selected is not None:
         flow_expansion = run_flow_expansion(match.selected, routes.repos)
+        flow_expansion.sinks = normalize_sink_candidates(flow_expansion.sinks)
         graph_nodes, graph_edges, graph_flows = build_graph_from_inferred_flow(
             match.selected,
             flow_expansion,
@@ -184,6 +186,26 @@ def trace_command(
                 payload=expansion_artifact_payload,
             )
             result.notes.append(f"Saved flow expansion artifact: {expansion_artifact_path}")
+
+        if result.nodes or result.edges or result.flows:
+            graph_artifact_payload = {
+                "timestamp": datetime.now(tz=UTC).isoformat(),
+                "repo_inputs": [item.model_dump() for item in result.repos],
+                "target": result.target.model_dump(),
+                "key_flow_id": result.summary.key_flow_id,
+                "graph": {
+                    "nodes": [item.model_dump() for item in result.nodes],
+                    "edges": [item.model_dump() for item in result.edges],
+                    "flows": [item.model_dump() for item in result.flows],
+                },
+            }
+            graph_artifact_path = save_run_artifact(
+                workspace_id=workspace_id,
+                run_id=run_id,
+                artifact_name="trace_graph",
+                payload=graph_artifact_payload,
+            )
+            result.notes.append(f"Saved graph artifact: {graph_artifact_path}")
     except OSError as exc:
         result.notes.append(f"Could not save trace artifact: {exc}")
 
