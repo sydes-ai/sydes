@@ -160,12 +160,64 @@ def test_trace_command_renders_flow_steps_sinks_and_graph_artifact(
 
     assert result.exit_code == 0
     assert "Flow:" in result.stdout
-    assert "step: checkout_primary" in result.stdout
+    assert "step: checkout primary" in result.stdout
     assert "Sinks:" in result.stdout
     assert "database: write orders_db" in result.stdout
     assert "trace_result" in saved_names
     assert "flow_expansion" in saved_names
     assert "trace_graph" in saved_names
+
+
+def test_trace_terminal_lightly_normalizes_step_labels(tmp_path: Path, monkeypatch) -> None:
+    """Terminal rendering should lightly normalize underscore-heavy step labels."""
+    repo_root = tmp_path / "api"
+    repo_root.mkdir()
+
+    def _fake_discovery(repos: list[RepoRef]) -> RoutesResult:
+        return RoutesResult(
+            repos=repos,
+            routes=[
+                EndpointCandidate(
+                    method="POST",
+                    path="/users",
+                    handler="create_user_handler",
+                    file="src/routes.py",
+                    repo="api",
+                    confidence=0.9,
+                )
+            ],
+        )
+
+    monkeypatch.setattr(trace_module, "discover_endpoints", _fake_discovery)
+    monkeypatch.setattr(
+        trace_module,
+        "run_flow_expansion",
+        lambda matched_endpoint, repos: FlowExpansionResult(
+            steps=[
+                TraceStep(kind="internal_step", name="create_user_handler", repo="api", file="src/routes.py"),
+                TraceStep(kind="internal_step", name="create_User_object", repo="api", file="src/routes.py"),
+                TraceStep(kind="internal_step", name="db.commit", repo="api", file="src/routes.py"),
+            ],
+            sinks=[],
+        ),
+    )
+    monkeypatch.setattr(trace_module, "compute_workspace_id", lambda repos: "ws-test")
+    monkeypatch.setattr(trace_module, "create_run_id", lambda: "run-test")
+    monkeypatch.setattr(
+        trace_module,
+        "save_run_artifact",
+        lambda **kwargs: Path(f"/tmp/{kwargs['artifact_name']}.json"),
+    )
+
+    result = runner.invoke(
+        app,
+        ["trace", "/users", "--method", "POST", "--repo", f"api={repo_root}"],
+    )
+
+    assert result.exit_code == 0
+    assert "step: create user handler" in result.stdout
+    assert "step: create User object" in result.stdout
+    assert "step: db.commit" in result.stdout
 
 
 def test_trace_command_graceful_when_flow_expansion_fails_after_match(

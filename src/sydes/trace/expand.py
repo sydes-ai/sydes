@@ -22,7 +22,11 @@ from sydes.ingest.inventory import build_repo_inventory
 from sydes.ingest.readers import read_text_file_for_flow_expansion
 from sydes.llm.client import LLMClient, LLMClientError, LLMRequest, create_default_llm_client
 from sydes.llm.client import load_llm_settings_from_env
-from sydes.trace.sinks import normalize_sink_candidate
+from sydes.trace.sinks import (
+    derive_sink_candidates_from_steps,
+    merge_and_dedupe_sinks,
+    normalize_sink_candidate,
+)
 
 DEFAULT_RELATED_FILE_LIMIT = 1
 DEFAULT_INVENTORY_MAX_FILES = 8_000
@@ -521,9 +525,18 @@ def _parse_flow_expansion_payload(payload: Any, fallback_repo: str) -> tuple[Flo
     raw_sinks = _coerce_items(payload, "sinks")
 
     steps, step_notes = _normalize_steps(raw_steps, fallback_repo)
-    sinks, sink_notes = _normalize_sinks(raw_sinks, fallback_repo)
+    explicit_sinks, sink_notes = _normalize_sinks(raw_sinks, fallback_repo)
+    derived_sinks = derive_sink_candidates_from_steps(steps)
+    sinks = merge_and_dedupe_sinks(explicit_sinks, derived_sinks)
     notes.extend(step_notes)
     notes.extend(sink_notes)
+    if derived_sinks:
+        notes.append(f"Derived {len(derived_sinks)} sink candidate(s) from retained flow steps.")
+    if len(sinks) != len(explicit_sinks):
+        notes.append(
+            f"Sink merge result: explicit={len(explicit_sinks)}, "
+            f"derived={len(derived_sinks)}, final={len(sinks)}."
+        )
 
     result_notes: list[str] = []
     result_confidence: float | None = None

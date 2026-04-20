@@ -5,6 +5,15 @@ from collections import defaultdict
 from sydes.core.models import RoutesResult, TraceResult
 
 
+def _normalize_step_label_for_terminal(label: str) -> str:
+    """Lightly normalize step label display for readability in terminal output."""
+    normalized = " ".join(label.strip().split())
+    if "." in normalized:
+        return normalized
+    normalized = normalized.replace("_", " ")
+    return " ".join(normalized.split())
+
+
 def render_terminal(result: TraceResult) -> str:
     """Build a target-grounded terminal summary for a trace result."""
     method = result.target.method or "ANY"
@@ -58,7 +67,8 @@ def render_terminal(result: TraceResult) -> str:
                 label = "endpoint"
             elif step.kind.startswith("sink:"):
                 label = "sink"
-            lines.append(f"  {index}. {label}: {node.name}")
+            display_name = _normalize_step_label_for_terminal(node.name) if label == "step" else node.name
+            lines.append(f"  {index}. {label}: {display_name}")
             details: list[str] = []
             if node.file:
                 details.append(f"file={node.file}")

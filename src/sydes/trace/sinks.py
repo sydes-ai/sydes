@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from sydes.core.models import (
+    EvidenceRef,
     SINK_ACTION_CONSUME,
     SINK_ACTION_PUBLISH,
     SINK_ACTION_READ,
@@ -12,6 +13,7 @@ from sydes.core.models import (
     SINK_KIND_FILE_SINK,
     SINK_KIND_QUEUE,
     SinkCandidate,
+    TraceStep,
 )
 
 V1_SINK_KINDS = {
@@ -106,3 +108,157 @@ def normalize_sink_candidate(candidate: SinkCandidate) -> SinkCandidate:
 def normalize_sink_candidates(candidates: list[SinkCandidate]) -> list[SinkCandidate]:
     """Normalize sink candidates into V1 kinds/actions when possible."""
     return [normalize_sink_candidate(candidate) for candidate in candidates]
+
+
+def _step_text(step: TraceStep) -> str:
+    """Build normalized step text for lightweight sink-intent matching."""
+    parts = [step.name or "", step.symbol or ""]
+    return " ".join(parts).strip().lower()
+
+
+def _derive_sink_from_step(step: TraceStep) -> SinkCandidate | None:
+    """Derive a conservative sink candidate from one retained flow step."""
+    text = _step_text(step)
+    if not text:
+        return None
+
+    kind = "unknown"
+    action: str | None = None
+    name = "sink"
+
+    database_write_signals = (
+        "db.add",
+        "db.commit",
+        "insert",
+        "save",
+        "create record",
+        "update",
+        "delete",
+        "upsert",
+    )
+    database_read_signals = (
+        "query",
+        "select",
+        "fetch",
+        "get by id",
+        "find",
+    )
+    queue_signals = (
+        "publish",
+        "enqueue",
+        "send event",
+        "produce",
+    )
+    external_signals = (
+        "requests.",
+        "httpx.",
+        "client.",
+        "call api",
+        "post request",
+        "get request",
+    )
+    file_signals = (
+        "write file",
+        "save file",
+        'open(..., "w")',
+        "open(..., 'w')",
+        'open("',
+        "open('",
+    )
+
+    if any(signal in text for signal in database_write_signals):
+        kind = SINK_KIND_DATABASE
+        action = SINK_ACTION_WRITE
+        name = SINK_KIND_DATABASE
+    elif any(signal in text for signal in database_read_signals):
+        kind = SINK_KIND_DATABASE
+        action = SINK_ACTION_READ
+        name = SINK_KIND_DATABASE
+    elif any(signal in text for signal in queue_signals):
+        kind = SINK_KIND_QUEUE
+        action = SINK_ACTION_PUBLISH
+        name = SINK_KIND_QUEUE
+    elif any(signal in text for signal in external_signals):
+        kind = SINK_KIND_EXTERNAL_API
+        action = SINK_ACTION_READ
+        name = SINK_KIND_EXTERNAL_API
+    elif any(signal in text for signal in file_signals):
+        kind = SINK_KIND_FILE_SINK
+        action = SINK_ACTION_WRITE
+        name = SINK_KIND_FILE_SINK
+
+    if kind == "unknown":
+        return None
+
+    evidence: list[EvidenceRef] = []
+    if step.file:
+        evidence.append(
+            EvidenceRef(
+                file=step.file,
+                symbol=step.symbol,
+                label=f"derived-from-step:{step.name}",
+            )
+        )
+    return normalize_sink_candidate(
+        SinkCandidate(
+            kind=kind,
+            name=name,
+            repo=step.repo,
+            service=step.service,
+            file=step.file,
+            symbol=step.symbol,
+            action=action,
+            evidence=evidence,
+            confidence=step.confidence,
+            status="inferred",
+        )
+    )
+
+
+def derive_sink_candidates_from_steps(steps: list[TraceStep]) -> list[SinkCandidate]:
+    """Derive sink candidates from retained flow steps using simple pattern matching."""
+    derived: list[SinkCandidate] = []
+    for step in steps:
+        candidate = _derive_sink_from_step(step)
+        if candidate is not None:
+            derived.append(candidate)
+    return derived
+
+
+def _sink_dedupe_key(sink: SinkCandidate) -> tuple[str, str, str, str]:
+    """Create a stable key for coarse sink deduplication."""
+    return (
+        sink.kind or "unknown",
+        sink.action or "",
+        sink.file or "",
+        (sink.name or "").lower(),
+    )
+
+
+def merge_and_dedupe_sinks(
+    explicit_sinks: list[SinkCandidate],
+    derived_sinks: list[SinkCandidate],
+) -> list[SinkCandidate]:
+    """Merge explicit and derived sinks, preserving explicit candidates on duplicates."""
+    merged: list[SinkCandidate] = []
+    by_key: dict[tuple[str, str, str, str], int] = {}
+
+    for sink in explicit_sinks:
+        normalized = normalize_sink_candidate(sink)
+        key = _sink_dedupe_key(normalized)
+        by_key[key] = len(merged)
+        merged.append(normalized)
+
+    for sink in derived_sinks:
+        normalized = normalize_sink_candidate(sink)
+        key = _sink_dedupe_key(normalized)
+        existing_index = by_key.get(key)
+        if existing_index is None:
+            by_key[key] = len(merged)
+            merged.append(normalized)
+            continue
+        existing = merged[existing_index]
+        if existing.status == "inferred" and normalized.status != "inferred":
+            merged[existing_index] = normalized
+
+    return merged

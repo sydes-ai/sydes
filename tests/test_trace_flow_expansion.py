@@ -79,6 +79,40 @@ def test_run_flow_expansion_normalizes_steps_and_sinks(tmp_path: Path) -> None:
     assert result.confidence is not None
 
 
+def test_run_flow_expansion_recovers_sinks_from_steps_when_explicit_is_weak(
+    tmp_path: Path,
+) -> None:
+    """Weak explicit sinks should be supplemented by derived sinks from retained steps."""
+    repo_root = tmp_path / "api"
+    (repo_root / "src").mkdir(parents=True)
+    (repo_root / "src" / "routes.py").write_text(
+        "router.post('/users', create_user)\n",
+        encoding="utf-8",
+    )
+    endpoint = EndpointCandidate(
+        method="POST",
+        path="/users",
+        handler="create_user",
+        file="src/routes.py",
+        repo="api",
+    )
+    repos = [RepoRef(name="api", root=str(repo_root))]
+    client = _FakeFlowClient(
+        payload=(
+            '{"steps":[{"kind":"internal_step","name":"db.add","file":"src/routes.py","repo":"api"},'
+            '{"kind":"internal_step","name":"db.commit","file":"src/routes.py","repo":"api"}],'
+            '"sinks":[{"kind":"database"}]}'
+        )
+    )
+
+    result = run_flow_expansion(endpoint, repos, llm_client=client)
+
+    assert len(result.steps) >= 2
+    assert result.sinks
+    assert any(sink.kind == "database" and sink.action == "write" for sink in result.sinks)
+    assert any("Derived" in note for note in result.notes)
+
+
 def test_run_flow_expansion_graceful_fallback_on_client_failure(tmp_path: Path) -> None:
     """Flow expansion should return valid empty result with notes on client error."""
     repo_root = tmp_path / "api"

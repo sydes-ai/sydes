@@ -1,7 +1,9 @@
 """Tests for V1 sink taxonomy normalization helpers."""
 
-from sydes.core.models import SinkCandidate
+from sydes.core.models import SinkCandidate, TraceStep
 from sydes.trace.sinks import (
+    derive_sink_candidates_from_steps,
+    merge_and_dedupe_sinks,
     normalize_sink_action,
     normalize_sink_candidate,
     normalize_sink_kind,
@@ -57,3 +59,54 @@ def test_normalize_sink_candidate_maps_queue_external_and_file_variants() -> Non
     assert normalized_external.action == "read"
     assert normalized_file.kind == "file_sink"
     assert normalized_file.action == "write"
+
+
+def test_derive_sink_candidates_from_steps_recovers_database_write() -> None:
+    """Step-derived sink recovery should detect obvious db write operations."""
+    steps = [
+        TraceStep(kind="internal_step", name="db.add", repo="api", file="src/routes.py"),
+        TraceStep(kind="internal_step", name="db.commit", repo="api", file="src/routes.py"),
+    ]
+
+    sinks = derive_sink_candidates_from_steps(steps)
+
+    assert sinks
+    assert all(sink.kind == "database" for sink in sinks)
+    assert all(sink.action == "write" for sink in sinks)
+
+
+def test_merge_and_dedupe_sinks_preserves_explicit_and_dedupes_derived() -> None:
+    """Explicit sinks should be preserved while equivalent derived sinks are deduped."""
+    explicit = [
+        SinkCandidate(
+            kind="database",
+            action="write",
+            name="database",
+            file="src/routes.py",
+            status="confirmed",
+        )
+    ]
+    derived = [
+        SinkCandidate(
+            kind="database",
+            action="write",
+            name="database",
+            file="src/routes.py",
+            status="inferred",
+        ),
+        SinkCandidate(
+            kind="queue",
+            action="publish",
+            name="queue",
+            file="src/routes.py",
+            status="inferred",
+        ),
+    ]
+
+    merged = merge_and_dedupe_sinks(explicit, derived)
+
+    assert len(merged) == 2
+    database = next(item for item in merged if item.kind == "database")
+    assert database.status == "confirmed"
+    queue = next(item for item in merged if item.kind == "queue")
+    assert queue.action == "publish"
