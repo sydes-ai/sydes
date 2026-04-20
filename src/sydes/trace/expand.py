@@ -22,6 +22,7 @@ from sydes.ingest.inventory import build_repo_inventory
 from sydes.ingest.readers import read_text_file_for_flow_expansion
 from sydes.llm.client import LLMClient, LLMClientError, LLMRequest, create_default_llm_client
 from sydes.llm.client import load_llm_settings_from_env
+from sydes.trace.sinks import normalize_sink_candidate
 
 DEFAULT_RELATED_FILE_LIMIT = 4
 DEFAULT_INVENTORY_MAX_FILES = 8_000
@@ -43,7 +44,6 @@ RELATED_FILE_KEYWORDS = {
     "queries",
 }
 KNOWN_STEP_KINDS = {"endpoint", "handler", "service_call", "db_read", "db_write", "external_api_call", "queue_publish", "queue_consume", "file_write", "validation", "auth", "transform", "unknown"}
-KNOWN_SINK_KINDS = {"database", "external_api", "queue", "file", "unknown"}
 
 
 def _repo_root_map(repos: list[RepoRef]) -> dict[str, str]:
@@ -372,25 +372,6 @@ def _normalize_step_kind(value: Any) -> str:
     return "unknown"
 
 
-def _normalize_sink_kind(value: Any) -> str:
-    """Normalize sink kind labels into supported sink families."""
-    if isinstance(value, str) and value.strip():
-        raw = value.strip().lower().replace(" ", "_").replace("-", "_")
-    else:
-        raw = "unknown"
-    if raw in KNOWN_SINK_KINDS:
-        return raw
-    if "db" in raw or "database" in raw or "sql" in raw:
-        return "database"
-    if "queue" in raw or "kafka" in raw or "rabbit" in raw or "pubsub" in raw:
-        return "queue"
-    if "file" in raw or "storage" in raw or "s3" in raw:
-        return "file"
-    if "api" in raw or "http" in raw or "webhook" in raw or "external" in raw:
-        return "external_api"
-    return "unknown"
-
-
 def _coerce_items(payload: Any, key: str) -> list[Any]:
     """Extract list payload by key or treat top-level list as step list."""
     if isinstance(payload, dict):
@@ -465,17 +446,19 @@ def _normalize_sinks(raw_sinks: list[Any], fallback_repo: str) -> tuple[list[Sin
         evidence = _normalize_evidence(item.get("evidence"), fallback_file=file_value)
 
         sinks.append(
-            SinkCandidate(
-                kind=_normalize_sink_kind(item.get("kind")),
-                name=name,
-                repo=repo_value,
-                service=service,
-                file=file_value,
-                symbol=symbol,
-                action=action,
-                evidence=evidence,
-                confidence=_normalize_confidence(item.get("confidence")),
-                status=_normalize_status(item.get("status")),
+            normalize_sink_candidate(
+                SinkCandidate(
+                    kind=item.get("kind") if isinstance(item.get("kind"), str) and item.get("kind").strip() else "unknown",
+                    name=name,
+                    repo=repo_value,
+                    service=service,
+                    file=file_value,
+                    symbol=symbol,
+                    action=action,
+                    evidence=evidence,
+                    confidence=_normalize_confidence(item.get("confidence")),
+                    status=_normalize_status(item.get("status")),
+                )
             )
         )
     return sinks, notes

@@ -8,6 +8,14 @@ TEST_KIND_INTEGRATION = "integration"
 STATUS_INFERRED = "inferred"
 STATUS_CONFIRMED = "confirmed"
 STATUS_UNKNOWN = "unknown"
+SINK_KIND_DATABASE = "database"
+SINK_KIND_EXTERNAL_API = "external_api"
+SINK_KIND_QUEUE = "queue"
+SINK_KIND_FILE_SINK = "file_sink"
+SINK_ACTION_READ = "read"
+SINK_ACTION_WRITE = "write"
+SINK_ACTION_PUBLISH = "publish"
+SINK_ACTION_CONSUME = "consume"
 
 
 class EvidenceRef(BaseModel):
@@ -169,7 +177,7 @@ class TraceStep(BaseModel):
 
 
 class SinkCandidate(BaseModel):
-    """Side-effect target candidate such as DB, API, queue, or file output."""
+    """Side-effect target candidate using V1 sink taxonomy when mappable."""
 
     kind: str
     name: str
