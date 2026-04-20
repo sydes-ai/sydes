@@ -71,6 +71,8 @@ def test_routes_command_handles_one_endpoint(tmp_path: Path, monkeypatch) -> Non
     assert "POST /checkout" in result.stdout
     assert "handler=checkout_handler" in result.stdout
     assert "file=src/routes.py" in result.stdout
+    assert "      handler=checkout_handler" in result.stdout
+    assert "      file=src/routes.py" in result.stdout
     assert "confidence=0.80" in result.stdout
     assert "status=inferred" in result.stdout
 

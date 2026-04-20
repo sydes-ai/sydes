@@ -68,12 +68,13 @@ def test_run_llm_endpoint_discovery_normalizes_and_dedupes() -> None:
 
     result = run_llm_endpoint_discovery(candidates, llm_client=client)
 
-    assert len(result.endpoints) == 2
+    assert len(result.endpoints) == 1
     first = next(item for item in result.endpoints if item.path == "/checkout")
     assert first.method == "POST"
     assert first.confidence == 0.7
     assert len(first.evidence) >= 2
     assert "model-note" in result.notes
+    assert any("Dropped endpoint" in note for note in result.notes)
 
 
 def test_run_llm_endpoint_discovery_accepts_markdown_fenced_json() -> None:
@@ -169,6 +170,39 @@ def test_run_llm_endpoint_discovery_normalizes_fields_and_filters_weak_candidate
     assert endpoint.file == "src/routes.py"
     assert endpoint.repo == "api"
     assert any("Dropped endpoint" in note for note in result.notes)
+
+
+def test_run_llm_endpoint_discovery_drops_weak_root_candidate() -> None:
+    """Weak candidates like missing-method root routes should be filtered."""
+    client = _FakeEndpointClient(
+        payload=(
+            '{"endpoints":['
+            '{"path":"/","file":"src/routes.py","repo":"api","evidence":[{"file":"src/routes.py","label":"maybe"}]},'
+            '{"method":"GET","path":"/users","handler":"list_users","file":"src/routes.py","repo":"api"}'
+            ']}'
+        )
+    )
+    from sydes.core.models import CandidateFileRead, ReadFileSnippet
+
+    candidates = [
+        CandidateFileRead(
+            repo="api",
+            relative_path="src/routes.py",
+            snippet=ReadFileSnippet(
+                repo="api",
+                relative_path="src/routes.py",
+                text="router.get('/users', list_users)",
+                line_count=1,
+                char_count=32,
+            ),
+        )
+    ]
+
+    result = run_llm_endpoint_discovery(candidates, llm_client=client)
+
+    assert len(result.endpoints) == 1
+    assert result.endpoints[0].path == "/users"
+    assert any("root path with missing method" in note for note in result.notes)
 
 
 def test_run_llm_endpoint_discovery_keeps_strong_evidence_partial_candidate() -> None:

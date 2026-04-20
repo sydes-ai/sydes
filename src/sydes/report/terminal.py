@@ -107,19 +107,15 @@ def render_routes_terminal(result: RoutesResult) -> str:
             for route in grouped[(repo_name, service_name)]:
                 method = route.method or "?"
                 path = route.path or "?"
-                entry = f"    - {method} {path}".strip()
-                lines.append(entry)
-                details: list[str] = []
+                lines.append(f"    - {method} {path}")
                 if route.handler:
-                    details.append(f"handler={route.handler}")
+                    lines.append(f"      handler={route.handler}")
                 if route.file:
-                    details.append(f"file={route.file}")
+                    lines.append(f"      file={route.file}")
                 if route.confidence is not None:
-                    details.append(f"confidence={route.confidence:.2f}")
+                    lines.append(f"      confidence={route.confidence:.2f}")
                 if route.status:
-                    details.append(f"status={route.status}")
-                if details:
-                    lines.append(f"      ({', '.join(details)})")
+                    lines.append(f"      status={route.status}")
     else:
         lines.append("No routes discovered yet")
 

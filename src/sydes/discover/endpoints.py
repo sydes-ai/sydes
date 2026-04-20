@@ -140,6 +140,12 @@ def _normalize_handler(handler: str | None) -> str | None:
     if handler is None:
         return None
     normalized = handler.strip()
+    while normalized and normalized[-1] in ",;:()[]{}":
+        normalized = normalized[:-1].strip()
+    while normalized and normalized[0] in ",;:()[]{}":
+        normalized = normalized[1:].strip()
+    if normalized.lower() in {"none", "null", "unknown", "n/a"}:
+        return None
     return normalized or None
 
 
@@ -178,6 +184,18 @@ def _apply_quality_filters(
             continue
         if not endpoint.repo:
             notes.append(f"Dropped endpoint #{idx}: missing repo grounding.")
+            continue
+        if endpoint.path == "/" and endpoint.method is None and not _has_strong_evidence(endpoint):
+            notes.append(
+                f"Dropped endpoint #{idx} ({endpoint.repo}:{endpoint.file}): "
+                "root path with missing method and weak evidence."
+            )
+            continue
+        if endpoint.method is None and endpoint.handler is None and not _has_strong_evidence(endpoint):
+            notes.append(
+                f"Dropped endpoint #{idx} ({endpoint.repo}:{endpoint.file}): "
+                "missing both method and handler with weak evidence."
+            )
             continue
         if endpoint.path is None and endpoint.handler is None and not _has_strong_evidence(endpoint):
             notes.append(
