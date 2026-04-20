@@ -135,6 +135,45 @@ class FlowStep(BaseModel):
     kind: str
 
 
+class TraceStep(BaseModel):
+    """Ordered step in the inferred execution path from an entry endpoint."""
+
+    kind: str
+    name: str
+    repo: str | None = None
+    service: str | None = None
+    file: str | None = None
+    symbol: str | None = None
+    evidence: list[EvidenceRef] = Field(default_factory=list)
+    confidence: float | None = None
+    status: str | None = None
+
+
+class SinkCandidate(BaseModel):
+    """Side-effect target candidate such as DB, API, queue, or file output."""
+
+    kind: str
+    name: str
+    repo: str | None = None
+    service: str | None = None
+    file: str | None = None
+    symbol: str | None = None
+    action: str | None = None
+    evidence: list[EvidenceRef] = Field(default_factory=list)
+    confidence: float | None = None
+    status: str | None = None
+
+
+class FlowExpansionResult(BaseModel):
+    """Selective likely flow expansion output, not a full call graph."""
+
+    entry_endpoint_id: str | None = None
+    steps: list[TraceStep] = Field(default_factory=list)
+    sinks: list[SinkCandidate] = Field(default_factory=list)
+    notes: list[str] = Field(default_factory=list)
+    confidence: float | None = None
+
+
 class Flow(BaseModel):
     """Named sequence of graph steps describing one candidate request flow."""
 
