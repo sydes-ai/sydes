@@ -10,6 +10,7 @@ import typer
 
 from sydes.core.models import (
     EndpointCandidate,
+    FlowExpansionResult,
     GraphNode,
     TargetSpec,
     TraceResult,
@@ -22,6 +23,7 @@ from sydes.ingest.repos import parse_repo_specs
 from sydes.report.json_report import render_json
 from sydes.report.terminal import render_terminal
 from sydes.store.workspace import compute_workspace_id, create_run_id, save_run_artifact
+from sydes.trace.expand import run_flow_expansion
 
 
 def _node_from_match_endpoint(endpoint: EndpointCandidate) -> GraphNode:
@@ -44,7 +46,9 @@ def _node_from_match_endpoint(endpoint: EndpointCandidate) -> GraphNode:
     )
 
 
-def _build_trace_result(path: str, method: str | None, repo_specs: list[str]) -> TraceResult:
+def _build_trace_result(
+    path: str, method: str | None, repo_specs: list[str]
+) -> tuple[TraceResult, FlowExpansionResult | None]:
     """Run endpoint discovery and target resolution to ground a trace target."""
     try:
         repos = parse_repo_specs(repo_specs)
@@ -64,10 +68,17 @@ def _build_trace_result(path: str, method: str | None, repo_specs: list[str]) ->
     notes: list[str] = []
     notes.extend(routes.notes)
     notes.extend(match.notes)
+    flow_expansion: FlowExpansionResult | None = None
 
     if match.selected is not None:
         endpoint_node = _node_from_match_endpoint(match.selected)
         nodes.append(endpoint_node)
+        flow_expansion = run_flow_expansion(match.selected, routes.repos)
+        notes.extend(flow_expansion.notes)
+        notes.append(
+            f"Flow expansion extracted {len(flow_expansion.steps)} step(s) and "
+            f"{len(flow_expansion.sinks)} sink candidate(s)."
+        )
         if match.alternatives:
             notes.append(
                 f"{len(match.alternatives)} alternative endpoint candidate(s) available for target."
@@ -117,7 +128,7 @@ def _build_trace_result(path: str, method: str | None, repo_specs: list[str]) ->
     )
     if nodes:
         result.summary.key_flow_id = nodes[0].id
-    return result
+    return result, flow_expansion
 
 
 def _write_output(path: Path, content: str) -> None:
@@ -141,7 +152,7 @@ def trace_command(
     """Run target-grounded trace preparation without downstream flow expansion yet."""
     _ = emit_tests, max_hops, max_files
     try:
-        result = _build_trace_result(
+        result, flow_expansion = _build_trace_result(
             path=path,
             method=method,
             repo_specs=repo or [],
@@ -158,13 +169,29 @@ def trace_command(
     try:
         workspace_id = compute_workspace_id(result.repos)
         run_id = create_run_id()
-        artifact_path = save_run_artifact(
+        trace_artifact_path = save_run_artifact(
             workspace_id=workspace_id,
             run_id=run_id,
             artifact_name="trace_result",
             payload=artifact_payload,
         )
-        result.notes.append(f"Saved trace artifact: {artifact_path}")
+        result.notes.append(f"Saved trace artifact: {trace_artifact_path}")
+
+        if flow_expansion is not None:
+            expansion_artifact_payload = {
+                "timestamp": datetime.now(tz=UTC).isoformat(),
+                "repo_inputs": [item.model_dump() for item in result.repos],
+                "target": result.target.model_dump(),
+                "entry_node_id": result.summary.key_flow_id,
+                "expansion": flow_expansion.model_dump(),
+            }
+            expansion_artifact_path = save_run_artifact(
+                workspace_id=workspace_id,
+                run_id=run_id,
+                artifact_name="flow_expansion",
+                payload=expansion_artifact_payload,
+            )
+            result.notes.append(f"Saved flow expansion artifact: {expansion_artifact_path}")
     except OSError as exc:
         result.notes.append(f"Could not save trace artifact: {exc}")
 

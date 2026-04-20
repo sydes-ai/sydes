@@ -1,0 +1,143 @@
+"""Tests for LLM-guided downstream flow expansion behavior."""
+
+from dataclasses import dataclass
+from pathlib import Path
+
+from typer.testing import CliRunner
+
+import sydes.cli.trace as trace_module
+from sydes.cli.main import app
+from sydes.core.models import (
+    EndpointCandidate,
+    EvidenceRef,
+    FlowExpansionResult,
+    RepoRef,
+    RoutesResult,
+)
+from sydes.llm.client import LLMClientError, LLMRequest, LLMResponse
+from sydes.trace.expand import run_flow_expansion
+
+runner = CliRunner()
+
+
+@dataclass
+class _FakeFlowClient:
+    """Simple fake client for flow expansion prompt tests."""
+
+    payload: str
+
+    def generate(self, request: LLMRequest) -> LLMResponse:
+        assert "Task: expand one likely downstream API flow" in request.prompt
+        return LLMResponse(text=self.payload)
+
+
+def test_run_flow_expansion_normalizes_steps_and_sinks(tmp_path: Path) -> None:
+    """Flow expansion should parse fenced JSON and normalize soft fields."""
+    repo_root = tmp_path / "api"
+    (repo_root / "src").mkdir(parents=True)
+    (repo_root / "src" / "routes.py").write_text(
+        "router.post('/checkout', create_checkout)\n",
+        encoding="utf-8",
+    )
+    (repo_root / "src" / "checkout_service.py").write_text(
+        "def create_checkout():\n    db.save()\n",
+        encoding="utf-8",
+    )
+    endpoint = EndpointCandidate(
+        method="POST",
+        path="/checkout",
+        handler="create_checkout",
+        file="src/routes.py",
+        repo="api",
+        evidence=[EvidenceRef(file="src/routes.py", symbol="create_checkout", label="route")],
+    )
+    repos = [RepoRef(name="api", root=str(repo_root))]
+    client = _FakeFlowClient(
+        payload=(
+            "```json\n"
+            '{"steps":[{"kind":" handler ","name":" create_checkout ","file":"src/routes.py","repo":"api","confidence":0.82},'
+            '{"kind":"external http","name":"payments_call","symbol":"call_payments","file":"src/checkout_service.py"}],'
+            '"sinks":[{"kind":"sql-db","name":"orders","action":"write","file":"src/checkout_service.py"}],'
+            '"notes":["partial flow"]}\n'
+            "```"
+        )
+    )
+
+    result = run_flow_expansion(endpoint, repos, llm_client=client)
+
+    assert len(result.steps) == 2
+    assert result.steps[0].kind == "handler"
+    assert result.steps[0].status == "inferred"
+    assert result.steps[1].kind == "external_api_call"
+    assert len(result.sinks) == 1
+    assert result.sinks[0].kind == "database"
+    assert result.sinks[0].status == "inferred"
+    assert result.confidence is not None
+
+
+def test_run_flow_expansion_graceful_fallback_on_client_failure(tmp_path: Path) -> None:
+    """Flow expansion should return valid empty result with notes on client error."""
+    repo_root = tmp_path / "api"
+    (repo_root / "src").mkdir(parents=True)
+    (repo_root / "src" / "routes.py").write_text("router.get('/status', status)\n", encoding="utf-8")
+    endpoint = EndpointCandidate(method="GET", path="/status", file="src/routes.py", repo="api")
+    repos = [RepoRef(name="api", root=str(repo_root))]
+
+    class _ErrorClient:
+        def generate(self, request: LLMRequest) -> LLMResponse:
+            raise LLMClientError("mock unavailable")
+
+    result = run_flow_expansion(endpoint, repos, llm_client=_ErrorClient())
+
+    assert result.steps == []
+    assert result.sinks == []
+    assert any("Flow expansion unavailable" in note for note in result.notes)
+
+
+def test_trace_command_saves_flow_expansion_artifact(tmp_path: Path, monkeypatch) -> None:
+    """Trace command should save flow expansion artifact alongside trace artifact."""
+    repo_root = tmp_path / "api"
+    repo_root.mkdir()
+    saved_names: list[str] = []
+
+    def _fake_discovery(repos: list[RepoRef]) -> RoutesResult:
+        return RoutesResult(
+            repos=repos,
+            routes=[
+                EndpointCandidate(
+                    method="POST",
+                    path="/checkout",
+                    handler="checkout_primary",
+                    file="src/routes.py",
+                    repo="api",
+                    service="orders",
+                    confidence=0.9,
+                )
+            ],
+        )
+
+    def _fake_save_run_artifact(**kwargs):
+        saved_names.append(kwargs["artifact_name"])
+        return Path(f"/tmp/{kwargs['artifact_name']}.json")
+
+    monkeypatch.setattr(trace_module, "discover_endpoints", _fake_discovery)
+    monkeypatch.setattr(
+        trace_module,
+        "run_flow_expansion",
+        lambda matched_endpoint, repos: FlowExpansionResult(
+            entry_endpoint_id="endpoint:api",
+            notes=["mock expansion"],
+        ),
+    )
+    monkeypatch.setattr(trace_module, "compute_workspace_id", lambda repos: "ws-test")
+    monkeypatch.setattr(trace_module, "create_run_id", lambda: "run-test")
+    monkeypatch.setattr(trace_module, "save_run_artifact", _fake_save_run_artifact)
+
+    result = runner.invoke(
+        app,
+        ["trace", "/checkout", "--method", "POST", "--repo", f"api={repo_root}"],
+    )
+
+    assert result.exit_code == 0
+    assert "trace_result" in saved_names
+    assert "flow_expansion" in saved_names

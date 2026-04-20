@@ -62,7 +62,7 @@ def render_terminal(result: TraceResult) -> str:
     unmatched = [item for item in result.unknowns if item.kind == "unmatched_target"]
     if unmatched:
         lines.append("No endpoint match found for the requested target.")
-    lines.append("Downstream flow tracing is planned for the next phase.")
+    lines.append("Downstream flow expansion is heuristic and may be partial.")
 
     if result.notes:
         lines.append("Notes:")

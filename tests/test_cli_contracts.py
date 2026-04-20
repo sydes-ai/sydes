@@ -38,7 +38,7 @@ def test_trace_terminal_output_contains_target_and_repos(tmp_path: Path) -> None
     assert "Target: POST /checkout" in result.stdout
     assert "gateway:" in result.stdout
     assert "api:" in result.stdout
-    assert "Downstream flow tracing is planned for the next phase." in result.stdout
+    assert "Downstream flow expansion is heuristic and may be partial." in result.stdout
 
 
 def test_trace_json_output_contains_expected_fields(tmp_path: Path) -> None:
