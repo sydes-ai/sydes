@@ -97,6 +97,16 @@ def render_terminal(result: TraceResult) -> str:
             if details:
                 lines.append(f"    ({', '.join(details)})")
 
+    if result.tests:
+        lines.append("Suggested Tests:")
+        for suggestion in result.tests:
+            lines.append(f"  - {suggestion.name}")
+            if suggestion.summary:
+                lines.append(f"    {suggestion.summary}")
+            rendered_expectations = suggestion.expectations[:3]
+            for expectation in rendered_expectations:
+                lines.append(f"    expects: {expectation.description}")
+
     ambiguous = [item for item in result.unknowns if item.kind == "ambiguous_target_candidate"]
     if ambiguous:
         lines.append("Alternatives:")
@@ -116,8 +126,6 @@ def render_terminal(result: TraceResult) -> str:
 
     if result.summary.confidence is not None:
         lines.append(f"Confidence: {result.summary.confidence:.2f}")
-    if result.tests:
-        lines.append(f"Test suggestions: {len(result.tests)} generated")
 
     unmatched = [item for item in result.unknowns if item.kind == "unmatched_target"]
     if unmatched:
