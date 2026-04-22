@@ -222,6 +222,37 @@ class GeneratedTest(BaseModel):
     reason: str | None = None
 
 
+class TestInputHint(BaseModel):
+    """Soft hint for likely integration-test input values."""
+
+    kind: str
+    name: str | None = None
+    value_hint: str | None = None
+    required: bool | None = None
+
+
+class TestExpectation(BaseModel):
+    """Expected observable behavior for a suggested integration test."""
+
+    kind: str
+    description: str
+    target: str | None = None
+
+
+class IntegrationTestSuggestion(BaseModel):
+    """Structured integration-test suggestion, not a runnable test artifact."""
+
+    name: str
+    route: str
+    method: str | None = None
+    summary: str | None = None
+    inputs: list[TestInputHint] = Field(default_factory=list)
+    expectations: list[TestExpectation] = Field(default_factory=list)
+    derived_from_flow_id: str | None = None
+    confidence: float | None = None
+    notes: list[str] = Field(default_factory=list)
+
+
 class Unknown(BaseModel):
     """Unresolved or ambiguous element captured during tracing."""
 
