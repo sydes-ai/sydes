@@ -1,6 +1,6 @@
 """Tests for deterministic integration test suggestion scaffolding."""
 
-from sydes.core.models import Flow, GraphNode, TraceResult, TraceSummary, TargetSpec
+from sydes.core.models import Flow, FlowStep, GraphNode, TraceResult, TraceSummary, TargetSpec
 from sydes.generate.tests import generate_test_suggestions
 
 
@@ -17,17 +17,17 @@ def test_generate_test_suggestions_builds_basic_route_suggestion() -> None:
     first = suggestions[0]
     assert first.route == "/users"
     assert first.method == "POST"
+    assert first.name == "post_users_returns_success"
     assert any(item.kind == "request_path" for item in first.inputs)
-    assert any(exp.description == "request succeeds with expected HTTP response" for exp in first.expectations)
+    assert any(exp.description == "request succeeds with expected response" for exp in first.expectations)
 
 
-def test_generate_test_suggestions_adds_sink_driven_expectations() -> None:
-    """Generator should add deterministic expectations derived from sink kinds/actions."""
+def test_generate_test_suggestions_adds_sink_semantic_expectations_for_post_and_get() -> None:
+    """Generator should derive specific POST/GET expectations from sink semantics."""
     trace = TraceResult(
         target=TargetSpec(path="/checkout", method="POST"),
         nodes=[
             GraphNode(id="n1", type="database", name="database", metadata={"action": "write"}),
-            GraphNode(id="n2", type="database", name="database", metadata={"action": "read"}),
             GraphNode(id="n3", type="external_api", name="payments", metadata={"action": "read"}),
             GraphNode(id="n4", type="queue", name="events", metadata={"action": "publish"}),
         ],
@@ -38,8 +38,51 @@ def test_generate_test_suggestions_adds_sink_driven_expectations() -> None:
     suggestions = generate_test_suggestions(trace)
 
     assert 1 <= len(suggestions) <= 3
+    assert suggestions[0].name == "post_checkout_creates_record"
     first_expectations = {item.description for item in suggestions[0].expectations}
-    assert "database write occurs" in first_expectations
-    assert "response reflects retrieved data" in first_expectations
-    assert "outbound dependency call occurs" in first_expectations
-    assert "event/message is published" in first_expectations
+    assert "created data is persisted" in first_expectations
+    assert "outbound dependency interaction occurs" in first_expectations
+    assert "event/message emission occurs" in first_expectations
+
+    get_trace = TraceResult(
+        target=TargetSpec(path="/orders", method="GET"),
+        nodes=[GraphNode(id="n1", type="database", name="database", metadata={"action": "read"})],
+        summary=TraceSummary(confidence=0.5),
+    )
+    get_suggestions = generate_test_suggestions(get_trace)
+    assert get_suggestions[0].name == "get_orders_returns_retrieved_data"
+    assert any(
+        item.description == "response includes retrieved entity or list"
+        for item in get_suggestions[0].expectations
+    )
+
+
+def test_generate_test_suggestions_adds_payload_expectation_for_return_flow_step() -> None:
+    """Return-like flow steps should drive response payload expectations."""
+    trace = TraceResult(
+        target=TargetSpec(path="/users", method="POST"),
+        nodes=[
+            GraphNode(id="endpoint", type="api_endpoint", name="/users"),
+            GraphNode(id="n1", type="internal_step", name="create User object"),
+            GraphNode(id="n2", type="internal_step", name="return user"),
+        ],
+        flows=[
+            Flow(
+                id="flow:users",
+                name="users",
+                entry_node="endpoint",
+                steps=[
+                    FlowStep(node_id="endpoint", kind="endpoint"),
+                    FlowStep(node_id="n1", kind="step"),
+                    FlowStep(node_id="n2", kind="step"),
+                ],
+            )
+        ],
+        summary=TraceSummary(key_flow_id="flow:users", confidence=0.8),
+    )
+
+    suggestions = generate_test_suggestions(trace)
+
+    assert any(item.name == "post_users_returns_response_payload" for item in suggestions)
+    first_expectations = {item.description for item in suggestions[0].expectations}
+    assert "response payload reflects returned domain data" in first_expectations

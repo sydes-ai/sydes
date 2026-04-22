@@ -166,8 +166,8 @@ def test_trace_command_renders_flow_steps_sinks_and_graph_artifact(
     assert "Sinks:" in result.stdout
     assert "database: write orders_db" in result.stdout
     assert "Suggested Tests:" in result.stdout
-    assert "exercise POST /checkout" in result.stdout
-    assert "expects: request succeeds with expected HTTP response" in result.stdout
+    assert "post_checkout_creates_record" in result.stdout
+    assert "expects: request succeeds with expected response" in result.stdout
     assert result.stdout.index("Sinks:") < result.stdout.index("Suggested Tests:")
     assert "trace_result" in saved_names
     assert "flow_expansion" in saved_names
