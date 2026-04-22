@@ -8,13 +8,51 @@ not attempt queue/event linking unless evidence is explicitly available elsewher
 from __future__ import annotations
 
 from collections import defaultdict
+from urllib.parse import urlparse
+import re
 from typing import TypeAlias
 
-from sydes.core.models import CrossRepoCallCandidate, EndpointCandidate
+from sydes.core.models import (
+    CandidateFileRead,
+    CrossRepoCallCandidate,
+    EndpointCandidate,
+    EvidenceRef,
+    ExpansionContextFile,
+    FlowExpansionContext,
+    STATUS_INFERRED,
+)
 
 MethodPathKey: TypeAlias = tuple[str, str]
 ServicePathKey: TypeAlias = tuple[str, str]
 ServiceMethodPathKey: TypeAlias = tuple[str, str, str]
+CandidateKey: TypeAlias = tuple[str, str, str, str, str]
+
+HTTP_CLIENT_CALL_RE = re.compile(
+    r"(?P<client>[A-Za-z_][A-Za-z0-9_\.]*)\.(?P<method>get|post|put|patch|delete)\s*\((?P<args>[^)\n]{0,320})\)",
+    re.IGNORECASE,
+)
+QUOTED_LITERAL_RE = re.compile(r"""["'](?P<value>[^"'\n]{1,240})["']""")
+ROUTE_LITERAL_RE = re.compile(r"""["'](?P<path>/[A-Za-z0-9._~!$&'()*+,;=:@%/\-]{1,200})["']""")
+CLIENT_HINT_RE = re.compile(r"\b(client|service|requests|httpx|axios|fetch)\b", re.IGNORECASE)
+SYMBOL_PATTERNS = (
+    re.compile(r"^\s*(?:async\s+)?def\s+(?P<name>[A-Za-z_][A-Za-z0-9_]*)\s*\("),
+    re.compile(r"^\s*function\s+(?P<name>[A-Za-z_][A-Za-z0-9_]*)\s*\("),
+    re.compile(
+        r"^\s*(?:const|let|var)\s+(?P<name>[A-Za-z_][A-Za-z0-9_]*)\s*=\s*(?:async\s*)?\(?.*\)?\s*=>"
+    ),
+)
+GENERIC_SERVICE_TOKENS = {
+    "api",
+    "apis",
+    "internal",
+    "service",
+    "services",
+    "svc",
+    "client",
+    "gateway",
+    "localhost",
+    "127",
+}
 
 
 def _normalize_method(value: str | None) -> str | None:
@@ -51,6 +89,209 @@ def _endpoint_lookup_id(endpoint: EndpointCandidate) -> str:
     method = _normalize_method(endpoint.method) or "ANY"
     path = _normalize_path(endpoint.path) or "?"
     return f"{endpoint.repo}:{endpoint.file}:{method}:{path}"
+
+
+def _confidence_from_parts(method: str | None, path: str | None, service_hint: str | None) -> float:
+    """Compute a small deterministic confidence score for call candidates."""
+    score = 0.35
+    if method:
+        score += 0.2
+    if path:
+        score += 0.3
+    if service_hint:
+        score += 0.1
+    if score > 0.9:
+        score = 0.9
+    return score
+
+
+def _extract_path_and_service_hint(value: str | None) -> tuple[str | None, str | None]:
+    """Extract path and service hint from URL/path-like literal values."""
+    if value is None:
+        return None, None
+    literal = value.strip()
+    if not literal:
+        return None, None
+    if literal.startswith("/"):
+        return _normalize_path(literal), None
+    if literal.startswith("http://") or literal.startswith("https://"):
+        parsed = urlparse(literal)
+        path = _normalize_path(parsed.path)
+        host = parsed.hostname or ""
+        service_hint = None
+        if host:
+            pieces = [piece for piece in host.split(".") if piece]
+            for piece in pieces:
+                token = piece.lower()
+                if token in GENERIC_SERVICE_TOKENS:
+                    continue
+                if token.isdigit():
+                    continue
+                service_hint = token
+                break
+        return path, service_hint
+    return None, None
+
+
+def _service_hint_from_client_expr(client_expr: str | None) -> str | None:
+    """Infer a possible service hint from client variable/callee names."""
+    if not client_expr:
+        return None
+    token = client_expr.split(".")[-1].lower()
+    token = re.sub(r"_(client|service|api)$", "", token)
+    token = re.sub(r"(client|service|api)$", "", token)
+    token = token.strip("_- ")
+    if not token:
+        return None
+    if token in {"requests", "httpx", "axios", "fetch", "client"}:
+        return None
+    return token
+
+
+def _infer_enclosing_symbol(text: str, char_index: int) -> str | None:
+    """Infer a nearby function symbol name without AST parsing."""
+    prefix = text[:char_index]
+    lines = prefix.splitlines()
+    for line in reversed(lines):
+        for pattern in SYMBOL_PATTERNS:
+            match = pattern.match(line)
+            if match:
+                return match.group("name")
+    return None
+
+
+def _iter_readable_context_files(context: FlowExpansionContext) -> list[tuple[ExpansionContextFile, CandidateFileRead]]:
+    """Return context files that contain readable snippets."""
+    result: list[tuple[ExpansionContextFile, CandidateFileRead]] = []
+    for item in context.files:
+        read = item.read
+        if read is None or read.skipped or read.snippet is None:
+            continue
+        result.append((item, read))
+    return result
+
+
+def _dedupe_cross_repo_candidates(
+    candidates: list[CrossRepoCallCandidate],
+) -> list[CrossRepoCallCandidate]:
+    """Deduplicate candidates deterministically while preserving useful evidence."""
+    deduped: dict[CandidateKey, CrossRepoCallCandidate] = {}
+    for item in candidates:
+        key: CandidateKey = (
+            item.source_repo,
+            item.source_file or "",
+            _normalize_method(item.target_method) or "",
+            _normalize_path(item.target_path) or "",
+            _normalize_service(item.target_service_hint) or "",
+        )
+        existing = deduped.get(key)
+        if existing is None:
+            deduped[key] = item
+            continue
+        if existing.raw_call_text is None and item.raw_call_text:
+            existing.raw_call_text = item.raw_call_text
+        labels = {(e.file, e.symbol, e.label) for e in existing.evidence}
+        for evidence in item.evidence:
+            label_key = (evidence.file, evidence.symbol, evidence.label)
+            if label_key in labels:
+                continue
+            existing.evidence.append(evidence)
+            labels.add(label_key)
+        if (existing.confidence or 0.0) < (item.confidence or 0.0):
+            existing.confidence = item.confidence
+    return list(deduped.values())
+
+
+def detect_cross_repo_call_candidates(
+    context: FlowExpansionContext,
+    *,
+    source_symbol_hint: str | None = None,
+) -> list[CrossRepoCallCandidate]:
+    """Detect likely internal API call candidates from bounded flow expansion context."""
+    candidates: list[CrossRepoCallCandidate] = []
+    for context_file, read in _iter_readable_context_files(context):
+        snippet = read.snippet
+        assert snippet is not None  # narrowed by _iter_readable_context_files
+        text = snippet.text
+        source_repo = snippet.repo or context.anchor_repo
+        source_file = snippet.relative_path
+        http_call_line_indexes: set[int] = set()
+
+        for match in HTTP_CLIENT_CALL_RE.finditer(text):
+            line_index = text.count("\n", 0, match.start())
+            http_call_line_indexes.add(line_index)
+            method = _normalize_method(match.group("method"))
+            client_expr = match.group("client")
+            args = match.group("args") or ""
+            literal = None
+            for literal_match in QUOTED_LITERAL_RE.finditer(args):
+                literal = literal_match.group("value")
+                path, url_service = _extract_path_and_service_hint(literal)
+                if path is not None:
+                    break
+            else:
+                path = None
+                url_service = None
+
+            service_hint = url_service or _service_hint_from_client_expr(client_expr)
+            symbol = source_symbol_hint or _infer_enclosing_symbol(text, match.start())
+            raw_call_text = match.group(0).strip()
+            candidates.append(
+                CrossRepoCallCandidate(
+                    source_repo=source_repo,
+                    source_file=source_file,
+                    source_symbol=symbol,
+                    target_path=path,
+                    target_method=method,
+                    target_service_hint=service_hint,
+                    raw_call_text=raw_call_text,
+                    evidence=[
+                        EvidenceRef(
+                            file=source_file,
+                            symbol=symbol,
+                            label="http_client_call",
+                        )
+                    ],
+                    confidence=_confidence_from_parts(method, path, service_hint),
+                    status=STATUS_INFERRED,
+                )
+            )
+
+        for line_index, line in enumerate(text.splitlines()):
+            if line_index in http_call_line_indexes:
+                continue
+            if not CLIENT_HINT_RE.search(line):
+                continue
+            path_match = ROUTE_LITERAL_RE.search(line)
+            if path_match is None:
+                continue
+            path = _normalize_path(path_match.group("path"))
+            if path is None:
+                continue
+            symbol = source_symbol_hint or _infer_enclosing_symbol(text, text.find(line))
+            client_hint = _service_hint_from_client_expr(line.split(".", 1)[0])
+            candidates.append(
+                CrossRepoCallCandidate(
+                    source_repo=source_repo,
+                    source_file=source_file,
+                    source_symbol=symbol,
+                    target_path=path,
+                    target_method=None,
+                    target_service_hint=client_hint,
+                    raw_call_text=line.strip(),
+                    evidence=[
+                        EvidenceRef(
+                            file=source_file,
+                            symbol=symbol,
+                            label="route_literal_in_client_context",
+                        )
+                    ],
+                    confidence=_confidence_from_parts(None, path, client_hint),
+                    status=STATUS_INFERRED,
+                )
+            )
+
+    return _dedupe_cross_repo_candidates(candidates)
 
 
 def index_discovered_endpoints(
