@@ -113,6 +113,8 @@ def test_build_flow_expansion_prompt_encodes_rules_and_compact_json_contract() -
     assert "Task: infer one short happy-path flow" in prompt
     assert "Use only provided files" in prompt
     assert "short high-confidence flow" in prompt
+    assert "Do not introduce clients/services unless explicitly referenced" in prompt
+    assert "omit the step rather than inventing a generic abstraction" in prompt
     assert "Output JSON only" in prompt
     assert '"steps":' in prompt
     assert '"sinks":' in prompt

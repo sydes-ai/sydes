@@ -167,8 +167,11 @@ def test_trace_command_renders_flow_steps_sinks_and_graph_artifact(
     assert "database: write orders_db" in result.stdout
     assert "Suggested Tests:" in result.stdout
     assert "post_checkout_creates_record" in result.stdout
+    assert "verifies POST /checkout persists a new checkout record" in result.stdout
     assert "expects: request succeeds with expected response" in result.stdout
     assert result.stdout.index("Sinks:") < result.stdout.index("Suggested Tests:")
+    flow_section = result.stdout.split("Flow:", 1)[1].split("Sinks:", 1)[0]
+    assert "sink:" not in flow_section
     assert "trace_result" in saved_names
     assert "flow_expansion" in saved_names
     assert "trace_graph" in saved_names
@@ -274,3 +277,52 @@ def test_trace_command_graceful_when_flow_expansion_fails_after_match(
     assert "Matched endpoint:" in result.stdout
     assert "GET /status" in result.stdout
     assert "Flow expansion unavailable: mock timeout." in result.stdout
+
+
+def test_trace_confidence_is_capped_for_partial_inferred_flow(tmp_path: Path, monkeypatch) -> None:
+    """Partially inferred flows should not surface 1.00 summary confidence."""
+    repo_root = tmp_path / "api"
+    repo_root.mkdir()
+
+    def _fake_discovery(repos: list[RepoRef]) -> RoutesResult:
+        return RoutesResult(
+            repos=repos,
+            routes=[
+                EndpointCandidate(
+                    method="POST",
+                    path="/users",
+                    handler="create_user",
+                    file="src/routes.py",
+                    repo="api",
+                    confidence=0.95,
+                )
+            ],
+        )
+
+    monkeypatch.setattr(trace_module, "discover_endpoints", _fake_discovery)
+    monkeypatch.setattr(
+        trace_module,
+        "run_flow_expansion",
+        lambda matched_endpoint, repos: FlowExpansionResult(
+            steps=[TraceStep(kind="internal_step", name="create User object", status="inferred")],
+            sinks=[SinkCandidate(kind="database", name="database", action="write", repo="api")],
+            notes=["Dropped suspicious abstract step #2: call payment client."],
+            confidence=1.0,
+        ),
+    )
+    monkeypatch.setattr(trace_module, "compute_workspace_id", lambda repos: "ws-test")
+    monkeypatch.setattr(trace_module, "create_run_id", lambda: "run-test")
+    monkeypatch.setattr(
+        trace_module,
+        "save_run_artifact",
+        lambda **kwargs: Path(f"/tmp/{kwargs['artifact_name']}.json"),
+    )
+
+    result = runner.invoke(
+        app,
+        ["trace", "/users", "--method", "POST", "--repo", f"api={repo_root}", "--format", "json"],
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["summary"]["confidence"] <= 0.85

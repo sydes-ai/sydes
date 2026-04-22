@@ -27,6 +27,23 @@ def _route_token(path: str) -> str:
     return "_".join(cleaned)
 
 
+def _entity_label_from_route(path: str) -> str:
+    """Infer a lightweight singular-ish entity label from route path."""
+    normalized = path.strip().strip("/")
+    if not normalized:
+        return "record"
+    parts = [part for part in normalized.split("/") if part and not part.startswith("{") and not part.startswith(":")]
+    if not parts:
+        return "record"
+    entity = parts[-1].replace("-", "_")
+    if entity.endswith("ies") and len(entity) > 3:
+        entity = f"{entity[:-3]}y"
+    elif entity.endswith("s") and not entity.endswith("ss") and len(entity) > 3:
+        entity = entity[:-1]
+    entity = entity.replace("_", " ").strip()
+    return entity or "record"
+
+
 def _flow_step_names(trace_result: TraceResult) -> list[str]:
     """Return display names for nodes participating in the selected flow."""
     if not trace_result.flows:
@@ -72,6 +89,7 @@ def generate_test_suggestions(trace_result: TraceResult) -> list[IntegrationTest
     flow_id = trace_result.summary.key_flow_id
     route_token = _route_token(route)
     method_token = method.lower()
+    entity_label = _entity_label_from_route(route)
 
     sink_nodes = [node for node in trace_result.nodes if node.type in {"database", "external_api", "queue", "file_sink"}]
     sink_types = {node.type for node in sink_nodes}
@@ -93,22 +111,27 @@ def generate_test_suggestions(trace_result: TraceResult) -> list[IntegrationTest
 
     if method == "POST" and has_db_write:
         primary_name = f"{method_token}_{route_token}_creates_record"
+        primary_summary = f"verifies {method} {route} persists a new {entity_label} record"
         core_expectations.append(
-            TestExpectation(kind="side_effect", description="created data is persisted", target="database")
+            TestExpectation(kind="side_effect", description=f"persists a new {entity_label} record", target="database")
         )
     elif method == "GET" and has_db_read:
         primary_name = f"{method_token}_{route_token}_returns_retrieved_data"
+        primary_summary = f"verifies {method} {route} returns retrieved {entity_label} data"
         core_expectations.append(
             TestExpectation(kind="behavior", description="response includes retrieved entity or list", target="database")
         )
     elif has_db_write:
         primary_name = f"{method_token}_{route_token}_writes_to_database"
+        primary_summary = "validate primary route behavior from inferred flow and sink evidence"
         core_expectations.append(TestExpectation(kind="side_effect", description="database write occurs", target="database"))
     elif has_db_read:
         primary_name = f"{method_token}_{route_token}_reads_from_database"
+        primary_summary = "validate primary route behavior from inferred flow and sink evidence"
         core_expectations.append(TestExpectation(kind="behavior", description="response reflects retrieved data", target="database"))
     else:
         primary_name = f"{method_token}_{route_token}_returns_success"
+        primary_summary = "validate primary route behavior from inferred flow and sink evidence"
 
     if has_return_step:
         core_expectations.append(
@@ -127,7 +150,7 @@ def generate_test_suggestions(trace_result: TraceResult) -> list[IntegrationTest
         name=primary_name,
         route=route,
         method=method,
-        summary="validate primary route behavior from inferred flow and sink evidence",
+        summary=primary_summary,
         inputs=[
             TestInputHint(kind="request_path", value_hint=route, required=True),
             TestInputHint(kind="http_method", value_hint=method, required=True),
@@ -140,14 +163,22 @@ def generate_test_suggestions(trace_result: TraceResult) -> list[IntegrationTest
 
     suggestions: list[IntegrationTestSuggestion] = [basic]
     if has_return_step:
+        if method == "POST":
+            payload_name = f"{method_token}_{route_token}_returns_created_entity"
+            payload_summary = f"verifies the response returns created {entity_label} data"
+            payload_expectation = "response returns created entity data"
+        else:
+            payload_name = f"{method_token}_{route_token}_returns_response_payload"
+            payload_summary = "validate response body shape from return-like flow steps"
+            payload_expectation = "response payload includes expected created or fetched data"
         suggestions.append(
             IntegrationTestSuggestion(
-                name=f"{method_token}_{route_token}_returns_response_payload",
+                name=payload_name,
                 route=route,
                 method=method,
-                summary="validate response body shape from return-like flow steps",
+                summary=payload_summary,
                 expectations=[
-                    TestExpectation(kind="behavior", description="response payload includes expected created or fetched data")
+                    TestExpectation(kind="behavior", description=payload_expectation)
                 ],
                 derived_from_flow_id=flow_id,
                 confidence=trace_result.summary.confidence,

@@ -39,8 +39,9 @@ def test_generate_test_suggestions_adds_sink_semantic_expectations_for_post_and_
 
     assert 1 <= len(suggestions) <= 3
     assert suggestions[0].name == "post_checkout_creates_record"
+    assert suggestions[0].summary == "verifies POST /checkout persists a new checkout record"
     first_expectations = {item.description for item in suggestions[0].expectations}
-    assert "created data is persisted" in first_expectations
+    assert "persists a new checkout record" in first_expectations
     assert "outbound dependency interaction occurs" in first_expectations
     assert "event/message emission occurs" in first_expectations
 
@@ -83,9 +84,11 @@ def test_generate_test_suggestions_adds_payload_expectation_for_return_flow_step
 
     suggestions = generate_test_suggestions(trace)
 
-    assert any(item.name == "post_users_returns_response_payload" for item in suggestions)
+    payload_suggestion = next(item for item in suggestions if item.name == "post_users_returns_created_entity")
+    assert payload_suggestion.summary == "verifies the response returns created user data"
     first_expectations = {item.description for item in suggestions[0].expectations}
     assert "response payload reflects returned domain data" in first_expectations
+    assert payload_suggestion.expectations[0].description == "response returns created entity data"
 
 
 def test_generate_test_suggestions_names_are_stable_and_non_empty() -> None:

@@ -31,8 +31,8 @@ class _FakeFlowClient:
         return LLMResponse(text=self.payload)
 
 
-def test_run_flow_expansion_normalizes_steps_and_sinks(tmp_path: Path) -> None:
-    """Flow expansion should parse fenced JSON and normalize soft fields."""
+def test_run_flow_expansion_drops_unsupported_abstract_steps_and_normalizes_sinks(tmp_path: Path) -> None:
+    """Flow expansion should reject ungrounded abstract steps while normalizing sinks."""
     repo_root = tmp_path / "api"
     (repo_root / "src").mkdir(parents=True)
     (repo_root / "src" / "routes.py").write_text(
@@ -66,15 +66,13 @@ def test_run_flow_expansion_normalizes_steps_and_sinks(tmp_path: Path) -> None:
 
     result = run_flow_expansion(endpoint, repos, llm_client=client)
 
-    assert len(result.steps) == 2
+    assert len(result.steps) == 1
     assert result.steps[0].kind == "handler"
     assert result.steps[0].status == "inferred"
-    assert result.steps[1].kind == "external_api_call"
-    assert result.steps[1].name == "call payment_client"
-    assert result.steps[1].symbol is None
     assert len(result.sinks) == 1
     assert result.sinks[0].kind == "database"
     assert result.sinks[0].status == "inferred"
+    assert any("Dropped suspicious abstract step" in note for note in result.notes)
     assert any("missing meaningful content" in note for note in result.notes)
     assert result.confidence is not None
 

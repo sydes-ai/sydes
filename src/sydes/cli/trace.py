@@ -15,6 +15,7 @@ from sydes.core.models import (
     TraceSummary,
     Unknown,
 )
+from sydes.core.confidence import cap_trace_summary_confidence
 from sydes.core.graph import build_graph_from_inferred_flow
 from sydes.discover.endpoints import discover_endpoints
 from sydes.discover.target_match import resolve_trace_target
@@ -108,6 +109,15 @@ def _build_trace_result(
         summary_confidence = routes.confidence_summary.average
     else:
         summary_confidence = 0.0
+    summary_confidence, confidence_capped, cap_reasons = cap_trace_summary_confidence(
+        summary_confidence,
+        flow_expansion,
+    )
+    if confidence_capped:
+        notes.append(
+            f"Confidence capped at {summary_confidence:.2f} due to partial inference "
+            f"({'; '.join(cap_reasons)})."
+        )
 
     result = TraceResult(
         target=target,

@@ -49,6 +49,15 @@ RELATED_FILE_KEYWORDS = {
     "queries",
 }
 KNOWN_STEP_KINDS = {"endpoint", "handler", "service_call", "db_read", "db_write", "external_api_call", "queue_publish", "queue_consume", "file_write", "validation", "auth", "transform", "unknown"}
+SUSPICIOUS_ABSTRACT_STEPS = {
+    "call payment client",
+    "call service",
+    "call external api",
+    "invoke client",
+    "process request",
+    "handle request",
+}
+GENERIC_ABSTRACT_TOKENS = {"call", "invoke", "process", "handle", "request", "service", "client", "external", "api"}
 
 
 def _repo_root_map(repos: list[RepoRef]) -> dict[str, str]:
@@ -420,6 +429,67 @@ def _normalize_step_name(value: Any) -> str | None:
     return normalized or None
 
 
+def _normalize_literal_text(value: str) -> str:
+    """Normalize free-form text into token-friendly lowercase content."""
+    lowered = value.lower().replace("_", " ")
+    lowered = re.sub(r"[^a-z0-9\s]", " ", lowered)
+    return " ".join(lowered.split())
+
+
+def _looks_like_concrete_code_operation(step_name: str) -> bool:
+    """Return true for concrete operation-like steps that should be retained."""
+    normalized = _normalize_literal_text(step_name)
+    if not normalized:
+        return False
+    raw = step_name.strip().lower()
+    if "." in raw:
+        return True
+    if "(" in raw and ")" in raw:
+        return True
+    concrete_prefixes = (
+        "create ",
+        "return ",
+        "query ",
+        "insert ",
+        "update ",
+        "delete ",
+        "commit ",
+        "refresh ",
+        "validate ",
+    )
+    return normalized.startswith(concrete_prefixes)
+
+
+def _is_suspicious_abstract_step(step_name: str) -> bool:
+    """Return true for narrow, known generic abstraction phrases."""
+    return _normalize_literal_text(step_name) in SUSPICIOUS_ABSTRACT_STEPS
+
+
+def _is_supported_literal_step(
+    step_name: str,
+    *,
+    context_raw_lower: str,
+    context_literal_blob: str,
+) -> bool:
+    """Return true when a step phrase is supported by literal context text."""
+    if not context_raw_lower and not context_literal_blob:
+        return False
+    normalized = _normalize_literal_text(step_name)
+    if not normalized:
+        return False
+    if normalized in context_literal_blob:
+        return True
+    underscored = normalized.replace(" ", "_")
+    if underscored and underscored in context_raw_lower:
+        return True
+    content_tokens = [
+        token for token in normalized.split() if len(token) >= 4 and token not in GENERIC_ABSTRACT_TOKENS
+    ]
+    if not content_tokens:
+        return False
+    return all(token in context_literal_blob for token in content_tokens)
+
+
 def _derive_step_name(raw: dict[str, Any], symbol: str | None) -> str | None:
     """Derive a useful step name from available soft fields."""
     candidate_fields = ("name", "operation", "description", "label", "action")
@@ -440,7 +510,13 @@ def _coerce_items(payload: Any, key: str) -> list[Any]:
     return []
 
 
-def _normalize_steps(raw_steps: list[Any], fallback_repo: str) -> tuple[list[TraceStep], list[str]]:
+def _normalize_steps(
+    raw_steps: list[Any],
+    fallback_repo: str,
+    *,
+    context_raw_lower: str = "",
+    context_literal_blob: str = "",
+) -> tuple[list[TraceStep], list[str]]:
     """Normalize loose model step items into soft TraceStep objects."""
     steps: list[TraceStep] = []
     notes: list[str] = []
@@ -452,6 +528,17 @@ def _normalize_steps(raw_steps: list[Any], fallback_repo: str) -> tuple[list[Tra
         name = _derive_step_name(item, symbol)
         if name is None:
             notes.append(f"Ignored flow step #{idx}: missing meaningful content.")
+            continue
+        if (
+            _is_suspicious_abstract_step(name)
+            and not _looks_like_concrete_code_operation(name)
+            and not _is_supported_literal_step(
+                name,
+                context_raw_lower=context_raw_lower,
+                context_literal_blob=context_literal_blob,
+            )
+        ):
+            notes.append(f"Dropped suspicious abstract step #{idx}: {name}.")
             continue
 
         file_value = _normalize_file_path(item.get("file"))
@@ -518,13 +605,24 @@ def _normalize_sinks(raw_sinks: list[Any], fallback_repo: str) -> tuple[list[Sin
     return sinks, notes
 
 
-def _parse_flow_expansion_payload(payload: Any, fallback_repo: str) -> tuple[FlowExpansionResult, list[str]]:
+def _parse_flow_expansion_payload(
+    payload: Any,
+    fallback_repo: str,
+    *,
+    context_raw_lower: str = "",
+    context_literal_blob: str = "",
+) -> tuple[FlowExpansionResult, list[str]]:
     """Parse and normalize model payload into FlowExpansionResult."""
     notes: list[str] = []
     raw_steps = _coerce_items(payload, "steps")
     raw_sinks = _coerce_items(payload, "sinks")
 
-    steps, step_notes = _normalize_steps(raw_steps, fallback_repo)
+    steps, step_notes = _normalize_steps(
+        raw_steps,
+        fallback_repo,
+        context_raw_lower=context_raw_lower,
+        context_literal_blob=context_literal_blob,
+    )
     explicit_sinks, sink_notes = _normalize_sinks(raw_sinks, fallback_repo)
     derived_sinks = derive_sink_candidates_from_steps(steps)
     sinks = merge_and_dedupe_sinks(explicit_sinks, derived_sinks)
@@ -586,6 +684,16 @@ def run_flow_expansion(
     files_selected = len(context.files)
     files_examined = sum(1 for item in context.files if item.read is not None and not item.read.skipped)
     notes.append(f"Flow expansion context files selected: {files_selected} (examined={files_examined}).")
+    context_raw_lower_parts: list[str] = []
+    context_literal_parts: list[str] = []
+    for file_item in context.files:
+        if file_item.read is None or file_item.read.skipped or file_item.read.snippet is None:
+            continue
+        snippet_text = file_item.read.snippet.text
+        context_raw_lower_parts.append(snippet_text.lower())
+        context_literal_parts.append(_normalize_literal_text(snippet_text))
+    context_raw_lower = "\n".join(context_raw_lower_parts)
+    context_literal_blob = " ".join(context_literal_parts)
 
     timeout_seconds: float | None = None
     if llm_client is None:
@@ -624,7 +732,12 @@ def run_flow_expansion(
             notes=notes,
         )
 
-    normalized, normalize_notes = _parse_flow_expansion_payload(payload, matched_endpoint.repo)
+    normalized, normalize_notes = _parse_flow_expansion_payload(
+        payload,
+        matched_endpoint.repo,
+        context_raw_lower=context_raw_lower,
+        context_literal_blob=context_literal_blob,
+    )
     merged_notes = notes + [note for note in normalize_notes if note not in notes]
     return FlowExpansionResult(
         entry_endpoint_id=f"{matched_endpoint.repo}:{matched_endpoint.file}:{matched_endpoint.path or '?'}",

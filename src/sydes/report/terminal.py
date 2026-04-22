@@ -51,24 +51,26 @@ def render_terminal(result: TraceResult) -> str:
     if result.flows:
         lines.append("Flow:")
         node_by_id = {node.id: node for node in result.nodes}
+        sink_types = {"database", "external_api", "queue", "file_sink", "sink"}
         flow = None
         if result.summary.key_flow_id is not None:
             flow = next((item for item in result.flows if item.id == result.summary.key_flow_id), None)
         if flow is None:
             flow = result.flows[0]
 
-        for index, step in enumerate(flow.steps, start=1):
+        display_index = 0
+        for step in flow.steps:
             node = node_by_id.get(step.node_id)
             if node is None:
-                lines.append(f"  {index}. step: {step.node_id}")
+                display_index += 1
+                lines.append(f"  {display_index}. step: {step.node_id}")
                 continue
-            label = "step"
-            if step.kind == "endpoint":
-                label = "endpoint"
-            elif step.kind.startswith("sink:"):
-                label = "sink"
+            if step.kind.startswith("sink:") or node.type in sink_types:
+                continue
+            label = "endpoint" if step.kind == "endpoint" else "step"
             display_name = _normalize_step_label_for_terminal(node.name) if label == "step" else node.name
-            lines.append(f"  {index}. {label}: {display_name}")
+            display_index += 1
+            lines.append(f"  {display_index}. {label}: {display_name}")
             details: list[str] = []
             if node.file:
                 details.append(f"file={node.file}")
