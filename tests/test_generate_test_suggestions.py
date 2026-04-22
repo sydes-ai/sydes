@@ -86,3 +86,22 @@ def test_generate_test_suggestions_adds_payload_expectation_for_return_flow_step
     assert any(item.name == "post_users_returns_response_payload" for item in suggestions)
     first_expectations = {item.description for item in suggestions[0].expectations}
     assert "response payload reflects returned domain data" in first_expectations
+
+
+def test_generate_test_suggestions_names_are_stable_and_non_empty() -> None:
+    """Suggestion names should be deterministic and always non-empty."""
+    trace = TraceResult(
+        target=TargetSpec(path="/users", method="POST"),
+        nodes=[GraphNode(id="n1", type="database", name="database", metadata={"action": "write"})],
+        summary=TraceSummary(confidence=0.7),
+    )
+
+    first = generate_test_suggestions(trace)
+    second = generate_test_suggestions(trace)
+
+    first_names = [item.name for item in first]
+    second_names = [item.name for item in second]
+
+    assert first_names == second_names
+    assert first_names
+    assert all(name.strip() for name in first_names)
