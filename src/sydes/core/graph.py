@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 from sydes.core.models import (
+    CrossRepoCallCandidate,
     EndpointCandidate,
+    EvidenceRef,
     Flow,
     FlowExpansionResult,
     FlowStep,
@@ -32,6 +34,7 @@ EDGE_TYPE_ACCESSES_DB = "ACCESSES_DB"
 EDGE_TYPE_INTERACTS_QUEUE = "INTERACTS_QUEUE"
 EDGE_TYPE_INTERACTS_FILE = "INTERACTS_FILE"
 EDGE_TYPE_INTERACTS_SINK = "INTERACTS_SINK"
+EDGE_TYPE_CALLS_API = "CALLS_API"
 
 
 def _sanitize_id(value: str) -> str:
@@ -107,6 +110,93 @@ def _edge_type_for_sink(sink: SinkCandidate) -> str:
             return EDGE_TYPE_WRITES_FILE
         return EDGE_TYPE_INTERACTS_FILE
     return EDGE_TYPE_INTERACTS_SINK
+
+
+def _find_source_node_id_for_cross_repo_call(
+    nodes: list[GraphNode],
+    call: CrossRepoCallCandidate,
+) -> str | None:
+    """Find best source graph node for a cross-repo API call."""
+    if call.source_repo:
+        if call.source_file and call.source_symbol:
+            for node in nodes:
+                if node.type == "internal_step" and node.repo == call.source_repo and node.file == call.source_file and node.symbol == call.source_symbol:
+                    return node.id
+        if call.source_file:
+            for node in nodes:
+                if node.type == "internal_step" and node.repo == call.source_repo and node.file == call.source_file:
+                    return node.id
+        for node in nodes:
+            if node.type == "api_endpoint" and node.repo == call.source_repo and (not call.source_file or node.file == call.source_file):
+                return node.id
+        for node in nodes:
+            if node.type == "api_endpoint" and node.repo == call.source_repo:
+                return node.id
+    for node in nodes:
+        if node.type == "api_endpoint":
+            return node.id
+    return None
+
+
+def add_cross_repo_api_link(
+    *,
+    nodes: list[GraphNode],
+    edges: list[GraphEdge],
+    call: CrossRepoCallCandidate,
+    target_endpoint: EndpointCandidate,
+    link_type: str | None = None,
+    confidence: float | None = None,
+    evidence: list[EvidenceRef] | None = None,
+) -> str | None:
+    """Add a shallow cross-repo API endpoint node+edge into an existing trace graph."""
+    source_node_id = _find_source_node_id_for_cross_repo_call(nodes, call)
+    if source_node_id is None:
+        return None
+
+    target_node_id = _endpoint_node_id(target_endpoint)
+    existing_target = next((node for node in nodes if node.id == target_node_id), None)
+    if existing_target is None:
+        target_node = GraphNode(
+            id=target_node_id,
+            type="api_endpoint",
+            name=target_endpoint.path or target_endpoint.file,
+            service=target_endpoint.service,
+            repo=target_endpoint.repo,
+            file=target_endpoint.file,
+            symbol=target_endpoint.handler,
+            method=target_endpoint.method,
+            path=target_endpoint.path,
+            metadata={"cross_repo_linked": True, "link_type": link_type},
+            evidence=target_endpoint.evidence,
+            confidence=target_endpoint.confidence,
+            status=target_endpoint.status,
+        )
+        nodes.append(target_node)
+
+    edge_id = f"edge:cross_repo:{_sanitize_id(source_node_id)}:{_sanitize_id(target_node_id)}"
+    if any(edge.id == edge_id for edge in edges):
+        return None
+
+    edges.append(
+        GraphEdge(
+            id=edge_id,
+            source=source_node_id,
+            target=target_node_id,
+            type=EDGE_TYPE_CALLS_API,
+            direction="outbound",
+            service=target_endpoint.service,
+            repo=call.source_repo,
+            evidence=evidence or list(call.evidence),
+            confidence=confidence,
+            status="inferred",
+        )
+    )
+
+    source_repo = call.source_repo
+    target_repo = target_endpoint.repo
+    target_method = target_endpoint.method or "?"
+    target_path = target_endpoint.path or "?"
+    return f"{source_repo} -> {target_repo}::{target_method} {target_path}"
 
 
 def build_graph_from_inferred_flow(

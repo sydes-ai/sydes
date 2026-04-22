@@ -99,6 +99,26 @@ def render_terminal(result: TraceResult) -> str:
             if details:
                 lines.append(f"    ({', '.join(details)})")
 
+    cross_repo_edges = [edge for edge in result.edges if edge.type == "CALLS_API"]
+    if cross_repo_edges:
+        lines.append("Cross-Repo Links:")
+        node_by_id = {node.id: node for node in result.nodes}
+        seen_links: set[tuple[str, str, str, str]] = set()
+        for edge in cross_repo_edges:
+            source = node_by_id.get(edge.source)
+            target = node_by_id.get(edge.target)
+            if source is None or target is None:
+                continue
+            source_repo = source.repo or "unknown"
+            target_repo = target.repo or "unknown"
+            target_method = target.method or "?"
+            target_path = target.path or target.name
+            dedupe_key = (source_repo, target_repo, target_method, target_path)
+            if dedupe_key in seen_links:
+                continue
+            seen_links.add(dedupe_key)
+            lines.append(f"  - {source_repo} -> {target_repo}::{target_method} {target_path}")
+
     if result.tests:
         lines.append("Suggested Tests:")
         for suggestion in result.tests:

@@ -1,7 +1,8 @@
 """Tests for building coarse graph artifacts from inferred flow expansion."""
 
-from sydes.core.graph import build_graph_from_inferred_flow
+from sydes.core.graph import add_cross_repo_api_link, build_graph_from_inferred_flow
 from sydes.core.models import (
+    CrossRepoCallCandidate,
     EndpointCandidate,
     EvidenceRef,
     FlowExpansionResult,
@@ -126,3 +127,57 @@ def test_build_graph_from_inferred_flow_with_no_expansion_keeps_endpoint_only() 
     assert edges == []
     assert len(flows) == 1
     assert len(flows[0].steps) == 1
+
+
+def test_add_cross_repo_api_link_adds_target_endpoint_node_and_calls_api_edge() -> None:
+    """Cross-repo link helper should append linked endpoint node and CALLS_API edge."""
+    source_endpoint = EndpointCandidate(
+        method="POST",
+        path="/checkout",
+        handler="create_checkout",
+        file="src/routes.py",
+        repo="api",
+    )
+    expansion = FlowExpansionResult(
+        steps=[
+            TraceStep(
+                kind="handler",
+                name="create_checkout",
+                repo="api",
+                file="src/routes.py",
+                symbol="create_checkout",
+            )
+        ]
+    )
+    nodes, edges, flows = build_graph_from_inferred_flow(source_endpoint, expansion)
+    target_endpoint = EndpointCandidate(
+        method="POST",
+        path="/charge",
+        handler="charge",
+        file="src/routes.py",
+        repo="payments",
+        service="payments",
+    )
+    call = CrossRepoCallCandidate(
+        source_repo="api",
+        source_file="src/routes.py",
+        source_symbol="create_checkout",
+        target_path="/charge",
+        target_method="POST",
+        evidence=[EvidenceRef(file="src/routes.py", symbol="create_checkout", label="http_client_call")],
+        confidence=0.82,
+    )
+
+    label = add_cross_repo_api_link(
+        nodes=nodes,
+        edges=edges,
+        call=call,
+        target_endpoint=target_endpoint,
+        link_type="exact_method_path",
+        confidence=0.82,
+        evidence=call.evidence,
+    )
+
+    assert label == "api -> payments::POST /charge"
+    assert any(node.repo == "payments" and node.path == "/charge" and node.type == "api_endpoint" for node in nodes)
+    assert any(edge.type == "CALLS_API" for edge in edges)

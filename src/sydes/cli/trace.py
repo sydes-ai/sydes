@@ -16,7 +16,7 @@ from sydes.core.models import (
     Unknown,
 )
 from sydes.core.confidence import cap_trace_summary_confidence
-from sydes.core.graph import build_graph_from_inferred_flow
+from sydes.core.graph import add_cross_repo_api_link, build_graph_from_inferred_flow
 from sydes.discover.endpoints import discover_endpoints
 from sydes.discover.target_match import resolve_trace_target
 from sydes.ingest.repos import parse_repo_specs
@@ -24,7 +24,13 @@ from sydes.report.json_report import render_json
 from sydes.report.terminal import render_terminal
 from sydes.store.workspace import compute_workspace_id, create_run_id, save_run_artifact
 from sydes.generate.tests import generate_test_suggestions
-from sydes.trace.expand import run_flow_expansion
+from sydes.trace.cross_repo import (
+    build_call_source_lookup_id,
+    detect_cross_repo_call_candidates,
+    index_discovered_endpoints,
+    link_cross_repo_call_candidates,
+)
+from sydes.trace.expand import prepare_flow_expansion_context, run_flow_expansion
 from sydes.trace.sinks import normalize_sink_candidates
 
 
@@ -69,6 +75,70 @@ def _build_trace_result(
             f"Flow expansion extracted {len(flow_expansion.steps)} step(s) and "
             f"{len(flow_expansion.sinks)} sink candidate(s)."
         )
+        cross_repo_context = prepare_flow_expansion_context(
+            matched_endpoint=match.selected,
+            repos=routes.repos,
+        )
+        cross_repo_calls = detect_cross_repo_call_candidates(
+            cross_repo_context,
+            source_symbol_hint=match.selected.handler,
+        )
+        if cross_repo_calls:
+            notes.append(
+                f"Detected {len(cross_repo_calls)} cross-repo API call candidate(s) from flow context."
+            )
+            call_candidates_by_id = {
+                build_call_source_lookup_id(item): item for item in cross_repo_calls
+            }
+            link_results = link_cross_repo_call_candidates(cross_repo_calls, routes.routes)
+            endpoint_index = index_discovered_endpoints(routes.routes)
+            endpoint_by_id = endpoint_index.get("by_endpoint_id", {})
+            linked_count = 0
+            ambiguous_count = 0
+            no_match_count = 0
+            low_confidence_count = 0
+            for link in link_results:
+                if link.matched_target_endpoint_id is None:
+                    no_match_count += 1
+                    continue
+                if any("ambiguous endpoint link" in note.lower() for note in link.notes):
+                    ambiguous_count += 1
+                    continue
+                if link.confidence is not None and link.confidence < 0.6:
+                    low_confidence_count += 1
+                    continue
+                endpoint_matches = endpoint_by_id.get(link.matched_target_endpoint_id, [])
+                if not endpoint_matches:
+                    continue
+                source_call = call_candidates_by_id.get(link.source_endpoint_id or "")
+                if source_call is None:
+                    continue
+                link_label = add_cross_repo_api_link(
+                    nodes=nodes,
+                    edges=edges,
+                    call=source_call,
+                    target_endpoint=endpoint_matches[0],
+                    link_type=link.link_type,
+                    confidence=link.confidence,
+                    evidence=link.evidence,
+                )
+                if link_label:
+                    linked_count += 1
+                    notes.append(f"Cross-repo link added: {link_label}.")
+            if linked_count == 0:
+                notes.append("No confident cross-repo endpoint links were added.")
+            if ambiguous_count:
+                notes.append(
+                    f"Skipped {ambiguous_count} ambiguous cross-repo link candidate(s)."
+                )
+            if low_confidence_count:
+                notes.append(
+                    f"Skipped {low_confidence_count} low-confidence cross-repo link candidate(s)."
+                )
+            if no_match_count:
+                notes.append(
+                    f"{no_match_count} cross-repo call candidate(s) had no endpoint match."
+                )
         if match.alternatives:
             notes.append(
                 f"{len(match.alternatives)} alternative endpoint candidate(s) available for target."

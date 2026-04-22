@@ -92,6 +92,11 @@ def _endpoint_lookup_id(endpoint: EndpointCandidate) -> str:
     return f"{endpoint.repo}:{endpoint.file}:{method}:{path}"
 
 
+def build_endpoint_lookup_id(endpoint: EndpointCandidate) -> str:
+    """Public wrapper for deterministic endpoint lookup id generation."""
+    return _endpoint_lookup_id(endpoint)
+
+
 def _confidence_from_parts(method: str | None, path: str | None, service_hint: str | None) -> float:
     """Compute a small deterministic confidence score for call candidates."""
     score = 0.35
@@ -383,6 +388,11 @@ def _source_lookup_id(call: CrossRepoCallCandidate) -> str:
         f"{call.source_file or '?'}:"
         f"{call.source_symbol or '?'}"
     )
+
+
+def build_call_source_lookup_id(call: CrossRepoCallCandidate) -> str:
+    """Public wrapper for deterministic cross-repo call source id generation."""
+    return _source_lookup_id(call)
 
 
 def _merge_link_evidence(

@@ -8,8 +8,11 @@ from typer.testing import CliRunner
 import sydes.cli.trace as trace_module
 from sydes.cli.main import app
 from sydes.core.models import (
+    CrossRepoCallCandidate,
+    CrossRepoLinkResult,
     EndpointCandidate,
     FlowExpansionResult,
+    FlowExpansionContext,
     RepoRef,
     RoutesResult,
     SinkCandidate,
@@ -227,6 +230,141 @@ def test_trace_terminal_lightly_normalizes_step_labels(tmp_path: Path, monkeypat
     assert "step: create user handler" in result.stdout
     assert "step: create User object" in result.stdout
     assert "step: db.commit" in result.stdout
+
+
+def test_trace_command_renders_cross_repo_links_when_confident_match_exists(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """Trace should add linked endpoint node/edge and render compact cross-repo link summary."""
+    api_root = tmp_path / "api"
+    payments_root = tmp_path / "payments"
+    api_root.mkdir()
+    payments_root.mkdir()
+
+    source_endpoint = EndpointCandidate(
+        method="POST",
+        path="/checkout",
+        handler="create_checkout",
+        file="src/routes.py",
+        repo="api",
+        service="orders",
+        confidence=0.9,
+    )
+    target_endpoint = EndpointCandidate(
+        method="POST",
+        path="/charge",
+        handler="charge",
+        file="src/routes.py",
+        repo="payments",
+        service="payments",
+        confidence=0.85,
+    )
+
+    def _fake_discovery(repos: list[RepoRef]) -> RoutesResult:
+        return RoutesResult(
+            repos=repos,
+            routes=[source_endpoint, target_endpoint],
+        )
+
+    call_candidate = CrossRepoCallCandidate(
+        source_repo="api",
+        source_file="src/routes.py",
+        source_symbol="create_checkout",
+        target_path="/charge",
+        target_method="POST",
+        raw_call_text="payments_client.post('/charge')",
+        confidence=0.82,
+    )
+
+    monkeypatch.setattr(trace_module, "discover_endpoints", _fake_discovery)
+    monkeypatch.setattr(
+        trace_module,
+        "run_flow_expansion",
+        lambda matched_endpoint, repos: FlowExpansionResult(
+            steps=[
+                TraceStep(
+                    kind="handler",
+                    name="create_checkout",
+                    repo="api",
+                    file="src/routes.py",
+                    symbol="create_checkout",
+                )
+            ],
+            confidence=0.8,
+        ),
+    )
+    monkeypatch.setattr(
+        trace_module,
+        "prepare_flow_expansion_context",
+        lambda matched_endpoint, repos: FlowExpansionContext(
+            anchor_repo="api",
+            anchor_file="src/routes.py",
+            files=[],
+            notes=[],
+        ),
+    )
+    monkeypatch.setattr(
+        trace_module,
+        "detect_cross_repo_call_candidates",
+        lambda context, source_symbol_hint=None: [call_candidate],
+    )
+    monkeypatch.setattr(
+        trace_module,
+        "link_cross_repo_call_candidates",
+        lambda calls, endpoints: [
+            CrossRepoLinkResult(
+                source_endpoint_id="api:src/routes.py:create_checkout",
+                matched_target_endpoint_id="payments:src/routes.py:POST:/charge",
+                link_type="exact_method_path",
+                confidence=0.82,
+                notes=[],
+            )
+        ],
+    )
+    monkeypatch.setattr(trace_module, "compute_workspace_id", lambda repos: "ws-test")
+    monkeypatch.setattr(trace_module, "create_run_id", lambda: "run-test")
+    monkeypatch.setattr(
+        trace_module,
+        "save_run_artifact",
+        lambda **kwargs: Path(f"/tmp/{kwargs['artifact_name']}.json"),
+    )
+
+    terminal_result = runner.invoke(
+        app,
+        [
+            "trace",
+            "/checkout",
+            "--method",
+            "POST",
+            "--repo",
+            f"api={api_root}",
+            "--repo",
+            f"payments={payments_root}",
+        ],
+    )
+    assert terminal_result.exit_code == 0
+    assert "Cross-Repo Links:" in terminal_result.stdout
+    assert "api -> payments::POST /charge" in terminal_result.stdout
+
+    json_result = runner.invoke(
+        app,
+        [
+            "trace",
+            "/checkout",
+            "--method",
+            "POST",
+            "--repo",
+            f"api={api_root}",
+            "--repo",
+            f"payments={payments_root}",
+            "--format",
+            "json",
+        ],
+    )
+    assert json_result.exit_code == 0
+    payload = json.loads(json_result.stdout)
+    assert any(edge["type"] == "CALLS_API" for edge in payload["edges"])
+    assert any(node["repo"] == "payments" and node.get("path") == "/charge" for node in payload["nodes"])
 
 
 def test_trace_command_graceful_when_flow_expansion_fails_after_match(
