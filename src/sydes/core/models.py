@@ -270,6 +270,32 @@ class EndpointCandidate(BaseModel):
     status: str | None = None
 
 
+class CrossRepoCallCandidate(BaseModel):
+    """Soft inferred cross-repo API call candidate from traced code context."""
+
+    source_repo: str
+    source_file: str | None = None
+    source_symbol: str | None = None
+    target_path: str | None = None
+    target_method: str | None = None
+    target_service_hint: str | None = None
+    raw_call_text: str | None = None
+    evidence: list[EvidenceRef] = Field(default_factory=list)
+    confidence: float | None = None
+    status: str | None = None
+
+
+class CrossRepoLinkResult(BaseModel):
+    """Soft cross-repo endpoint link result preserving uncertainty and notes."""
+
+    source_endpoint_id: str | None = None
+    matched_target_endpoint_id: str | None = None
+    link_type: str | None = None
+    evidence: list[EvidenceRef] = Field(default_factory=list)
+    confidence: float | None = None
+    notes: list[str] = Field(default_factory=list)
+
+
 class EndpointDiscoveryBatch(BaseModel):
     """LLM-facing discovery request payload over bounded candidate file reads."""
 
