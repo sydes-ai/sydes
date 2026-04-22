@@ -22,6 +22,7 @@ from sydes.ingest.repos import parse_repo_specs
 from sydes.report.json_report import render_json
 from sydes.report.terminal import render_terminal
 from sydes.store.workspace import compute_workspace_id, create_run_id, save_run_artifact
+from sydes.generate.tests import generate_test_suggestions
 from sydes.trace.expand import run_flow_expansion
 from sydes.trace.sinks import normalize_sink_candidates
 
@@ -122,6 +123,7 @@ def _build_trace_result(
         result.summary.key_flow_id = flows[0].id
     elif nodes:
         result.summary.key_flow_id = nodes[0].id
+    result.tests = generate_test_suggestions(result)
     return result, flow_expansion
 
 

@@ -91,6 +91,8 @@ def test_trace_command_renders_match_and_alternatives(tmp_path: Path, monkeypatc
     assert payload["nodes"][0]["type"] == "api_endpoint"
     assert payload["flows"]
     assert payload["flows"][0]["entry_node"] == payload["nodes"][0]["id"]
+    assert payload["tests"]
+    assert payload["tests"][0]["route"] == "/checkout"
     assert any(item["kind"] == "ambiguous_target_candidate" for item in payload["unknowns"])
 
 
@@ -163,6 +165,7 @@ def test_trace_command_renders_flow_steps_sinks_and_graph_artifact(
     assert "step: checkout primary" in result.stdout
     assert "Sinks:" in result.stdout
     assert "database: write orders_db" in result.stdout
+    assert "Test suggestions:" in result.stdout
     assert "trace_result" in saved_names
     assert "flow_expansion" in saved_names
     assert "trace_graph" in saved_names

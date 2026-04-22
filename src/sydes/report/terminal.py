@@ -116,6 +116,8 @@ def render_terminal(result: TraceResult) -> str:
 
     if result.summary.confidence is not None:
         lines.append(f"Confidence: {result.summary.confidence:.2f}")
+    if result.tests:
+        lines.append(f"Test suggestions: {len(result.tests)} generated")
 
     unmatched = [item for item in result.unknowns if item.kind == "unmatched_target"]
     if unmatched:

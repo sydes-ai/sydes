@@ -212,16 +212,6 @@ class Flow(BaseModel):
     confidence: float | None = None
 
 
-class GeneratedTest(BaseModel):
-    """Candidate generated test associated with a selected flow."""
-
-    name: str
-    flow_id: str
-    kind: str = TEST_KIND_INTEGRATION
-    covers: list[str] = Field(default_factory=list)
-    reason: str | None = None
-
-
 class TestInputHint(BaseModel):
     """Soft hint for likely integration-test input values."""
 
@@ -349,7 +339,7 @@ class TraceResult(BaseModel):
     nodes: list[GraphNode] = Field(default_factory=list)
     edges: list[GraphEdge] = Field(default_factory=list)
     flows: list[Flow] = Field(default_factory=list)
-    tests: list[GeneratedTest] = Field(default_factory=list)
+    tests: list[IntegrationTestSuggestion] = Field(default_factory=list)
     unknowns: list[Unknown] = Field(default_factory=list)
     notes: list[str] = Field(default_factory=list)
     summary: TraceSummary
