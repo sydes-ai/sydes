@@ -80,7 +80,10 @@ def test_detect_cross_repo_call_candidates_normalizes_webclient_uri_chain() -> N
         "src/books_client.py",
         (
             "def fetch_books():\n"
-            "    return client.get().uri(\"/db/books\").retrieve().bodyToFlux(Book.class)\n"
+            "    return client.get()\n"
+            "        .uri(\"/db/books\")\n"
+            "        .retrieve()\n"
+            "        .bodyToFlux(Book.class)\n"
         ),
         repo="service2",
     )
@@ -95,7 +98,7 @@ def test_detect_cross_repo_call_candidates_normalizes_webclient_uri_chain() -> N
     assert first.normalized_target_path == "/db/books"
     assert first.raw_call_text is not None and "uri(\"/db/books\")" in first.raw_call_text
     assert first.status == "extracted_from_chain"
-    assert first.evidence and first.evidence[0].label.startswith("chain_extraction:")
+    assert first.evidence and first.evidence[0].label.startswith("multiline_chain:")
 
 
 def test_detect_cross_repo_call_candidates_extracts_post_uri_chain() -> None:
@@ -104,7 +107,9 @@ def test_detect_cross_repo_call_candidates_extracts_post_uri_chain() -> None:
         "src/payments_client.py",
         (
             "def charge(payload):\n"
-            "    return client.post().uri('/charge').retrieve().bodyToMono(Payment.class)\n"
+            "    return webClient.post()\n"
+            "        .uri('/charge')\n"
+            "        .retrieve()\n"
         ),
         repo="service2",
     )
@@ -125,6 +130,7 @@ def test_detect_cross_repo_call_candidates_keeps_method_only_chain_as_partial() 
         (
             "def fetch_books():\n"
             "    return client.get()\n"
+            "        .retrieve()\n"
         ),
         repo="service2",
     )
@@ -136,7 +142,7 @@ def test_detect_cross_repo_call_candidates_keeps_method_only_chain_as_partial() 
     assert first.target_method == "GET"
     assert first.target_path is None
     assert first.status == "partial"
-    assert first.evidence and first.evidence[0].label.startswith("partial_extraction:")
+    assert first.evidence and first.evidence[0].label.startswith("multiline_chain_partial:")
 
 
 def test_detect_cross_repo_call_candidates_extracts_uri_with_inner_spacing() -> None:
@@ -159,6 +165,26 @@ def test_detect_cross_repo_call_candidates_extracts_uri_with_inner_spacing() -> 
     assert first.normalized_target_path == "/db/books"
 
 
+def test_detect_cross_repo_call_candidates_single_line_chain_still_works() -> None:
+    """Single-line client chain extraction should remain supported."""
+    context = _context_with_file(
+        "src/books_client.py",
+        (
+            "def fetch_books():\n"
+            "    return client.get().uri('/db/books').retrieve()\n"
+        ),
+        repo="service2",
+    )
+
+    candidates = detect_cross_repo_call_candidates(context)
+
+    assert candidates
+    first = candidates[0]
+    assert first.target_method == "GET"
+    assert first.target_path == "/db/books"
+    assert first.evidence and first.evidence[0].label.startswith("chain_extraction:")
+
+
 def test_detect_cross_repo_call_candidates_keeps_partial_path_only_candidates() -> None:
     """Client-context path literals should still produce partial call candidates."""
     context = _context_with_file(
@@ -176,6 +202,29 @@ def test_detect_cross_repo_call_candidates_keeps_partial_path_only_candidates() 
     partial = next(item for item in candidates if item.target_path == "/inventory/reserve")
     assert partial.target_method is None
     assert partial.evidence and partial.evidence[0].label.startswith("partial_extraction:")
+
+
+def test_detect_cross_repo_call_candidates_does_not_merge_unrelated_neighbor_lines() -> None:
+    """Unrelated adjacent lines should not be grouped into one chain candidate."""
+    context = _context_with_file(
+        "src/books_client.py",
+        (
+            "def fetch_books():\n"
+            "    return client.get()\n"
+            "    logger.info('not part of chain')\n"
+            "    .uri('/db/books')\n"
+        ),
+        repo="service2",
+    )
+
+    candidates = detect_cross_repo_call_candidates(context)
+
+    assert candidates
+    first = candidates[0]
+    assert first.target_method == "GET"
+    assert first.target_path is None
+    assert first.status == "partial"
+    assert first.raw_call_text is not None and "logger.info" not in first.raw_call_text
 
 
 def test_detect_cross_repo_call_candidates_dedupes_repeated_same_call_shape() -> None:

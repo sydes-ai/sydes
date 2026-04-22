@@ -8,6 +8,7 @@ not attempt queue/event linking unless evidence is explicitly available elsewher
 from __future__ import annotations
 
 from collections import defaultdict
+from dataclasses import dataclass
 from urllib.parse import urlparse
 import re
 from typing import TypeAlias
@@ -33,6 +34,11 @@ HTTP_METHOD_CHAIN_RE = re.compile(
     re.IGNORECASE,
 )
 URI_CALL_RE = re.compile(r"""\.uri\s*\(\s*["'](?P<value>[^"']{1,240})["']\s*\)""", re.IGNORECASE)
+CHAIN_START_RE = re.compile(r"\.\s*(?:get|post|put|delete|patch)\s*\(", re.IGNORECASE)
+CHAIN_CONTINUATION_RE = re.compile(
+    r"^\s*(?:\.\s*[A-Za-z_][A-Za-z0-9_]*\s*\(|\)|\}\)\s*;?)",
+    re.IGNORECASE,
+)
 QUOTED_LITERAL_RE = re.compile(r"""["'](?P<value>[^"'\n]{1,240})["']""")
 ROUTE_LITERAL_RE = re.compile(r"""["'](?P<path>/[A-Za-z0-9._~!$&'()*+,;=:@%/\-]{1,200})["']""")
 CLIENT_HINT_RE = re.compile(r"\b(client|service|requests|httpx|axios|fetch)\b", re.IGNORECASE)
@@ -62,6 +68,17 @@ HTTP_METHOD_ALIASES = {
     "delete": "DELETE",
     "patch": "PATCH",
 }
+MAX_CHAIN_CONTINUATION_LINES = 6
+
+
+@dataclass(frozen=True)
+class CandidateExpression:
+    """A bounded expression candidate used for cross-repo call extraction."""
+
+    text: str
+    line_start: int
+    line_end: int
+    extraction_type: str
 
 
 def normalize_http_method(value: str | None) -> str | None:
@@ -214,6 +231,72 @@ def _extract_any_path_from_line(line: str) -> tuple[str | None, str | None]:
     return None, None
 
 
+def _is_chain_start(line: str) -> bool:
+    """Return True when a line appears to begin an HTTP client call chain."""
+    return bool(CHAIN_START_RE.search(line))
+
+
+def _is_chain_continuation(line: str) -> bool:
+    """Return True when a line appears to continue a previously started chain."""
+    stripped = line.strip()
+    if not stripped:
+        return False
+    if stripped.startswith("."):
+        return True
+    return bool(CHAIN_CONTINUATION_RE.match(line))
+
+
+def iter_candidate_expressions(text: str) -> list[CandidateExpression]:
+    """Yield bounded candidate expressions, merging short multiline call chains."""
+    lines = text.splitlines()
+    expressions: list[CandidateExpression] = []
+    index = 0
+    while index < len(lines):
+        line = lines[index]
+        stripped = line.strip()
+        if not stripped:
+            index += 1
+            continue
+
+        if _is_chain_start(stripped):
+            combined_parts = [stripped]
+            line_start = index
+            line_end = index
+            lookahead = index + 1
+            appended = 0
+            while lookahead < len(lines) and appended < MAX_CHAIN_CONTINUATION_LINES:
+                continuation = lines[lookahead]
+                if not _is_chain_continuation(continuation):
+                    break
+                combined_parts.append(continuation.strip())
+                line_end = lookahead
+                lookahead += 1
+                appended += 1
+
+            expressions.append(
+                CandidateExpression(
+                    text=" ".join(part for part in combined_parts if part),
+                    line_start=line_start,
+                    line_end=line_end,
+                    extraction_type="multiline_chain" if line_end > line_start else "single_line",
+                )
+            )
+            index = line_end + 1
+            continue
+
+        expressions.append(
+            CandidateExpression(
+                text=stripped,
+                line_start=index,
+                line_end=index,
+                extraction_type="single_line",
+            )
+        )
+        index += 1
+
+    return expressions
+
+
 def _infer_enclosing_symbol(text: str, char_index: int) -> str | None:
     """Infer a nearby function symbol name without AST parsing."""
     prefix = text[:char_index]
@@ -295,24 +378,27 @@ def detect_cross_repo_call_candidates(
             line_offsets.append(cursor)
             cursor += len(line) + 1
 
-        for line_index, line in enumerate(text.splitlines()):
-            line_text = line.strip()
-            if not line_text:
+        for expression in iter_candidate_expressions(text):
+            expression_text = expression.text.strip()
+            if not expression_text:
                 continue
-            if not CLIENT_HINT_RE.search(line_text) and not HTTP_METHOD_CHAIN_RE.search(line_text):
+            if not CLIENT_HINT_RE.search(expression_text) and not HTTP_METHOD_CHAIN_RE.search(expression_text):
                 continue
 
-            char_index = line_offsets[line_index] if line_index < len(line_offsets) else 0
+            char_index = line_offsets[expression.line_start] if expression.line_start < len(line_offsets) else 0
             symbol = source_symbol_hint or _infer_enclosing_symbol(text, char_index)
-            method, client_expr = _extract_method_and_client_from_line(line_text)
-            uri_path = _extract_uri_path_from_line(line_text)
-            any_path, any_path_service = _extract_any_path_from_line(line_text)
+            method, client_expr = _extract_method_and_client_from_line(expression_text)
+            uri_path = _extract_uri_path_from_line(expression_text)
+            any_path, any_path_service = _extract_any_path_from_line(expression_text)
             service_hint = _service_hint_from_client_expr(client_expr) or any_path_service
 
             normalized_method = _normalize_method(method)
             normalized_path = uri_path or any_path
             if normalized_path is not None:
                 normalized_path = _normalize_path(normalized_path)
+            is_multiline_chain = expression.extraction_type == "multiline_chain"
+            strong_label_prefix = "multiline_chain" if is_multiline_chain else "chain_extraction"
+            partial_label_prefix = "multiline_chain_partial" if is_multiline_chain else "partial_extraction"
 
             # Strong chained-call extraction: method + explicit uri(...) path.
             if normalized_method is not None and uri_path is not None:
@@ -326,12 +412,12 @@ def detect_cross_repo_call_candidates(
                         normalized_target_path=normalized_path,
                         normalized_target_method=normalized_method,
                         target_service_hint=service_hint,
-                        raw_call_text=line_text,
+                        raw_call_text=expression_text,
                         evidence=[
                             EvidenceRef(
                                 file=source_file,
                                 symbol=symbol,
-                                label=f"chain_extraction:{normalized_method}:{normalized_path or '?'}",
+                                label=f"{strong_label_prefix}:{normalized_method}:{normalized_path or '?'}",
                             )
                         ],
                         confidence=max(0.8, _confidence_from_parts(normalized_method, normalized_path, service_hint)),
@@ -352,12 +438,12 @@ def detect_cross_repo_call_candidates(
                         normalized_target_path=normalized_path,
                         normalized_target_method=normalized_method,
                         target_service_hint=service_hint,
-                        raw_call_text=line_text,
+                        raw_call_text=expression_text,
                         evidence=[
                             EvidenceRef(
                                 file=source_file,
                                 symbol=symbol,
-                                label=f"chain_extraction:{normalized_method}:{normalized_path or '?'}",
+                                label=f"{strong_label_prefix}:{normalized_method}:{normalized_path or '?'}",
                             )
                         ],
                         confidence=_confidence_from_parts(normalized_method, normalized_path, service_hint),
@@ -378,12 +464,12 @@ def detect_cross_repo_call_candidates(
                         normalized_target_path=None,
                         normalized_target_method=normalized_method,
                         target_service_hint=service_hint,
-                        raw_call_text=line_text,
+                        raw_call_text=expression_text,
                         evidence=[
                             EvidenceRef(
                                 file=source_file,
                                 symbol=symbol,
-                                label=f"partial_extraction:{normalized_method}:?",
+                                label=f"{partial_label_prefix}:{normalized_method}:?",
                             )
                         ],
                         confidence=0.4,
@@ -404,12 +490,12 @@ def detect_cross_repo_call_candidates(
                         normalized_target_path=normalized_path,
                         normalized_target_method=None,
                         target_service_hint=service_hint,
-                        raw_call_text=line_text,
+                        raw_call_text=expression_text,
                         evidence=[
                             EvidenceRef(
                                 file=source_file,
                                 symbol=symbol,
-                                label=f"partial_extraction:?:{normalized_path}",
+                                label=f"{partial_label_prefix}:?:{normalized_path}",
                             )
                         ],
                         confidence=_confidence_from_parts(None, normalized_path, service_hint),
