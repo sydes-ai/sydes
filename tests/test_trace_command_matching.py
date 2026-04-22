@@ -464,3 +464,66 @@ def test_trace_confidence_is_capped_for_partial_inferred_flow(tmp_path: Path, mo
     assert result.exit_code == 0
     payload = json.loads(result.stdout)
     assert payload["summary"]["confidence"] <= 0.85
+
+
+def test_trace_single_repo_output_has_no_cross_repo_section_when_no_links(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """Single-repo traces should not render cross-repo link section unless links exist."""
+    repo_root = tmp_path / "api"
+    repo_root.mkdir()
+
+    def _fake_discovery(repos: list[RepoRef]) -> RoutesResult:
+        return RoutesResult(
+            repos=repos,
+            routes=[
+                EndpointCandidate(
+                    method="POST",
+                    path="/users",
+                    handler="create_user",
+                    file="src/routes.py",
+                    repo="api",
+                    confidence=0.9,
+                )
+            ],
+        )
+
+    monkeypatch.setattr(trace_module, "discover_endpoints", _fake_discovery)
+    monkeypatch.setattr(
+        trace_module,
+        "run_flow_expansion",
+        lambda matched_endpoint, repos: FlowExpansionResult(
+            steps=[TraceStep(kind="handler", name="create_user", repo="api", file="src/routes.py")],
+            sinks=[SinkCandidate(kind="database", name="database", action="write", repo="api", file="src/repo.py")],
+            confidence=0.8,
+        ),
+    )
+    monkeypatch.setattr(
+        trace_module,
+        "prepare_flow_expansion_context",
+        lambda matched_endpoint, repos: FlowExpansionContext(
+            anchor_repo="api",
+            anchor_file="src/routes.py",
+            files=[],
+            notes=[],
+        ),
+    )
+    monkeypatch.setattr(trace_module, "detect_cross_repo_call_candidates", lambda context, source_symbol_hint=None: [])
+    monkeypatch.setattr(trace_module, "link_cross_repo_call_candidates", lambda calls, endpoints: [])
+    monkeypatch.setattr(trace_module, "compute_workspace_id", lambda repos: "ws-test")
+    monkeypatch.setattr(trace_module, "create_run_id", lambda: "run-test")
+    monkeypatch.setattr(
+        trace_module,
+        "save_run_artifact",
+        lambda **kwargs: Path(f"/tmp/{kwargs['artifact_name']}.json"),
+    )
+
+    result = runner.invoke(
+        app,
+        ["trace", "/users", "--method", "POST", "--repo", f"api={repo_root}"],
+    )
+
+    assert result.exit_code == 0
+    assert "Flow:" in result.stdout
+    assert "Sinks:" in result.stdout
+    assert "Cross-Repo Links:" not in result.stdout

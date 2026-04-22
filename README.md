@@ -1,7 +1,7 @@
 # Sydes
 
 Sydes is an AI-assisted system understanding tool for tracing API flows from code.
-Phase 4 supports route -> flow -> sink tracing plus integration test suggestions from traced flows.
+Phase 5 supports route -> flow -> sink tracing, integration test suggestions, and shallow cross-repo API linking.
 
 ## Quick Ollama setup
 
@@ -17,6 +17,7 @@ Phase 4 supports route -> flow -> sink tracing plus integration test suggestions
 ```bash
 sydes routes --repo api=./api
 sydes trace "/users" --method POST --repo api=./api
+sydes trace "/checkout" --method POST --repo gateway=./gateway --repo api=./api --repo worker=./worker
 ```
 
 ## Current capability
@@ -25,6 +26,7 @@ sydes trace "/users" --method POST --repo api=./api
 - Match a requested target route to discovered endpoint candidates.
 - Infer one likely downstream flow from matched endpoint + nearby contextual files.
 - Detect major sink types (database, external API, queue, file sink).
+- Connect likely internal API calls across multiple repos when detectable.
 - Suggest integration tests from traced flow and sink evidence.
 - Export graph-backed trace results (`nodes`, `edges`, `flows`) via terminal or JSON.
 
@@ -59,13 +61,15 @@ Suggested Tests:
 
 - Bounded selective exploration rather than deep repo-wide parsing.
 - Partial but useful inferred flows with explicit uncertainty.
+- Shallow cross-repo linking from detectable internal API call patterns.
+- No full recursive distributed tracing yet.
 - Suggested tests are structured and heuristic, not runnable framework-specific test files.
 - Local artifacts stored under `~/.sydes/`.
 
 ## Near-term roadmap
 
-- Cross-repo linking for multi-service flows.
 - Runnable framework-specific test generation from structured suggestions.
+- Deeper recursive multi-repo trace expansion.
 - Richer graph analysis on top of exported trace structure.
 
 ## Artifacts
