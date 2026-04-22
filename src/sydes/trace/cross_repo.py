@@ -15,6 +15,7 @@ from typing import TypeAlias
 from sydes.core.models import (
     CandidateFileRead,
     CrossRepoCallCandidate,
+    CrossRepoLinkResult,
     EndpointCandidate,
     EvidenceRef,
     ExpansionContextFile,
@@ -375,37 +376,203 @@ def lookup_candidate_endpoints_by_service_path(
     return list(by_service_path.get((normalized_service, normalized_path), []))
 
 
+def _source_lookup_id(call: CrossRepoCallCandidate) -> str:
+    """Build a deterministic source identifier for cross-repo link records."""
+    return (
+        f"{call.source_repo}:"
+        f"{call.source_file or '?'}:"
+        f"{call.source_symbol or '?'}"
+    )
+
+
+def _merge_link_evidence(
+    call_evidence: list[EvidenceRef],
+    endpoint_evidence: list[EvidenceRef],
+) -> list[EvidenceRef]:
+    """Merge call + endpoint evidence while preserving deterministic order."""
+    merged: list[EvidenceRef] = []
+    seen: set[tuple[str, str | None, str | None]] = set()
+    for evidence in [*call_evidence, *endpoint_evidence]:
+        key = (evidence.file, evidence.symbol, evidence.label)
+        if key in seen:
+            continue
+        seen.add(key)
+        merged.append(evidence)
+    return merged
+
+
+def _link_confidence(call: CrossRepoCallCandidate, endpoint: EndpointCandidate | None) -> float | None:
+    """Compute deterministic link confidence from call + endpoint confidence."""
+    call_conf = call.confidence
+    endpoint_conf = endpoint.confidence if endpoint is not None else None
+    if call_conf is None and endpoint_conf is None:
+        return None
+    if endpoint is None:
+        return min(0.8, max(0.0, (call_conf or 0.0) * 0.8))
+    return min(0.95, max(0.0, ((call_conf or 0.45) + (endpoint_conf or 0.45)) / 2))
+
+
+def _deterministic_endpoint_sort_key(endpoint: EndpointCandidate) -> tuple[str, str, str, str]:
+    """Sort endpoint matches deterministically before linking decisions."""
+    return (
+        endpoint.repo,
+        endpoint.file,
+        _normalize_method(endpoint.method) or "",
+        _normalize_path(endpoint.path) or "",
+    )
+
+
+def _lookup_with_priority(
+    call: CrossRepoCallCandidate,
+    index: dict[str, dict[object, list[EndpointCandidate]]],
+) -> tuple[list[EndpointCandidate], str | None, list[str]]:
+    """Look up endpoint matches using conservative phase priority rules."""
+    notes: list[str] = []
+    normalized_path = _normalize_path(call.target_path)
+    normalized_method = _normalize_method(call.target_method)
+    normalized_service = _normalize_service(call.target_service_hint)
+    if normalized_path is None:
+        return [], None, ["Call candidate has no target_path; cannot perform endpoint lookup."]
+
+    by_method_path = index.get("by_method_path", {})
+    by_path = index.get("by_path", {})
+    by_service_path = index.get("by_service_path", {})
+    by_service_method_path = index.get("by_service_method_path", {})
+
+    if normalized_method is not None:
+        exact = list(by_method_path.get((normalized_method, normalized_path), []))
+        if exact:
+            if normalized_service:
+                narrowed = [item for item in exact if _normalize_service(item.service) == normalized_service]
+                if narrowed:
+                    notes.append("Applied service hint narrowing within exact method+path matches.")
+                    exact = narrowed
+            return sorted(exact, key=_deterministic_endpoint_sort_key), "exact_method_path", notes
+
+    path_only = list(by_path.get(normalized_path, []))
+    if path_only:
+        if normalized_service:
+            narrowed = [item for item in path_only if _normalize_service(item.service) == normalized_service]
+            if narrowed:
+                notes.append("Applied service hint narrowing within path-only matches.")
+                path_only = narrowed
+        return sorted(path_only, key=_deterministic_endpoint_sort_key), "path_only", notes
+
+    if normalized_service:
+        if normalized_method is not None:
+            service_method = list(
+                by_service_method_path.get((normalized_service, normalized_method, normalized_path), [])
+            )
+            if service_method:
+                notes.append("Matched using service hint + method + path.")
+                return sorted(service_method, key=_deterministic_endpoint_sort_key), "service_path", notes
+        service_path = list(by_service_path.get((normalized_service, normalized_path), []))
+        if service_path:
+            notes.append("Matched using service hint + path.")
+            return sorted(service_path, key=_deterministic_endpoint_sort_key), "service_path", notes
+
+    return [], None, ["No endpoint candidates matched by method/path, path-only, or service+path."]
+
+
+def _choose_clearly_stronger_match(matches: list[EndpointCandidate]) -> EndpointCandidate | None:
+    """Choose one endpoint only when confidence clearly dominates alternatives."""
+    if len(matches) <= 1:
+        return matches[0] if matches else None
+    ranked = sorted(
+        matches,
+        key=lambda item: ((item.confidence if item.confidence is not None else -1.0), _deterministic_endpoint_sort_key(item)),
+        reverse=True,
+    )
+    top = ranked[0]
+    second = ranked[1]
+    if top.confidence is None or second.confidence is None:
+        return None
+    if top.confidence - second.confidence >= 0.2:
+        return top
+    return None
+
+
+def link_cross_repo_call_candidate(
+    call: CrossRepoCallCandidate,
+    index: dict[str, dict[object, list[EndpointCandidate]]],
+) -> list[CrossRepoLinkResult]:
+    """Link one call candidate to one or more endpoint targets across repos."""
+    matches, link_type, notes = _lookup_with_priority(call, index)
+    source_id = _source_lookup_id(call)
+    if not matches:
+        return [
+            CrossRepoLinkResult(
+                source_endpoint_id=source_id,
+                matched_target_endpoint_id=None,
+                link_type=None,
+                evidence=list(call.evidence),
+                confidence=_link_confidence(call, None),
+                notes=notes,
+            )
+        ]
+
+    if len(matches) == 1:
+        endpoint = matches[0]
+        return [
+            CrossRepoLinkResult(
+                source_endpoint_id=source_id,
+                matched_target_endpoint_id=_endpoint_lookup_id(endpoint),
+                link_type=link_type,
+                evidence=_merge_link_evidence(call.evidence, endpoint.evidence),
+                confidence=_link_confidence(call, endpoint),
+                notes=notes,
+            )
+        ]
+
+    stronger = _choose_clearly_stronger_match(matches)
+    if stronger is not None:
+        selected_notes = [*notes, "Multiple matches found; selected clearly stronger candidate by confidence."]
+        return [
+            CrossRepoLinkResult(
+                source_endpoint_id=source_id,
+                matched_target_endpoint_id=_endpoint_lookup_id(stronger),
+                link_type=link_type,
+                evidence=_merge_link_evidence(call.evidence, stronger.evidence),
+                confidence=_link_confidence(call, stronger),
+                notes=selected_notes,
+            )
+        ]
+
+    ambiguity_notes = [
+        *notes,
+        f"Ambiguous endpoint link: {len(matches)} candidates matched; no clearly stronger candidate.",
+    ]
+    results: list[CrossRepoLinkResult] = []
+    for endpoint in matches:
+        results.append(
+            CrossRepoLinkResult(
+                source_endpoint_id=source_id,
+                matched_target_endpoint_id=_endpoint_lookup_id(endpoint),
+                link_type=link_type,
+                evidence=_merge_link_evidence(call.evidence, endpoint.evidence),
+                confidence=_link_confidence(call, endpoint),
+                notes=ambiguity_notes,
+            )
+        )
+    return results
+
+
+def link_cross_repo_call_candidates(
+    calls: list[CrossRepoCallCandidate],
+    endpoints: list[EndpointCandidate],
+) -> list[CrossRepoLinkResult]:
+    """Link multiple call candidates against discovered endpoints across repos."""
+    index = index_discovered_endpoints(endpoints)
+    results: list[CrossRepoLinkResult] = []
+    for call in calls:
+        results.extend(link_cross_repo_call_candidate(call, index))
+    return results
+
+
 def resolve_cross_repo_call_targets(
     call: CrossRepoCallCandidate,
     index: dict[str, dict[object, list[EndpointCandidate]]],
 ) -> tuple[list[EndpointCandidate], list[str]]:
-    """Resolve a cross-repo call candidate to endpoint candidates using soft lookup hints."""
-    notes: list[str] = []
-    matches: list[EndpointCandidate] = []
-
-    if call.target_path is None:
-        notes.append("Call candidate has no target_path; cannot perform endpoint lookup.")
-        return [], notes
-
-    if call.target_service_hint:
-        matches = lookup_candidate_endpoints_by_service_path(
-            index,
-            service_hint=call.target_service_hint,
-            path=call.target_path,
-            method=call.target_method,
-        )
-        if matches:
-            notes.append("Resolved call using service/path endpoint lookup.")
-            return matches, notes
-        notes.append("No service/path match; falling back to path lookup.")
-
-    matches = lookup_candidate_endpoints_by_path(
-        index,
-        path=call.target_path,
-        method=call.target_method,
-    )
-    if matches:
-        notes.append("Resolved call using path-based endpoint lookup.")
-    else:
-        notes.append("No endpoint candidates matched target_path/target_method.")
+    """Resolve endpoint candidates for compatibility with earlier helper usage."""
+    matches, _link_type, notes = _lookup_with_priority(call, index)
     return matches, notes

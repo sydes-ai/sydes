@@ -44,8 +44,8 @@ def test_lookup_candidate_endpoints_by_service_path_uses_service_hint_when_avail
     assert matches[0].repo == "orders"
 
 
-def test_resolve_cross_repo_call_targets_falls_back_from_service_hint_to_path() -> None:
-    """Resolver should fall back to path lookup when service hint does not match."""
+def test_resolve_cross_repo_call_targets_prefers_method_path_priority() -> None:
+    """Resolver should match by method+path first even with a mismatched service hint."""
     endpoints = [
         EndpointCandidate(method="POST", path="/checkout", file="src/routes.py", repo="api", service="orders")
     ]
@@ -64,4 +64,4 @@ def test_resolve_cross_repo_call_targets_falls_back_from_service_hint_to_path() 
 
     assert len(matches) == 1
     assert matches[0].repo == "api"
-    assert any("falling back to path lookup" in note.lower() for note in notes)
+    assert not any("no endpoint candidates" in note.lower() for note in notes)
