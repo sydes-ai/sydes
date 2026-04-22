@@ -28,11 +28,11 @@ ServicePathKey: TypeAlias = tuple[str, str]
 ServiceMethodPathKey: TypeAlias = tuple[str, str, str]
 CandidateKey: TypeAlias = tuple[str, str, str, str, str]
 
-HTTP_CLIENT_CALL_RE = re.compile(
-    r"(?P<client>[A-Za-z_][A-Za-z0-9_\.]*)\.(?P<method>get|post|put|patch|delete)\s*\((?P<args>[^)\n]{0,320})\)",
+HTTP_METHOD_CHAIN_RE = re.compile(
+    r"(?P<client>[A-Za-z_][A-Za-z0-9_\.]*)\s*\.\s*(?P<method>get|post|put|patch|delete)\s*\(",
     re.IGNORECASE,
 )
-URI_CALL_RE = re.compile(r"""\.uri\s*\(\s*(?P<value>["'][^"']{1,240}["'])\s*\)""", re.IGNORECASE)
+URI_CALL_RE = re.compile(r"""\.uri\s*\(\s*["'](?P<value>[^"']{1,240})["']\s*\)""", re.IGNORECASE)
 QUOTED_LITERAL_RE = re.compile(r"""["'](?P<value>[^"'\n]{1,240})["']""")
 ROUTE_LITERAL_RE = re.compile(r"""["'](?P<path>/[A-Za-z0-9._~!$&'()*+,;=:@%/\-]{1,200})["']""")
 CLIENT_HINT_RE = re.compile(r"\b(client|service|requests|httpx|axios|fetch)\b", re.IGNORECASE)
@@ -186,6 +186,34 @@ def _service_hint_from_client_expr(client_expr: str | None) -> str | None:
     return token
 
 
+def _extract_method_and_client_from_line(line: str) -> tuple[str | None, str | None]:
+    """Extract HTTP method + client expression from one chained-call line."""
+    match = HTTP_METHOD_CHAIN_RE.search(line)
+    if match is None:
+        return None, None
+    client_expr = match.group("client")
+    raw_method = match.group("method")
+    return _normalize_method(raw_method), client_expr
+
+
+def _extract_uri_path_from_line(line: str) -> str | None:
+    """Extract URI path from `.uri(\"/path\")` style chain segments."""
+    match = URI_CALL_RE.search(line)
+    if match is None:
+        return None
+    return _normalize_path(match.group("value"))
+
+
+def _extract_any_path_from_line(line: str) -> tuple[str | None, str | None]:
+    """Extract any path-like literal from a line (route literal or URL)."""
+    for literal_match in QUOTED_LITERAL_RE.finditer(line):
+        literal_value = literal_match.group("value")
+        path, service_hint = _extract_path_and_service_hint(literal_value)
+        if path is not None:
+            return path, service_hint
+    return None, None
+
+
 def _infer_enclosing_symbol(text: str, char_index: int) -> str | None:
     """Infer a nearby function symbol name without AST parsing."""
     prefix = text[:char_index]
@@ -261,105 +289,133 @@ def detect_cross_repo_call_candidates(
         text = snippet.text
         source_repo = snippet.repo or context.anchor_repo
         source_file = snippet.relative_path
-        http_call_lines_with_path: set[int] = set()
-
-        for match in HTTP_CLIENT_CALL_RE.finditer(text):
-            line_index = text.count("\n", 0, match.start())
-            method = _normalize_method(match.group("method"))
-            client_expr = match.group("client")
-            args = match.group("args") or ""
-            line_start = text.rfind("\n", 0, match.start()) + 1
-            line_end = text.find("\n", match.start())
-            if line_end < 0:
-                line_end = len(text)
-            line_text = text[line_start:line_end]
-
-            path = None
-            url_service = None
-            literal_candidates: list[str] = []
-            for literal_match in QUOTED_LITERAL_RE.finditer(args):
-                literal_candidates.append(literal_match.group("value"))
-            uri_match = URI_CALL_RE.search(line_text)
-            if uri_match is not None:
-                literal_candidates.append(uri_match.group("value"))
-            for literal_match in QUOTED_LITERAL_RE.finditer(line_text):
-                literal_candidates.append(literal_match.group("value"))
-
-            for literal in literal_candidates:
-                parsed_path, parsed_service = _extract_path_and_service_hint(literal)
-                if parsed_path is not None and path is None:
-                    path = parsed_path
-                if parsed_service is not None and url_service is None:
-                    url_service = parsed_service
-                if path is not None and url_service is not None:
-                    break
-
-            service_hint = url_service or _service_hint_from_client_expr(client_expr)
-            symbol = source_symbol_hint or _infer_enclosing_symbol(text, match.start())
-            raw_call_text = line_text.strip() or match.group(0).strip()
-            normalized_method = _normalize_method(method)
-            normalized_path = _normalize_path(path)
-            if normalized_path is not None:
-                http_call_lines_with_path.add(line_index)
-            candidates.append(
-                CrossRepoCallCandidate(
-                    source_repo=source_repo,
-                    source_file=source_file,
-                    source_symbol=symbol,
-                    target_path=path,
-                    target_method=method,
-                    normalized_target_path=normalized_path,
-                    normalized_target_method=normalized_method,
-                    target_service_hint=service_hint,
-                    raw_call_text=raw_call_text,
-                    evidence=[
-                        EvidenceRef(
-                            file=source_file,
-                            symbol=symbol,
-                            label="http_client_call",
-                        )
-                    ],
-                    confidence=_confidence_from_parts(normalized_method, normalized_path, service_hint),
-                    status=STATUS_INFERRED,
-                )
-            )
+        line_offsets: list[int] = []
+        cursor = 0
+        for line in text.splitlines():
+            line_offsets.append(cursor)
+            cursor += len(line) + 1
 
         for line_index, line in enumerate(text.splitlines()):
-            if line_index in http_call_lines_with_path:
+            line_text = line.strip()
+            if not line_text:
                 continue
-            if not CLIENT_HINT_RE.search(line):
+            if not CLIENT_HINT_RE.search(line_text) and not HTTP_METHOD_CHAIN_RE.search(line_text):
                 continue
-            path_match = ROUTE_LITERAL_RE.search(line)
-            if path_match is None:
-                continue
-            path = _normalize_path(path_match.group("path"))
-            if path is None:
-                continue
-            char_index = text.find(line)
+
+            char_index = line_offsets[line_index] if line_index < len(line_offsets) else 0
             symbol = source_symbol_hint or _infer_enclosing_symbol(text, char_index)
-            client_hint = _service_hint_from_client_expr(line.split(".", 1)[0])
-            candidates.append(
-                CrossRepoCallCandidate(
-                    source_repo=source_repo,
-                    source_file=source_file,
-                    source_symbol=symbol,
-                    target_path=path,
-                    target_method=None,
-                    normalized_target_path=path,
-                    normalized_target_method=None,
-                    target_service_hint=client_hint,
-                    raw_call_text=line.strip(),
-                    evidence=[
-                        EvidenceRef(
-                            file=source_file,
-                            symbol=symbol,
-                            label="route_literal_in_client_context",
-                        )
-                    ],
-                    confidence=_confidence_from_parts(None, path, client_hint),
-                    status=STATUS_INFERRED,
+            method, client_expr = _extract_method_and_client_from_line(line_text)
+            uri_path = _extract_uri_path_from_line(line_text)
+            any_path, any_path_service = _extract_any_path_from_line(line_text)
+            service_hint = _service_hint_from_client_expr(client_expr) or any_path_service
+
+            normalized_method = _normalize_method(method)
+            normalized_path = uri_path or any_path
+            if normalized_path is not None:
+                normalized_path = _normalize_path(normalized_path)
+
+            # Strong chained-call extraction: method + explicit uri(...) path.
+            if normalized_method is not None and uri_path is not None:
+                candidates.append(
+                    CrossRepoCallCandidate(
+                        source_repo=source_repo,
+                        source_file=source_file,
+                        source_symbol=symbol,
+                        target_path=normalized_path,
+                        target_method=normalized_method,
+                        normalized_target_path=normalized_path,
+                        normalized_target_method=normalized_method,
+                        target_service_hint=service_hint,
+                        raw_call_text=line_text,
+                        evidence=[
+                            EvidenceRef(
+                                file=source_file,
+                                symbol=symbol,
+                                label=f"chain_extraction:{normalized_method}:{normalized_path or '?'}",
+                            )
+                        ],
+                        confidence=max(0.8, _confidence_from_parts(normalized_method, normalized_path, service_hint)),
+                        status="extracted_from_chain",
+                    )
                 )
-            )
+                continue
+
+            # Generic method+path extraction from non-chain call forms (e.g. requests.get('/x')).
+            if normalized_method is not None and normalized_path is not None:
+                candidates.append(
+                    CrossRepoCallCandidate(
+                        source_repo=source_repo,
+                        source_file=source_file,
+                        source_symbol=symbol,
+                        target_path=normalized_path,
+                        target_method=normalized_method,
+                        normalized_target_path=normalized_path,
+                        normalized_target_method=normalized_method,
+                        target_service_hint=service_hint,
+                        raw_call_text=line_text,
+                        evidence=[
+                            EvidenceRef(
+                                file=source_file,
+                                symbol=symbol,
+                                label=f"chain_extraction:{normalized_method}:{normalized_path or '?'}",
+                            )
+                        ],
+                        confidence=_confidence_from_parts(normalized_method, normalized_path, service_hint),
+                        status=STATUS_INFERRED,
+                    )
+                )
+                continue
+
+            # Method-only lines become partial candidates; do not mark as strong.
+            if normalized_method is not None and normalized_path is None:
+                candidates.append(
+                    CrossRepoCallCandidate(
+                        source_repo=source_repo,
+                        source_file=source_file,
+                        source_symbol=symbol,
+                        target_path=None,
+                        target_method=normalized_method,
+                        normalized_target_path=None,
+                        normalized_target_method=normalized_method,
+                        target_service_hint=service_hint,
+                        raw_call_text=line_text,
+                        evidence=[
+                            EvidenceRef(
+                                file=source_file,
+                                symbol=symbol,
+                                label=f"partial_extraction:{normalized_method}:?",
+                            )
+                        ],
+                        confidence=0.4,
+                        status="partial",
+                    )
+                )
+                continue
+
+            # Path-only client context remains a partial candidate.
+            if normalized_path is not None:
+                candidates.append(
+                    CrossRepoCallCandidate(
+                        source_repo=source_repo,
+                        source_file=source_file,
+                        source_symbol=symbol,
+                        target_path=normalized_path,
+                        target_method=None,
+                        normalized_target_path=normalized_path,
+                        normalized_target_method=None,
+                        target_service_hint=service_hint,
+                        raw_call_text=line_text,
+                        evidence=[
+                            EvidenceRef(
+                                file=source_file,
+                                symbol=symbol,
+                                label=f"partial_extraction:?:{normalized_path}",
+                            )
+                        ],
+                        confidence=_confidence_from_parts(None, normalized_path, service_hint),
+                        status="partial",
+                    )
+                )
 
     return _dedupe_cross_repo_candidates(candidates)
 

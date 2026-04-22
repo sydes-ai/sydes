@@ -527,3 +527,107 @@ def test_trace_single_repo_output_has_no_cross_repo_section_when_no_links(
     assert "Flow:" in result.stdout
     assert "Sinks:" in result.stdout
     assert "Cross-Repo Links:" not in result.stdout
+
+
+def test_trace_renders_unmatched_cross_repo_candidate_note(tmp_path: Path, monkeypatch) -> None:
+    """Unmatched cross-repo candidates should be surfaced in terminal notes section."""
+    service1_root = tmp_path / "service1"
+    service2_root = tmp_path / "service2"
+    service1_root.mkdir()
+    service2_root.mkdir()
+
+    source_endpoint = EndpointCandidate(
+        method="GET",
+        path="/goodreads/books",
+        handler="get_books",
+        file="src/routes.py",
+        repo="service2",
+        confidence=0.9,
+    )
+
+    def _fake_discovery(repos: list[RepoRef]) -> RoutesResult:
+        return RoutesResult(
+            repos=repos,
+            routes=[source_endpoint],
+        )
+
+    call_candidate = CrossRepoCallCandidate(
+        source_repo="service2",
+        source_file="src/client.py",
+        source_symbol="fetch_db_books",
+        target_method="GET",
+        target_path="/db/books",
+        normalized_target_method="GET",
+        normalized_target_path="/db/books",
+        raw_call_text='return client.get().uri("/db/books").retrieve()',
+        confidence=0.7,
+    )
+
+    monkeypatch.setattr(trace_module, "discover_endpoints", _fake_discovery)
+    monkeypatch.setattr(
+        trace_module,
+        "run_flow_expansion",
+        lambda matched_endpoint, repos: FlowExpansionResult(
+            steps=[TraceStep(kind="handler", name="get_books", repo="service2", file="src/routes.py")],
+            confidence=0.8,
+        ),
+    )
+    monkeypatch.setattr(
+        trace_module,
+        "prepare_flow_expansion_context",
+        lambda matched_endpoint, repos: FlowExpansionContext(
+            anchor_repo="service2",
+            anchor_file="src/routes.py",
+            files=[],
+            notes=[],
+        ),
+    )
+    monkeypatch.setattr(
+        trace_module,
+        "detect_cross_repo_call_candidates",
+        lambda context, source_symbol_hint=None: [call_candidate],
+    )
+    monkeypatch.setattr(
+        trace_module,
+        "link_cross_repo_call_candidates",
+        lambda calls, endpoints: [
+            CrossRepoLinkResult(
+                source_endpoint_id="service2:src/client.py:fetch_db_books",
+                matched_target_endpoint_id=None,
+                link_type=None,
+                normalized_target_method="GET",
+                normalized_target_path="/db/books",
+                confidence=0.5,
+                notes=[
+                    "Cross-repo candidate normalized: method=GET path=/db/books.",
+                    "No endpoint candidates matched by normalized method+path or path-only.",
+                    "Raw call text: return client.get().uri(\"/db/books\").retrieve()",
+                ],
+            )
+        ],
+    )
+    monkeypatch.setattr(trace_module, "compute_workspace_id", lambda repos: "ws-test")
+    monkeypatch.setattr(trace_module, "create_run_id", lambda: "run-test")
+    monkeypatch.setattr(
+        trace_module,
+        "save_run_artifact",
+        lambda **kwargs: Path(f"/tmp/{kwargs['artifact_name']}.json"),
+    )
+
+    result = runner.invoke(
+        app,
+        [
+            "trace",
+            "/goodreads/books",
+            "--method",
+            "GET",
+            "--repo",
+            f"service1={service1_root}",
+            "--repo",
+            f"service2={service2_root}",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "Cross-Repo Links:" in result.stdout
+    assert "Unmatched cross-repo candidate: GET /db/books" in result.stdout
