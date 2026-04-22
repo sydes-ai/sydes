@@ -74,6 +74,28 @@ def test_detect_cross_repo_call_candidates_extracts_service_hint_from_url_calls(
     assert first.target_service_hint == "orders"
 
 
+def test_detect_cross_repo_call_candidates_normalizes_webclient_uri_chain() -> None:
+    """WebClient-style get().uri('/path') chains should keep normalized method/path."""
+    context = _context_with_file(
+        "src/books_client.py",
+        (
+            "def fetch_books():\n"
+            "    return client.get().uri(\"/db/books\").retrieve().bodyToFlux(Book.class)\n"
+        ),
+        repo="service2",
+    )
+
+    candidates = detect_cross_repo_call_candidates(context)
+
+    assert candidates
+    first = candidates[0]
+    assert first.target_method == "GET"
+    assert first.target_path == "/db/books"
+    assert first.normalized_target_method == "GET"
+    assert first.normalized_target_path == "/db/books"
+    assert first.raw_call_text is not None and "uri(\"/db/books\")" in first.raw_call_text
+
+
 def test_detect_cross_repo_call_candidates_keeps_partial_path_only_candidates() -> None:
     """Client-context path literals should still produce partial call candidates."""
     context = _context_with_file(

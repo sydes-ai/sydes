@@ -100,7 +100,10 @@ def render_terminal(result: TraceResult) -> str:
                 lines.append(f"    ({', '.join(details)})")
 
     cross_repo_edges = [edge for edge in result.edges if edge.type == "CALLS_API"]
-    if cross_repo_edges:
+    unmatched_cross_repo_notes = [
+        note for note in result.notes if note.startswith("Unmatched cross-repo candidate:")
+    ]
+    if cross_repo_edges or unmatched_cross_repo_notes:
         lines.append("Cross-Repo Links:")
         node_by_id = {node.id: node for node in result.nodes}
         seen_links: set[tuple[str, str, str, str]] = set()
@@ -118,6 +121,10 @@ def render_terminal(result: TraceResult) -> str:
                 continue
             seen_links.add(dedupe_key)
             lines.append(f"  - {source_repo} -> {target_repo}::{target_method} {target_path}")
+        if not cross_repo_edges:
+            lines.append("  - none")
+        for note in unmatched_cross_repo_notes:
+            lines.append(f"  - {note}")
 
     if result.tests:
         lines.append("Suggested Tests:")

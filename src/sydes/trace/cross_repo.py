@@ -32,6 +32,7 @@ HTTP_CLIENT_CALL_RE = re.compile(
     r"(?P<client>[A-Za-z_][A-Za-z0-9_\.]*)\.(?P<method>get|post|put|patch|delete)\s*\((?P<args>[^)\n]{0,320})\)",
     re.IGNORECASE,
 )
+URI_CALL_RE = re.compile(r"""\.uri\s*\(\s*(?P<value>["'][^"']{1,240}["'])\s*\)""", re.IGNORECASE)
 QUOTED_LITERAL_RE = re.compile(r"""["'](?P<value>[^"'\n]{1,240})["']""")
 ROUTE_LITERAL_RE = re.compile(r"""["'](?P<path>/[A-Za-z0-9._~!$&'()*+,;=:@%/\-]{1,200})["']""")
 CLIENT_HINT_RE = re.compile(r"\b(client|service|requests|httpx|axios|fetch)\b", re.IGNORECASE)
@@ -54,27 +55,58 @@ GENERIC_SERVICE_TOKENS = {
     "localhost",
     "127",
 }
+HTTP_METHOD_ALIASES = {
+    "get": "GET",
+    "post": "POST",
+    "put": "PUT",
+    "delete": "DELETE",
+    "patch": "PATCH",
+}
 
 
-def _normalize_method(value: str | None) -> str | None:
-    """Normalize HTTP method to uppercase when present."""
+def normalize_http_method(value: str | None) -> str | None:
+    """Normalize HTTP method hints from loose call text into canonical verbs."""
     if value is None:
         return None
-    method = value.strip().upper()
-    return method or None
+    token = value.strip().strip("\"'").lower()
+    if not token:
+        return None
+    if token in HTTP_METHOD_ALIASES:
+        return HTTP_METHOD_ALIASES[token]
+    match = re.search(r"\b(get|post|put|delete|patch)\b", token)
+    if match:
+        return HTTP_METHOD_ALIASES[match.group(1)]
+    return None
 
 
-def _normalize_path(value: str | None) -> str | None:
-    """Normalize route path into a slash-prefixed, compact form."""
+def normalize_api_path(value: str | None) -> str | None:
+    """Normalize API path hints into slash-stable route paths for matching."""
     if value is None:
         return None
-    path = value.strip()
+    path = value.strip().strip("\"'")
+    if not path:
+        return None
+    if path.startswith("http://") or path.startswith("https://"):
+        path = urlparse(path).path
+    path = path.split("?", 1)[0].split("#", 1)[0].strip()
     if not path:
         return None
     if not path.startswith("/"):
         path = f"/{path}"
-    path = "/" + "/".join(part for part in path.split("/") if part)
+    path = re.sub(r"/{2,}", "/", path)
+    if len(path) > 1 and path.endswith("/"):
+        path = path[:-1]
     return path or "/"
+
+
+def _normalize_method(value: str | None) -> str | None:
+    """Backward-compatible internal alias for method normalization."""
+    return normalize_http_method(value)
+
+
+def _normalize_path(value: str | None) -> str | None:
+    """Backward-compatible internal alias for path normalization."""
+    return normalize_api_path(value)
 
 
 def _normalize_service(value: str | None) -> str | None:
@@ -183,17 +215,25 @@ def _dedupe_cross_repo_candidates(
     """Deduplicate candidates deterministically while preserving useful evidence."""
     deduped: dict[CandidateKey, CrossRepoCallCandidate] = {}
     for item in candidates:
+        normalized_method = item.normalized_target_method or _normalize_method(item.target_method)
+        normalized_path = item.normalized_target_path or _normalize_path(item.target_path)
         key: CandidateKey = (
             item.source_repo,
             item.source_file or "",
-            _normalize_method(item.target_method) or "",
-            _normalize_path(item.target_path) or "",
+            normalized_method or "",
+            normalized_path or "",
             _normalize_service(item.target_service_hint) or "",
         )
         existing = deduped.get(key)
         if existing is None:
+            item.normalized_target_method = normalized_method
+            item.normalized_target_path = normalized_path
             deduped[key] = item
             continue
+        if existing.normalized_target_method is None:
+            existing.normalized_target_method = normalized_method
+        if existing.normalized_target_path is None:
+            existing.normalized_target_path = normalized_path
         if existing.raw_call_text is None and item.raw_call_text:
             existing.raw_call_text = item.raw_call_text
         labels = {(e.file, e.symbol, e.label) for e in existing.evidence}
@@ -221,27 +261,46 @@ def detect_cross_repo_call_candidates(
         text = snippet.text
         source_repo = snippet.repo or context.anchor_repo
         source_file = snippet.relative_path
-        http_call_line_indexes: set[int] = set()
+        http_call_lines_with_path: set[int] = set()
 
         for match in HTTP_CLIENT_CALL_RE.finditer(text):
             line_index = text.count("\n", 0, match.start())
-            http_call_line_indexes.add(line_index)
             method = _normalize_method(match.group("method"))
             client_expr = match.group("client")
             args = match.group("args") or ""
-            literal = None
+            line_start = text.rfind("\n", 0, match.start()) + 1
+            line_end = text.find("\n", match.start())
+            if line_end < 0:
+                line_end = len(text)
+            line_text = text[line_start:line_end]
+
+            path = None
+            url_service = None
+            literal_candidates: list[str] = []
             for literal_match in QUOTED_LITERAL_RE.finditer(args):
-                literal = literal_match.group("value")
-                path, url_service = _extract_path_and_service_hint(literal)
-                if path is not None:
+                literal_candidates.append(literal_match.group("value"))
+            uri_match = URI_CALL_RE.search(line_text)
+            if uri_match is not None:
+                literal_candidates.append(uri_match.group("value"))
+            for literal_match in QUOTED_LITERAL_RE.finditer(line_text):
+                literal_candidates.append(literal_match.group("value"))
+
+            for literal in literal_candidates:
+                parsed_path, parsed_service = _extract_path_and_service_hint(literal)
+                if parsed_path is not None and path is None:
+                    path = parsed_path
+                if parsed_service is not None and url_service is None:
+                    url_service = parsed_service
+                if path is not None and url_service is not None:
                     break
-            else:
-                path = None
-                url_service = None
 
             service_hint = url_service or _service_hint_from_client_expr(client_expr)
             symbol = source_symbol_hint or _infer_enclosing_symbol(text, match.start())
-            raw_call_text = match.group(0).strip()
+            raw_call_text = line_text.strip() or match.group(0).strip()
+            normalized_method = _normalize_method(method)
+            normalized_path = _normalize_path(path)
+            if normalized_path is not None:
+                http_call_lines_with_path.add(line_index)
             candidates.append(
                 CrossRepoCallCandidate(
                     source_repo=source_repo,
@@ -249,6 +308,8 @@ def detect_cross_repo_call_candidates(
                     source_symbol=symbol,
                     target_path=path,
                     target_method=method,
+                    normalized_target_path=normalized_path,
+                    normalized_target_method=normalized_method,
                     target_service_hint=service_hint,
                     raw_call_text=raw_call_text,
                     evidence=[
@@ -258,13 +319,13 @@ def detect_cross_repo_call_candidates(
                             label="http_client_call",
                         )
                     ],
-                    confidence=_confidence_from_parts(method, path, service_hint),
+                    confidence=_confidence_from_parts(normalized_method, normalized_path, service_hint),
                     status=STATUS_INFERRED,
                 )
             )
 
         for line_index, line in enumerate(text.splitlines()):
-            if line_index in http_call_line_indexes:
+            if line_index in http_call_lines_with_path:
                 continue
             if not CLIENT_HINT_RE.search(line):
                 continue
@@ -274,7 +335,8 @@ def detect_cross_repo_call_candidates(
             path = _normalize_path(path_match.group("path"))
             if path is None:
                 continue
-            symbol = source_symbol_hint or _infer_enclosing_symbol(text, text.find(line))
+            char_index = text.find(line)
+            symbol = source_symbol_hint or _infer_enclosing_symbol(text, char_index)
             client_hint = _service_hint_from_client_expr(line.split(".", 1)[0])
             candidates.append(
                 CrossRepoCallCandidate(
@@ -283,6 +345,8 @@ def detect_cross_repo_call_candidates(
                     source_symbol=symbol,
                     target_path=path,
                     target_method=None,
+                    normalized_target_path=path,
+                    normalized_target_method=None,
                     target_service_hint=client_hint,
                     raw_call_text=line.strip(),
                     evidence=[
@@ -437,17 +501,18 @@ def _lookup_with_priority(
     index: dict[str, dict[object, list[EndpointCandidate]]],
 ) -> tuple[list[EndpointCandidate], str | None, list[str]]:
     """Look up endpoint matches using conservative phase priority rules."""
-    notes: list[str] = []
-    normalized_path = _normalize_path(call.target_path)
-    normalized_method = _normalize_method(call.target_method)
+    normalized_method = call.normalized_target_method or _normalize_method(call.target_method)
+    normalized_path = call.normalized_target_path or _normalize_path(call.target_path)
     normalized_service = _normalize_service(call.target_service_hint)
+    notes: list[str] = [
+        f"Cross-repo candidate normalized: method={normalized_method or '?'} path={normalized_path or '?'}."
+    ]
     if normalized_path is None:
-        return [], None, ["Call candidate has no target_path; cannot perform endpoint lookup."]
+        notes.append("Call candidate has no normalized path; cannot perform endpoint lookup.")
+        return [], None, notes
 
     by_method_path = index.get("by_method_path", {})
     by_path = index.get("by_path", {})
-    by_service_path = index.get("by_service_path", {})
-    by_service_method_path = index.get("by_service_method_path", {})
 
     if normalized_method is not None:
         exact = list(by_method_path.get((normalized_method, normalized_path), []))
@@ -457,6 +522,7 @@ def _lookup_with_priority(
                 if narrowed:
                     notes.append("Applied service hint narrowing within exact method+path matches.")
                     exact = narrowed
+            notes.append(f"Matched {len(exact)} endpoint candidate(s) by exact method+path.")
             return sorted(exact, key=_deterministic_endpoint_sort_key), "exact_method_path", notes
 
     path_only = list(by_path.get(normalized_path, []))
@@ -466,22 +532,11 @@ def _lookup_with_priority(
             if narrowed:
                 notes.append("Applied service hint narrowing within path-only matches.")
                 path_only = narrowed
+        notes.append(f"Matched {len(path_only)} endpoint candidate(s) by normalized path fallback.")
         return sorted(path_only, key=_deterministic_endpoint_sort_key), "path_only", notes
 
-    if normalized_service:
-        if normalized_method is not None:
-            service_method = list(
-                by_service_method_path.get((normalized_service, normalized_method, normalized_path), [])
-            )
-            if service_method:
-                notes.append("Matched using service hint + method + path.")
-                return sorted(service_method, key=_deterministic_endpoint_sort_key), "service_path", notes
-        service_path = list(by_service_path.get((normalized_service, normalized_path), []))
-        if service_path:
-            notes.append("Matched using service hint + path.")
-            return sorted(service_path, key=_deterministic_endpoint_sort_key), "service_path", notes
-
-    return [], None, ["No endpoint candidates matched by method/path, path-only, or service+path."]
+    notes.append("No endpoint candidates matched by normalized method+path or path-only.")
+    return [], None, notes
 
 
 def _choose_clearly_stronger_match(matches: list[EndpointCandidate]) -> EndpointCandidate | None:
@@ -509,39 +564,61 @@ def link_cross_repo_call_candidate(
     """Link one call candidate to one or more endpoint targets across repos."""
     matches, link_type, notes = _lookup_with_priority(call, index)
     source_id = _source_lookup_id(call)
+    normalized_method = call.normalized_target_method or _normalize_method(call.target_method)
+    normalized_path = call.normalized_target_path or _normalize_path(call.target_path)
+    raw_call_text = (call.raw_call_text or "").strip()
     if not matches:
+        no_match_notes = list(notes)
+        if raw_call_text:
+            no_match_notes.append(f"Raw call text: {raw_call_text}")
         return [
             CrossRepoLinkResult(
                 source_endpoint_id=source_id,
                 matched_target_endpoint_id=None,
                 link_type=None,
+                normalized_target_method=normalized_method,
+                normalized_target_path=normalized_path,
                 evidence=list(call.evidence),
                 confidence=_link_confidence(call, None),
-                notes=notes,
+                notes=no_match_notes,
             )
         ]
 
     if len(matches) == 1:
         endpoint = matches[0]
+        matched_method = _normalize_method(endpoint.method) or "?"
+        matched_path = _normalize_path(endpoint.path) or "?"
+        matched_notes = [*notes, f"Matched target endpoint: {endpoint.repo}::{matched_method} {matched_path}."]
+        if raw_call_text:
+            matched_notes.append(f"Raw call text: {raw_call_text}")
         return [
             CrossRepoLinkResult(
                 source_endpoint_id=source_id,
                 matched_target_endpoint_id=_endpoint_lookup_id(endpoint),
                 link_type=link_type,
+                normalized_target_method=normalized_method,
+                normalized_target_path=normalized_path,
                 evidence=_merge_link_evidence(call.evidence, endpoint.evidence),
                 confidence=_link_confidence(call, endpoint),
-                notes=notes,
+                notes=matched_notes,
             )
         ]
 
     stronger = _choose_clearly_stronger_match(matches)
     if stronger is not None:
         selected_notes = [*notes, "Multiple matches found; selected clearly stronger candidate by confidence."]
+        selected_notes.append(
+            f"Matched target endpoint: {stronger.repo}::{_normalize_method(stronger.method) or '?'} {_normalize_path(stronger.path) or '?'}."
+        )
+        if raw_call_text:
+            selected_notes.append(f"Raw call text: {raw_call_text}")
         return [
             CrossRepoLinkResult(
                 source_endpoint_id=source_id,
                 matched_target_endpoint_id=_endpoint_lookup_id(stronger),
                 link_type=link_type,
+                normalized_target_method=normalized_method,
+                normalized_target_path=normalized_path,
                 evidence=_merge_link_evidence(call.evidence, stronger.evidence),
                 confidence=_link_confidence(call, stronger),
                 notes=selected_notes,
@@ -559,6 +636,8 @@ def link_cross_repo_call_candidate(
                 source_endpoint_id=source_id,
                 matched_target_endpoint_id=_endpoint_lookup_id(endpoint),
                 link_type=link_type,
+                normalized_target_method=normalized_method,
+                normalized_target_path=normalized_path,
                 evidence=_merge_link_evidence(call.evidence, endpoint.evidence),
                 confidence=_link_confidence(call, endpoint),
                 notes=ambiguity_notes,

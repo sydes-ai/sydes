@@ -278,6 +278,8 @@ class CrossRepoCallCandidate(BaseModel):
     source_symbol: str | None = None
     target_path: str | None = None
     target_method: str | None = None
+    normalized_target_path: str | None = None
+    normalized_target_method: str | None = None
     target_service_hint: str | None = None
     raw_call_text: str | None = None
     evidence: list[EvidenceRef] = Field(default_factory=list)
@@ -291,6 +293,8 @@ class CrossRepoLinkResult(BaseModel):
     source_endpoint_id: str | None = None
     matched_target_endpoint_id: str | None = None
     link_type: str | None = None
+    normalized_target_path: str | None = None
+    normalized_target_method: str | None = None
     evidence: list[EvidenceRef] = Field(default_factory=list)
     confidence: float | None = None
     notes: list[str] = Field(default_factory=list)

@@ -42,6 +42,8 @@ def test_link_cross_repo_call_candidate_exact_method_path_match() -> None:
     assert links[0].matched_target_endpoint_id is not None
     assert links[0].link_type == "exact_method_path"
     assert links[0].confidence is not None
+    assert links[0].normalized_target_method == "POST"
+    assert links[0].normalized_target_path == "/checkout"
     assert links[0].evidence
 
 
@@ -63,6 +65,37 @@ def test_link_cross_repo_call_candidate_path_only_fallback() -> None:
     assert len(links) == 1
     assert links[0].matched_target_endpoint_id is not None
     assert links[0].link_type == "path_only"
+
+
+def test_link_cross_repo_call_candidate_normalizes_method_and_trailing_slash_path() -> None:
+    """Linker should normalize method aliases and trailing slash path differences."""
+    endpoints = [
+        EndpointCandidate(
+            method="GET",
+            path="/db/books/",
+            file="src/routes.py",
+            repo="service1",
+            service="books",
+            confidence=0.8,
+        )
+    ]
+    index = index_discovered_endpoints(endpoints)
+    call = CrossRepoCallCandidate(
+        source_repo="service2",
+        source_file="src/client.py",
+        target_method="client.get",
+        target_path='"  /db/books  "',
+        raw_call_text='client.get().uri("/db/books").retrieve()',
+        confidence=0.75,
+    )
+
+    links = link_cross_repo_call_candidate(call, index)
+
+    assert len(links) == 1
+    assert links[0].matched_target_endpoint_id is not None
+    assert links[0].link_type == "exact_method_path"
+    assert links[0].normalized_target_method == "GET"
+    assert links[0].normalized_target_path == "/db/books"
 
 
 def test_link_cross_repo_call_candidate_preserves_ambiguity_when_multiple_matches() -> None:
@@ -97,6 +130,7 @@ def test_link_cross_repo_call_candidate_returns_no_match_result() -> None:
         source_file="src/checkout_client.py",
         target_method="POST",
         target_path="/checkout",
+        raw_call_text="checkout_client.post('/checkout')",
         evidence=[EvidenceRef(file="src/checkout_client.py", label="http_client_call")],
         confidence=0.5,
     )
@@ -106,4 +140,7 @@ def test_link_cross_repo_call_candidate_returns_no_match_result() -> None:
     assert len(links) == 1
     assert links[0].matched_target_endpoint_id is None
     assert links[0].link_type is None
+    assert links[0].normalized_target_method == "POST"
+    assert links[0].normalized_target_path == "/checkout"
     assert any("no endpoint candidates matched" in note.lower() for note in links[0].notes)
+    assert any("raw call text" in note.lower() for note in links[0].notes)

@@ -100,12 +100,36 @@ def _build_trace_result(
             for link in link_results:
                 if link.matched_target_endpoint_id is None:
                     no_match_count += 1
+                    source_call = call_candidates_by_id.get(link.source_endpoint_id or "")
+                    if source_call is not None:
+                        method_hint = source_call.normalized_target_method or source_call.target_method or "?"
+                        path_hint = source_call.normalized_target_path or source_call.target_path or "?"
+                        raw_hint = source_call.raw_call_text or "n/a"
+                        notes.append(
+                            f"Unmatched cross-repo candidate: {method_hint} {path_hint} (raw: {raw_hint})."
+                        )
+                    if link.notes:
+                        notes.append(link.notes[-1])
                     continue
                 if any("ambiguous endpoint link" in note.lower() for note in link.notes):
                     ambiguous_count += 1
+                    source_call = call_candidates_by_id.get(link.source_endpoint_id or "")
+                    if source_call is not None:
+                        method_hint = source_call.normalized_target_method or source_call.target_method or "?"
+                        path_hint = source_call.normalized_target_path or source_call.target_path or "?"
+                        notes.append(
+                            f"Ambiguous cross-repo candidate: {method_hint} {path_hint}."
+                        )
                     continue
                 if link.confidence is not None and link.confidence < 0.6:
                     low_confidence_count += 1
+                    source_call = call_candidates_by_id.get(link.source_endpoint_id or "")
+                    if source_call is not None:
+                        method_hint = source_call.normalized_target_method or source_call.target_method or "?"
+                        path_hint = source_call.normalized_target_path or source_call.target_path or "?"
+                        notes.append(
+                            f"Low-confidence cross-repo candidate skipped: {method_hint} {path_hint}."
+                        )
                     continue
                 endpoint_matches = endpoint_by_id.get(link.matched_target_endpoint_id, [])
                 if not endpoint_matches:
@@ -125,6 +149,8 @@ def _build_trace_result(
                 if link_label:
                     linked_count += 1
                     notes.append(f"Cross-repo link added: {link_label}.")
+                    if link.notes:
+                        notes.append(link.notes[-1])
             if linked_count == 0:
                 notes.append("No confident cross-repo endpoint links were added.")
             if ambiguous_count:
