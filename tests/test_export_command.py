@@ -61,8 +61,23 @@ def test_export_command_exports_trace_result_envelope(tmp_path: Path) -> None:
     assert payload["metadata"]["format"] == "sydes_trace_json"
     assert payload["metadata"]["source_artifact_kind"] == "trace_result_envelope"
     assert payload["metadata"]["artifact"]["workspace_id"] == "ws-123"
+    assert set(payload.keys()) == {
+        "version",
+        "target",
+        "repos",
+        "nodes",
+        "edges",
+        "flows",
+        "tests",
+        "unknowns",
+        "notes",
+        "summary",
+        "metadata",
+    }
     assert "internal_debug_counter" not in payload
     assert output_path.exists()
+    written_payload = json.loads(output_path.read_text(encoding="utf-8"))
+    assert written_payload == payload
 
 
 def test_export_command_exports_trace_graph_envelope(tmp_path: Path) -> None:

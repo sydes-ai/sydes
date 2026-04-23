@@ -90,3 +90,54 @@ def test_save_run_artifact_writes_json(tmp_path: Path) -> None:
     assert artifacts[0]["artifact_name"] == "trace_result"
     assert artifacts[0]["artifact_kind"] == "trace_result"
     assert artifacts[0]["filename"] == "trace_result.json"
+
+
+def test_workspace_index_tracks_multiple_artifacts_for_same_run(tmp_path: Path) -> None:
+    """Run index metadata should remain usable across multiple artifact saves."""
+    workspace_id = "abc123"
+    run_id = create_run_id()
+
+    save_run_artifact(
+        workspace_id=workspace_id,
+        run_id=run_id,
+        artifact_name="trace_result",
+        payload={
+            "timestamp": "2026-04-23T12:00:00Z",
+            "repo_inputs": [{"name": "api", "root": "/tmp/api"}],
+            "target": {"kind": "api_route", "method": "POST", "path": "/users"},
+            "result": {
+                "version": "v1",
+                "target": {"kind": "api_route", "method": "POST", "path": "/users"},
+                "repos": [{"name": "api", "root": "/tmp/api"}],
+                "nodes": [],
+                "edges": [],
+                "flows": [],
+                "tests": [],
+                "unknowns": [],
+                "notes": [],
+                "summary": {"key_flow_id": None, "confidence": 0.4},
+            },
+        },
+        root=tmp_path,
+    )
+    save_run_artifact(
+        workspace_id=workspace_id,
+        run_id=run_id,
+        artifact_name="trace_graph",
+        payload={
+            "timestamp": "2026-04-23T12:00:02Z",
+            "repo_inputs": [{"name": "api", "root": "/tmp/api"}],
+            "target": {"kind": "api_route", "method": "POST", "path": "/users"},
+            "graph": {"nodes": [], "edges": [], "flows": []},
+        },
+        root=tmp_path,
+    )
+
+    runs = list_workspace_runs(workspace_id=workspace_id, root=tmp_path)
+    assert len(runs) == 1
+    assert runs[0]["run_id"] == run_id
+    assert runs[0]["target_route"]["path"] == "/users"
+
+    artifacts = list_workspace_artifacts(workspace_id=workspace_id, run_id=run_id, root=tmp_path)
+    assert {item["artifact_name"] for item in artifacts} == {"trace_result", "trace_graph"}
+    assert all("relative_path" in item for item in artifacts)

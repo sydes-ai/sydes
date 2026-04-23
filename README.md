@@ -75,3 +75,14 @@ Suggested Tests:
 ## Artifacts
 
 Sydes saves run artifacts under `~/.sydes/`.
+
+## Artifact Export
+
+You can export saved run artifacts as Sydes-native JSON:
+
+```bash
+sydes export ~/.sydes/workspaces/<workspace-id>/artifacts/<run-id>/trace_result.json
+```
+
+- Export output is Sydes JSON for OSS users at this stage.
+- GraphML and richer interchange formats are not exposed yet.
