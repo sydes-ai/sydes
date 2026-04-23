@@ -34,8 +34,8 @@ def _trace_with_sink_node() -> TraceResult:
     )
 
 
-def test_export_trace_result_includes_metadata_and_derived_sinks() -> None:
-    """Exporter should add Sydes-native metadata and sink projection."""
+def test_export_trace_result_includes_metadata_and_clean_top_level_shape() -> None:
+    """Exporter should include intended top-level fields and metadata."""
     result = _trace_with_sink_node()
 
     payload = export_trace_result(result)
@@ -45,14 +45,17 @@ def test_export_trace_result_includes_metadata_and_derived_sinks() -> None:
     assert "metadata" in payload
     assert payload["metadata"]["format"] == "sydes_trace_json"
     assert payload["metadata"]["export_version"] == "v1"
-    assert payload["sinks"]
-    sink = payload["sinks"][0]
-    assert sink["kind"] == "database"
-    assert sink["action"] == "write"
+    assert "nodes" in payload
+    assert "edges" in payload
+    assert "flows" in payload
+    assert "tests" in payload
+    assert "notes" in payload
+    assert "summary" in payload
+    assert "sinks" not in payload
 
 
 def test_render_json_keeps_trace_keys_and_uses_exporter_shape() -> None:
-    """JSON renderer should preserve existing trace keys and include metadata/sinks."""
+    """JSON renderer should preserve intended keys and omit helper-only fields."""
     result = _trace_with_sink_node()
 
     rendered = render_json(result)
@@ -67,5 +70,4 @@ def test_render_json_keeps_trace_keys_and_uses_exporter_shape() -> None:
     assert "notes" in payload
     assert "summary" in payload
     assert "metadata" in payload
-    assert "sinks" in payload
-
+    assert "sinks" not in payload

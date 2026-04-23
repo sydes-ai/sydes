@@ -14,35 +14,6 @@ from pydantic import ValidationError
 
 from sydes.core.models import TraceResult
 
-_SINK_NODE_TYPES = {"database", "external_api", "queue", "file_sink", "sink"}
-
-
-def _derive_sinks(trace_result: TraceResult) -> list[dict[str, Any]]:
-    """Derive sink records from sink-like graph nodes when present."""
-    sinks: list[dict[str, Any]] = []
-    for node in trace_result.nodes:
-        if node.type not in _SINK_NODE_TYPES:
-            continue
-        action = None
-        if isinstance(node.metadata, dict):
-            action = node.metadata.get("action")
-        sinks.append(
-            {
-                "id": node.id,
-                "kind": node.type,
-                "name": node.name,
-                "repo": node.repo,
-                "service": node.service,
-                "file": node.file,
-                "symbol": node.symbol,
-                "action": action,
-                "confidence": node.confidence,
-                "status": node.status,
-                "evidence": [item.model_dump() for item in node.evidence],
-            }
-        )
-    return sinks
-
 
 def export_trace_result(trace_result: TraceResult) -> dict[str, Any]:
     """Export TraceResult into a stable Sydes-native JSON shape.
@@ -51,14 +22,24 @@ def export_trace_result(trace_result: TraceResult) -> dict[str, Any]:
     top-level trace keys remain available, while metadata and derived sink
     records are included for OSS artifact consumers.
     """
-    payload = trace_result.model_dump()
+    payload = {
+        "version": trace_result.version,
+        "target": trace_result.target.model_dump(exclude_none=True),
+        "repos": [item.model_dump(exclude_none=True) for item in trace_result.repos],
+        "nodes": [item.model_dump(exclude_none=True) for item in trace_result.nodes],
+        "edges": [item.model_dump(exclude_none=True) for item in trace_result.edges],
+        "flows": [item.model_dump(exclude_none=True) for item in trace_result.flows],
+        "tests": [item.model_dump(exclude_none=True) for item in trace_result.tests],
+        "unknowns": [item.model_dump(exclude_none=True) for item in trace_result.unknowns],
+        "notes": list(trace_result.notes),
+        "summary": trace_result.summary.model_dump(exclude_none=True),
+    }
     payload["metadata"] = {
         "format": "sydes_trace_json",
         "export_version": "v1",
         "trace_version": trace_result.version,
         "exported_at": datetime.now(UTC).isoformat(),
     }
-    payload["sinks"] = _derive_sinks(trace_result)
     return payload
 
 
@@ -133,4 +114,14 @@ def export_stored_artifact(payload: dict[str, Any]) -> dict[str, Any]:
     exported_metadata["source_artifact_kind"] = source_kind
     if isinstance(payload.get("timestamp"), str):
         exported_metadata["source_timestamp"] = payload["timestamp"]
+    artifact_metadata = payload.get("artifact_metadata")
+    if isinstance(artifact_metadata, dict):
+        exported_metadata["artifact"] = {
+            "timestamp": artifact_metadata.get("timestamp"),
+            "artifact_kind": artifact_metadata.get("artifact_kind"),
+            "workspace_id": artifact_metadata.get("workspace_id"),
+            "run_id": artifact_metadata.get("run_id"),
+            "repo_inputs": artifact_metadata.get("repo_inputs"),
+            "target_route": artifact_metadata.get("target_route"),
+        }
     return exported

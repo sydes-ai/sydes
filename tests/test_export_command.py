@@ -25,6 +25,15 @@ def test_export_command_exports_trace_result_envelope(tmp_path: Path) -> None:
         artifact,
         {
             "timestamp": "2026-04-23T10:00:00Z",
+            "artifact_metadata": {
+                "timestamp": "2026-04-23T10:00:00Z",
+                "artifact_kind": "trace_result",
+                "workspace_id": "ws-123",
+                "run_id": "run-123",
+                "repo_inputs": [{"name": "api", "root": "/tmp/api"}],
+                "target_route": {"kind": "api_route", "method": "POST", "path": "/users"},
+            },
+            "internal_debug_counter": 99,
             "result": {
                 "version": "v1",
                 "target": {"kind": "api_route", "method": "POST", "path": "/users"},
@@ -51,6 +60,8 @@ def test_export_command_exports_trace_result_envelope(tmp_path: Path) -> None:
     assert payload["target"]["path"] == "/users"
     assert payload["metadata"]["format"] == "sydes_trace_json"
     assert payload["metadata"]["source_artifact_kind"] == "trace_result_envelope"
+    assert payload["metadata"]["artifact"]["workspace_id"] == "ws-123"
+    assert "internal_debug_counter" not in payload
     assert output_path.exists()
 
 
@@ -88,8 +99,7 @@ def test_export_command_exports_trace_graph_envelope(tmp_path: Path) -> None:
     payload = json.loads(result.stdout)
     assert payload["summary"]["key_flow_id"] == "flow:books"
     assert payload["metadata"]["source_artifact_kind"] == "trace_graph_envelope"
-    assert payload["sinks"]
-    assert payload["sinks"][0]["kind"] == "database"
+    assert "sinks" not in payload
 
 
 def test_export_command_fails_for_missing_file(tmp_path: Path) -> None:
