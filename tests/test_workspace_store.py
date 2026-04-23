@@ -8,6 +8,8 @@ from sydes.store.workspace import (
     compute_workspace_id,
     create_run_id,
     ensure_workspace,
+    list_workspace_artifacts,
+    list_workspace_runs,
     resolve_store_root,
     save_run_artifact,
 )
@@ -39,19 +41,52 @@ def test_ensure_workspace_creates_layout_and_index(tmp_path: Path) -> None:
 
     index = json.loads(paths.index_file.read_text(encoding="utf-8"))
     assert index["workspace_id"] == "abc123"
+    assert index["store_version"] == "v1"
+    assert isinstance(index.get("runs"), dict)
 
 
 def test_save_run_artifact_writes_json(tmp_path: Path) -> None:
     """Artifacts should be persisted as pretty JSON under run-scoped folders."""
+    run_id = create_run_id()
     artifact_file = save_run_artifact(
         workspace_id="abc123",
-        run_id=create_run_id(),
+        run_id=run_id,
         artifact_name="trace_result",
-        payload={"version": "v1", "nodes": []},
+        payload={
+            "timestamp": "2026-04-23T12:00:00Z",
+            "repo_inputs": [{"name": "api", "root": "/tmp/api"}],
+            "target": {"kind": "api_route", "method": "POST", "path": "/users"},
+            "result": {
+                "version": "v1",
+                "target": {"kind": "api_route", "method": "POST", "path": "/users"},
+                "repos": [{"name": "api", "root": "/tmp/api"}],
+                "nodes": [],
+                "edges": [],
+                "flows": [],
+                "tests": [],
+                "unknowns": [],
+                "notes": [],
+                "summary": {"key_flow_id": None, "confidence": 0.4},
+            },
+        },
         root=tmp_path,
     )
 
     assert artifact_file.exists()
     payload = json.loads(artifact_file.read_text(encoding="utf-8"))
-    assert payload["version"] == "v1"
+    assert payload["result"]["version"] == "v1"
+    assert payload["artifact_metadata"]["workspace_id"] == "abc123"
+    assert payload["artifact_metadata"]["run_id"] == run_id
+    assert payload["artifact_metadata"]["artifact_kind"] == "trace_result"
+    assert payload["artifact_metadata"]["target_route"]["path"] == "/users"
 
+    runs = list_workspace_runs(workspace_id="abc123", root=tmp_path)
+    assert runs
+    assert runs[0]["run_id"] == run_id
+    assert runs[0]["target_route"]["path"] == "/users"
+
+    artifacts = list_workspace_artifacts(workspace_id="abc123", run_id=run_id, root=tmp_path)
+    assert artifacts
+    assert artifacts[0]["artifact_name"] == "trace_result"
+    assert artifacts[0]["artifact_kind"] == "trace_result"
+    assert artifacts[0]["filename"] == "trace_result.json"
