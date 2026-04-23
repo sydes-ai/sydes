@@ -10,6 +10,8 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Any
 
+from pydantic import ValidationError
+
 from sydes.core.models import TraceResult
 
 _SINK_NODE_TYPES = {"database", "external_api", "queue", "file_sink", "sink"}
@@ -59,3 +61,76 @@ def export_trace_result(trace_result: TraceResult) -> dict[str, Any]:
     payload["sinks"] = _derive_sinks(trace_result)
     return payload
 
+
+def _is_trace_result_like(payload: dict[str, Any]) -> bool:
+    """Return True when payload appears to be a direct TraceResult object."""
+    required = {"target", "nodes", "edges", "flows", "summary"}
+    return required.issubset(payload.keys())
+
+
+def _trace_payload_from_graph_artifact(payload: dict[str, Any]) -> dict[str, Any]:
+    """Build a minimal trace-like payload from a stored graph artifact envelope."""
+    graph = payload.get("graph")
+    if not isinstance(graph, dict):
+        raise ValueError("Graph artifact is missing a valid 'graph' object.")
+    target = payload.get("target")
+    if not isinstance(target, dict):
+        raise ValueError("Graph artifact is missing a valid 'target' object.")
+
+    return {
+        "version": payload.get("version", "v1"),
+        "target": target,
+        "repos": payload.get("repo_inputs", []),
+        "nodes": graph.get("nodes", []),
+        "edges": graph.get("edges", []),
+        "flows": graph.get("flows", []),
+        "tests": payload.get("tests", []),
+        "unknowns": payload.get("unknowns", []),
+        "notes": payload.get("notes", []),
+        "summary": {
+            "key_flow_id": payload.get("key_flow_id"),
+            "confidence": payload.get("confidence"),
+        },
+    }
+
+
+def export_stored_artifact(payload: dict[str, Any]) -> dict[str, Any]:
+    """Export a stored Sydes artifact payload into Sydes-native trace JSON.
+
+    Supported inputs:
+    - direct TraceResult JSON payload
+    - saved trace artifact envelope containing `result`
+    - saved graph artifact envelope containing `graph`
+    """
+    if not isinstance(payload, dict):
+        raise ValueError("Artifact payload must be a JSON object.")
+
+    source_kind = "trace_result"
+    if "result" in payload:
+        result_payload = payload.get("result")
+        if not isinstance(result_payload, dict):
+            raise ValueError("Artifact 'result' field must be a JSON object.")
+        trace_payload = result_payload
+        source_kind = "trace_result_envelope"
+    elif "graph" in payload:
+        trace_payload = _trace_payload_from_graph_artifact(payload)
+        source_kind = "trace_graph_envelope"
+    elif _is_trace_result_like(payload):
+        trace_payload = payload
+        source_kind = "trace_result"
+    else:
+        raise ValueError(
+            "Unsupported artifact shape. Expected TraceResult JSON or stored trace/graph artifact payload."
+        )
+
+    try:
+        trace_result = TraceResult.model_validate(trace_payload)
+    except ValidationError as exc:
+        raise ValueError(f"Artifact is not valid Sydes trace JSON: {exc.errors()[0]['msg']}") from exc
+
+    exported = export_trace_result(trace_result)
+    exported_metadata = exported.setdefault("metadata", {})
+    exported_metadata["source_artifact_kind"] = source_kind
+    if isinstance(payload.get("timestamp"), str):
+        exported_metadata["source_timestamp"] = payload["timestamp"]
+    return exported
