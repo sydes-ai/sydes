@@ -1,7 +1,7 @@
 # Sydes
 
 Sydes is an AI-assisted system understanding tool for tracing API flows from code.
-Phase 5 supports route -> flow -> sink tracing, integration test suggestions, and shallow cross-repo API linking.
+Current V1 supports route discovery, flow tracing, shallow cross-repo linking, Sydes JSON export, and API test matrix suggestions.
 
 ## Quick Ollama setup
 
@@ -27,7 +27,7 @@ sydes trace "/checkout" --method POST --repo gateway=./gateway --repo api=./api 
 - Infer one likely downstream flow from matched endpoint + nearby contextual files.
 - Detect major sink types (database, external API, queue, file sink).
 - Connect likely internal API calls across multiple repos when detectable.
-- Suggest integration tests from traced flow and sink evidence.
+- Produce grouped API test matrix suggestions from traced flow and sink evidence.
 - Export graph-backed trace results (`nodes`, `edges`, `flows`) via terminal or JSON.
 
 Flow tracing is inferred from code and bounded context. Results are partial but useful, not full architecture reconstruction.
@@ -43,18 +43,20 @@ Example output (abridged):
 ```text
 Flow:
   1. endpoint: /users
-  2. step: create User object
-  3. step: db.add
-  4. step: db.commit
+  2. step: db.add
+  3. step: db.commit
+  4. step: db.refresh
 
 Sinks:
   - database: write
 
-Suggested Tests:
-  - post_users_creates_record
-    validate primary route behavior from inferred flow and sink evidence
-    expects: request succeeds with expected response
-    expects: created data is persisted
+Test Matrix:
+  Happy Path:
+    - post_users_creates_resource
+  Validation:
+    - post_users_rejects_missing_required_field
+  Side Effects:
+    - post_users_writes_to_database
 ```
 
 ## Current scope
@@ -63,12 +65,12 @@ Suggested Tests:
 - Partial but useful inferred flows with explicit uncertainty.
 - Shallow cross-repo linking from detectable internal API call patterns.
 - No full recursive distributed tracing yet.
-- Suggested tests are structured and heuristic, not runnable framework-specific test files.
+- Test matrix suggestions are structured and heuristic, not runnable framework-specific test files.
 - Local artifacts stored under `~/.sydes/`.
 
 ## Near-term roadmap
 
-- Runnable framework-specific test generation from structured suggestions.
+- Runnable framework-specific test generation from matrix suggestions.
 - Deeper recursive multi-repo trace expansion.
 - Richer graph analysis on top of exported trace structure.
 
