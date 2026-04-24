@@ -168,11 +168,11 @@ def test_trace_command_renders_flow_steps_sinks_and_graph_artifact(
     assert "step: checkout primary" in result.stdout
     assert "Sinks:" in result.stdout
     assert "database: write orders_db" in result.stdout
-    assert "Suggested Tests:" in result.stdout
-    assert "post_checkout_creates_record" in result.stdout
-    assert "verifies POST /checkout persists a new checkout record" in result.stdout
-    assert "expects: request succeeds with expected response" in result.stdout
-    assert result.stdout.index("Sinks:") < result.stdout.index("Suggested Tests:")
+    assert "Test Matrix:" in result.stdout
+    assert "Happy Path:" in result.stdout
+    assert "post_checkout_creates_resource" in result.stdout
+    assert "verifies POST /checkout creates a new checkout and returns success" in result.stdout
+    assert result.stdout.index("Sinks:") < result.stdout.index("Test Matrix:")
     flow_section = result.stdout.split("Flow:", 1)[1].split("Sinks:", 1)[0]
     assert "sink:" not in flow_section
     assert "trace_result" in saved_names

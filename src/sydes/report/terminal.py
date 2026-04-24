@@ -14,6 +14,14 @@ def _normalize_step_label_for_terminal(label: str) -> str:
     return " ".join(normalized.split())
 
 
+def _format_matrix_group_title(category: str, title: str | None = None) -> str:
+    """Format test-matrix group heading for compact terminal display."""
+    if title:
+        return title.strip()
+    mapped = category.replace("_", " ").strip()
+    return mapped.title()
+
+
 def render_terminal(result: TraceResult) -> str:
     """Build a target-grounded terminal summary for a trace result."""
     method = result.target.method or "ANY"
@@ -126,15 +134,24 @@ def render_terminal(result: TraceResult) -> str:
         for note in unmatched_cross_repo_notes:
             lines.append(f"  - {note}")
 
-    if result.tests:
-        lines.append("Suggested Tests:")
-        for suggestion in result.tests:
-            lines.append(f"  - {suggestion.name}")
-            if suggestion.summary:
-                lines.append(f"    {suggestion.summary}")
-            rendered_expectations = suggestion.expectations[:3]
-            for expectation in rendered_expectations:
-                lines.append(f"    expects: {expectation.description}")
+    if result.test_matrix and result.test_matrix.groups:
+        rendered_group = False
+        for group in result.test_matrix.groups:
+            group_tests = group.tests[:2]
+            if not group_tests:
+                continue
+            if not rendered_group:
+                lines.append("Test Matrix:")
+                rendered_group = True
+            title = _format_matrix_group_title(group.category, group.title)
+            lines.append(f"  {title}:")
+            for suggestion in group_tests:
+                lines.append(f"    - {suggestion.name}")
+                summary = suggestion.summary
+                if not summary and suggestion.expectations:
+                    summary = suggestion.expectations[0].description
+                if summary:
+                    lines.append(f"      {summary}")
 
     ambiguous = [item for item in result.unknowns if item.kind == "ambiguous_target_candidate"]
     if ambiguous:
