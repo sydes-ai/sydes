@@ -35,13 +35,28 @@ HTTP_METHOD_CHAIN_RE = re.compile(
 )
 URI_CALL_RE = re.compile(r"""\.uri\s*\(\s*["'](?P<value>[^"']{1,240})["']\s*\)""", re.IGNORECASE)
 CHAIN_START_RE = re.compile(r"\.\s*(?:get|post|put|delete|patch)\s*\(", re.IGNORECASE)
+PYTHON_DECORATOR_ROUTE_RE = re.compile(
+    r"^@\s*[A-Za-z_][A-Za-z0-9_\.]*\s*\.\s*(?:get|post|put|patch|delete|route)\s*\(",
+    re.IGNORECASE,
+)
+SPRING_ROUTE_ANNOTATION_RE = re.compile(
+    r"^@\s*(?:GetMapping|PostMapping|PutMapping|DeleteMapping|PatchMapping|RequestMapping)\b",
+    re.IGNORECASE,
+)
+EXPRESS_ROUTE_DECLARATION_RE = re.compile(
+    r"^(?:app|router|blueprint|bp)\s*\.\s*(?:get|post|put|patch|delete|route)\s*\(",
+    re.IGNORECASE,
+)
 CHAIN_CONTINUATION_RE = re.compile(
     r"^\s*(?:\.\s*[A-Za-z_][A-Za-z0-9_]*\s*\(|\)|\}\)\s*;?)",
     re.IGNORECASE,
 )
 QUOTED_LITERAL_RE = re.compile(r"""["'](?P<value>[^"'\n]{1,240})["']""")
 ROUTE_LITERAL_RE = re.compile(r"""["'](?P<path>/[A-Za-z0-9._~!$&'()*+,;=:@%/\-]{1,200})["']""")
-CLIENT_HINT_RE = re.compile(r"\b(client|service|requests|httpx|axios|fetch)\b", re.IGNORECASE)
+OUTBOUND_CLIENT_HINT_RE = re.compile(
+    r"\b(?:client|webclient|requests|httpx|axios)\b|fetch\s*\(|\.retrieve\s*\(|\.exchange\s*\(|\.uri\s*\(",
+    re.IGNORECASE,
+)
 SYMBOL_PATTERNS = (
     re.compile(r"^\s*(?:async\s+)?def\s+(?P<name>[A-Za-z_][A-Za-z0-9_]*)\s*\("),
     re.compile(r"^\s*function\s+(?P<name>[A-Za-z_][A-Za-z0-9_]*)\s*\("),
@@ -231,9 +246,32 @@ def _extract_any_path_from_line(line: str) -> tuple[str | None, str | None]:
     return None, None
 
 
+def is_route_declaration_line(line: str) -> bool:
+    """Detect route declaration/annotation syntax (not outbound API calls)."""
+    stripped = line.strip()
+    if not stripped:
+        return False
+    if PYTHON_DECORATOR_ROUTE_RE.match(stripped):
+        return True
+    if SPRING_ROUTE_ANNOTATION_RE.match(stripped):
+        return True
+    if EXPRESS_ROUTE_DECLARATION_RE.match(stripped):
+        return True
+    return False
+
+
+def _has_outbound_client_context(line: str) -> bool:
+    """Heuristic outbound-call context check for candidate extraction."""
+    return bool(OUTBOUND_CLIENT_HINT_RE.search(line))
+
+
 def _is_chain_start(line: str) -> bool:
     """Return True when a line appears to begin an HTTP client call chain."""
-    return bool(CHAIN_START_RE.search(line))
+    if is_route_declaration_line(line):
+        return False
+    if not CHAIN_START_RE.search(line):
+        return False
+    return _has_outbound_client_context(line)
 
 
 def _is_chain_continuation(line: str) -> bool:
@@ -382,7 +420,9 @@ def detect_cross_repo_call_candidates(
             expression_text = expression.text.strip()
             if not expression_text:
                 continue
-            if not CLIENT_HINT_RE.search(expression_text) and not HTTP_METHOD_CHAIN_RE.search(expression_text):
+            if is_route_declaration_line(expression_text):
+                continue
+            if not _has_outbound_client_context(expression_text):
                 continue
 
             char_index = line_offsets[expression.line_start] if expression.line_start < len(line_offsets) else 0

@@ -181,3 +181,45 @@ def test_add_cross_repo_api_link_adds_target_endpoint_node_and_calls_api_edge() 
     assert label == "api -> payments::POST /charge"
     assert any(node.repo == "payments" and node.path == "/charge" and node.type == "api_endpoint" for node in nodes)
     assert any(edge.type == "CALLS_API" for edge in edges)
+
+
+def test_add_cross_repo_api_link_skips_same_repo_route_declaration_evidence() -> None:
+    """Same-repo route declaration evidence should never create CALLS_API edges."""
+    source_endpoint = EndpointCandidate(
+        method="POST",
+        path="/users",
+        handler="create_user",
+        file="src/main.py",
+        repo="api",
+    )
+    nodes, edges, _flows = build_graph_from_inferred_flow(source_endpoint, FlowExpansionResult())
+    target_endpoint = EndpointCandidate(
+        method="GET",
+        path="/users",
+        handler="list_users",
+        file="src/main.py",
+        repo="api",
+    )
+    call = CrossRepoCallCandidate(
+        source_repo="api",
+        source_file="src/main.py",
+        source_symbol="create_user",
+        target_path="/users",
+        target_method="GET",
+        raw_call_text="@app.get('/users/')",
+        evidence=[EvidenceRef(file="src/main.py", symbol="create_user", label="route_declaration:GET:/users")],
+        confidence=0.4,
+    )
+
+    label = add_cross_repo_api_link(
+        nodes=nodes,
+        edges=edges,
+        call=call,
+        target_endpoint=target_endpoint,
+        link_type="path_only",
+        confidence=0.4,
+        evidence=call.evidence,
+    )
+
+    assert label is None
+    assert all(edge.type != "CALLS_API" for edge in edges)

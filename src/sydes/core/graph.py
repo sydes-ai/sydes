@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+
 from sydes.core.models import (
     CrossRepoCallCandidate,
     EndpointCandidate,
@@ -35,6 +37,18 @@ EDGE_TYPE_INTERACTS_QUEUE = "INTERACTS_QUEUE"
 EDGE_TYPE_INTERACTS_FILE = "INTERACTS_FILE"
 EDGE_TYPE_INTERACTS_SINK = "INTERACTS_SINK"
 EDGE_TYPE_CALLS_API = "CALLS_API"
+OUTBOUND_EVIDENCE_PREFIXES = (
+    "chain_extraction:",
+    "multiline_chain:",
+    "partial_extraction:",
+    "multiline_chain_partial:",
+    "http_client_call",
+    "outbound_client_call",
+)
+OUTBOUND_RAW_CALL_RE = re.compile(
+    r"\b(?:client|webclient|requests|httpx|axios)\b|fetch\s*\(|\.retrieve\s*\(|\.exchange\s*\(|\.uri\s*\(",
+    re.IGNORECASE,
+)
 
 
 def _sanitize_id(value: str) -> str:
@@ -138,6 +152,23 @@ def _find_source_node_id_for_cross_repo_call(
     return None
 
 
+def _call_has_outbound_evidence(
+    call: CrossRepoCallCandidate,
+    evidence: list[EvidenceRef] | None,
+) -> bool:
+    """Return True when call evidence indicates outbound client behavior."""
+    labels = [
+        item.label or ""
+        for item in [*(call.evidence or []), *(evidence or [])]
+    ]
+    if any("route_declaration" in label for label in labels):
+        return False
+    if any(label.startswith(OUTBOUND_EVIDENCE_PREFIXES) for label in labels):
+        return True
+    raw_call_text = call.raw_call_text or ""
+    return bool(OUTBOUND_RAW_CALL_RE.search(raw_call_text))
+
+
 def add_cross_repo_api_link(
     *,
     nodes: list[GraphNode],
@@ -152,6 +183,11 @@ def add_cross_repo_api_link(
     source_node_id = _find_source_node_id_for_cross_repo_call(nodes, call)
     if source_node_id is None:
         return None
+    source_repo = call.source_repo or ""
+    target_repo = target_endpoint.repo or ""
+    if source_repo and target_repo and source_repo == target_repo:
+        if not _call_has_outbound_evidence(call, evidence):
+            return None
 
     target_node_id = _endpoint_node_id(target_endpoint)
     existing_target = next((node for node in nodes if node.id == target_node_id), None)

@@ -243,3 +243,142 @@ def test_detect_cross_repo_call_candidates_dedupes_repeated_same_call_shape() ->
     assert len(candidates) == 1
     assert candidates[0].target_method == "POST"
     assert candidates[0].target_path == "/payments/charge"
+
+
+def test_detect_cross_repo_call_candidates_ignores_python_route_decorator() -> None:
+    """Route decorators should not be treated as outbound API calls."""
+    context = _context_with_file(
+        "src/main.py",
+        (
+            "@app.get('/users/')\n"
+            "def list_users():\n"
+            "    return []\n"
+        ),
+        repo="api",
+    )
+
+    candidates = detect_cross_repo_call_candidates(context)
+
+    assert candidates == []
+
+
+def test_detect_cross_repo_call_candidates_ignores_router_route_decorator() -> None:
+    """Router decorator declarations should not produce cross-repo candidates."""
+    context = _context_with_file(
+        "src/routes.py",
+        (
+            "@router.post('/users/')\n"
+            "def create_user(payload):\n"
+            "    return payload\n"
+        ),
+        repo="api",
+    )
+
+    candidates = detect_cross_repo_call_candidates(context)
+
+    assert candidates == []
+
+
+def test_detect_cross_repo_call_candidates_ignores_spring_route_annotations() -> None:
+    """Spring mapping annotations should not be treated as outbound HTTP calls."""
+    context = _context_with_file(
+        "src/BooksController.java",
+        (
+            "@GetMapping(\"/db/books\")\n"
+            "public Flux<Book> listBooks() {\n"
+            "  return service.list();\n"
+            "}\n"
+        ),
+        repo="service1",
+    )
+
+    candidates = detect_cross_repo_call_candidates(context)
+
+    assert candidates == []
+
+
+def test_detect_cross_repo_call_candidates_extracts_requests_get_call() -> None:
+    """Real outbound requests.get call should still produce candidate."""
+    context = _context_with_file(
+        "src/client.py",
+        (
+            "def fetch_users():\n"
+            "    return requests.get('/users')\n"
+        ),
+        repo="gateway",
+    )
+
+    candidates = detect_cross_repo_call_candidates(context)
+
+    assert candidates
+    first = candidates[0]
+    assert first.target_method == "GET"
+    assert first.target_path == "/users"
+
+
+def test_detect_cross_repo_call_candidates_extracts_httpx_post_call() -> None:
+    """Real outbound httpx.post call should still produce candidate."""
+    context = _context_with_file(
+        "src/client.py",
+        (
+            "def create_user(payload):\n"
+            "    return httpx.post('/users', json=payload)\n"
+        ),
+        repo="gateway",
+    )
+
+    candidates = detect_cross_repo_call_candidates(context)
+
+    assert candidates
+    first = candidates[0]
+    assert first.target_method == "POST"
+    assert first.target_path == "/users"
+
+
+def test_detect_cross_repo_call_candidates_fastapi_declarations_regression() -> None:
+    """Single-repo FastAPI route declarations should yield zero call candidates."""
+    context = _context_with_file(
+        "src/main.py",
+        (
+            "@app.get('/users/')\n"
+            "def list_users():\n"
+            "    return []\n\n"
+            "@app.post('/users/')\n"
+            "def create_user(payload):\n"
+            "    return payload\n\n"
+            "@app.put('/users/{user_id}')\n"
+            "def update_user(user_id, payload):\n"
+            "    return payload\n\n"
+            "@app.delete('/users/{user_id}')\n"
+            "def delete_user(user_id):\n"
+            "    return {'ok': True}\n"
+        ),
+        repo="api",
+    )
+
+    candidates = detect_cross_repo_call_candidates(context)
+
+    assert candidates == []
+
+
+def test_detect_cross_repo_call_candidates_multiline_java_webclient_chain_regression() -> None:
+    """Multiline Java WebClient chains should still extract method/path."""
+    context = _context_with_file(
+        "src/BooksClient.java",
+        (
+            "public Flux<Book> listBooks() {\n"
+            "  return webClient.get()\n"
+            "    .uri(\"/db/books\")\n"
+            "    .retrieve()\n"
+            "    .bodyToFlux(Book.class);\n"
+            "}\n"
+        ),
+        repo="service2",
+    )
+
+    candidates = detect_cross_repo_call_candidates(context)
+
+    assert candidates
+    first = candidates[0]
+    assert first.target_method == "GET"
+    assert first.target_path == "/db/books"
