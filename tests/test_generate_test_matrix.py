@@ -62,6 +62,23 @@ def test_generate_test_matrix_for_get_with_id_path() -> None:
     assert "get_users_id_rejects_invalid_path_param" in names
 
 
+def test_generate_test_matrix_for_get_without_id_path_keeps_happy_and_edge_groups() -> None:
+    """GET matrix without path params should include happy_path + edge_cases only."""
+    trace = TraceResult(
+        target=TargetSpec(path="/users", method="GET"),
+        summary=TraceSummary(confidence=0.6),
+    )
+
+    matrix = generate_test_matrix(trace)
+
+    categories = [group.category for group in matrix.groups]
+    assert categories == ["happy_path", "edge_cases"]
+    names = _flatten_names(matrix)
+    assert "get_users_returns_entity_or_list" in names
+    assert "get_users_returns_not_found_for_missing_resource" in names
+    assert all("invalid_path_param" not in name for name in names)
+
+
 def test_generate_test_matrix_for_put_and_delete_rules() -> None:
     """PUT/PATCH and DELETE should produce deterministic consistency-focused checks."""
     put_trace = TraceResult(

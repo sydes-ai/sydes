@@ -140,3 +140,18 @@ def test_merge_and_dedupe_sinks_uses_kind_action_file_repo_key() -> None:
     assert merged[0].action == "write"
     assert merged[0].file == "src/routes.py"
     assert merged[0].repo == "api"
+
+
+def test_db_add_and_commit_recover_one_database_write_sink_after_dedupe() -> None:
+    """Literal db.add/db.commit steps should collapse to one database write sink."""
+    steps = [
+        TraceStep(kind="internal_step", name="db.add", repo="api", file="src/routes.py"),
+        TraceStep(kind="internal_step", name="db.commit", repo="api", file="src/routes.py"),
+    ]
+
+    derived = derive_sink_candidates_from_steps(steps)
+    merged = merge_and_dedupe_sinks([], derived)
+
+    assert len(merged) == 1
+    assert merged[0].kind == "database"
+    assert merged[0].action == "write"
