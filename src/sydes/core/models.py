@@ -5,6 +5,11 @@ from pydantic import BaseModel, Field
 # Common V1 labels for low-friction interoperability across modules.
 TARGET_KIND_API_ROUTE = "api_route"
 TEST_KIND_INTEGRATION = "integration"
+TEST_MATRIX_CATEGORY_HAPPY_PATH = "happy_path"
+TEST_MATRIX_CATEGORY_VALIDATION = "validation"
+TEST_MATRIX_CATEGORY_SIDE_EFFECTS = "side_effects"
+TEST_MATRIX_CATEGORY_STATE_CONSISTENCY = "state_consistency"
+TEST_MATRIX_CATEGORY_EDGE_CASES = "edge_cases"
 STATUS_INFERRED = "inferred"
 STATUS_CONFIRMED = "confirmed"
 STATUS_UNKNOWN = "unknown"
@@ -243,6 +248,22 @@ class IntegrationTestSuggestion(BaseModel):
     notes: list[str] = Field(default_factory=list)
 
 
+class TestMatrixGroup(BaseModel):
+    """Category-grouped integration test suggestions for matrix-style planning."""
+
+    category: str
+    title: str | None = None
+    tests: list[IntegrationTestSuggestion] = Field(default_factory=list)
+    notes: list[str] = Field(default_factory=list)
+
+
+class TestMatrix(BaseModel):
+    """Structured test matrix grouped by deterministic test categories."""
+
+    groups: list[TestMatrixGroup] = Field(default_factory=list)
+    notes: list[str] = Field(default_factory=list)
+
+
 class Unknown(BaseModel):
     """Unresolved or ambiguous element captured during tracing."""
 
@@ -370,6 +391,7 @@ class TraceResult(BaseModel):
     edges: list[GraphEdge] = Field(default_factory=list)
     flows: list[Flow] = Field(default_factory=list)
     tests: list[IntegrationTestSuggestion] = Field(default_factory=list)
+    test_matrix: TestMatrix | None = None
     unknowns: list[Unknown] = Field(default_factory=list)
     notes: list[str] = Field(default_factory=list)
     summary: TraceSummary
