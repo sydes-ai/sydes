@@ -4,10 +4,19 @@ This module produces structured suggestion objects only.
 It does not emit runnable framework-specific test files yet.
 """
 
+import re
+
 from sydes.core.models import (
     Flow,
     GraphNode,
     IntegrationTestSuggestion,
+    TEST_MATRIX_CATEGORY_EDGE_CASES,
+    TEST_MATRIX_CATEGORY_HAPPY_PATH,
+    TEST_MATRIX_CATEGORY_SIDE_EFFECTS,
+    TEST_MATRIX_CATEGORY_STATE_CONSISTENCY,
+    TEST_MATRIX_CATEGORY_VALIDATION,
+    TestMatrix,
+    TestMatrixGroup,
     TestExpectation,
     TestInputHint,
     TraceResult,
@@ -80,6 +89,317 @@ def _unique_suggestions(items: list[IntegrationTestSuggestion]) -> list[Integrat
         seen.add(key)
         result.append(item)
     return result
+
+
+def _has_path_param(path: str) -> bool:
+    """Detect path-parameter syntax in route templates."""
+    return bool(re.search(r"\{[^}]+\}|:[A-Za-z_][A-Za-z0-9_]*", path))
+
+
+def _normalized_resource_root(path: str) -> str:
+    """Return resource-root path token for lightweight route comparisons."""
+    cleaned = path.strip()
+    if not cleaned:
+        return "/"
+    if not cleaned.startswith("/"):
+        cleaned = f"/{cleaned}"
+    cleaned = cleaned.rstrip("/")
+    if not cleaned:
+        return "/"
+    parts = [part for part in cleaned.split("/") if part]
+    static_parts = [part for part in parts if not part.startswith("{") and not part.startswith(":")]
+    if not static_parts:
+        return "/"
+    return "/" + "/".join(static_parts)
+
+
+def _has_database_write_sink(trace_result: TraceResult) -> bool:
+    """Return True when trace includes a database write sink node."""
+    return any(
+        node.type == "database" and (node.metadata or {}).get("action") == "write"
+        for node in trace_result.nodes
+    )
+
+
+def _has_explicit_get_route_hint(trace_result: TraceResult) -> bool:
+    """Return True when trace graph already includes GET endpoint hints."""
+    target_root = _normalized_resource_root(trace_result.target.path)
+    for node in trace_result.nodes:
+        if node.type != "api_endpoint":
+            continue
+        if (node.method or "").upper() != "GET":
+            continue
+        node_root = _normalized_resource_root(node.path or "")
+        if node_root == target_root or node_root.startswith(target_root) or target_root.startswith(node_root):
+            return True
+    return False
+
+
+def _build_matrix_suggestion(
+    *,
+    name: str,
+    route: str,
+    method: str,
+    summary: str,
+    expectations: list[TestExpectation],
+    flow_id: str | None,
+    confidence: float | None,
+    notes: list[str] | None = None,
+) -> IntegrationTestSuggestion:
+    """Create deterministic matrix suggestion with minimal repeated boilerplate."""
+    return IntegrationTestSuggestion(
+        name=name,
+        route=route,
+        method=method,
+        summary=summary,
+        inputs=[
+            TestInputHint(kind="request_path", value_hint=route, required=True),
+            TestInputHint(kind="http_method", value_hint=method, required=True),
+        ],
+        expectations=expectations,
+        derived_from_flow_id=flow_id,
+        confidence=confidence,
+        notes=notes or [],
+    )
+
+
+def generate_test_matrix(trace_result: TraceResult, *, max_suggestions: int = 7) -> TestMatrix:
+    """Generate a deterministic category-grouped API test matrix from trace output."""
+    route = trace_result.target.path
+    method = (trace_result.target.method or "ANY").upper()
+    method_token = method.lower()
+    route_token = _route_token(route)
+    entity_label = _entity_label_from_route(route)
+    flow_id = trace_result.summary.key_flow_id
+    confidence = trace_result.summary.confidence
+    has_db_write = _has_database_write_sink(trace_result)
+    has_explicit_get = _has_explicit_get_route_hint(trace_result)
+    inferred_get = not has_explicit_get and has_db_write and method in {"POST", "PUT", "PATCH"}
+    has_id_param = _has_path_param(route)
+
+    by_category: dict[str, list[IntegrationTestSuggestion]] = {
+        TEST_MATRIX_CATEGORY_HAPPY_PATH: [],
+        TEST_MATRIX_CATEGORY_VALIDATION: [],
+        TEST_MATRIX_CATEGORY_SIDE_EFFECTS: [],
+        TEST_MATRIX_CATEGORY_STATE_CONSISTENCY: [],
+        TEST_MATRIX_CATEGORY_EDGE_CASES: [],
+    }
+
+    if method == "POST":
+        by_category[TEST_MATRIX_CATEGORY_HAPPY_PATH].append(
+            _build_matrix_suggestion(
+                name=f"{method_token}_{route_token}_creates_resource",
+                route=route,
+                method=method,
+                summary=f"verifies {method} {route} creates a new {entity_label} and returns success",
+                expectations=[
+                    TestExpectation(kind="http_response", description="request succeeds with expected response"),
+                    TestExpectation(kind="behavior", description=f"a new {entity_label} resource is created"),
+                ],
+                flow_id=flow_id,
+                confidence=confidence,
+            )
+        )
+        by_category[TEST_MATRIX_CATEGORY_VALIDATION].append(
+            _build_matrix_suggestion(
+                name=f"{method_token}_{route_token}_rejects_missing_required_field",
+                route=route,
+                method=method,
+                summary=f"verifies {method} {route} rejects missing required fields",
+                expectations=[TestExpectation(kind="validation", description="missing required field is rejected")],
+                flow_id=flow_id,
+                confidence=confidence,
+            )
+        )
+        by_category[TEST_MATRIX_CATEGORY_VALIDATION].append(
+            _build_matrix_suggestion(
+                name=f"{method_token}_{route_token}_rejects_invalid_payload",
+                route=route,
+                method=method,
+                summary=f"verifies {method} {route} rejects invalid payloads",
+                expectations=[TestExpectation(kind="validation", description="invalid payload is rejected")],
+                flow_id=flow_id,
+                confidence=confidence,
+            )
+        )
+        if has_db_write:
+            by_category[TEST_MATRIX_CATEGORY_SIDE_EFFECTS].append(
+                _build_matrix_suggestion(
+                    name=f"{method_token}_{route_token}_writes_to_database",
+                    route=route,
+                    method=method,
+                    summary=f"verifies {method} {route} causes a database write",
+                    expectations=[
+                        TestExpectation(kind="side_effect", description="database write occurs", target="database")
+                    ],
+                    flow_id=flow_id,
+                    confidence=confidence,
+                )
+            )
+        if has_explicit_get or inferred_get:
+            notes = []
+            if inferred_get:
+                notes.append("follow-up fetch inferred from write-heavy flow evidence")
+            by_category[TEST_MATRIX_CATEGORY_STATE_CONSISTENCY].append(
+                _build_matrix_suggestion(
+                    name=f"{method_token}_{route_token}_create_then_fetch_consistent",
+                    route=route,
+                    method=method,
+                    summary=f"verifies created {entity_label} is retrievable in a follow-up fetch",
+                    expectations=[
+                        TestExpectation(
+                            kind="state_consistency",
+                            description="create followed by fetch returns consistent state",
+                        )
+                    ],
+                    flow_id=flow_id,
+                    confidence=confidence,
+                    notes=notes,
+                )
+            )
+
+    elif method == "GET":
+        by_category[TEST_MATRIX_CATEGORY_HAPPY_PATH].append(
+            _build_matrix_suggestion(
+                name=f"{method_token}_{route_token}_returns_entity_or_list",
+                route=route,
+                method=method,
+                summary=f"verifies {method} {route} returns the expected entity/list response",
+                expectations=[TestExpectation(kind="http_response", description="response returns entity/list data")],
+                flow_id=flow_id,
+                confidence=confidence,
+            )
+        )
+        by_category[TEST_MATRIX_CATEGORY_EDGE_CASES].append(
+            _build_matrix_suggestion(
+                name=f"{method_token}_{route_token}_returns_not_found_for_missing_resource",
+                route=route,
+                method=method,
+                summary=f"verifies {method} {route} handles not-found resources",
+                expectations=[TestExpectation(kind="edge_case", description="not found case is handled correctly")],
+                flow_id=flow_id,
+                confidence=confidence,
+            )
+        )
+        if has_id_param:
+            by_category[TEST_MATRIX_CATEGORY_VALIDATION].append(
+                _build_matrix_suggestion(
+                    name=f"{method_token}_{route_token}_rejects_invalid_path_param",
+                    route=route,
+                    method=method,
+                    summary=f"verifies {method} {route} rejects invalid path parameter values",
+                    expectations=[
+                        TestExpectation(kind="validation", description="invalid id/path parameter is rejected")
+                    ],
+                    flow_id=flow_id,
+                    confidence=confidence,
+                )
+            )
+
+    elif method in {"PUT", "PATCH"}:
+        by_category[TEST_MATRIX_CATEGORY_HAPPY_PATH].append(
+            _build_matrix_suggestion(
+                name=f"{method_token}_{route_token}_updates_resource",
+                route=route,
+                method=method,
+                summary=f"verifies {method} {route} updates the target {entity_label}",
+                expectations=[TestExpectation(kind="http_response", description="update request succeeds")],
+                flow_id=flow_id,
+                confidence=confidence,
+            )
+        )
+        by_category[TEST_MATRIX_CATEGORY_VALIDATION].append(
+            _build_matrix_suggestion(
+                name=f"{method_token}_{route_token}_rejects_invalid_payload",
+                route=route,
+                method=method,
+                summary=f"verifies {method} {route} rejects invalid payloads",
+                expectations=[TestExpectation(kind="validation", description="invalid payload is rejected")],
+                flow_id=flow_id,
+                confidence=confidence,
+            )
+        )
+        by_category[TEST_MATRIX_CATEGORY_STATE_CONSISTENCY].append(
+            _build_matrix_suggestion(
+                name=f"{method_token}_{route_token}_update_then_fetch_consistent",
+                route=route,
+                method=method,
+                summary=f"verifies updated {entity_label} is returned in follow-up fetch",
+                expectations=[
+                    TestExpectation(
+                        kind="state_consistency",
+                        description="update followed by fetch returns the latest persisted state",
+                    )
+                ],
+                flow_id=flow_id,
+                confidence=confidence,
+            )
+        )
+
+    elif method == "DELETE":
+        by_category[TEST_MATRIX_CATEGORY_HAPPY_PATH].append(
+            _build_matrix_suggestion(
+                name=f"{method_token}_{route_token}_deletes_resource",
+                route=route,
+                method=method,
+                summary=f"verifies {method} {route} deletes the target {entity_label}",
+                expectations=[TestExpectation(kind="http_response", description="delete request succeeds")],
+                flow_id=flow_id,
+                confidence=confidence,
+            )
+        )
+        by_category[TEST_MATRIX_CATEGORY_STATE_CONSISTENCY].append(
+            _build_matrix_suggestion(
+                name=f"{method_token}_{route_token}_deleted_resource_not_returned",
+                route=route,
+                method=method,
+                summary=f"verifies deleted {entity_label} is no longer returned by follow-up fetch",
+                expectations=[
+                    TestExpectation(
+                        kind="state_consistency",
+                        description="deleted resource is not returned after deletion",
+                    )
+                ],
+                flow_id=flow_id,
+                confidence=confidence,
+            )
+        )
+
+    matrix_groups: list[TestMatrixGroup] = []
+    used_names: set[str] = set()
+    total = 0
+    category_order = [
+        TEST_MATRIX_CATEGORY_HAPPY_PATH,
+        TEST_MATRIX_CATEGORY_VALIDATION,
+        TEST_MATRIX_CATEGORY_SIDE_EFFECTS,
+        TEST_MATRIX_CATEGORY_STATE_CONSISTENCY,
+        TEST_MATRIX_CATEGORY_EDGE_CASES,
+    ]
+    for category in category_order:
+        selected: list[IntegrationTestSuggestion] = []
+        for suggestion in by_category.get(category, []):
+            key = suggestion.name.strip().lower()
+            if key in used_names:
+                continue
+            if total >= max_suggestions:
+                break
+            selected.append(suggestion)
+            used_names.add(key)
+            total += 1
+        if selected:
+            matrix_groups.append(
+                TestMatrixGroup(
+                    category=category,
+                    tests=selected,
+                )
+            )
+        if total >= max_suggestions:
+            break
+
+    notes: list[str] = []
+    if inferred_get:
+        notes.append("consistency group includes inferred fetch checks from write + route shape hints")
+    return TestMatrix(groups=matrix_groups, notes=notes)
 
 
 def generate_test_suggestions(trace_result: TraceResult) -> list[IntegrationTestSuggestion]:
