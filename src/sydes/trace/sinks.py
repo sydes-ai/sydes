@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+
 from sydes.core.models import (
     EvidenceRef,
     SINK_ACTION_CONSUME,
@@ -116,78 +118,40 @@ def _step_text(step: TraceStep) -> str:
     return " ".join(parts).strip().lower()
 
 
+def _is_route_declaration_step_text(text: str) -> bool:
+    """Detect route declaration-like step text that should not drive sink recovery."""
+    route_patterns = (
+        r"^\s*@\s*[a-z_][a-z0-9_\.]*\s*\.\s*(get|post|put|patch|delete|route)\s*\(",
+        r"^\s*@\s*(getmapping|postmapping|putmapping|deletemapping|patchmapping|requestmapping)\b",
+        r"^\s*(app|router|blueprint|bp)\s*\.\s*(get|post|put|patch|delete|route)\s*\(",
+    )
+    return any(re.search(pattern, text, re.IGNORECASE) for pattern in route_patterns)
+
+
+def _is_literal_database_write_step(text: str) -> bool:
+    """Detect obvious literal DB write operations from retained flow steps."""
+    literal_signals = (
+        "db.add",
+        "db.commit",
+        "db.execute",
+        "db.refresh",
+        "repository.save",
+    )
+    if any(signal in text for signal in literal_signals):
+        return True
+    if re.search(r"\b(insert|update|delete)\b", text):
+        return True
+    return False
+
+
 def _derive_sink_from_step(step: TraceStep) -> SinkCandidate | None:
-    """Derive a conservative sink candidate from one retained flow step."""
+    """Derive a conservative database sink candidate from one literal flow step."""
     text = _step_text(step)
     if not text:
         return None
-
-    kind = "unknown"
-    action: str | None = None
-    name = "sink"
-
-    database_write_signals = (
-        "db.add",
-        "db.commit",
-        "insert",
-        "save",
-        "create record",
-        "update",
-        "delete",
-        "upsert",
-    )
-    database_read_signals = (
-        "query",
-        "select",
-        "fetch",
-        "get by id",
-        "find",
-    )
-    queue_signals = (
-        "publish",
-        "enqueue",
-        "send event",
-        "produce",
-    )
-    external_signals = (
-        "requests.",
-        "httpx.",
-        "client.",
-        "call api",
-        "post request",
-        "get request",
-    )
-    file_signals = (
-        "write file",
-        "save file",
-        'open(..., "w")',
-        "open(..., 'w')",
-        'open("',
-        "open('",
-    )
-
-    if any(signal in text for signal in database_write_signals):
-        kind = SINK_KIND_DATABASE
-        action = SINK_ACTION_WRITE
-        name = SINK_KIND_DATABASE
-    elif any(signal in text for signal in database_read_signals):
-        kind = SINK_KIND_DATABASE
-        action = SINK_ACTION_READ
-        name = SINK_KIND_DATABASE
-    elif any(signal in text for signal in queue_signals):
-        kind = SINK_KIND_QUEUE
-        action = SINK_ACTION_PUBLISH
-        name = SINK_KIND_QUEUE
-    elif any(signal in text for signal in external_signals):
-        kind = SINK_KIND_EXTERNAL_API
-        action = SINK_ACTION_READ
-        name = SINK_KIND_EXTERNAL_API
-    elif any(signal in text for signal in file_signals):
-        kind = SINK_KIND_FILE_SINK
-        action = SINK_ACTION_WRITE
-        name = SINK_KIND_FILE_SINK
-
-    if kind == "unknown":
+    if _is_route_declaration_step_text(text):
+        return None
+    if not _is_literal_database_write_step(text):
         return None
 
     evidence: list[EvidenceRef] = []
@@ -201,13 +165,13 @@ def _derive_sink_from_step(step: TraceStep) -> SinkCandidate | None:
         )
     return normalize_sink_candidate(
         SinkCandidate(
-            kind=kind,
-            name=name,
+            kind=SINK_KIND_DATABASE,
+            name=SINK_KIND_DATABASE,
             repo=step.repo,
             service=step.service,
             file=step.file,
             symbol=step.symbol,
-            action=action,
+            action=SINK_ACTION_WRITE,
             evidence=evidence,
             confidence=step.confidence,
             status="inferred",
@@ -231,7 +195,7 @@ def _sink_dedupe_key(sink: SinkCandidate) -> tuple[str, str, str, str]:
         sink.kind or "unknown",
         sink.action or "",
         sink.file or "",
-        (sink.name or "").lower(),
+        sink.repo or "",
     )
 
 

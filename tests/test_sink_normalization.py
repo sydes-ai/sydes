@@ -66,6 +66,7 @@ def test_derive_sink_candidates_from_steps_recovers_database_write() -> None:
     steps = [
         TraceStep(kind="internal_step", name="db.add", repo="api", file="src/routes.py"),
         TraceStep(kind="internal_step", name="db.commit", repo="api", file="src/routes.py"),
+        TraceStep(kind="internal_step", name="db.refresh", repo="api", file="src/routes.py"),
     ]
 
     sinks = derive_sink_candidates_from_steps(steps)
@@ -110,3 +111,32 @@ def test_merge_and_dedupe_sinks_preserves_explicit_and_dedupes_derived() -> None
     assert database.status == "confirmed"
     queue = next(item for item in merged if item.kind == "queue")
     assert queue.action == "publish"
+
+
+def test_derive_sink_candidates_from_steps_ignores_route_declaration_like_steps() -> None:
+    """Route declaration syntax should never produce recovered sink candidates."""
+    steps = [
+        TraceStep(kind="internal_step", name="@app.get('/users/')", repo="api", file="src/main.py"),
+        TraceStep(kind="internal_step", name="@router.post('/users/')", repo="api", file="src/main.py"),
+        TraceStep(kind="internal_step", name="@GetMapping('/db/books')", repo="api", file="src/BooksController.java"),
+    ]
+
+    sinks = derive_sink_candidates_from_steps(steps)
+
+    assert sinks == []
+
+
+def test_merge_and_dedupe_sinks_uses_kind_action_file_repo_key() -> None:
+    """Derived sink dedupe should collapse same kind/action/file/repo even with different names."""
+    derived = [
+        SinkCandidate(kind="database", action="write", name="database", file="src/routes.py", repo="api"),
+        SinkCandidate(kind="database", action="write", name="orders_db", file="src/routes.py", repo="api"),
+    ]
+
+    merged = merge_and_dedupe_sinks([], derived)
+
+    assert len(merged) == 1
+    assert merged[0].kind == "database"
+    assert merged[0].action == "write"
+    assert merged[0].file == "src/routes.py"
+    assert merged[0].repo == "api"
