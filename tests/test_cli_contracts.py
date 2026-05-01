@@ -34,11 +34,11 @@ def test_trace_terminal_output_contains_target_and_repos(tmp_path: Path) -> None
     )
 
     assert result.exit_code == 0
-    assert "Sydes Trace Target Resolution" in result.stdout
+    assert "Sydes API Flow Trace" in result.stdout
     assert "Target: POST /checkout" in result.stdout
     assert "gateway:" in result.stdout
     assert "api:" in result.stdout
-    assert "Downstream flow expansion is heuristic and may be partial." in result.stdout
+    assert "Trace is inferred from code and may be partial." in result.stdout
 
 
 def test_trace_json_output_contains_expected_fields(tmp_path: Path) -> None:

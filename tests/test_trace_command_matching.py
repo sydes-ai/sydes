@@ -631,3 +631,62 @@ def test_trace_renders_unmatched_cross_repo_candidate_note(tmp_path: Path, monke
     assert result.exit_code == 0
     assert "Cross-Repo Links:" in result.stdout
     assert "Unmatched cross-repo candidate: GET /db/books" in result.stdout
+
+
+def test_trace_verbose_flag_controls_debug_notes_visibility(tmp_path: Path, monkeypatch) -> None:
+    """Trace terminal output should hide debug notes unless --verbose is set."""
+    repo_root = tmp_path / "api"
+    repo_root.mkdir()
+
+    def _fake_discovery(repos: list[RepoRef]) -> RoutesResult:
+        return RoutesResult(
+            repos=repos,
+            routes=[
+                EndpointCandidate(
+                    method="POST",
+                    path="/users",
+                    handler="create_user",
+                    file="src/routes.py",
+                    repo="api",
+                    confidence=0.9,
+                )
+            ],
+        )
+
+    monkeypatch.setattr(trace_module, "discover_endpoints", _fake_discovery)
+    monkeypatch.setattr(
+        trace_module,
+        "run_flow_expansion",
+        lambda matched_endpoint, repos: FlowExpansionResult(
+            notes=[
+                "Flow expansion context files selected: 1 (examined=1).",
+                "Flow expansion prompt chars: 1234.",
+                "LLM discovery unavailable: mock timeout.",
+            ]
+        ),
+    )
+    monkeypatch.setattr(trace_module, "compute_workspace_id", lambda repos: "ws-test")
+    monkeypatch.setattr(trace_module, "create_run_id", lambda: "run-test")
+    monkeypatch.setattr(
+        trace_module,
+        "save_run_artifact",
+        lambda **kwargs: Path(f"/tmp/{kwargs['artifact_name']}.json"),
+    )
+
+    default_result = runner.invoke(
+        app,
+        ["trace", "/users", "--method", "POST", "--repo", f"api={repo_root}"],
+    )
+    assert default_result.exit_code == 0
+    assert "Flow expansion context files selected:" not in default_result.stdout
+    assert "Flow expansion prompt chars:" not in default_result.stdout
+    assert "LLM discovery unavailable: mock timeout." in default_result.stdout
+
+    verbose_result = runner.invoke(
+        app,
+        ["trace", "/users", "--method", "POST", "--repo", f"api={repo_root}", "--verbose"],
+    )
+    assert verbose_result.exit_code == 0
+    assert "Flow expansion context files selected:" in verbose_result.stdout
+    assert "Flow expansion prompt chars:" in verbose_result.stdout
+    assert "LLM discovery unavailable: mock timeout." in verbose_result.stdout

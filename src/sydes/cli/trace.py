@@ -33,6 +33,20 @@ from sydes.trace.cross_repo import (
 from sydes.trace.expand import prepare_flow_expansion_context, run_flow_expansion
 from sydes.trace.sinks import normalize_sink_candidates
 
+VERBOSE_NOTE_MARKERS = (
+    "Flow expansion context files selected:",
+    "Flow expansion prompt chars:",
+    "Flow expansion timeout:",
+    "Selected ",
+    "Included ",
+    "Cross-repo candidate normalized:",
+    "Matched target endpoint:",
+    "Raw call text:",
+    "Applied service hint narrowing",
+    "Sink merge result:",
+    "Flow expansion extracted ",
+)
+
 
 def _build_trace_result(
     path: str, method: str | None, repo_specs: list[str]
@@ -240,6 +254,16 @@ def _write_output(path: Path, content: str) -> None:
     path.write_text(content + "\n", encoding="utf-8")
 
 
+def _concise_terminal_notes(notes: list[str]) -> list[str]:
+    """Keep concise user-facing notes while hiding verbose debug detail."""
+    concise: list[str] = []
+    for note in notes:
+        if any(marker in note for marker in VERBOSE_NOTE_MARKERS):
+            continue
+        concise.append(note)
+    return concise
+
+
 def trace_command(
     path: Annotated[str, typer.Argument(help="Target API path, e.g. /checkout")],
     method: Annotated[str | None, typer.Option("--method")] = None,
@@ -251,6 +275,7 @@ def trace_command(
     emit_tests: Annotated[bool, typer.Option("--emit-tests")] = False,
     max_hops: Annotated[int | None, typer.Option("--max-hops")] = None,
     max_files: Annotated[int | None, typer.Option("--max-files")] = None,
+    verbose: Annotated[bool, typer.Option("--verbose")] = False,
 ) -> None:
     """Run target-grounded trace preparation with first-pass downstream expansion."""
     _ = emit_tests, max_hops, max_files
@@ -318,7 +343,14 @@ def trace_command(
     except OSError as exc:
         result.notes.append(f"Could not save trace artifact: {exc}")
 
-    rendered = render_json(result) if output_format == "json" else render_terminal(result)
+    if output_format == "json":
+        rendered = render_json(result)
+    else:
+        display_result = result
+        if not verbose:
+            display_result = result.model_copy(deep=True)
+            display_result.notes = _concise_terminal_notes(result.notes)
+        rendered = render_terminal(display_result)
     typer.echo(rendered)
     if output is not None:
         _write_output(output, rendered)

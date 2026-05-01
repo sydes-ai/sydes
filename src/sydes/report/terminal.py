@@ -26,7 +26,7 @@ def render_terminal(result: TraceResult) -> str:
     """Build a target-grounded terminal summary for a trace result."""
     method = result.target.method or "ANY"
     lines = [
-        "Sydes Trace Target Resolution",
+        "Sydes API Flow Trace",
         f"Target: {method} {result.target.path}",
         "Repos:",
     ]
@@ -176,7 +176,7 @@ def render_terminal(result: TraceResult) -> str:
     unmatched = [item for item in result.unknowns if item.kind == "unmatched_target"]
     if unmatched:
         lines.append("No endpoint match found for the requested target.")
-    lines.append("Downstream flow expansion is heuristic and may be partial.")
+    lines.append("Trace is inferred from code and may be partial.")
 
     if result.notes:
         lines.append("Notes:")
