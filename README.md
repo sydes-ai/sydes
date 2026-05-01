@@ -2,8 +2,9 @@
 
 ## What is Sydes?
 
-Sydes is an AI-assisted system understanding tool for tracing API flows from code.
-V1 focuses on practical API route-to-flow understanding, sink detection, shallow cross-repo linking, and structured test-matrix suggestions.
+Sydes helps you understand how API requests flow through your backend — directly from code.
+
+It reconstructs routes, follows internal calls (even across services), and surfaces side effects like database writes — without manually reading hundreds of files.
 
 ## Quickstart
 
@@ -20,6 +21,7 @@ V1 focuses on practical API route-to-flow understanding, sink detection, shallow
 ```bash
 sydes routes --repo api=./api
 ```
+Works best on multi-service backends (API + worker + gateway).
 
 ## Example 1: single-repo API flow
 
@@ -66,14 +68,15 @@ Expected cross-repo section (abridged):
 Cross-Repo Links:
   - service2 -> service1::GET /db/books
 ```
+This shows that a request to `/goodreads/books` in service2 calls `/db/books` in service1.
 
 ## What Sydes outputs
 
-- Route discovery and target matching output
-- Inferred flow steps and sink signals
-- Cross-repo API link hints when detectable
-- API test matrix suggestions by category
-- Sydes-native JSON export:
+- API route → flow reconstruction (what actually happens inside a request)
+- Internal steps and side-effect signals (e.g. database writes)
+- Cross-repo API links (when one service calls another)
+- Structured API test matrix suggestions
+- Sydes-native JSON export for further analysis
 
 ```bash
 sydes export ~/.sydes/workspaces/<workspace-id>/artifacts/<run-id>/trace_result.json
@@ -92,6 +95,6 @@ Artifacts are stored locally under `~/.sydes/`.
 
 ## Roadmap
 
-- Runnable framework-specific test generation from matrix suggestions
-- Deeper recursive multi-repo trace expansion
-- Richer graph analysis over exported Sydes artifacts
+- Generate runnable integration tests from inferred flows
+- Deeper cross-service tracing (recursive API chains)
+- Graph-based system analysis over exported artifacts
