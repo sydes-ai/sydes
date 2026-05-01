@@ -83,11 +83,12 @@ Artifacts are stored locally under `~/.sydes/`.
 
 ## Current limitations
 
-- Flow and linking are inferred from bounded code context, not full program execution.
-- Results are useful but can be partial and uncertain.
-- Cross-repo linking is shallow (no recursive distributed trace expansion yet).
-- Test matrix output is heuristic; runnable framework-specific test generation is future work.
-- OSS export format is Sydes JSON only for now (no GraphML/richer interchange yet).
+- Local model quality can vary by model choice, prompt fit, and hardware/runtime conditions.
+- Flow traces are inferred from code context, not runtime traces or full execution capture.
+- Large repositories are explored selectively (bounded candidate ranking and file reads), not exhaustively.
+- Framework-specific behavior is not guaranteed in V1.
+- Cross-repo linking currently works for detectable internal API-call patterns and remains shallow.
+- OSS export format is Sydes-native JSON for now; GraphML is not exported yet.
 
 ## Roadmap
 
