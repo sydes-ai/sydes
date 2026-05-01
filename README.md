@@ -1,38 +1,29 @@
 # Sydes
 
+## What is Sydes?
+
 Sydes is an AI-assisted system understanding tool for tracing API flows from code.
-Current V1 supports route discovery, flow tracing, shallow cross-repo linking, Sydes JSON export, and API test matrix suggestions.
+V1 focuses on practical API route-to-flow understanding, sink detection, shallow cross-repo linking, and structured test-matrix suggestions.
 
-## Quick Ollama setup
+## Quickstart
 
-1. Install Ollama and start the local server (`ollama serve`).
-2. Pull a local model (example): `ollama pull llama3.1:8b`.
+1. Install Ollama and start the local server:
+   - `ollama serve`
+2. Pull a local model (example):
+   - `ollama pull llama3.1:8b`
 3. Optionally set env vars (defaults shown):
    - `SYDES_LLM_PROVIDER=ollama`
    - `SYDES_LLM_MODEL=llama3.1:8b`
    - `SYDES_LLM_BASE_URL=http://localhost:11434`
-
-## Commands available now
+4. Run Sydes:
 
 ```bash
 sydes routes --repo api=./api
-sydes trace "/users" --method POST --repo api=./api
-sydes trace "/checkout" --method POST --repo gateway=./gateway --repo api=./api --repo worker=./worker
 ```
 
-## Current capability
+## Example 1: single-repo API flow
 
-- Discover API routes from bounded, selectively ranked files.
-- Match a requested target route to discovered endpoint candidates.
-- Infer one likely downstream flow from matched endpoint + nearby contextual files.
-- Detect major sink types (database, external API, queue, file sink).
-- Connect likely internal API calls across multiple repos when detectable.
-- Produce grouped API test matrix suggestions from traced flow and sink evidence.
-- Export graph-backed trace results (`nodes`, `edges`, `flows`) via terminal or JSON.
-
-Flow tracing is inferred from code and bounded context. Results are partial but useful, not full architecture reconstruction.
-
-Example trace command:
+Trace `POST /users` in a FastAPI-style repo:
 
 ```bash
 sydes trace "/users" --method POST --repo api=./api
@@ -59,32 +50,47 @@ Test Matrix:
     - post_users_writes_to_database
 ```
 
-## Current scope
+## Example 2: cross-repo API link
 
-- Bounded selective exploration rather than deep repo-wide parsing.
-- Partial but useful inferred flows with explicit uncertainty.
-- Shallow cross-repo linking from detectable internal API call patterns.
-- No full recursive distributed tracing yet.
-- Test matrix suggestions are structured and heuristic, not runnable framework-specific test files.
-- Local artifacts stored under `~/.sydes/`.
+Trace a route in one service and link an internal call to another repo endpoint:
 
-## Near-term roadmap
+```bash
+sydes trace "/goodreads/books" --method GET \
+  --repo service1=~/sample_repos/microservices-level6/service1 \
+  --repo service2=~/sample_repos/microservices-level6/service2
+```
 
-- Runnable framework-specific test generation from matrix suggestions.
-- Deeper recursive multi-repo trace expansion.
-- Richer graph analysis on top of exported trace structure.
+Expected cross-repo section (abridged):
 
-## Artifacts
+```text
+Cross-Repo Links:
+  - service2 -> service1::GET /db/books
+```
 
-Sydes saves run artifacts under `~/.sydes/`.
+## What Sydes outputs
 
-## Artifact Export
-
-You can export saved run artifacts as Sydes-native JSON:
+- Route discovery and target matching output
+- Inferred flow steps and sink signals
+- Cross-repo API link hints when detectable
+- API test matrix suggestions by category
+- Sydes-native JSON export:
 
 ```bash
 sydes export ~/.sydes/workspaces/<workspace-id>/artifacts/<run-id>/trace_result.json
 ```
 
-- Export output is Sydes JSON for OSS users at this stage.
-- GraphML and richer interchange formats are not exposed yet.
+Artifacts are stored locally under `~/.sydes/`.
+
+## Current limitations
+
+- Flow and linking are inferred from bounded code context, not full program execution.
+- Results are useful but can be partial and uncertain.
+- Cross-repo linking is shallow (no recursive distributed trace expansion yet).
+- Test matrix output is heuristic; runnable framework-specific test generation is future work.
+- OSS export format is Sydes JSON only for now (no GraphML/richer interchange yet).
+
+## Roadmap
+
+- Runnable framework-specific test generation from matrix suggestions
+- Deeper recursive multi-repo trace expansion
+- Richer graph analysis over exported Sydes artifacts
