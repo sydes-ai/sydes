@@ -81,6 +81,57 @@ def test_create_default_llm_client_uses_model_spec_override(monkeypatch) -> None
     assert client.model == "gpt-4.1-mini"
 
 
+def test_openai_client_constructs_sdk_with_expected_settings(monkeypatch) -> None:
+    """OpenAI provider should construct SDK client with model-compatible settings."""
+    captured: dict[str, object] = {}
+
+    class _FakeCompletions:
+        @staticmethod
+        def create(**kwargs):
+            captured["create_kwargs"] = kwargs
+            return type(
+                "Resp",
+                (),
+                {
+                    "choices": [
+                        type(
+                            "Choice",
+                            (),
+                            {"message": type("Msg", (), {"content": "ok"})()},
+                        )()
+                    ]
+                },
+            )()
+
+    class _FakeOpenAI:
+        def __init__(self, **kwargs):
+            captured["init_kwargs"] = kwargs
+            self.chat = type(
+                "Chat",
+                (),
+                {"completions": _FakeCompletions()},
+            )()
+
+    monkeypatch.setattr("sydes.llm.client.OpenAI", _FakeOpenAI)
+    client = OpenAIClient(
+        model="gpt-4.1-mini",
+        api_key="test-key",
+        base_url="https://api.openai.com/v1",
+        timeout_seconds=42,
+    )
+
+    from sydes.llm.client import LLMRequest
+
+    response = client.generate(LLMRequest(prompt="hello"))
+    assert response.text == "ok"
+    assert captured["init_kwargs"] == {
+        "api_key": "test-key",
+        "base_url": "https://api.openai.com/v1",
+        "timeout": 42,
+    }
+    assert captured["create_kwargs"]["model"] == "gpt-4.1-mini"
+
+
 def test_create_default_llm_client_supports_anthropic_from_model_spec(monkeypatch) -> None:
     """Model-spec override should support Anthropic provider selection."""
     monkeypatch.setenv("SYDES_LLM_PROVIDER", "ollama")
@@ -107,5 +158,8 @@ def test_create_default_llm_client_requires_openai_key(monkeypatch) -> None:
     monkeypatch.setenv("SYDES_LLM_MODEL", "gpt-4.1-mini")
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
 
-    with pytest.raises(LLMClientError, match="OPENAI_API_KEY is required"):
+    with pytest.raises(
+        LLMClientError,
+        match="OpenAI provider selected, but OPENAI_API_KEY is not set.",
+    ):
         create_default_llm_client()

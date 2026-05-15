@@ -8,6 +8,9 @@ import os
 from urllib import error, request
 from typing import Protocol
 
+from openai import OpenAI
+from openai import OpenAIError
+
 DEFAULT_PROVIDER = "ollama"
 DEFAULT_MODEL = "llama3.1:8b"
 DEFAULT_OLLAMA_BASE_URL = "http://localhost:11434"
@@ -141,13 +144,18 @@ class OllamaClient:
 
 
 class OpenAIClient:
-    """OpenAI text generation client via HTTPS API."""
+    """OpenAI text generation client via official OpenAI Python SDK."""
 
     def __init__(self, *, model: str, api_key: str, base_url: str, timeout_seconds: float = 90.0) -> None:
         self.model = model
         self.api_key = api_key
         self.base_url = base_url.rstrip("/")
         self.timeout_seconds = timeout_seconds
+        self._client = OpenAI(
+            api_key=api_key,
+            base_url=self.base_url,
+            timeout=self.timeout_seconds,
+        )
 
     def generate(self, request_data: LLMRequest) -> LLMResponse:
         """Generate text using OpenAI chat completions API."""
@@ -156,49 +164,28 @@ class OpenAIClient:
             messages.append({"role": "system", "content": request_data.system})
         messages.append({"role": "user", "content": request_data.prompt})
 
-        payload: dict[str, object] = {
-            "model": self.model,
-            "messages": messages,
-        }
-        if request_data.temperature is not None:
-            payload["temperature"] = request_data.temperature
-
-        body = json.dumps(payload).encode("utf-8")
-        req = request.Request(
-            url=f"{self.base_url}/chat/completions",
-            data=body,
-            method="POST",
-            headers={
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {self.api_key}",
-            },
-        )
         try:
-            with request.urlopen(req, timeout=self.timeout_seconds) as resp:
-                raw = resp.read().decode("utf-8")
-        except error.HTTPError as exc:
-            detail = exc.read().decode("utf-8", errors="replace")
+            response = self._client.chat.completions.create(
+                model=self.model,
+                messages=messages,
+                temperature=request_data.temperature,
+            )
+        except OpenAIError as exc:
             raise LLMClientError(
-                f"OpenAI request failed ({exc.code}). {detail.strip() or 'No details.'}"
+                f"OpenAI request failed for model '{self.model}': {exc}"
             ) from exc
-        except error.URLError as exc:
-            raise LLMClientError(f"OpenAI unavailable at {self.base_url}.") from exc
         except TimeoutError as exc:
             raise LLMClientError(
                 f"OpenAI request timed out for model '{self.model}' after {self.timeout_seconds:.0f}s."
             ) from exc
 
-        try:
-            data = json.loads(raw)
-            choices = data.get("choices")
-            if isinstance(choices, list) and choices:
-                message = choices[0].get("message")
-                if isinstance(message, dict):
-                    content = message.get("content")
-                    if isinstance(content, str):
-                        return LLMResponse(text=content)
-        except (json.JSONDecodeError, AttributeError):
-            pass
+        choices = getattr(response, "choices", None)
+        if choices:
+            first_choice = choices[0]
+            message = getattr(first_choice, "message", None)
+            content = getattr(message, "content", None) if message is not None else None
+            if isinstance(content, str):
+                return LLMResponse(text=content)
         raise LLMClientError("OpenAI response missing completion text.")
 
 
@@ -310,7 +297,13 @@ def create_default_llm_client(model_spec: str | None = None) -> LLMClient:
     if provider == "openai":
         api_key = os.getenv("OPENAI_API_KEY", "").strip()
         if not api_key:
-            raise LLMClientError("OPENAI_API_KEY is required when using provider 'openai'.")
+            raise LLMClientError(
+                "OpenAI provider selected, but OPENAI_API_KEY is not set.\n\n"
+                "Set it with:\n"
+                "  export OPENAI_API_KEY=...\n\n"
+                "Or choose another provider:\n"
+                '  sydes trace "/checkout" --method POST --model ollama:llama3.1:8b'
+            )
         return OpenAIClient(
             model=model,
             api_key=api_key,
