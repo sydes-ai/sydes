@@ -53,6 +53,21 @@ def _entity_label_from_route(path: str) -> str:
     return entity or "record"
 
 
+def _resource_words_from_route(path: str) -> str:
+    """Infer lightweight resource words from route for human-readable naming/summaries."""
+    normalized = path.strip().strip("/")
+    if not normalized:
+        return "data"
+    parts = [
+        part
+        for part in normalized.split("/")
+        if part and not part.startswith("{") and not part.startswith(":") and not (part.startswith("<") and part.endswith(">"))
+    ]
+    if not parts:
+        return "data"
+    return parts[-1].replace("-", " ").replace("_", " ")
+
+
 def _flow_step_names(trace_result: TraceResult) -> list[str]:
     """Return display names for nodes participating in the selected flow."""
     if not trace_result.flows:
@@ -312,12 +327,19 @@ def generate_test_matrix(trace_result: TraceResult, *, max_suggestions: int = 7)
             )
 
     elif method == "GET":
+        happy_name = f"{method_token}_{route_token}_returns_entity_or_list"
         happy_summary = f"verifies {method} {route} returns the expected entity/list response"
-        if has_external_api and has_cross_repo:
-            happy_summary = f"verifies {_route_token(route).replace('_', ' ')} proxies expected downstream data"
+        if has_external_api:
+            resource_words = _resource_words_from_route(route)
+            happy_name = f"{method_token}_{route_token}_proxies_downstream_response"
+            happy_summary = f"verifies {method} {route} returns {resource_words} from a downstream service call"
+            if has_cross_repo:
+                happy_summary = (
+                    f"verifies {method} {route} returns {resource_words} from the linked downstream service"
+                )
         by_category[TEST_MATRIX_CATEGORY_HAPPY_PATH].append(
             _build_matrix_suggestion(
-                name=f"{method_token}_{route_token}_returns_entity_or_list",
+                name=happy_name,
                 route=route,
                 method=method,
                 summary=happy_summary,

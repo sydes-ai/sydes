@@ -137,6 +137,9 @@ def test_generate_test_matrix_external_api_sink_adds_downstream_failure_cases() 
 
     matrix = generate_test_matrix(trace)
     names = _flatten_names(matrix)
+    assert "get_goodreads_books_proxies_downstream_response" in names
+    happy_group = next(group for group in matrix.groups if group.category == "happy_path")
+    assert "downstream service call" in (happy_group.tests[0].summary or "")
     assert "get_goodreads_books_downstream_unavailable" in names
     assert "get_goodreads_books_downstream_timeout" in names
     assert "get_goodreads_books_downstream_empty_payload_handled" in names
@@ -194,3 +197,14 @@ def test_generate_test_matrix_basic_endpoint_without_sinks_keeps_happy_and_edge(
     assert "get_status_returns_not_found_for_missing_resource" not in names
     assert "get_status_handles_empty_result_set" in names
     assert "get_status_returns_expected_response_shape" in names
+
+
+def test_generate_test_matrix_simple_get_without_sinks_keeps_generic_happy_path_name() -> None:
+    """Simple GET endpoints should keep generic happy-path naming when no downstream sink exists."""
+    trace = TraceResult(
+        target=TargetSpec(path="/health", method="GET"),
+        summary=TraceSummary(confidence=0.5),
+    )
+    names = _flatten_names(generate_test_matrix(trace))
+    assert "get_health_returns_entity_or_list" in names
+    assert "get_health_proxies_downstream_response" not in names
