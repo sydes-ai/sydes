@@ -22,6 +22,36 @@ def _format_matrix_group_title(category: str, title: str | None = None) -> str:
     return mapped.title()
 
 
+def _classify_trace_note(note: str) -> str:
+    """Classify one trace note for Evidence/Diagnostics/Artifacts sections."""
+    lowered = note.lower()
+    if "saved " in lowered and "artifact" in lowered:
+        return "artifacts"
+
+    diagnostic_markers = (
+        "candidate_files=",
+        "files_sent_to_llm=",
+        "prompt_chars=",
+        "flow expansion context files selected:",
+        "flow expansion prompt chars:",
+        "flow expansion timeout:",
+        "using anchor file:",
+        "anchor file appears sufficient",
+        "selected ",
+        "included ",
+        "truncated",
+        "llm timeout",
+        "no nearby related files were selected",
+        "contextual file",
+        "discovery unavailable",
+        "unavailable:",
+    )
+    if any(marker in lowered for marker in diagnostic_markers):
+        return "diagnostics"
+
+    return "evidence"
+
+
 def render_terminal(result: TraceResult) -> str:
     """Build a target-grounded terminal summary for a trace result."""
     method = result.target.method or "ANY"
@@ -177,17 +207,43 @@ def render_terminal(result: TraceResult) -> str:
     )
     if trace_conf is not None:
         lines.append(f"Trace Confidence: {trace_conf:.2f}")
-    if result.summary.test_matrix_confidence is not None:
-        lines.append(f"Test Matrix Confidence: {result.summary.test_matrix_confidence:.2f}")
+    matrix_coverage = (
+        result.summary.test_matrix_coverage
+        if result.summary.test_matrix_coverage is not None
+        else result.summary.test_matrix_confidence
+    )
+    if matrix_coverage is not None:
+        lines.append(f"Test Matrix Coverage: {matrix_coverage:.2f}")
 
     unmatched = [item for item in result.unknowns if item.kind == "unmatched_target"]
     if unmatched:
         lines.append("No endpoint match found for the requested target.")
-    lines.append("Trace is inferred from code and may be partial.")
+    lines.append(
+        "Trace is inferred from static code context and may miss runtime configuration or dynamic behavior."
+    )
 
     if result.notes:
-        lines.append("Notes:")
-        lines.extend(f"  - {note}" for note in result.notes)
+        evidence_notes: list[str] = []
+        diagnostics_notes: list[str] = []
+        artifact_notes: list[str] = []
+        for note in result.notes:
+            category = _classify_trace_note(note)
+            if category == "artifacts":
+                artifact_notes.append(note)
+            elif category == "diagnostics":
+                diagnostics_notes.append(note)
+            else:
+                evidence_notes.append(note)
+
+        if evidence_notes:
+            lines.append("Evidence:")
+            lines.extend(f"  - {note}" for note in evidence_notes)
+        if diagnostics_notes:
+            lines.append("Diagnostics:")
+            lines.extend(f"  - {note}" for note in diagnostics_notes)
+        if artifact_notes:
+            lines.append("Artifacts:")
+            lines.extend(f"  - {note}" for note in artifact_notes)
     return "\n".join(lines)
 
 

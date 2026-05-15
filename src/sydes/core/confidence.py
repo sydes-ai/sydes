@@ -1,4 +1,4 @@
-"""Confidence helpers for trace/test-matrix confidence stabilization."""
+"""Confidence helpers for trace grounding and test-matrix coverage scoring."""
 
 from __future__ import annotations
 
@@ -36,6 +36,8 @@ def _has_strong_step_evidence(step: TraceStep) -> bool:
 def cap_trace_summary_confidence(
     base_confidence: float | None,
     flow_expansion: FlowExpansionResult | None,
+    *,
+    has_strong_grounding: bool = False,
 ) -> tuple[float, bool, list[str]]:
     """Cap optimistic confidence for partially inferred traces."""
     confidence = _clamp_confidence(base_confidence)
@@ -48,7 +50,7 @@ def cap_trace_summary_confidence(
         (step.status or "inferred").lower() == "inferred" and not _has_strong_step_evidence(step)
         for step in flow_expansion.steps
     )
-    if weak_inferred_steps:
+    if weak_inferred_steps and not has_strong_grounding:
         reasons.append("inferred steps have weak grounding")
 
     dropped_suspicious_steps = any("Dropped suspicious abstract step" in note for note in flow_expansion.notes)
@@ -109,7 +111,8 @@ def compute_trace_confidence(
         if flow_expansion.sinks and not flow_expansion.steps:
             score -= 0.12
 
-    cross_repo_edges = max(0, edges_count - max(0, nodes_count - 1))
+    # Heuristic: extra graph edges beyond minimal chain often indicate richer grounded links.
+    cross_repo_edges = max(0, edges_count - 1)
     if cross_repo_edges:
         score += min(0.08, cross_repo_edges * 0.04)
 
@@ -119,46 +122,87 @@ def compute_trace_confidence(
     return round(score, 2)
 
 
-def compute_test_matrix_confidence(trace_result: TraceResult, test_matrix: TestMatrix | None) -> float | None:
-    """Compute conservative confidence for generated test matrix usefulness."""
+def _has_path_param(path: str) -> bool:
+    """Detect id-like path parameters for risk-surface detection."""
+    import re
+
+    return bool(re.search(r"\{[^}]+\}|:[A-Za-z_][A-Za-z0-9_]*|<[^>]+>", path))
+
+
+def compute_test_matrix_coverage(trace_result: TraceResult, test_matrix: TestMatrix | None) -> float | None:
+    """Compute coverage of detected risk surfaces by generated matrix cases."""
     if test_matrix is None or not test_matrix.groups:
         return None
 
-    trace_conf = (
-        trace_result.summary.trace_confidence
-        if trace_result.summary.trace_confidence is not None
-        else trace_result.summary.confidence
-    ) or 0.0
-    score = 0.35 + min(0.35, trace_conf * 0.45)
-
-    tests = [test for group in test_matrix.groups for test in group.tests]
-    specific_tests = 0
-    generic_tests = 0
-    for test in tests:
-        name = test.name.lower()
-        summary = (test.summary or "").lower()
-        if any(token in name or token in summary for token in ("downstream", "cross_service", "database", "queue", "contract", "timeout")):
-            specific_tests += 1
-        if any(token in name for token in ("returns_entity_or_list", "returns_expected_response")):
-            generic_tests += 1
-    score += min(0.18, specific_tests * 0.03)
-    score -= min(0.14, generic_tests * 0.04)
-
+    route = trace_result.target.path
+    method = (trace_result.target.method or "ANY").upper()
+    has_id_param = _has_path_param(route)
     node_types = {node.type for node in trace_result.nodes}
-    if "external_api" in node_types:
-        score += 0.05
-    if "database" in node_types:
-        score += 0.04
-    if "queue" in node_types:
-        score += 0.03
-    if any(edge.type == "CALLS_API" for edge in trace_result.edges):
-        score += 0.04
+    has_external_api = "external_api" in node_types
+    has_database = "database" in node_types
+    has_queue = "queue" in node_types
+    has_cross_repo = any(edge.type == "CALLS_API" for edge in trace_result.edges)
+    tests = [test for group in test_matrix.groups for test in group.tests]
+    names = {test.name.lower() for test in tests}
+    summaries = {(test.summary or "").lower() for test in tests}
+    text_blob = " ".join(sorted(names | summaries))
 
-    # Penalize if matrix appears mostly generic without clear grounded side-effect coverage.
-    if specific_tests == 0:
-        score -= 0.1
+    detected_surfaces: set[str] = {"happy_path"}
+    if method == "GET" and not has_id_param:
+        detected_surfaces.add("collection_shape")
+    if has_id_param:
+        detected_surfaces.add("resource_lookup")
+    if has_external_api:
+        detected_surfaces.update({"external_api_failure", "downstream_empty", "data_shape"})
+        detected_surfaces.add("proxy_downstream")
+    if has_database:
+        detected_surfaces.add("database_path")
+    if has_queue:
+        detected_surfaces.add("queue_publish")
+    if has_cross_repo:
+        detected_surfaces.add("cross_repo_contract")
 
-    score = _clamp_confidence(score)
-    if score > MAX_TEST_MATRIX_CONFIDENCE:
-        score = MAX_TEST_MATRIX_CONFIDENCE
-    return round(score, 2)
+    covered_surfaces: set[str] = set()
+    if tests:
+        covered_surfaces.add("happy_path")
+    if "shape" in text_blob or "schema" in text_blob:
+        covered_surfaces.add("collection_shape")
+        covered_surfaces.add("data_shape")
+    if "not_found" in text_blob or "not-found" in text_blob or "missing_resource" in text_blob:
+        covered_surfaces.add("resource_lookup")
+    if any(token in text_blob for token in ("downstream_unavailable", "downstream_timeout", "external_api")):
+        covered_surfaces.add("external_api_failure")
+    if "downstream_empty" in text_blob or "empty_payload" in text_blob:
+        covered_surfaces.add("downstream_empty")
+    if any(token in text_blob for token in ("proxy", "proxies_downstream", "downstream_service")):
+        covered_surfaces.add("proxy_downstream")
+    if any(token in text_blob for token in ("database_write", "writes_to_database", "database")):
+        covered_surfaces.add("database_path")
+    if "queue" in text_blob or "publish" in text_blob:
+        covered_surfaces.add("queue_publish")
+    if "cross_service_contract" in text_blob or "contract_compatible" in text_blob:
+        covered_surfaces.add("cross_repo_contract")
+
+    total = max(1, len(detected_surfaces))
+    raw_coverage = len(detected_surfaces & covered_surfaces) / total
+    coverage = raw_coverage
+
+    # Generic fallback matrices should not appear fully comprehensive.
+    rich_surfaces = {"external_api_failure", "database_path", "queue_publish", "cross_repo_contract", "proxy_downstream"}
+    has_rich_signal = bool(detected_surfaces & rich_surfaces)
+    if not has_rich_signal:
+        coverage = min(0.70, max(0.50, raw_coverage * 0.7))
+
+    coverage = _clamp_confidence(coverage)
+    if has_cross_repo and has_external_api:
+        # Rich proxy/link traces may legitimately hit full surface coverage.
+        pass
+    elif has_external_api or has_database or has_queue:
+        # Sink-aware matrices should remain high but generally below perfect.
+        coverage = min(coverage, 0.95)
+    return round(coverage, 2)
+
+
+def compute_test_matrix_confidence(trace_result: TraceResult, test_matrix: TestMatrix | None) -> float | None:
+    """Backward-compatible alias for test-matrix coverage scoring."""
+    return compute_test_matrix_coverage(trace_result, test_matrix)

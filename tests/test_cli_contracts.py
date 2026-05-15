@@ -46,7 +46,10 @@ def test_trace_terminal_output_contains_target_and_repos(tmp_path: Path) -> None
     assert "Target: POST /checkout" in result.stdout
     assert "gateway:" in result.stdout
     assert "api:" in result.stdout
-    assert "Trace is inferred from code and may be partial." in result.stdout
+    assert (
+        "Trace is inferred from static code context and may miss runtime configuration or dynamic behavior."
+        in result.stdout
+    )
 
 
 def test_trace_json_output_contains_expected_fields(tmp_path: Path) -> None:

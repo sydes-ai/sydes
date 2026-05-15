@@ -262,6 +262,7 @@ class TestMatrix(BaseModel):
 
     groups: list[TestMatrixGroup] = Field(default_factory=list)
     notes: list[str] = Field(default_factory=list)
+    coverage: float | None = None
     confidence: float | None = None
 
 
@@ -380,6 +381,7 @@ class TraceSummary(BaseModel):
 
     key_flow_id: str | None = None
     trace_confidence: float | None = None
+    test_matrix_coverage: float | None = None
     test_matrix_confidence: float | None = None
     confidence: float | None = None
 

@@ -690,3 +690,54 @@ def test_trace_verbose_flag_controls_debug_notes_visibility(tmp_path: Path, monk
     assert "Flow expansion context files selected:" in verbose_result.stdout
     assert "Flow expansion prompt chars:" in verbose_result.stdout
     assert "LLM discovery unavailable: mock timeout." in verbose_result.stdout
+
+
+def test_trace_renders_evidence_diagnostics_and_artifacts_sections(tmp_path: Path, monkeypatch) -> None:
+    """Trace output should split notes into Evidence/Diagnostics/Artifacts sections."""
+    repo_root = tmp_path / "api"
+    repo_root.mkdir()
+
+    def _fake_discovery(repos: list[RepoRef], *, model_spec: str | None = None) -> RoutesResult:
+        return RoutesResult(
+            repos=repos,
+            routes=[
+                EndpointCandidate(
+                    method="GET",
+                    path="/books",
+                    handler="get_books",
+                    file="src/routes.py",
+                    repo="api",
+                    confidence=0.9,
+                )
+            ],
+            notes=["api: candidate_files=10, files_sent_to_llm=5, prompt_chars=9000"],
+        )
+
+    monkeypatch.setattr(trace_module, "discover_endpoints", _fake_discovery)
+    monkeypatch.setattr(
+        trace_module,
+        "run_flow_expansion",
+        lambda matched_endpoint, repos, **_kwargs: FlowExpansionResult(
+            notes=[
+                "Using anchor file: src/routes.py.",
+                "Cross-repo link added: api -> service::GET /books.",
+            ]
+        ),
+    )
+    monkeypatch.setattr(trace_module, "compute_workspace_id", lambda repos: "ws-test")
+    monkeypatch.setattr(trace_module, "create_run_id", lambda: "run-test")
+    monkeypatch.setattr(
+        trace_module,
+        "save_run_artifact",
+        lambda **kwargs: Path(f"/tmp/{kwargs['artifact_name']}.json"),
+    )
+
+    result = runner.invoke(
+        app,
+        ["trace", "/books", "--method", "GET", "--repo", f"api={repo_root}"],
+    )
+    assert result.exit_code == 0
+    assert "Evidence:" in result.stdout
+    assert "Diagnostics:" in result.stdout
+    assert "Artifacts:" in result.stdout
+    assert "Notes:" not in result.stdout

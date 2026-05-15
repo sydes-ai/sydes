@@ -17,7 +17,7 @@ from sydes.core.models import (
 )
 from sydes.core.confidence import (
     cap_trace_summary_confidence,
-    compute_test_matrix_confidence,
+    compute_test_matrix_coverage,
     compute_trace_confidence,
 )
 from sydes.core.graph import add_cross_repo_api_link, build_graph_from_inferred_flow
@@ -231,6 +231,15 @@ def _build_trace_result(
     summary_confidence, confidence_capped, cap_reasons = cap_trace_summary_confidence(
         summary_confidence,
         flow_expansion,
+        has_strong_grounding=bool(
+            match.selected
+            and match.selected.handler
+            and match.selected.file
+            and (
+                any(edge.type == "CALLS_API" for edge in edges)
+                or (flow_expansion is not None and bool(flow_expansion.sinks))
+            )
+        ),
     )
     if confidence_capped:
         notes.append(
@@ -257,10 +266,13 @@ def _build_trace_result(
         result.summary.key_flow_id = nodes[0].id
     result.tests = generate_test_suggestions(result)
     result.test_matrix = generate_test_matrix(result)
-    matrix_confidence = compute_test_matrix_confidence(result, result.test_matrix)
-    if matrix_confidence is not None:
-        result.summary.test_matrix_confidence = matrix_confidence
-        result.test_matrix.confidence = matrix_confidence
+    matrix_coverage = compute_test_matrix_coverage(result, result.test_matrix)
+    if matrix_coverage is not None:
+        result.summary.test_matrix_coverage = matrix_coverage
+        # Backward-compatible alias
+        result.summary.test_matrix_confidence = matrix_coverage
+        result.test_matrix.coverage = matrix_coverage
+        result.test_matrix.confidence = matrix_coverage
     return result, flow_expansion
 
 
