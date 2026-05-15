@@ -262,6 +262,7 @@ class TestMatrix(BaseModel):
 
     groups: list[TestMatrixGroup] = Field(default_factory=list)
     notes: list[str] = Field(default_factory=list)
+    confidence: float | None = None
 
 
 class Unknown(BaseModel):
@@ -378,6 +379,8 @@ class TraceSummary(BaseModel):
     """Top-level summary for the best-known traced flow."""
 
     key_flow_id: str | None = None
+    trace_confidence: float | None = None
+    test_matrix_confidence: float | None = None
     confidence: float | None = None
 
 

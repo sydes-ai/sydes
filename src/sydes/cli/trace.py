@@ -15,7 +15,11 @@ from sydes.core.models import (
     TraceSummary,
     Unknown,
 )
-from sydes.core.confidence import cap_trace_summary_confidence
+from sydes.core.confidence import (
+    cap_trace_summary_confidence,
+    compute_test_matrix_confidence,
+    compute_trace_confidence,
+)
 from sydes.core.graph import add_cross_repo_api_link, build_graph_from_inferred_flow
 from sydes.discover.endpoints import discover_endpoints
 from sydes.discover.target_match import resolve_trace_target
@@ -218,14 +222,12 @@ def _build_trace_result(
             )
         )
 
-    if flow_expansion is not None and flow_expansion.confidence is not None:
-        summary_confidence = flow_expansion.confidence
-    elif match.selected is not None:
-        summary_confidence = match.confidence
-    elif routes.confidence_summary is not None:
-        summary_confidence = routes.confidence_summary.average
-    else:
-        summary_confidence = 0.0
+    summary_confidence = compute_trace_confidence(
+        selected_endpoint=match.selected,
+        flow_expansion=flow_expansion,
+        nodes_count=len(nodes),
+        edges_count=len(edges),
+    )
     summary_confidence, confidence_capped, cap_reasons = cap_trace_summary_confidence(
         summary_confidence,
         flow_expansion,
@@ -244,7 +246,10 @@ def _build_trace_result(
         flows=flows,
         unknowns=unknowns,
         notes=notes,
-        summary=TraceSummary(confidence=summary_confidence),
+        summary=TraceSummary(
+            confidence=summary_confidence,
+            trace_confidence=summary_confidence,
+        ),
     )
     if flows:
         result.summary.key_flow_id = flows[0].id
@@ -252,6 +257,10 @@ def _build_trace_result(
         result.summary.key_flow_id = nodes[0].id
     result.tests = generate_test_suggestions(result)
     result.test_matrix = generate_test_matrix(result)
+    matrix_confidence = compute_test_matrix_confidence(result, result.test_matrix)
+    if matrix_confidence is not None:
+        result.summary.test_matrix_confidence = matrix_confidence
+        result.test_matrix.confidence = matrix_confidence
     return result, flow_expansion
 
 

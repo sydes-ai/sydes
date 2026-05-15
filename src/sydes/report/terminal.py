@@ -170,8 +170,15 @@ def render_terminal(result: TraceResult) -> str:
             if details:
                 lines.append(f"    ({', '.join(details)})")
 
-    if result.summary.confidence is not None:
-        lines.append(f"Confidence: {result.summary.confidence:.2f}")
+    trace_conf = (
+        result.summary.trace_confidence
+        if result.summary.trace_confidence is not None
+        else result.summary.confidence
+    )
+    if trace_conf is not None:
+        lines.append(f"Trace Confidence: {trace_conf:.2f}")
+    if result.summary.test_matrix_confidence is not None:
+        lines.append(f"Test Matrix Confidence: {result.summary.test_matrix_confidence:.2f}")
 
     unmatched = [item for item in result.unknowns if item.kind == "unmatched_target"]
     if unmatched:
