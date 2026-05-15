@@ -93,7 +93,7 @@ def _unique_suggestions(items: list[IntegrationTestSuggestion]) -> list[Integrat
 
 def _has_path_param(path: str) -> bool:
     """Detect path-parameter syntax in route templates."""
-    return bool(re.search(r"\{[^}]+\}|:[A-Za-z_][A-Za-z0-9_]*", path))
+    return bool(re.search(r"\{[^}]+\}|:[A-Za-z_][A-Za-z0-9_]*|<[^>]+>", path))
 
 
 def _normalized_resource_root(path: str) -> str:
@@ -119,6 +119,49 @@ def _has_database_write_sink(trace_result: TraceResult) -> bool:
         node.type == "database" and (node.metadata or {}).get("action") == "write"
         for node in trace_result.nodes
     )
+
+
+def _has_database_read_sink(trace_result: TraceResult) -> bool:
+    """Return True when trace includes a database read sink node."""
+    return any(
+        node.type == "database" and (node.metadata or {}).get("action") == "read"
+        for node in trace_result.nodes
+    )
+
+
+def _has_external_api_sink(trace_result: TraceResult) -> bool:
+    """Return True when trace includes an external API sink node."""
+    return any(node.type == "external_api" for node in trace_result.nodes)
+
+
+def _has_queue_sink(trace_result: TraceResult) -> bool:
+    """Return True when trace includes queue sink nodes."""
+    return any(node.type == "queue" for node in trace_result.nodes)
+
+
+def _has_cross_repo_link(trace_result: TraceResult) -> bool:
+    """Return True when CALLS_API edges connect across repositories."""
+    node_by_id: dict[str, GraphNode] = {node.id: node for node in trace_result.nodes}
+    for edge in trace_result.edges:
+        if edge.type != "CALLS_API":
+            continue
+        source = node_by_id.get(edge.source)
+        target = node_by_id.get(edge.target)
+        if source is None or target is None:
+            continue
+        if source.repo and target.repo and source.repo != target.repo:
+            return True
+    return False
+
+
+def _has_auth_signal(step_names: list[str]) -> bool:
+    """Detect auth-boundary signals from step names."""
+    return any(token in name for name in step_names for token in ("auth", "authorize", "permission", "jwt", "token"))
+
+
+def _has_validation_signal(step_names: list[str]) -> bool:
+    """Detect validation signals from inferred step names."""
+    return any(token in name for name in step_names for token in ("validate", "validation", "schema", "required field"))
 
 
 def _has_explicit_get_route_hint(trace_result: TraceResult) -> bool:
@@ -173,9 +216,16 @@ def generate_test_matrix(trace_result: TraceResult, *, max_suggestions: int = 7)
     flow_id = trace_result.summary.key_flow_id
     confidence = trace_result.summary.confidence
     has_db_write = _has_database_write_sink(trace_result)
+    has_db_read = _has_database_read_sink(trace_result)
+    has_external_api = _has_external_api_sink(trace_result)
+    has_queue = _has_queue_sink(trace_result)
+    has_cross_repo = _has_cross_repo_link(trace_result)
     has_explicit_get = _has_explicit_get_route_hint(trace_result)
     inferred_get = not has_explicit_get and has_db_write and method in {"POST", "PUT", "PATCH"}
     has_id_param = _has_path_param(route)
+    step_names = _flow_step_names(trace_result)
+    has_auth = _has_auth_signal(step_names)
+    has_validation = _has_validation_signal(step_names)
 
     by_category: dict[str, list[IntegrationTestSuggestion]] = {
         TEST_MATRIX_CATEGORY_HAPPY_PATH: [],
@@ -183,6 +233,9 @@ def generate_test_matrix(trace_result: TraceResult, *, max_suggestions: int = 7)
         TEST_MATRIX_CATEGORY_SIDE_EFFECTS: [],
         TEST_MATRIX_CATEGORY_STATE_CONSISTENCY: [],
         TEST_MATRIX_CATEGORY_EDGE_CASES: [],
+        "downstream_failure": [],
+        "data_shape": [],
+        "cross_service_contract": [],
     }
 
     if method == "POST":
@@ -259,28 +312,59 @@ def generate_test_matrix(trace_result: TraceResult, *, max_suggestions: int = 7)
             )
 
     elif method == "GET":
+        happy_summary = f"verifies {method} {route} returns the expected entity/list response"
+        if has_external_api and has_cross_repo:
+            happy_summary = f"verifies {_route_token(route).replace('_', ' ')} proxies expected downstream data"
         by_category[TEST_MATRIX_CATEGORY_HAPPY_PATH].append(
             _build_matrix_suggestion(
                 name=f"{method_token}_{route_token}_returns_entity_or_list",
                 route=route,
                 method=method,
-                summary=f"verifies {method} {route} returns the expected entity/list response",
+                summary=happy_summary,
                 expectations=[TestExpectation(kind="http_response", description="response returns entity/list data")],
                 flow_id=flow_id,
                 confidence=confidence,
             )
         )
-        by_category[TEST_MATRIX_CATEGORY_EDGE_CASES].append(
-            _build_matrix_suggestion(
-                name=f"{method_token}_{route_token}_returns_not_found_for_missing_resource",
-                route=route,
-                method=method,
-                summary=f"verifies {method} {route} handles not-found resources",
-                expectations=[TestExpectation(kind="edge_case", description="not found case is handled correctly")],
-                flow_id=flow_id,
-                confidence=confidence,
+        if has_id_param:
+            by_category[TEST_MATRIX_CATEGORY_EDGE_CASES].append(
+                _build_matrix_suggestion(
+                    name=f"{method_token}_{route_token}_returns_not_found_for_missing_resource",
+                    route=route,
+                    method=method,
+                    summary=f"verifies {method} {route} handles not-found resources",
+                    expectations=[TestExpectation(kind="edge_case", description="not found case is handled correctly")],
+                    flow_id=flow_id,
+                    confidence=confidence,
+                )
             )
-        )
+        else:
+            by_category[TEST_MATRIX_CATEGORY_EDGE_CASES].append(
+                _build_matrix_suggestion(
+                    name=f"{method_token}_{route_token}_handles_empty_result_set",
+                    route=route,
+                    method=method,
+                    summary=f"verifies {method} {route} safely handles empty result sets",
+                    expectations=[
+                        TestExpectation(kind="edge_case", description="empty list/result is handled safely")
+                    ],
+                    flow_id=flow_id,
+                    confidence=confidence,
+                )
+            )
+            by_category["data_shape"].append(
+                _build_matrix_suggestion(
+                    name=f"{method_token}_{route_token}_returns_expected_response_shape",
+                    route=route,
+                    method=method,
+                    summary=f"verifies {method} {route} response schema/shape remains stable",
+                    expectations=[
+                        TestExpectation(kind="data_shape", description="response shape remains valid for collection output")
+                    ],
+                    flow_id=flow_id,
+                    confidence=confidence,
+                )
+            )
         if has_id_param:
             by_category[TEST_MATRIX_CATEGORY_VALIDATION].append(
                 _build_matrix_suggestion(
@@ -362,14 +446,201 @@ def generate_test_matrix(trace_result: TraceResult, *, max_suggestions: int = 7)
                 ],
                 flow_id=flow_id,
                 confidence=confidence,
+                )
+            )
+
+    if has_external_api:
+        by_category["downstream_failure"].append(
+            _build_matrix_suggestion(
+                name=f"{method_token}_{route_token}_downstream_unavailable",
+                route=route,
+                method=method,
+                summary=f"verifies {method} {route} handles downstream service unavailability",
+                expectations=[
+                    TestExpectation(kind="failure_mode", description="downstream connection failure is handled safely", target="external_api")
+                ],
+                flow_id=flow_id,
+                confidence=confidence,
             )
         )
+        by_category["downstream_failure"].append(
+            _build_matrix_suggestion(
+                name=f"{method_token}_{route_token}_downstream_timeout",
+                route=route,
+                method=method,
+                summary=f"verifies {method} {route} handles downstream timeout safely",
+                expectations=[
+                    TestExpectation(kind="failure_mode", description="downstream timeout is handled safely", target="external_api")
+                ],
+                flow_id=flow_id,
+                confidence=confidence,
+            )
+        )
+        by_category["data_shape"].append(
+            _build_matrix_suggestion(
+                name=f"{method_token}_{route_token}_downstream_empty_payload_handled",
+                route=route,
+                method=method,
+                summary=f"verifies {method} {route} safely handles empty downstream payloads",
+                expectations=[
+                    TestExpectation(kind="data_shape", description="empty downstream entity/list is handled safely", target="external_api")
+                ],
+                flow_id=flow_id,
+                confidence=confidence,
+            )
+        )
+        by_category["data_shape"].append(
+            _build_matrix_suggestion(
+                name=f"{method_token}_{route_token}_downstream_malformed_payload_handled",
+                route=route,
+                method=method,
+                summary=f"verifies {method} {route} safely handles malformed downstream payloads",
+                expectations=[
+                    TestExpectation(kind="data_shape", description="malformed downstream payload is handled safely", target="external_api")
+                ],
+                flow_id=flow_id,
+                confidence=confidence,
+            )
+        )
+
+    if has_cross_repo:
+        by_category["cross_service_contract"].append(
+            _build_matrix_suggestion(
+                name=f"{method_token}_{route_token}_cross_service_contract_compatible",
+                route=route,
+                method=method,
+                summary=f"verifies {method} {route} response remains compatible with linked downstream service contract",
+                expectations=[
+                    TestExpectation(kind="contract", description="cross-service response contract remains compatible", target="cross_repo")
+                ],
+                flow_id=flow_id,
+                confidence=confidence,
+            )
+        )
+
+    if has_db_write:
+        by_category[TEST_MATRIX_CATEGORY_SIDE_EFFECTS].append(
+            _build_matrix_suggestion(
+                name=f"{method_token}_{route_token}_database_write_failure_handled",
+                route=route,
+                method=method,
+                summary=f"verifies {method} {route} handles database write failures safely",
+                expectations=[
+                    TestExpectation(kind="failure_mode", description="database write failure is handled safely", target="database")
+                ],
+                flow_id=flow_id,
+                confidence=confidence,
+            )
+        )
+        by_category[TEST_MATRIX_CATEGORY_STATE_CONSISTENCY].append(
+            _build_matrix_suggestion(
+                name=f"{method_token}_{route_token}_write_path_is_idempotent",
+                route=route,
+                method=method,
+                summary=f"verifies repeated {method} {route} calls preserve safe state semantics",
+                expectations=[
+                    TestExpectation(kind="state_consistency", description="repeated write calls do not corrupt state", target="database")
+                ],
+                flow_id=flow_id,
+                confidence=confidence,
+            )
+        )
+
+    if has_db_read:
+        by_category[TEST_MATRIX_CATEGORY_EDGE_CASES].append(
+            _build_matrix_suggestion(
+                name=f"{method_token}_{route_token}_empty_result_handled",
+                route=route,
+                method=method,
+                summary=f"verifies {method} {route} safely handles empty read results",
+                expectations=[
+                    TestExpectation(kind="edge_case", description="empty database read result is handled safely", target="database")
+                ],
+                flow_id=flow_id,
+                confidence=confidence,
+            )
+        )
+
+    if has_queue:
+        by_category[TEST_MATRIX_CATEGORY_SIDE_EFFECTS].append(
+            _build_matrix_suggestion(
+                name=f"{method_token}_{route_token}_queue_publish_failure_handled",
+                route=route,
+                method=method,
+                summary=f"verifies {method} {route} handles queue publish failures safely",
+                expectations=[
+                    TestExpectation(kind="failure_mode", description="queue publish failure is handled or retried safely", target="queue")
+                ],
+                flow_id=flow_id,
+                confidence=confidence,
+            )
+        )
+
+    if has_auth:
+        by_category[TEST_MATRIX_CATEGORY_VALIDATION].append(
+            _build_matrix_suggestion(
+                name=f"{method_token}_{route_token}_rejects_unauthenticated_requests",
+                route=route,
+                method=method,
+                summary=f"verifies {method} {route} rejects unauthenticated requests",
+                expectations=[
+                    TestExpectation(kind="auth", description="unauthenticated request is rejected")
+                ],
+                flow_id=flow_id,
+                confidence=confidence,
+            )
+        )
+        by_category[TEST_MATRIX_CATEGORY_VALIDATION].append(
+            _build_matrix_suggestion(
+                name=f"{method_token}_{route_token}_rejects_unauthorized_requests",
+                route=route,
+                method=method,
+                summary=f"verifies {method} {route} rejects unauthorized requests",
+                expectations=[
+                    TestExpectation(kind="auth", description="unauthorized request is rejected")
+                ],
+                flow_id=flow_id,
+                confidence=confidence,
+            )
+        )
+
+    if has_validation and method not in {"POST", "PUT", "PATCH"}:
+        by_category[TEST_MATRIX_CATEGORY_VALIDATION].append(
+            _build_matrix_suggestion(
+                name=f"{method_token}_{route_token}_rejects_invalid_or_missing_fields",
+                route=route,
+                method=method,
+                summary=f"verifies {method} {route} rejects invalid or missing required fields",
+                expectations=[
+                    TestExpectation(kind="validation", description="invalid or missing required fields are rejected")
+                ],
+                flow_id=flow_id,
+                confidence=confidence,
+            )
+        )
+
+    if method == "GET" and not has_id_param:
+        data_shape_names = {
+            item.name
+            for item in by_category["data_shape"]
+        }
+        empty_list_name = f"{method_token}_{route_token}_handles_empty_result_set"
+        downstream_empty_name = f"{method_token}_{route_token}_downstream_empty_payload_handled"
+        if downstream_empty_name in data_shape_names:
+            by_category[TEST_MATRIX_CATEGORY_EDGE_CASES] = [
+                item
+                for item in by_category[TEST_MATRIX_CATEGORY_EDGE_CASES]
+                if item.name != empty_list_name
+            ]
 
     matrix_groups: list[TestMatrixGroup] = []
     used_names: set[str] = set()
     total = 0
     category_order = [
         TEST_MATRIX_CATEGORY_HAPPY_PATH,
+        "downstream_failure",
+        "data_shape",
+        "cross_service_contract",
         TEST_MATRIX_CATEGORY_VALIDATION,
         TEST_MATRIX_CATEGORY_SIDE_EFFECTS,
         TEST_MATRIX_CATEGORY_STATE_CONSISTENCY,

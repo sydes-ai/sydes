@@ -27,7 +27,7 @@ def test_trace_command_renders_match_and_alternatives(tmp_path: Path, monkeypatc
     repo_root = tmp_path / "api"
     repo_root.mkdir()
 
-    def _fake_discovery(repos: list[RepoRef]) -> RoutesResult:
+    def _fake_discovery(repos: list[RepoRef], *, model_spec: str | None = None) -> RoutesResult:
         return RoutesResult(
             repos=repos,
             routes=[
@@ -107,7 +107,7 @@ def test_trace_command_renders_flow_steps_sinks_and_graph_artifact(
     repo_root.mkdir()
     saved_names: list[str] = []
 
-    def _fake_discovery(repos: list[RepoRef]) -> RoutesResult:
+    def _fake_discovery(repos: list[RepoRef], *, model_spec: str | None = None) -> RoutesResult:
         return RoutesResult(
             repos=repos,
             routes=[
@@ -131,7 +131,7 @@ def test_trace_command_renders_flow_steps_sinks_and_graph_artifact(
     monkeypatch.setattr(
         trace_module,
         "run_flow_expansion",
-        lambda matched_endpoint, repos: FlowExpansionResult(
+        lambda matched_endpoint, repos, **_kwargs: FlowExpansionResult(
             steps=[
                 TraceStep(
                     kind="handler",
@@ -185,7 +185,7 @@ def test_trace_terminal_lightly_normalizes_step_labels(tmp_path: Path, monkeypat
     repo_root = tmp_path / "api"
     repo_root.mkdir()
 
-    def _fake_discovery(repos: list[RepoRef]) -> RoutesResult:
+    def _fake_discovery(repos: list[RepoRef], *, model_spec: str | None = None) -> RoutesResult:
         return RoutesResult(
             repos=repos,
             routes=[
@@ -204,7 +204,7 @@ def test_trace_terminal_lightly_normalizes_step_labels(tmp_path: Path, monkeypat
     monkeypatch.setattr(
         trace_module,
         "run_flow_expansion",
-        lambda matched_endpoint, repos: FlowExpansionResult(
+        lambda matched_endpoint, repos, **_kwargs: FlowExpansionResult(
             steps=[
                 TraceStep(kind="internal_step", name="create_user_handler", repo="api", file="src/routes.py"),
                 TraceStep(kind="internal_step", name="create_User_object", repo="api", file="src/routes.py"),
@@ -260,7 +260,7 @@ def test_trace_command_renders_cross_repo_links_when_confident_match_exists(
         confidence=0.85,
     )
 
-    def _fake_discovery(repos: list[RepoRef]) -> RoutesResult:
+    def _fake_discovery(repos: list[RepoRef], *, model_spec: str | None = None) -> RoutesResult:
         return RoutesResult(
             repos=repos,
             routes=[source_endpoint, target_endpoint],
@@ -280,7 +280,7 @@ def test_trace_command_renders_cross_repo_links_when_confident_match_exists(
     monkeypatch.setattr(
         trace_module,
         "run_flow_expansion",
-        lambda matched_endpoint, repos: FlowExpansionResult(
+        lambda matched_endpoint, repos, **_kwargs: FlowExpansionResult(
             steps=[
                 TraceStep(
                     kind="handler",
@@ -296,7 +296,7 @@ def test_trace_command_renders_cross_repo_links_when_confident_match_exists(
     monkeypatch.setattr(
         trace_module,
         "prepare_flow_expansion_context",
-        lambda matched_endpoint, repos: FlowExpansionContext(
+        lambda matched_endpoint, repos, **_kwargs: FlowExpansionContext(
             anchor_repo="api",
             anchor_file="src/routes.py",
             files=[],
@@ -374,7 +374,7 @@ def test_trace_command_graceful_when_flow_expansion_fails_after_match(
     repo_root = tmp_path / "api"
     repo_root.mkdir()
 
-    def _fake_discovery(repos: list[RepoRef]) -> RoutesResult:
+    def _fake_discovery(repos: list[RepoRef], *, model_spec: str | None = None) -> RoutesResult:
         return RoutesResult(
             repos=repos,
             routes=[
@@ -394,7 +394,7 @@ def test_trace_command_graceful_when_flow_expansion_fails_after_match(
     monkeypatch.setattr(
         trace_module,
         "run_flow_expansion",
-        lambda matched_endpoint, repos: FlowExpansionResult(
+        lambda matched_endpoint, repos, **_kwargs: FlowExpansionResult(
             notes=["Flow expansion unavailable: mock timeout."],
         ),
     )
@@ -422,7 +422,7 @@ def test_trace_confidence_is_capped_for_partial_inferred_flow(tmp_path: Path, mo
     repo_root = tmp_path / "api"
     repo_root.mkdir()
 
-    def _fake_discovery(repos: list[RepoRef]) -> RoutesResult:
+    def _fake_discovery(repos: list[RepoRef], *, model_spec: str | None = None) -> RoutesResult:
         return RoutesResult(
             repos=repos,
             routes=[
@@ -441,7 +441,7 @@ def test_trace_confidence_is_capped_for_partial_inferred_flow(tmp_path: Path, mo
     monkeypatch.setattr(
         trace_module,
         "run_flow_expansion",
-        lambda matched_endpoint, repos: FlowExpansionResult(
+        lambda matched_endpoint, repos, **_kwargs: FlowExpansionResult(
             steps=[TraceStep(kind="internal_step", name="create User object", status="inferred")],
             sinks=[SinkCandidate(kind="database", name="database", action="write", repo="api")],
             notes=["Dropped suspicious abstract step #2: call payment client."],
@@ -473,7 +473,7 @@ def test_trace_single_repo_output_has_no_cross_repo_section_when_no_links(
     repo_root = tmp_path / "api"
     repo_root.mkdir()
 
-    def _fake_discovery(repos: list[RepoRef]) -> RoutesResult:
+    def _fake_discovery(repos: list[RepoRef], *, model_spec: str | None = None) -> RoutesResult:
         return RoutesResult(
             repos=repos,
             routes=[
@@ -492,7 +492,7 @@ def test_trace_single_repo_output_has_no_cross_repo_section_when_no_links(
     monkeypatch.setattr(
         trace_module,
         "run_flow_expansion",
-        lambda matched_endpoint, repos: FlowExpansionResult(
+        lambda matched_endpoint, repos, **_kwargs: FlowExpansionResult(
             steps=[TraceStep(kind="handler", name="create_user", repo="api", file="src/routes.py")],
             sinks=[SinkCandidate(kind="database", name="database", action="write", repo="api", file="src/repo.py")],
             confidence=0.8,
@@ -501,7 +501,7 @@ def test_trace_single_repo_output_has_no_cross_repo_section_when_no_links(
     monkeypatch.setattr(
         trace_module,
         "prepare_flow_expansion_context",
-        lambda matched_endpoint, repos: FlowExpansionContext(
+        lambda matched_endpoint, repos, **_kwargs: FlowExpansionContext(
             anchor_repo="api",
             anchor_file="src/routes.py",
             files=[],
@@ -545,7 +545,7 @@ def test_trace_renders_unmatched_cross_repo_candidate_note(tmp_path: Path, monke
         confidence=0.9,
     )
 
-    def _fake_discovery(repos: list[RepoRef]) -> RoutesResult:
+    def _fake_discovery(repos: list[RepoRef], *, model_spec: str | None = None) -> RoutesResult:
         return RoutesResult(
             repos=repos,
             routes=[source_endpoint],
@@ -567,7 +567,7 @@ def test_trace_renders_unmatched_cross_repo_candidate_note(tmp_path: Path, monke
     monkeypatch.setattr(
         trace_module,
         "run_flow_expansion",
-        lambda matched_endpoint, repos: FlowExpansionResult(
+        lambda matched_endpoint, repos, **_kwargs: FlowExpansionResult(
             steps=[TraceStep(kind="handler", name="get_books", repo="service2", file="src/routes.py")],
             confidence=0.8,
         ),
@@ -575,7 +575,7 @@ def test_trace_renders_unmatched_cross_repo_candidate_note(tmp_path: Path, monke
     monkeypatch.setattr(
         trace_module,
         "prepare_flow_expansion_context",
-        lambda matched_endpoint, repos: FlowExpansionContext(
+        lambda matched_endpoint, repos, **_kwargs: FlowExpansionContext(
             anchor_repo="service2",
             anchor_file="src/routes.py",
             files=[],
@@ -638,7 +638,7 @@ def test_trace_verbose_flag_controls_debug_notes_visibility(tmp_path: Path, monk
     repo_root = tmp_path / "api"
     repo_root.mkdir()
 
-    def _fake_discovery(repos: list[RepoRef]) -> RoutesResult:
+    def _fake_discovery(repos: list[RepoRef], *, model_spec: str | None = None) -> RoutesResult:
         return RoutesResult(
             repos=repos,
             routes=[
@@ -657,7 +657,7 @@ def test_trace_verbose_flag_controls_debug_notes_visibility(tmp_path: Path, monk
     monkeypatch.setattr(
         trace_module,
         "run_flow_expansion",
-        lambda matched_endpoint, repos: FlowExpansionResult(
+        lambda matched_endpoint, repos, **_kwargs: FlowExpansionResult(
             notes=[
                 "Flow expansion context files selected: 1 (examined=1).",
                 "Flow expansion prompt chars: 1234.",

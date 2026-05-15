@@ -173,6 +173,13 @@ class OpenAIClient:
                 temperature=request_data.temperature,
             )
         except OpenAIError as exc:
+            status_code = getattr(exc, "status_code", None)
+            if status_code == 404:
+                raise LLMClientError(
+                    "OpenAI request returned 404. Check that the OpenAI provider is not using an "
+                    "Ollama/custom base URL. SYDES_LLM_BASE_URL is only for Ollama; use "
+                    "OPENAI_BASE_URL only if you intentionally need a custom OpenAI-compatible endpoint."
+                ) from exc
             raise LLMClientError(
                 f"OpenAI request failed for model '{self.model}': {exc}"
             ) from exc
@@ -246,12 +253,7 @@ def load_llm_settings_from_env() -> LLMSettings:
     """Load minimal LLM settings from environment variables."""
     provider = os.getenv("SYDES_LLM_PROVIDER", DEFAULT_PROVIDER).strip().lower() or DEFAULT_PROVIDER
     model = os.getenv("SYDES_LLM_MODEL", DEFAULT_MODEL).strip() or DEFAULT_MODEL
-    default_base_url = {
-        "ollama": DEFAULT_OLLAMA_BASE_URL,
-        "openai": DEFAULT_OPENAI_BASE_URL,
-        "anthropic": DEFAULT_ANTHROPIC_BASE_URL,
-    }.get(provider, DEFAULT_OLLAMA_BASE_URL)
-    base_url = os.getenv("SYDES_LLM_BASE_URL", default_base_url).strip() or default_base_url
+    base_url = os.getenv("SYDES_LLM_BASE_URL", DEFAULT_OLLAMA_BASE_URL).strip() or DEFAULT_OLLAMA_BASE_URL
     timeout_raw = os.getenv("SYDES_LLM_TIMEOUT_SECONDS", "90").strip()
     keep_alive = os.getenv("SYDES_LLM_KEEP_ALIVE", "10m").strip() or "10m"
     try:
@@ -296,10 +298,11 @@ def create_default_llm_client(model_spec: str | None = None) -> LLMClient:
                 "Or choose another provider:\n"
                 '  sydes trace "/checkout" --method POST --model ollama:llama3.1:8b'
             )
+        openai_base_url = os.getenv("OPENAI_BASE_URL", "").strip() or DEFAULT_OPENAI_BASE_URL
         return OpenAIClient(
             model=model,
             api_key=api_key,
-            base_url=settings.base_url,
+            base_url=openai_base_url,
             timeout_seconds=settings.timeout_seconds,
         )
 
@@ -313,10 +316,11 @@ def create_default_llm_client(model_spec: str | None = None) -> LLMClient:
                 "Or choose another provider:\n"
                 '  sydes trace "/checkout" --method POST --model ollama:llama3.1:8b'
             )
+        anthropic_base_url = os.getenv("ANTHROPIC_BASE_URL", "").strip() or DEFAULT_ANTHROPIC_BASE_URL
         return AnthropicClient(
             model=model,
             api_key=api_key,
-            base_url=settings.base_url,
+            base_url=anthropic_base_url,
             timeout_seconds=settings.timeout_seconds,
         )
 

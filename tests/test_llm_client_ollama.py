@@ -79,6 +79,7 @@ def test_create_default_llm_client_uses_model_spec_override(monkeypatch) -> None
 
     assert isinstance(client, OpenAIClient)
     assert client.model == "gpt-4.1-mini"
+    assert client.base_url == "https://api.openai.com/v1"
 
 
 def test_openai_client_constructs_sdk_with_expected_settings(monkeypatch) -> None:
@@ -132,6 +133,36 @@ def test_openai_client_constructs_sdk_with_expected_settings(monkeypatch) -> Non
     assert captured["create_kwargs"]["model"] == "gpt-4.1-mini"
 
 
+def test_openai_404_error_includes_base_url_hint(monkeypatch) -> None:
+    """OpenAI 404 failures should include a base-url misconfiguration hint."""
+    class _FakeHttp404Error(Exception):
+        status_code = 404
+
+    class _FakeCompletions:
+        @staticmethod
+        def create(**_kwargs):
+            raise _FakeHttp404Error("404 page not found")
+
+    class _FakeOpenAI:
+        def __init__(self, **_kwargs):
+            self.chat = type("Chat", (), {"completions": _FakeCompletions()})()
+
+    monkeypatch.setattr("sydes.llm.client.OpenAI", _FakeOpenAI)
+    monkeypatch.setattr("sydes.llm.client.OpenAIError", Exception)
+
+    client = OpenAIClient(
+        model="gpt-4.1-mini",
+        api_key="test-key",
+        base_url="https://api.openai.com/v1",
+        timeout_seconds=42,
+    )
+
+    from sydes.llm.client import LLMRequest
+
+    with pytest.raises(LLMClientError, match="OpenAI request returned 404"):
+        client.generate(LLMRequest(prompt="hello"))
+
+
 def test_create_default_llm_client_supports_anthropic_from_model_spec(monkeypatch) -> None:
     """Model-spec override should support Anthropic provider selection."""
     monkeypatch.setenv("SYDES_LLM_PROVIDER", "ollama")
@@ -142,6 +173,43 @@ def test_create_default_llm_client_supports_anthropic_from_model_spec(monkeypatc
 
     assert isinstance(client, AnthropicClient)
     assert client.model == "claude-3-5-sonnet-latest"
+    assert client.base_url == "https://api.anthropic.com/v1"
+
+
+def test_openai_ignores_sydes_llm_base_url(monkeypatch) -> None:
+    """OpenAI should not reuse SYDES_LLM_BASE_URL (reserved for Ollama)."""
+    monkeypatch.setenv("SYDES_LLM_PROVIDER", "openai")
+    monkeypatch.setenv("SYDES_LLM_MODEL", "gpt-4.1-mini")
+    monkeypatch.setenv("SYDES_LLM_BASE_URL", "http://localhost:11434")
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+
+    client = create_default_llm_client()
+    assert isinstance(client, OpenAIClient)
+    assert client.base_url == "https://api.openai.com/v1"
+
+
+def test_openai_uses_openai_base_url_override(monkeypatch) -> None:
+    """OpenAI should use OPENAI_BASE_URL when explicitly configured."""
+    monkeypatch.setenv("SYDES_LLM_PROVIDER", "openai")
+    monkeypatch.setenv("SYDES_LLM_MODEL", "gpt-4.1-mini")
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    monkeypatch.setenv("OPENAI_BASE_URL", "https://example-openai-proxy.test/v1")
+
+    client = create_default_llm_client()
+    assert isinstance(client, OpenAIClient)
+    assert client.base_url == "https://example-openai-proxy.test/v1"
+
+
+def test_anthropic_ignores_sydes_llm_base_url(monkeypatch) -> None:
+    """Anthropic should not reuse SYDES_LLM_BASE_URL (reserved for Ollama)."""
+    monkeypatch.setenv("SYDES_LLM_PROVIDER", "anthropic")
+    monkeypatch.setenv("SYDES_LLM_MODEL", "claude-3-5-sonnet-latest")
+    monkeypatch.setenv("SYDES_LLM_BASE_URL", "http://localhost:11434")
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+
+    client = create_default_llm_client()
+    assert isinstance(client, AnthropicClient)
+    assert client.base_url == "https://api.anthropic.com/v1"
 
 
 def test_anthropic_client_constructs_sdk_with_expected_settings(monkeypatch) -> None:
