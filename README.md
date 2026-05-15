@@ -23,6 +23,46 @@ sydes routes --repo api=./api
 ```
 Works best on multi-service backends (API + worker + gateway).
 
+## Model providers
+
+Sydes supports local and hosted LLM providers. You can select a model per command with `--model`, or set environment defaults.
+
+CLI override examples:
+
+```bash
+sydes routes --repo api=./api --model ollama:llama3.1:8b
+sydes trace "/checkout" --method POST --repo api=./api --model openai:gpt-4.1-mini
+sydes trace "/checkout" --method POST --repo api=./api --model anthropic:claude-3-5-sonnet-latest
+```
+
+### Ollama (local)
+
+```bash
+export SYDES_LLM_PROVIDER=ollama
+export SYDES_LLM_MODEL=llama3.1:8b
+export SYDES_LLM_BASE_URL=http://localhost:11434
+```
+
+### OpenAI (hosted)
+
+```bash
+export SYDES_LLM_PROVIDER=openai
+export SYDES_LLM_MODEL=gpt-4.1-mini
+export OPENAI_API_KEY=...
+```
+
+### Anthropic (hosted)
+
+```bash
+export SYDES_LLM_PROVIDER=anthropic
+export SYDES_LLM_MODEL=claude-3-5-sonnet-latest
+export ANTHROPIC_API_KEY=...
+```
+
+If a hosted provider key is missing, Sydes returns a friendly setup error before making API calls.
+
+Hosted providers (OpenAI/Anthropic) are paid APIs and consume tokens; usage and cost depend on your selected model and prompt size.
+
 ## Example 1: single-repo API flow
 
 Trace `POST /users` in a FastAPI-style repo:
