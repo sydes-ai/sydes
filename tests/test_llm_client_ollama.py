@@ -144,6 +144,52 @@ def test_create_default_llm_client_supports_anthropic_from_model_spec(monkeypatc
     assert client.model == "claude-3-5-sonnet-latest"
 
 
+def test_anthropic_client_constructs_sdk_with_expected_settings(monkeypatch) -> None:
+    """Anthropic provider should construct SDK client with expected settings."""
+    captured: dict[str, object] = {}
+
+    class _FakeMessages:
+        @staticmethod
+        def create(**kwargs):
+            captured["create_kwargs"] = kwargs
+            return type(
+                "Resp",
+                (),
+                {
+                    "content": [
+                        type("Block", (), {"type": "text", "text": "hello"})(),
+                        type("Block", (), {"type": "tool_use", "text": None})(),
+                        type("Block", (), {"type": "text", "text": "world"})(),
+                    ]
+                },
+            )()
+
+    class _FakeAnthropic:
+        def __init__(self, **kwargs):
+            captured["init_kwargs"] = kwargs
+            self.messages = _FakeMessages()
+
+    monkeypatch.setattr("sydes.llm.client.Anthropic", _FakeAnthropic)
+    client = AnthropicClient(
+        model="claude-3-5-sonnet-latest",
+        api_key="test-key",
+        base_url="https://api.anthropic.com/v1",
+        timeout_seconds=33,
+    )
+
+    from sydes.llm.client import LLMRequest
+
+    response = client.generate(LLMRequest(prompt="hello"))
+    assert response.text == "hello\nworld"
+    assert captured["init_kwargs"] == {
+        "api_key": "test-key",
+        "base_url": "https://api.anthropic.com/v1",
+        "timeout": 33,
+    }
+    assert captured["create_kwargs"]["model"] == "claude-3-5-sonnet-latest"
+    assert captured["create_kwargs"]["max_tokens"] == 4096
+
+
 def test_create_default_llm_client_rejects_unknown_provider(monkeypatch) -> None:
     """Unsupported providers should raise the requested error message."""
     monkeypatch.setenv("SYDES_LLM_PROVIDER", "unknown")
@@ -161,5 +207,18 @@ def test_create_default_llm_client_requires_openai_key(monkeypatch) -> None:
     with pytest.raises(
         LLMClientError,
         match="OpenAI provider selected, but OPENAI_API_KEY is not set.",
+    ):
+        create_default_llm_client()
+
+
+def test_create_default_llm_client_requires_anthropic_key(monkeypatch) -> None:
+    """Anthropic provider should fail clearly when API key is missing."""
+    monkeypatch.setenv("SYDES_LLM_PROVIDER", "anthropic")
+    monkeypatch.setenv("SYDES_LLM_MODEL", "claude-3-5-sonnet-latest")
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+
+    with pytest.raises(
+        LLMClientError,
+        match="Anthropic provider selected, but ANTHROPIC_API_KEY is not set.",
     ):
         create_default_llm_client()

@@ -8,6 +8,8 @@ import os
 from urllib import error, request
 from typing import Protocol
 
+from anthropic import Anthropic
+from anthropic import AnthropicError
 from openai import OpenAI
 from openai import OpenAIError
 
@@ -190,64 +192,54 @@ class OpenAIClient:
 
 
 class AnthropicClient:
-    """Anthropic text generation client via HTTPS API."""
+    """Anthropic text generation client via official Anthropic Python SDK."""
 
     def __init__(self, *, model: str, api_key: str, base_url: str, timeout_seconds: float = 90.0) -> None:
         self.model = model
         self.api_key = api_key
         self.base_url = base_url.rstrip("/")
         self.timeout_seconds = timeout_seconds
+        self.max_tokens = 4096
+        self._client = Anthropic(
+            api_key=api_key,
+            base_url=self.base_url,
+            timeout=self.timeout_seconds,
+        )
 
     def generate(self, request_data: LLMRequest) -> LLMResponse:
         """Generate text using Anthropic messages API."""
-        payload: dict[str, object] = {
-            "model": self.model,
-            "max_tokens": 1200,
-            "messages": [{"role": "user", "content": request_data.prompt}],
-        }
-        if request_data.system:
-            payload["system"] = request_data.system
-        if request_data.temperature is not None:
-            payload["temperature"] = request_data.temperature
-
-        body = json.dumps(payload).encode("utf-8")
-        req = request.Request(
-            url=f"{self.base_url}/messages",
-            data=body,
-            method="POST",
-            headers={
-                "Content-Type": "application/json",
-                "x-api-key": self.api_key,
-                "anthropic-version": "2023-06-01",
-            },
-        )
         try:
-            with request.urlopen(req, timeout=self.timeout_seconds) as resp:
-                raw = resp.read().decode("utf-8")
-        except error.HTTPError as exc:
-            detail = exc.read().decode("utf-8", errors="replace")
+            response = self._client.messages.create(
+                model=self.model,
+                max_tokens=self.max_tokens,
+                messages=[{"role": "user", "content": request_data.prompt}],
+                system=request_data.system,
+                temperature=request_data.temperature,
+            )
+        except AnthropicError as exc:
             raise LLMClientError(
-                f"Anthropic request failed ({exc.code}). {detail.strip() or 'No details.'}"
+                f"Anthropic request failed for model '{self.model}': {exc}"
             ) from exc
-        except error.URLError as exc:
-            raise LLMClientError(f"Anthropic unavailable at {self.base_url}.") from exc
         except TimeoutError as exc:
             raise LLMClientError(
                 f"Anthropic request timed out for model '{self.model}' after {self.timeout_seconds:.0f}s."
             ) from exc
 
-        try:
-            data = json.loads(raw)
-            content = data.get("content")
-            if isinstance(content, list):
-                for item in content:
-                    if isinstance(item, dict) and item.get("type") == "text":
-                        text = item.get("text")
-                        if isinstance(text, str):
-                            return LLMResponse(text=text)
-        except (json.JSONDecodeError, AttributeError):
-            pass
-        raise LLMClientError("Anthropic response missing completion text.")
+        blocks = getattr(response, "content", None)
+        if not isinstance(blocks, list):
+            raise LLMClientError("Anthropic response missing completion text.")
+
+        text_parts: list[str] = []
+        for block in blocks:
+            block_type = getattr(block, "type", None)
+            if block_type != "text":
+                continue
+            text_value = getattr(block, "text", None)
+            if isinstance(text_value, str) and text_value:
+                text_parts.append(text_value)
+        if not text_parts:
+            raise LLMClientError("Anthropic response missing completion text.")
+        return LLMResponse(text="\n".join(text_parts))
 
 
 def load_llm_settings_from_env() -> LLMSettings:
@@ -314,7 +306,13 @@ def create_default_llm_client(model_spec: str | None = None) -> LLMClient:
     if provider == "anthropic":
         api_key = os.getenv("ANTHROPIC_API_KEY", "").strip()
         if not api_key:
-            raise LLMClientError("ANTHROPIC_API_KEY is required when using provider 'anthropic'.")
+            raise LLMClientError(
+                "Anthropic provider selected, but ANTHROPIC_API_KEY is not set.\n\n"
+                "Set it with:\n"
+                "  export ANTHROPIC_API_KEY=...\n\n"
+                "Or choose another provider:\n"
+                '  sydes trace "/checkout" --method POST --model ollama:llama3.1:8b'
+            )
         return AnthropicClient(
             model=model,
             api_key=api_key,
