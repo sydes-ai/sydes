@@ -21,6 +21,25 @@ def _write_output(path: Path, content: str) -> None:
 
 def routes_command(
     repo: Annotated[list[str] | None, typer.Option("--repo")] = None,
+    model: Annotated[
+        str | None,
+        typer.Option(
+            "--model",
+            help=(
+                "Model selection:\n"
+                "  --model ollama:llama3.1:8b\n"
+                "  --model openai:gpt-4.1-mini\n"
+                "  --model anthropic:claude-3-5-sonnet-latest\n\n"
+                "Environment defaults:\n"
+                "  SYDES_LLM_PROVIDER=openai\n"
+                "  SYDES_LLM_MODEL=gpt-4.1-mini\n"
+                "  OPENAI_API_KEY=...\n\n"
+                "  SYDES_LLM_PROVIDER=anthropic\n"
+                "  SYDES_LLM_MODEL=claude-3-5-sonnet-latest\n"
+                "  ANTHROPIC_API_KEY=..."
+            ),
+        ),
+    ] = None,
     output_format: Annotated[
         Literal["terminal", "json"], typer.Option("--format")
     ] = "terminal",
@@ -33,7 +52,7 @@ def routes_command(
         raise typer.BadParameter(str(exc), param_hint="--repo") from exc
 
     try:
-        result = discover_endpoints(repos)
+        result = discover_endpoints(repos, model_spec=model)
     except ValueError as exc:
         raise typer.BadParameter(str(exc), param_hint="--repo") from exc
 

@@ -49,7 +49,10 @@ VERBOSE_NOTE_MARKERS = (
 
 
 def _build_trace_result(
-    path: str, method: str | None, repo_specs: list[str]
+    path: str,
+    method: str | None,
+    repo_specs: list[str],
+    model_spec: str | None = None,
 ) -> tuple[TraceResult, FlowExpansionResult | None]:
     """Run endpoint discovery and target resolution to ground a trace target."""
     try:
@@ -58,7 +61,7 @@ def _build_trace_result(
         raise typer.BadParameter(str(exc), param_hint="--repo") from exc
 
     target = TargetSpec(path=path, method=method)
-    routes = discover_endpoints(repos)
+    routes = discover_endpoints(repos, model_spec=model_spec)
     match = resolve_trace_target(
         routes.routes,
         path=target.path,
@@ -75,7 +78,11 @@ def _build_trace_result(
     flow_expansion: FlowExpansionResult | None = None
 
     if match.selected is not None:
-        flow_expansion = run_flow_expansion(match.selected, routes.repos)
+        flow_expansion = run_flow_expansion(
+            match.selected,
+            routes.repos,
+            model_spec=model_spec,
+        )
         flow_expansion.sinks = normalize_sink_candidates(flow_expansion.sinks)
         graph_nodes, graph_edges, graph_flows = build_graph_from_inferred_flow(
             match.selected,
@@ -268,6 +275,25 @@ def trace_command(
     path: Annotated[str, typer.Argument(help="Target API path, e.g. /checkout")],
     method: Annotated[str | None, typer.Option("--method")] = None,
     repo: Annotated[list[str] | None, typer.Option("--repo")] = None,
+    model: Annotated[
+        str | None,
+        typer.Option(
+            "--model",
+            help=(
+                "Model selection:\n"
+                "  --model ollama:llama3.1:8b\n"
+                "  --model openai:gpt-4.1-mini\n"
+                "  --model anthropic:claude-3-5-sonnet-latest\n\n"
+                "Environment defaults:\n"
+                "  SYDES_LLM_PROVIDER=openai\n"
+                "  SYDES_LLM_MODEL=gpt-4.1-mini\n"
+                "  OPENAI_API_KEY=...\n\n"
+                "  SYDES_LLM_PROVIDER=anthropic\n"
+                "  SYDES_LLM_MODEL=claude-3-5-sonnet-latest\n"
+                "  ANTHROPIC_API_KEY=..."
+            ),
+        ),
+    ] = None,
     output_format: Annotated[
         Literal["terminal", "json"], typer.Option("--format")
     ] = "terminal",
@@ -284,6 +310,7 @@ def trace_command(
             path=path,
             method=method,
             repo_specs=repo or [],
+            model_spec=model,
         )
     except ValueError as exc:
         raise typer.BadParameter(str(exc), param_hint="--repo") from exc

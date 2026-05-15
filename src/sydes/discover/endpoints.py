@@ -361,6 +361,7 @@ def run_llm_endpoint_discovery(
     candidates: list[CandidateFileRead],
     *,
     llm_client: LLMClient | None = None,
+    model_spec: str | None = None,
     target_hint: str | None = None,
     method_hint: str | None = None,
 ) -> EndpointDiscoveryResult:
@@ -376,7 +377,7 @@ def run_llm_endpoint_discovery(
         settings = load_llm_settings_from_env()
         timeout_seconds = settings.timeout_seconds
         try:
-            llm_client = create_default_llm_client()
+            llm_client = create_default_llm_client(model_spec=model_spec)
         except LLMClientError as exc:
             return EndpointDiscoveryResult(
                 endpoints=[],
@@ -450,6 +451,7 @@ def discover_endpoints_from_candidates(
     candidates: list[CandidateFileRead],
     *,
     llm_client: LLMClient | None = None,
+    model_spec: str | None = None,
     target_hint: str | None = None,
     method_hint: str | None = None,
 ) -> list[EndpointCandidate]:
@@ -457,6 +459,7 @@ def discover_endpoints_from_candidates(
     result = run_llm_endpoint_discovery(
         candidates,
         llm_client=llm_client,
+        model_spec=model_spec,
         target_hint=target_hint,
         method_hint=method_hint,
     )
@@ -467,6 +470,7 @@ def discover_endpoints(
     repos: list[RepoRef],
     *,
     llm_client: LLMClient | None = None,
+    model_spec: str | None = None,
     inventory_max_files: int = 5000,
     rank_top_k: int = 80,
     read_top_n: int = 5,
@@ -517,6 +521,7 @@ def discover_endpoints(
         discovery = run_llm_endpoint_discovery(
             llm_candidates,
             llm_client=llm_client,
+            model_spec=model_spec,
         )
         total_prompt_chars += discovery.prompt_chars
         truncated_files += discovery.truncated_files

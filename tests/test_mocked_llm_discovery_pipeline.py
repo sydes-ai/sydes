@@ -135,7 +135,10 @@ def test_routes_command_shows_discovered_endpoints_with_mocked_llm(
             '"file":"src/routes.py","repo":"api","service":"orders","status":"inferred"}]}'
         )
     )
-    monkeypatch.setattr("sydes.discover.endpoints.create_default_llm_client", lambda: client)
+    monkeypatch.setattr(
+        "sydes.discover.endpoints.create_default_llm_client",
+        lambda **_kwargs: client,
+    )
     monkeypatch.setattr(routes_module, "compute_workspace_id", lambda repos: "ws-test")
     monkeypatch.setattr(routes_module, "create_run_id", lambda: "run-test")
     monkeypatch.setattr(
@@ -165,7 +168,10 @@ def test_trace_command_resolves_target_with_mocked_llm(tmp_path: Path, monkeypat
             '"file":"src/routes.py","repo":"api","service":"orders","confidence":0.8}]}'
         )
     )
-    monkeypatch.setattr("sydes.discover.endpoints.create_default_llm_client", lambda: client)
+    monkeypatch.setattr(
+        "sydes.discover.endpoints.create_default_llm_client",
+        lambda **_kwargs: client,
+    )
     monkeypatch.setattr(trace_module, "compute_workspace_id", lambda repos: "ws-test")
     monkeypatch.setattr(trace_module, "create_run_id", lambda: "run-test")
     monkeypatch.setattr(
@@ -193,7 +199,7 @@ def test_discovery_fallback_when_mocked_client_unavailable(
 
     monkeypatch.setattr(
         "sydes.discover.endpoints.create_default_llm_client",
-        lambda: (_ for _ in ()).throw(LLMClientError("mock unavailable")),
+        lambda **_kwargs: (_ for _ in ()).throw(LLMClientError("mock unavailable")),
     )
 
     result = discover_endpoints([RepoRef(name="api", root=str(repo_root))])

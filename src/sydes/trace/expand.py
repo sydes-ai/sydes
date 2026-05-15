@@ -665,6 +665,7 @@ def run_flow_expansion(
     repos: list[RepoRef],
     *,
     llm_client: LLMClient | None = None,
+    model_spec: str | None = None,
 ) -> FlowExpansionResult:
     """Run bounded context + LLM flow expansion with graceful fallback behavior."""
     related_default = 1
@@ -700,7 +701,7 @@ def run_flow_expansion(
         settings = load_llm_settings_from_env()
         timeout_seconds = settings.timeout_seconds
         try:
-            llm_client = create_default_llm_client()
+            llm_client = create_default_llm_client(model_spec=model_spec)
         except LLMClientError as exc:
             notes.append(f"Flow expansion unavailable: {exc}")
             return FlowExpansionResult(
