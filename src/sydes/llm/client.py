@@ -57,6 +57,7 @@ class LLMSettings:
     base_url: str = DEFAULT_OLLAMA_BASE_URL
     timeout_seconds: float = 90.0
     keep_alive: str = "10m"
+    temperature: float = 0.0
 
 
 def parse_model_spec(model_spec: str) -> tuple[str, str]:
@@ -84,11 +85,13 @@ class OllamaClient:
         base_url: str,
         timeout_seconds: float = 90.0,
         keep_alive: str = "10m",
+        temperature: float = 0.0,
     ) -> None:
         self.model = model
         self.base_url = base_url.rstrip("/")
         self.timeout_seconds = timeout_seconds
         self.keep_alive = keep_alive
+        self.temperature = temperature
 
     def generate(self, request_data: LLMRequest) -> LLMResponse:
         """Generate text using Ollama's non-streaming generate endpoint."""
@@ -100,8 +103,13 @@ class OllamaClient:
         }
         if request_data.system:
             payload["system"] = request_data.system
-        if request_data.temperature is not None:
-            payload["options"] = {"temperature": request_data.temperature}
+        resolved_temperature = (
+            request_data.temperature
+            if request_data.temperature is not None
+            else self.temperature
+        )
+        if resolved_temperature is not None:
+            payload["options"] = {"temperature": resolved_temperature}
 
         body = json.dumps(payload).encode("utf-8")
         req = request.Request(
@@ -148,11 +156,20 @@ class OllamaClient:
 class OpenAIClient:
     """OpenAI text generation client via official OpenAI Python SDK."""
 
-    def __init__(self, *, model: str, api_key: str, base_url: str, timeout_seconds: float = 90.0) -> None:
+    def __init__(
+        self,
+        *,
+        model: str,
+        api_key: str,
+        base_url: str,
+        timeout_seconds: float = 90.0,
+        temperature: float = 0.0,
+    ) -> None:
         self.model = model
         self.api_key = api_key
         self.base_url = base_url.rstrip("/")
         self.timeout_seconds = timeout_seconds
+        self.temperature = temperature
         self._client = OpenAI(
             api_key=api_key,
             base_url=self.base_url,
@@ -166,11 +183,16 @@ class OpenAIClient:
             messages.append({"role": "system", "content": request_data.system})
         messages.append({"role": "user", "content": request_data.prompt})
 
+        resolved_temperature = (
+            request_data.temperature
+            if request_data.temperature is not None
+            else self.temperature
+        )
         try:
             response = self._client.chat.completions.create(
                 model=self.model,
                 messages=messages,
-                temperature=request_data.temperature,
+                temperature=resolved_temperature,
             )
         except OpenAIError as exc:
             status_code = getattr(exc, "status_code", None)
@@ -201,11 +223,20 @@ class OpenAIClient:
 class AnthropicClient:
     """Anthropic text generation client via official Anthropic Python SDK."""
 
-    def __init__(self, *, model: str, api_key: str, base_url: str, timeout_seconds: float = 90.0) -> None:
+    def __init__(
+        self,
+        *,
+        model: str,
+        api_key: str,
+        base_url: str,
+        timeout_seconds: float = 90.0,
+        temperature: float = 0.0,
+    ) -> None:
         self.model = model
         self.api_key = api_key
         self.base_url = base_url.rstrip("/")
         self.timeout_seconds = timeout_seconds
+        self.temperature = temperature
         self.max_tokens = 4096
         self._client = Anthropic(
             api_key=api_key,
@@ -215,13 +246,18 @@ class AnthropicClient:
 
     def generate(self, request_data: LLMRequest) -> LLMResponse:
         """Generate text using Anthropic messages API."""
+        resolved_temperature = (
+            request_data.temperature
+            if request_data.temperature is not None
+            else self.temperature
+        )
         try:
             response = self._client.messages.create(
                 model=self.model,
                 max_tokens=self.max_tokens,
                 messages=[{"role": "user", "content": request_data.prompt}],
                 system=request_data.system,
-                temperature=request_data.temperature,
+                temperature=resolved_temperature,
             )
         except AnthropicError as exc:
             raise LLMClientError(
@@ -255,6 +291,7 @@ def load_llm_settings_from_env() -> LLMSettings:
     model = os.getenv("SYDES_LLM_MODEL", DEFAULT_MODEL).strip() or DEFAULT_MODEL
     base_url = os.getenv("SYDES_LLM_BASE_URL", DEFAULT_OLLAMA_BASE_URL).strip() or DEFAULT_OLLAMA_BASE_URL
     timeout_raw = os.getenv("SYDES_LLM_TIMEOUT_SECONDS", "90").strip()
+    temperature_raw = os.getenv("SYDES_LLM_TEMPERATURE", "0").strip()
     keep_alive = os.getenv("SYDES_LLM_KEEP_ALIVE", "10m").strip() or "10m"
     try:
         timeout_seconds = float(timeout_raw)
@@ -262,12 +299,21 @@ def load_llm_settings_from_env() -> LLMSettings:
         timeout_seconds = 90.0
     if timeout_seconds <= 0:
         timeout_seconds = 90.0
+    try:
+        temperature = float(temperature_raw)
+    except ValueError:
+        temperature = 0.0
+    if temperature < 0:
+        temperature = 0.0
+    if temperature > 2:
+        temperature = 2.0
     return LLMSettings(
         provider=provider,
         model=model,
         base_url=base_url,
         timeout_seconds=timeout_seconds,
         keep_alive=keep_alive,
+        temperature=temperature,
     )
 
 
@@ -286,6 +332,7 @@ def create_default_llm_client(model_spec: str | None = None) -> LLMClient:
             base_url=settings.base_url,
             timeout_seconds=settings.timeout_seconds,
             keep_alive=settings.keep_alive,
+            temperature=settings.temperature,
         )
 
     if provider == "openai":
@@ -304,6 +351,7 @@ def create_default_llm_client(model_spec: str | None = None) -> LLMClient:
             api_key=api_key,
             base_url=openai_base_url,
             timeout_seconds=settings.timeout_seconds,
+            temperature=settings.temperature,
         )
 
     if provider == "anthropic":
@@ -322,6 +370,7 @@ def create_default_llm_client(model_spec: str | None = None) -> LLMClient:
             api_key=api_key,
             base_url=anthropic_base_url,
             timeout_seconds=settings.timeout_seconds,
+            temperature=settings.temperature,
         )
 
     raise LLMClientError(

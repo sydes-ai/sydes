@@ -40,6 +40,7 @@ def test_load_llm_settings_from_env_defaults(monkeypatch) -> None:
     monkeypatch.delenv("SYDES_LLM_MODEL", raising=False)
     monkeypatch.delenv("SYDES_LLM_BASE_URL", raising=False)
     monkeypatch.delenv("SYDES_LLM_TIMEOUT_SECONDS", raising=False)
+    monkeypatch.delenv("SYDES_LLM_TEMPERATURE", raising=False)
     monkeypatch.delenv("SYDES_LLM_KEEP_ALIVE", raising=False)
 
     settings = load_llm_settings_from_env()
@@ -48,6 +49,7 @@ def test_load_llm_settings_from_env_defaults(monkeypatch) -> None:
     assert settings.model == "llama3.1:8b"
     assert settings.base_url == "http://localhost:11434"
     assert settings.timeout_seconds == 90.0
+    assert settings.temperature == 0.0
     assert settings.keep_alive == "10m"
 
 
@@ -57,6 +59,7 @@ def test_create_default_llm_client_uses_env(monkeypatch) -> None:
     monkeypatch.setenv("SYDES_LLM_MODEL", "qwen2.5:7b")
     monkeypatch.setenv("SYDES_LLM_BASE_URL", "http://127.0.0.1:11434")
     monkeypatch.setenv("SYDES_LLM_TIMEOUT_SECONDS", "120")
+    monkeypatch.setenv("SYDES_LLM_TEMPERATURE", "0")
     monkeypatch.setenv("SYDES_LLM_KEEP_ALIVE", "30m")
 
     client = create_default_llm_client()
@@ -65,6 +68,7 @@ def test_create_default_llm_client_uses_env(monkeypatch) -> None:
     assert client.model == "qwen2.5:7b"
     assert client.base_url == "http://127.0.0.1:11434"
     assert client.timeout_seconds == 120
+    assert client.temperature == 0
     assert client.keep_alive == "30m"
 
 
@@ -131,6 +135,7 @@ def test_openai_client_constructs_sdk_with_expected_settings(monkeypatch) -> Non
         "timeout": 42,
     }
     assert captured["create_kwargs"]["model"] == "gpt-4.1-mini"
+    assert captured["create_kwargs"]["temperature"] == 0.0
 
 
 def test_openai_404_error_includes_base_url_hint(monkeypatch) -> None:
@@ -256,6 +261,40 @@ def test_anthropic_client_constructs_sdk_with_expected_settings(monkeypatch) -> 
     }
     assert captured["create_kwargs"]["model"] == "claude-3-5-sonnet-latest"
     assert captured["create_kwargs"]["max_tokens"] == 4096
+    assert captured["create_kwargs"]["temperature"] == 0.0
+
+
+def test_ollama_client_applies_default_temperature_when_request_omits_it(monkeypatch) -> None:
+    """Ollama payload should carry default deterministic temperature when omitted."""
+    captured: dict[str, object] = {}
+
+    class _FakeResponse:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def read(self):
+            return b'{"response":"ok"}'
+
+    def _fake_urlopen(req, timeout):  # noqa: ANN001
+        captured["timeout"] = timeout
+        captured["payload"] = req.data.decode("utf-8")
+        return _FakeResponse()
+
+    monkeypatch.setattr("sydes.llm.client.request.urlopen", _fake_urlopen)
+    client = OllamaClient(
+        model="llama3.1:8b",
+        base_url="http://localhost:11434",
+        temperature=0.0,
+    )
+
+    from sydes.llm.client import LLMRequest
+
+    response = client.generate(LLMRequest(prompt="hello"))
+    assert response.text == "ok"
+    assert '"temperature": 0.0' in captured["payload"]
 
 
 def test_create_default_llm_client_rejects_unknown_provider(monkeypatch) -> None:
