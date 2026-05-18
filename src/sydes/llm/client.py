@@ -48,6 +48,32 @@ class LLMClientError(RuntimeError):
     """Raised when an LLM provider request fails."""
 
 
+def classify_llm_error(message: str) -> str:
+    """Classify raw LLM errors into user-facing failure categories."""
+    lowered = message.lower()
+    if "api key is not configured" in lowered or "api_key" in lowered or "not set" in lowered:
+        return f"auth/config failure: {message}"
+    if "model not available" in lowered or ("model '" in lowered and "not found" in lowered):
+        return f"model unavailable: {message}"
+    if (
+        "unavailable at" in lowered
+        or "timed out" in lowered
+        or "reachable" in lowered
+        or "connection" in lowered
+        or "network" in lowered
+    ):
+        return f"network/connectivity failure: {message}"
+    if (
+        "not valid json" in lowered
+        or "non-json" in lowered
+        or "missing completion text" in lowered
+        or "missing 'response' text" in lowered
+        or "parse" in lowered
+    ):
+        return f"model output parse failure: {message}"
+    return f"llm failure: {message}"
+
+
 @dataclass(frozen=True)
 class LLMValidationResult:
     """Provider-neutral preflight validation result for LLM availability."""

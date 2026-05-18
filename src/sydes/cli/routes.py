@@ -9,7 +9,7 @@ import typer
 
 from sydes.discover.endpoints import discover_endpoints
 from sydes.ingest.repos import parse_repo_specs
-from sydes.llm.client import validate_llm_available
+from sydes.llm.client import LLMClientError, validate_llm_available
 from sydes.report.json_report import render_routes_json
 from sydes.report.terminal import render_routes_terminal
 from sydes.store.workspace import compute_workspace_id, create_run_id, save_run_artifact
@@ -46,6 +46,7 @@ def routes_command(
         Literal["terminal", "json"], typer.Option("--format")
     ] = "terminal",
     output: Annotated[Path | None, typer.Option("--output")] = None,
+    allow_partial: Annotated[bool, typer.Option("--allow-partial")] = False,
 ) -> None:
     """Discover routes for input repositories using shallow+LLM pipeline."""
     try:
@@ -76,9 +77,33 @@ def routes_command(
         raise typer.Exit(code=1)
 
     try:
-        result = discover_endpoints(repos, model_spec=model)
+        result = discover_endpoints(
+            repos,
+            model_spec=model,
+            strict_llm=not allow_partial,
+        )
     except ValueError as exc:
         raise typer.BadParameter(str(exc), param_hint="--repo") from exc
+    except LLMClientError as exc:
+        message = str(exc)
+        if output_format == "json":
+            payload = {
+                "ok": False,
+                "error": {
+                    "provider": validation.provider,
+                    "model": validation.model,
+                    "base_url": validation.base_url,
+                    "message": message,
+                    "available_models": list(validation.available_models),
+                },
+            }
+            rendered = json.dumps(payload, indent=2)
+            typer.echo(rendered)
+            if output is not None:
+                _write_output(output, rendered)
+            raise typer.Exit(code=1)
+        typer.echo(f"LLM discovery failed: {message}")
+        raise typer.Exit(code=1)
 
     artifact_payload = {
         "timestamp": datetime.now(tz=UTC).isoformat(),

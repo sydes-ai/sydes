@@ -20,7 +20,13 @@ from sydes.core.models import (
 )
 from sydes.ingest.inventory import build_repo_inventory
 from sydes.ingest.readers import read_text_file_for_flow_expansion
-from sydes.llm.client import LLMClient, LLMClientError, LLMRequest, create_default_llm_client
+from sydes.llm.client import (
+    LLMClient,
+    LLMClientError,
+    LLMRequest,
+    classify_llm_error,
+    create_default_llm_client,
+)
 from sydes.llm.client import load_llm_settings_from_env
 from sydes.trace.sinks import (
     derive_sink_candidates_from_steps,
@@ -666,6 +672,7 @@ def run_flow_expansion(
     *,
     llm_client: LLMClient | None = None,
     model_spec: str | None = None,
+    strict_llm: bool = False,
 ) -> FlowExpansionResult:
     """Run bounded context + LLM flow expansion with graceful fallback behavior."""
     related_default = 1
@@ -703,6 +710,8 @@ def run_flow_expansion(
         try:
             llm_client = create_default_llm_client(model_spec=model_spec)
         except LLMClientError as exc:
+            if strict_llm:
+                raise LLMClientError(classify_llm_error(str(exc))) from exc
             notes.append(f"Flow expansion unavailable: {exc}")
             return FlowExpansionResult(
                 entry_endpoint_id=f"{matched_endpoint.repo}:{matched_endpoint.file}:{matched_endpoint.path or '?'}",
@@ -719,6 +728,8 @@ def run_flow_expansion(
     try:
         response = llm_client.generate(LLMRequest(prompt=prompt))
     except LLMClientError as exc:
+        if strict_llm:
+            raise LLMClientError(classify_llm_error(str(exc))) from exc
         notes.append(f"Flow expansion unavailable: {exc}")
         return FlowExpansionResult(
             entry_endpoint_id=f"{matched_endpoint.repo}:{matched_endpoint.file}:{matched_endpoint.path or '?'}",
@@ -727,6 +738,10 @@ def run_flow_expansion(
 
     payload = _extract_json_payload(response.text)
     if payload is None:
+        if strict_llm:
+            raise LLMClientError(
+                classify_llm_error("Flow expansion output was not valid JSON.")
+            )
         notes.append("Flow expansion output was not valid JSON.")
         return FlowExpansionResult(
             entry_endpoint_id=f"{matched_endpoint.repo}:{matched_endpoint.file}:{matched_endpoint.path or '?'}",

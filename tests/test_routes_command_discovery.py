@@ -29,7 +29,7 @@ def test_routes_command_handles_no_endpoints(
     repo_root = tmp_path / "api"
     repo_root.mkdir()
 
-    def _fake_discovery(repos: list[RepoRef], *, model_spec: str | None = None) -> RoutesResult:
+    def _fake_discovery(repos: list[RepoRef], *, model_spec: str | None = None, strict_llm: bool = False) -> RoutesResult:
         return RoutesResult(
             repos=repos,
             routes=[],
@@ -52,7 +52,7 @@ def test_routes_command_handles_one_endpoint(tmp_path: Path, monkeypatch) -> Non
     repo_root = tmp_path / "api"
     repo_root.mkdir()
 
-    def _fake_discovery(repos: list[RepoRef], *, model_spec: str | None = None) -> RoutesResult:
+    def _fake_discovery(repos: list[RepoRef], *, model_spec: str | None = None, strict_llm: bool = False) -> RoutesResult:
         return RoutesResult(
             repos=repos,
             routes=[
@@ -94,7 +94,7 @@ def test_routes_command_handles_ambiguous_endpoints_json(
     repo_root = tmp_path / "api"
     repo_root.mkdir()
 
-    def _fake_discovery(repos: list[RepoRef], *, model_spec: str | None = None) -> RoutesResult:
+    def _fake_discovery(repos: list[RepoRef], *, model_spec: str | None = None, strict_llm: bool = False) -> RoutesResult:
         return RoutesResult(
             repos=repos,
             routes=[

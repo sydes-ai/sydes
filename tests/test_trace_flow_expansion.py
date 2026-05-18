@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 from pathlib import Path
 
+import pytest
 from typer.testing import CliRunner
 
 import sydes.cli.trace as trace_module
@@ -18,6 +19,15 @@ from sydes.llm.client import LLMClientError, LLMRequest, LLMResponse
 from sydes.trace.expand import run_flow_expansion
 
 runner = CliRunner()
+
+
+@pytest.fixture(autouse=True)
+def _mock_llm_preflight_success(monkeypatch):
+    """Trace CLI tests in this module should not depend on live LLM preflight checks."""
+    from sydes.llm.client import LLMValidationResult
+
+    ok = LLMValidationResult(ok=True, provider="ollama", model="llama3.1:latest", base_url="http://localhost:11434")
+    monkeypatch.setattr("sydes.cli.trace.validate_llm_available", lambda model_spec=None: ok)
 
 
 @dataclass
@@ -130,13 +140,28 @@ def test_run_flow_expansion_graceful_fallback_on_client_failure(tmp_path: Path) 
     assert any("Flow expansion unavailable" in note for note in result.notes)
 
 
+def test_run_flow_expansion_raises_on_malformed_json_in_strict_mode(tmp_path: Path) -> None:
+    """Malformed model output should fail in strict mode instead of returning partial output."""
+    repo_root = tmp_path / "api"
+    (repo_root / "src").mkdir(parents=True)
+    (repo_root / "src" / "routes.py").write_text("router.get('/status', status)\n", encoding="utf-8")
+    endpoint = EndpointCandidate(method="GET", path="/status", file="src/routes.py", repo="api")
+    repos = [RepoRef(name="api", root=str(repo_root))]
+    client = _FakeFlowClient(payload="not-json")
+
+    with pytest.raises(LLMClientError, match="model output parse failure"):
+        run_flow_expansion(endpoint, repos, llm_client=client, strict_llm=True)
+
+
 def test_trace_command_saves_flow_expansion_artifact(tmp_path: Path, monkeypatch) -> None:
     """Trace command should save flow expansion artifact alongside trace artifact."""
     repo_root = tmp_path / "api"
     repo_root.mkdir()
     saved_names: list[str] = []
 
-    def _fake_discovery(repos: list[RepoRef]) -> RoutesResult:
+    def _fake_discovery(
+        repos: list[RepoRef], *, model_spec: str | None = None, strict_llm: bool = False
+    ) -> RoutesResult:
         return RoutesResult(
             repos=repos,
             routes=[
@@ -160,7 +185,7 @@ def test_trace_command_saves_flow_expansion_artifact(tmp_path: Path, monkeypatch
     monkeypatch.setattr(
         trace_module,
         "run_flow_expansion",
-        lambda matched_endpoint, repos: FlowExpansionResult(
+        lambda matched_endpoint, repos, **_kwargs: FlowExpansionResult(
             entry_endpoint_id="endpoint:api",
             notes=["mock expansion"],
         ),

@@ -23,6 +23,7 @@ from sydes.ingest.repos import validate_repo_roots
 from sydes.ingest.sense import sense_repo
 from sydes.llm.client import LLMClient, LLMRequest
 from sydes.llm.client import (
+    classify_llm_error,
     LLMClientError,
     create_default_llm_client,
     load_llm_settings_from_env,
@@ -362,6 +363,7 @@ def run_llm_endpoint_discovery(
     *,
     llm_client: LLMClient | None = None,
     model_spec: str | None = None,
+    strict_llm: bool = False,
     target_hint: str | None = None,
     method_hint: str | None = None,
 ) -> EndpointDiscoveryResult:
@@ -379,6 +381,8 @@ def run_llm_endpoint_discovery(
         try:
             llm_client = create_default_llm_client(model_spec=model_spec)
         except LLMClientError as exc:
+            if strict_llm:
+                raise LLMClientError(classify_llm_error(str(exc))) from exc
             return EndpointDiscoveryResult(
                 endpoints=[],
                 notes=[f"LLM discovery unavailable: {exc}"],
@@ -398,6 +402,8 @@ def run_llm_endpoint_discovery(
     try:
         response = llm_client.generate(LLMRequest(prompt=prompt))
     except LLMClientError as exc:
+        if strict_llm:
+            raise LLMClientError(classify_llm_error(str(exc))) from exc
         return EndpointDiscoveryResult(
             endpoints=[],
             notes=[f"LLM discovery unavailable: {exc}"],
@@ -408,6 +414,10 @@ def run_llm_endpoint_discovery(
         )
     payload = _extract_json_payload(response.text)
     if payload is None:
+        if strict_llm:
+            raise LLMClientError(
+                classify_llm_error("Model output was not valid JSON.")
+            )
         return EndpointDiscoveryResult(
             endpoints=[],
             notes=["Model output was not valid JSON; returning empty endpoint set."],
@@ -452,6 +462,7 @@ def discover_endpoints_from_candidates(
     *,
     llm_client: LLMClient | None = None,
     model_spec: str | None = None,
+    strict_llm: bool = False,
     target_hint: str | None = None,
     method_hint: str | None = None,
 ) -> list[EndpointCandidate]:
@@ -460,6 +471,7 @@ def discover_endpoints_from_candidates(
         candidates,
         llm_client=llm_client,
         model_spec=model_spec,
+        strict_llm=strict_llm,
         target_hint=target_hint,
         method_hint=method_hint,
     )
@@ -471,6 +483,7 @@ def discover_endpoints(
     *,
     llm_client: LLMClient | None = None,
     model_spec: str | None = None,
+    strict_llm: bool = False,
     inventory_max_files: int = 5000,
     rank_top_k: int = 80,
     read_top_n: int = 5,
@@ -522,6 +535,7 @@ def discover_endpoints(
             llm_candidates,
             llm_client=llm_client,
             model_spec=model_spec,
+            strict_llm=strict_llm,
         )
         total_prompt_chars += discovery.prompt_chars
         truncated_files += discovery.truncated_files

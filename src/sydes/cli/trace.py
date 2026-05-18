@@ -25,7 +25,7 @@ from sydes.core.graph import add_cross_repo_api_link, build_graph_from_inferred_
 from sydes.discover.endpoints import discover_endpoints
 from sydes.discover.target_match import resolve_trace_target
 from sydes.ingest.repos import parse_repo_specs
-from sydes.llm.client import validate_llm_available
+from sydes.llm.client import LLMClientError, validate_llm_available
 from sydes.report.json_report import render_json
 from sydes.report.terminal import render_terminal
 from sydes.store.workspace import compute_workspace_id, create_run_id, save_run_artifact
@@ -59,6 +59,7 @@ def _build_trace_result(
     method: str | None,
     repo_specs: list[str],
     model_spec: str | None = None,
+    strict_llm: bool = False,
 ) -> tuple[TraceResult, FlowExpansionResult | None]:
     """Run endpoint discovery and target resolution to ground a trace target."""
     try:
@@ -67,7 +68,7 @@ def _build_trace_result(
         raise typer.BadParameter(str(exc), param_hint="--repo") from exc
 
     target = TargetSpec(path=path, method=method)
-    routes = discover_endpoints(repos, model_spec=model_spec)
+    routes = discover_endpoints(repos, model_spec=model_spec, strict_llm=strict_llm)
     match = resolve_trace_target(
         routes.routes,
         path=target.path,
@@ -88,6 +89,7 @@ def _build_trace_result(
             match.selected,
             routes.repos,
             model_spec=model_spec,
+            strict_llm=strict_llm,
         )
         flow_expansion.sinks = normalize_sink_candidates(flow_expansion.sinks)
         graph_nodes, graph_edges, graph_flows = build_graph_from_inferred_flow(
@@ -325,6 +327,7 @@ def trace_command(
     max_hops: Annotated[int | None, typer.Option("--max-hops")] = None,
     max_files: Annotated[int | None, typer.Option("--max-files")] = None,
     verbose: Annotated[bool, typer.Option("--verbose")] = False,
+    allow_partial: Annotated[bool, typer.Option("--allow-partial")] = False,
 ) -> None:
     """Run target-grounded trace preparation with first-pass downstream expansion."""
     _ = emit_tests, max_hops, max_files
@@ -355,9 +358,30 @@ def trace_command(
             method=method,
             repo_specs=repo or [],
             model_spec=model,
+            strict_llm=not allow_partial,
         )
     except ValueError as exc:
         raise typer.BadParameter(str(exc), param_hint="--repo") from exc
+    except LLMClientError as exc:
+        message = str(exc)
+        if output_format == "json":
+            payload = {
+                "ok": False,
+                "error": {
+                    "provider": validation.provider,
+                    "model": validation.model,
+                    "base_url": validation.base_url,
+                    "message": message,
+                    "available_models": list(validation.available_models),
+                },
+            }
+            rendered = json.dumps(payload, indent=2)
+            typer.echo(rendered)
+            if output is not None:
+                _write_output(output, rendered)
+            raise typer.Exit(code=1)
+        typer.echo(f"LLM trace failed: {message}")
+        raise typer.Exit(code=1)
 
     artifact_payload = {
         "timestamp": datetime.now(tz=UTC).isoformat(),

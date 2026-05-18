@@ -11,7 +11,10 @@ from sydes.core.models import (
     FlowExpansionResult,
     RepoRef,
     RoutesResult,
+    TargetSpec,
     TargetMatchResult,
+    TraceResult,
+    TraceSummary,
 )
 from typer.testing import CliRunner
 
@@ -44,6 +47,7 @@ def test_trace_terminal_output_contains_target_and_repos(tmp_path: Path) -> None
             "/checkout",
             "--method",
             "POST",
+            "--allow-partial",
             "--repo",
             f"gateway={gateway_dir}",
             "--repo",
@@ -74,6 +78,7 @@ def test_trace_json_output_contains_expected_fields(tmp_path: Path) -> None:
             "/checkout",
             "--method",
             "POST",
+            "--allow-partial",
             "--repo",
             f"gateway={gateway_dir}",
             "--format",
@@ -102,6 +107,7 @@ def test_routes_terminal_output_runs_successfully(tmp_path: Path) -> None:
         app,
         [
             "routes",
+            "--allow-partial",
             "--repo",
             f"gateway={gateway_dir}",
             "--repo",
@@ -307,3 +313,188 @@ def test_trace_fails_fast_on_llm_preflight_failure_json_mode(monkeypatch, tmp_pa
     assert payload["error"]["message"] == "OpenAI API key is not configured."
     assert called["build"] is False
     assert called["artifact"] is False
+
+
+def test_routes_fails_on_runtime_llm_error_in_strict_mode(monkeypatch, tmp_path: Path) -> None:
+    """Routes should exit non-zero when discovery raises LLM client errors in strict mode."""
+    api_dir = tmp_path / "api"
+    api_dir.mkdir()
+    called: dict[str, bool] = {"artifact": False}
+
+    monkeypatch.setattr(
+        "sydes.cli.routes.validate_llm_available",
+        lambda model_spec=None: LLMValidationResult(
+            ok=True,
+            provider="ollama",
+            model="llama3.1:latest",
+            base_url="http://localhost:11434",
+        ),
+    )
+
+    def _raise_runtime_llm_error(*_args, **_kwargs):
+        from sydes.llm.client import LLMClientError
+
+        raise LLMClientError("network/connectivity failure: Ollama request timed out.")
+
+    def _should_not_save(*_args, **_kwargs):
+        called["artifact"] = True
+        raise AssertionError("save_run_artifact should not be called on strict LLM failure")
+
+    monkeypatch.setattr("sydes.cli.routes.discover_endpoints", _raise_runtime_llm_error)
+    monkeypatch.setattr("sydes.cli.routes.save_run_artifact", _should_not_save)
+
+    result = runner.invoke(
+        app,
+        ["routes", "--repo", f"api={api_dir}"],
+    )
+    assert result.exit_code != 0
+    assert "LLM discovery failed: network/connectivity failure" in result.stdout
+    assert called["artifact"] is False
+
+
+def test_trace_fails_on_runtime_llm_error_in_strict_mode_json(
+    monkeypatch, tmp_path: Path
+) -> None:
+    """Trace should return structured non-zero error when runtime LLM failure occurs."""
+    api_dir = tmp_path / "api"
+    api_dir.mkdir()
+    called: dict[str, bool] = {"artifact": False}
+
+    monkeypatch.setattr(
+        "sydes.cli.trace.validate_llm_available",
+        lambda model_spec=None: LLMValidationResult(
+            ok=True,
+            provider="openai",
+            model="gpt-4.1-mini",
+            base_url="https://api.openai.com/v1",
+        ),
+    )
+
+    def _raise_runtime_llm_error(*_args, **_kwargs):
+        from sydes.llm.client import LLMClientError
+
+        raise LLMClientError("model output parse failure: malformed JSON")
+
+    def _should_not_save(*_args, **_kwargs):
+        called["artifact"] = True
+        raise AssertionError("save_run_artifact should not be called on strict LLM failure")
+
+    monkeypatch.setattr("sydes.cli.trace._build_trace_result", _raise_runtime_llm_error)
+    monkeypatch.setattr("sydes.cli.trace.save_run_artifact", _should_not_save)
+
+    result = runner.invoke(
+        app,
+        [
+            "trace",
+            "/users",
+            "--method",
+            "GET",
+            "--repo",
+            f"api={api_dir}",
+            "--model",
+            "openai:gpt-4.1-mini",
+            "--format",
+            "json",
+        ],
+    )
+    assert result.exit_code != 0
+    payload = json.loads(result.stdout)
+    assert payload["ok"] is False
+    assert payload["error"]["message"] == "model output parse failure: malformed JSON"
+    assert called["artifact"] is False
+
+
+def test_routes_allow_partial_disables_strict_llm(monkeypatch, tmp_path: Path) -> None:
+    """Routes should pass strict_llm=False when --allow-partial is set."""
+    api_dir = tmp_path / "api"
+    api_dir.mkdir()
+    captured: dict[str, bool] = {}
+
+    def _fake_discover(repos, *, strict_llm=False, **_kwargs):
+        captured["strict_llm"] = strict_llm
+        return RoutesResult(repos=repos, routes=[], candidate_files=0, files_examined=0)
+
+    monkeypatch.setattr("sydes.cli.routes.discover_endpoints", _fake_discover)
+
+    result = runner.invoke(
+        app,
+        ["routes", "--repo", f"api={api_dir}", "--allow-partial"],
+    )
+    assert result.exit_code == 0
+    assert captured["strict_llm"] is False
+
+
+def test_trace_allow_partial_disables_strict_llm(monkeypatch, tmp_path: Path) -> None:
+    """Trace should pass strict_llm=False into build path when --allow-partial is set."""
+    api_dir = tmp_path / "api"
+    api_dir.mkdir()
+    captured: dict[str, bool] = {}
+
+    def _fake_build(*, strict_llm=False, **_kwargs):
+        captured["strict_llm"] = strict_llm
+        result = TraceResult(
+            target=TargetSpec(path="/users", method="GET"),
+            repos=[RepoRef(name="api", root=str(api_dir))],
+            summary=TraceSummary(confidence=0.0),
+        )
+        return result, None
+
+    monkeypatch.setattr("sydes.cli.trace._build_trace_result", _fake_build)
+    monkeypatch.setattr("sydes.cli.trace.compute_workspace_id", lambda repos: "ws-test")
+    monkeypatch.setattr("sydes.cli.trace.create_run_id", lambda: "run-test")
+    monkeypatch.setattr(
+        "sydes.cli.trace.save_run_artifact",
+        lambda **kwargs: Path(f"/tmp/{kwargs['artifact_name']}.json"),
+    )
+
+    result = runner.invoke(
+        app,
+        ["trace", "/users", "--method", "GET", "--repo", f"api={api_dir}", "--allow-partial"],
+    )
+    assert result.exit_code == 0
+    assert captured["strict_llm"] is False
+
+
+def test_trace_malformed_llm_output_fails_strict_but_allows_partial(
+    monkeypatch, tmp_path: Path
+) -> None:
+    """Strict trace mode should fail on malformed LLM output, while --allow-partial can proceed."""
+    api_dir = tmp_path / "api"
+    api_dir.mkdir()
+
+    def _fake_build(*, strict_llm=False, **_kwargs):
+        from sydes.llm.client import LLMClientError
+
+        if strict_llm:
+            raise LLMClientError("model output parse failure: malformed JSON")
+        return (
+            TraceResult(
+                target=TargetSpec(path="/users", method="GET"),
+                repos=[RepoRef(name="api", root=str(api_dir))],
+                summary=TraceSummary(confidence=0.0),
+                notes=["Flow expansion unavailable: malformed JSON."],
+            ),
+            None,
+        )
+
+    monkeypatch.setattr("sydes.cli.trace._build_trace_result", _fake_build)
+    monkeypatch.setattr("sydes.cli.trace.compute_workspace_id", lambda repos: "ws-test")
+    monkeypatch.setattr("sydes.cli.trace.create_run_id", lambda: "run-test")
+    monkeypatch.setattr(
+        "sydes.cli.trace.save_run_artifact",
+        lambda **kwargs: Path(f"/tmp/{kwargs['artifact_name']}.json"),
+    )
+
+    strict_result = runner.invoke(
+        app,
+        ["trace", "/users", "--method", "GET", "--repo", f"api={api_dir}"],
+    )
+    assert strict_result.exit_code != 0
+    assert "LLM trace failed: model output parse failure: malformed JSON" in strict_result.stdout
+
+    partial_result = runner.invoke(
+        app,
+        ["trace", "/users", "--method", "GET", "--repo", f"api={api_dir}", "--allow-partial"],
+    )
+    assert partial_result.exit_code == 0
+    assert "Flow expansion unavailable: malformed JSON." in partial_result.stdout

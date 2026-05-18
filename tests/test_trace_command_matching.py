@@ -37,7 +37,7 @@ def test_trace_command_renders_match_and_alternatives(tmp_path: Path, monkeypatc
     repo_root = tmp_path / "api"
     repo_root.mkdir()
 
-    def _fake_discovery(repos: list[RepoRef], *, model_spec: str | None = None) -> RoutesResult:
+    def _fake_discovery(repos: list[RepoRef], *, model_spec: str | None = None, strict_llm: bool = False) -> RoutesResult:
         return RoutesResult(
             repos=repos,
             routes=[
@@ -75,7 +75,15 @@ def test_trace_command_renders_match_and_alternatives(tmp_path: Path, monkeypatc
 
     result = runner.invoke(
         app,
-        ["trace", "/checkout", "--method", "POST", "--repo", f"api={repo_root}"],
+        [
+            "trace",
+            "/checkout",
+            "--method",
+            "POST",
+            "--repo",
+            f"api={repo_root}",
+            "--allow-partial",
+        ],
     )
 
     assert result.exit_code == 0
@@ -97,6 +105,7 @@ def test_trace_command_renders_match_and_alternatives(tmp_path: Path, monkeypatc
             f"api={repo_root}",
             "--format",
             "json",
+            "--allow-partial",
         ],
     )
     assert json_result.exit_code == 0
@@ -117,7 +126,7 @@ def test_trace_command_renders_flow_steps_sinks_and_graph_artifact(
     repo_root.mkdir()
     saved_names: list[str] = []
 
-    def _fake_discovery(repos: list[RepoRef], *, model_spec: str | None = None) -> RoutesResult:
+    def _fake_discovery(repos: list[RepoRef], *, model_spec: str | None = None, strict_llm: bool = False) -> RoutesResult:
         return RoutesResult(
             repos=repos,
             routes=[
@@ -195,7 +204,7 @@ def test_trace_terminal_lightly_normalizes_step_labels(tmp_path: Path, monkeypat
     repo_root = tmp_path / "api"
     repo_root.mkdir()
 
-    def _fake_discovery(repos: list[RepoRef], *, model_spec: str | None = None) -> RoutesResult:
+    def _fake_discovery(repos: list[RepoRef], *, model_spec: str | None = None, strict_llm: bool = False) -> RoutesResult:
         return RoutesResult(
             repos=repos,
             routes=[
@@ -270,7 +279,7 @@ def test_trace_command_renders_cross_repo_links_when_confident_match_exists(
         confidence=0.85,
     )
 
-    def _fake_discovery(repos: list[RepoRef], *, model_spec: str | None = None) -> RoutesResult:
+    def _fake_discovery(repos: list[RepoRef], *, model_spec: str | None = None, strict_llm: bool = False) -> RoutesResult:
         return RoutesResult(
             repos=repos,
             routes=[source_endpoint, target_endpoint],
@@ -384,7 +393,7 @@ def test_trace_command_graceful_when_flow_expansion_fails_after_match(
     repo_root = tmp_path / "api"
     repo_root.mkdir()
 
-    def _fake_discovery(repos: list[RepoRef], *, model_spec: str | None = None) -> RoutesResult:
+    def _fake_discovery(repos: list[RepoRef], *, model_spec: str | None = None, strict_llm: bool = False) -> RoutesResult:
         return RoutesResult(
             repos=repos,
             routes=[
@@ -432,7 +441,7 @@ def test_trace_confidence_is_capped_for_partial_inferred_flow(tmp_path: Path, mo
     repo_root = tmp_path / "api"
     repo_root.mkdir()
 
-    def _fake_discovery(repos: list[RepoRef], *, model_spec: str | None = None) -> RoutesResult:
+    def _fake_discovery(repos: list[RepoRef], *, model_spec: str | None = None, strict_llm: bool = False) -> RoutesResult:
         return RoutesResult(
             repos=repos,
             routes=[
@@ -483,7 +492,7 @@ def test_trace_single_repo_output_has_no_cross_repo_section_when_no_links(
     repo_root = tmp_path / "api"
     repo_root.mkdir()
 
-    def _fake_discovery(repos: list[RepoRef], *, model_spec: str | None = None) -> RoutesResult:
+    def _fake_discovery(repos: list[RepoRef], *, model_spec: str | None = None, strict_llm: bool = False) -> RoutesResult:
         return RoutesResult(
             repos=repos,
             routes=[
@@ -555,7 +564,7 @@ def test_trace_renders_unmatched_cross_repo_candidate_note(tmp_path: Path, monke
         confidence=0.9,
     )
 
-    def _fake_discovery(repos: list[RepoRef], *, model_spec: str | None = None) -> RoutesResult:
+    def _fake_discovery(repos: list[RepoRef], *, model_spec: str | None = None, strict_llm: bool = False) -> RoutesResult:
         return RoutesResult(
             repos=repos,
             routes=[source_endpoint],
@@ -648,7 +657,7 @@ def test_trace_verbose_flag_controls_debug_notes_visibility(tmp_path: Path, monk
     repo_root = tmp_path / "api"
     repo_root.mkdir()
 
-    def _fake_discovery(repos: list[RepoRef], *, model_spec: str | None = None) -> RoutesResult:
+    def _fake_discovery(repos: list[RepoRef], *, model_spec: str | None = None, strict_llm: bool = False) -> RoutesResult:
         return RoutesResult(
             repos=repos,
             routes=[
@@ -707,7 +716,7 @@ def test_trace_renders_evidence_diagnostics_and_artifacts_sections(tmp_path: Pat
     repo_root = tmp_path / "api"
     repo_root.mkdir()
 
-    def _fake_discovery(repos: list[RepoRef], *, model_spec: str | None = None) -> RoutesResult:
+    def _fake_discovery(repos: list[RepoRef], *, model_spec: str | None = None, strict_llm: bool = False) -> RoutesResult:
         return RoutesResult(
             repos=repos,
             routes=[

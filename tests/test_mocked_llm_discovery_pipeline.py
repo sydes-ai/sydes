@@ -191,7 +191,15 @@ def test_trace_command_resolves_target_with_mocked_llm(tmp_path: Path, monkeypat
 
     result = runner.invoke(
         app,
-        ["trace", "/checkout", "--method", "POST", "--repo", f"api={repo_root}"],
+        [
+            "trace",
+            "/checkout",
+            "--method",
+            "POST",
+            "--repo",
+            f"api={repo_root}",
+            "--allow-partial",
+        ],
     )
 
     assert result.exit_code == 0
