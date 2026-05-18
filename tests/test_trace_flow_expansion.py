@@ -271,7 +271,14 @@ def test_deterministic_baseline_steps_are_included_in_graph_nodes_and_edges(tmp_
 
     nodes, edges, _flows = build_graph_from_inferred_flow(endpoint, result)
 
-    assert any(node.type == "internal_step" and node.name == "db.query(User).all()" for node in nodes)
+    db_step = next(
+        node for node in nodes if node.type == "internal_step" and node.name == "db.query(User).all()"
+    )
+    assert db_step.metadata.get("expression") == "db.query(User).all()"
+    assert db_step.metadata.get("target_entity") == "User"
+    db_sink = next(node for node in nodes if node.type == "database")
+    assert db_sink.metadata.get("operation") == "db.query(User).all()"
+    assert db_sink.metadata.get("target_entity") == "User"
     assert any(edge.type == "CALLS_INTERNAL" for edge in edges)
     assert any(edge.type == "READS_DB" for edge in edges)
 

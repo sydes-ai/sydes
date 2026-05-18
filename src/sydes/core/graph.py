@@ -49,6 +49,13 @@ OUTBOUND_RAW_CALL_RE = re.compile(
     r"\b(?:client|webclient|requests|httpx|axios)\b|fetch\s*\(|\.retrieve\s*\(|\.exchange\s*\(|\.uri\s*\(",
     re.IGNORECASE,
 )
+DETERMINISTIC_EVIDENCE_PREFIXES = (
+    "deterministic:db_read:",
+    "deterministic:db_write:",
+    "deterministic:external_call:",
+    "deterministic:dependency:",
+)
+DB_QUERY_ENTITY_RE = re.compile(r"db\.query\(\s*([A-Za-z_][A-Za-z0-9_]*)\s*\)", re.IGNORECASE)
 
 
 def _sanitize_id(value: str) -> str:
@@ -124,6 +131,52 @@ def _edge_type_for_sink(sink: SinkCandidate) -> str:
             return EDGE_TYPE_WRITES_FILE
         return EDGE_TYPE_INTERACTS_FILE
     return EDGE_TYPE_INTERACTS_SINK
+
+
+def _extract_expression_from_evidence(evidence: list[EvidenceRef]) -> str | None:
+    """Extract deterministic one-line expression from evidence labels when available."""
+    for ref in evidence:
+        label = ref.label or ""
+        for prefix in DETERMINISTIC_EVIDENCE_PREFIXES:
+            if label.startswith(prefix):
+                expression = label[len(prefix) :].strip()
+                if expression:
+                    return expression
+    return None
+
+
+def _guess_expression_from_step(step: TraceStep) -> str | None:
+    """Best-effort expression extraction for step metadata."""
+    expression = _extract_expression_from_evidence(step.evidence)
+    if expression:
+        return expression
+    name = step.name.strip()
+    if "." in name or "(" in name or ")" in name:
+        return name
+    if name.startswith("Depends("):
+        return name
+    return None
+
+
+def _extract_target_entity_from_expression(expression: str | None) -> str | None:
+    """Extract coarse target entity from a concrete DB expression."""
+    if not expression:
+        return None
+    match = DB_QUERY_ENTITY_RE.search(expression)
+    if match:
+        return match.group(1)
+    return None
+
+
+def _guess_sink_operation(sink: SinkCandidate) -> str | None:
+    """Best-effort operation extraction for sink metadata."""
+    expression = _extract_expression_from_evidence(sink.evidence)
+    if expression:
+        return expression
+    name = (sink.name or "").strip()
+    if "." in name or "(" in name or ")" in name:
+        return name
+    return None
 
 
 def _find_source_node_id_for_cross_repo_call(
@@ -264,6 +317,13 @@ def build_graph_from_inferred_flow(
 
     previous_node_id = endpoint_node.id
     for index, step in enumerate(steps, start=1):
+        step_expression = _guess_expression_from_step(step)
+        step_metadata: dict[str, str] = {"step_kind": step.kind}
+        if step_expression:
+            step_metadata["expression"] = step_expression
+        target_entity = _extract_target_entity_from_expression(step_expression)
+        if target_entity:
+            step_metadata["target_entity"] = target_entity
         node = GraphNode(
             id=_step_node_id(step, index),
             type="internal_step",
@@ -272,7 +332,7 @@ def build_graph_from_inferred_flow(
             repo=step.repo,
             file=step.file,
             symbol=step.symbol,
-            metadata={"step_kind": step.kind},
+            metadata=step_metadata,
             evidence=step.evidence,
             confidence=step.confidence,
             status=step.status,
@@ -296,6 +356,13 @@ def build_graph_from_inferred_flow(
 
     sink_source_id = previous_node_id
     for index, sink in enumerate(sinks, start=1):
+        sink_operation = _guess_sink_operation(sink)
+        sink_metadata: dict[str, str] = {"sink_kind": sink.kind, "action": sink.action or ""}
+        if sink_operation:
+            sink_metadata["operation"] = sink_operation
+        sink_target = _extract_target_entity_from_expression(sink_operation)
+        if sink_target:
+            sink_metadata["target_entity"] = sink_target
         node = GraphNode(
             id=_sink_node_id(sink, index),
             type=_node_type_for_sink(sink),
@@ -304,7 +371,7 @@ def build_graph_from_inferred_flow(
             repo=sink.repo,
             file=sink.file,
             symbol=sink.symbol,
-            metadata={"sink_kind": sink.kind, "action": sink.action},
+            metadata=sink_metadata,
             evidence=sink.evidence,
             confidence=sink.confidence,
             status=sink.status,

@@ -11,6 +11,7 @@ from sydes.cli.main import app
 from sydes.core.models import (
     CrossRepoCallCandidate,
     CrossRepoLinkResult,
+    EvidenceRef,
     EndpointCandidate,
     FlowExpansionResult,
     FlowExpansionContext,
@@ -760,3 +761,120 @@ def test_trace_renders_evidence_diagnostics_and_artifacts_sections(tmp_path: Pat
     assert "Diagnostics:" in result.stdout
     assert "Artifacts:" in result.stdout
     assert "Notes:" not in result.stdout
+
+
+def test_trace_output_and_json_include_concrete_operation_evidence(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """Trace terminal and JSON should surface concrete operation evidence structurally."""
+    repo_root = tmp_path / "api"
+    repo_root.mkdir()
+
+    def _fake_discovery(
+        repos: list[RepoRef], *, model_spec: str | None = None, strict_llm: bool = False
+    ) -> RoutesResult:
+        return RoutesResult(
+            repos=repos,
+            routes=[
+                EndpointCandidate(
+                    method="GET",
+                    path="/users",
+                    handler="get_all_users",
+                    file="main.py",
+                    repo="api",
+                    confidence=0.9,
+                )
+            ],
+        )
+
+    monkeypatch.setattr(trace_module, "discover_endpoints", _fake_discovery)
+    monkeypatch.setattr(
+        trace_module,
+        "run_flow_expansion",
+        lambda matched_endpoint, repos, **_kwargs: FlowExpansionResult(
+            steps=[
+                TraceStep(
+                    kind="dependency",
+                    name="get_db",
+                    repo="api",
+                    file="main.py",
+                    symbol="get_all_users",
+                    evidence=[
+                        EvidenceRef(
+                            file="main.py",
+                            symbol="get_all_users",
+                            label="deterministic:dependency:Depends(get_db)",
+                        )
+                    ],
+                ),
+                TraceStep(
+                    kind="db_read",
+                    name="User",
+                    repo="api",
+                    file="main.py",
+                    symbol="get_all_users",
+                    evidence=[
+                        EvidenceRef(
+                            file="main.py",
+                            symbol="get_all_users",
+                            label="deterministic:db_read:db.query(User).all()",
+                        )
+                    ],
+                ),
+            ],
+            sinks=[
+                SinkCandidate(
+                    kind="database",
+                    name="User",
+                    action="read",
+                    repo="api",
+                    file="main.py",
+                    symbol="get_all_users",
+                    evidence=[
+                        EvidenceRef(
+                            file="main.py",
+                            symbol="get_all_users",
+                            label="deterministic:db_read:db.query(User).all()",
+                        )
+                    ],
+                )
+            ],
+        ),
+    )
+    monkeypatch.setattr(trace_module, "compute_workspace_id", lambda repos: "ws-test")
+    monkeypatch.setattr(trace_module, "create_run_id", lambda: "run-test")
+    monkeypatch.setattr(
+        trace_module,
+        "save_run_artifact",
+        lambda **kwargs: Path(f"/tmp/{kwargs['artifact_name']}.json"),
+    )
+
+    terminal_result = runner.invoke(
+        app,
+        ["trace", "/users", "--method", "GET", "--repo", f"api={repo_root}"],
+    )
+    assert terminal_result.exit_code == 0
+    assert "dependency: get_db" in terminal_result.stdout
+    assert "evidence: Depends(get_db)" in terminal_result.stdout
+    assert "database read: User" in terminal_result.stdout
+    assert "evidence: db.query(User).all()" in terminal_result.stdout
+    assert "database: read User" in terminal_result.stdout
+    assert "operation: db.query(User).all()" in terminal_result.stdout
+
+    json_result = runner.invoke(
+        app,
+        ["trace", "/users", "--method", "GET", "--repo", f"api={repo_root}", "--format", "json"],
+    )
+    assert json_result.exit_code == 0
+    payload = json.loads(json_result.stdout)
+    internal_steps = [node for node in payload["nodes"] if node["type"] == "internal_step"]
+    db_step = next(
+        node
+        for node in internal_steps
+        if node.get("metadata", {}).get("step_kind") == "db_read"
+    )
+    assert db_step["metadata"]["expression"] == "db.query(User).all()"
+    assert db_step["metadata"]["target_entity"] == "User"
+    db_sink = next(node for node in payload["nodes"] if node["type"] == "database")
+    assert db_sink["metadata"]["operation"] == "db.query(User).all()"
+    assert db_sink["metadata"]["target_entity"] == "User"

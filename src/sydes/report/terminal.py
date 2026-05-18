@@ -52,6 +52,48 @@ def _classify_trace_note(note: str) -> str:
     return "evidence"
 
 
+def _format_flow_step_headline(step_kind: str, node_name: str, metadata: dict) -> str:
+    """Format flow step headline with concrete operation labels when available."""
+    kind = (step_kind or "").strip().lower()
+    if kind == "dependency":
+        dep_name = node_name
+        if dep_name.startswith("Depends(") and dep_name.endswith(")"):
+            dep_name = dep_name[len("Depends(") : -1]
+        return f"dependency: {dep_name}"
+    if kind == "db_read":
+        target = metadata.get("target_entity") if isinstance(metadata, dict) else None
+        return f"database read: {target or node_name}"
+    if kind == "db_write":
+        target = metadata.get("target_entity") if isinstance(metadata, dict) else None
+        return f"database write: {target or node_name}"
+    if kind == "external_api_call":
+        return f"external call: {node_name}"
+    if kind == "input_model":
+        return f"input model: {node_name.replace('input model: ', '')}"
+    return f"step: {_normalize_step_label_for_terminal(node_name)}"
+
+
+def _extract_evidence_expression(node) -> str | None:
+    """Extract one-line concrete expression evidence from node metadata/evidence."""
+    if isinstance(node.metadata, dict):
+        expression = node.metadata.get("expression")
+        if isinstance(expression, str) and expression.strip():
+            return expression.strip()
+    for ref in node.evidence:
+        label = ref.label or ""
+        for prefix in (
+            "deterministic:db_read:",
+            "deterministic:db_write:",
+            "deterministic:external_call:",
+            "deterministic:dependency:",
+        ):
+            if label.startswith(prefix):
+                expression = label[len(prefix) :].strip()
+                if expression:
+                    return expression
+    return None
+
+
 def render_terminal(result: TraceResult) -> str:
     """Build a target-grounded terminal summary for a trace result."""
     method = result.target.method or "ANY"
@@ -105,10 +147,13 @@ def render_terminal(result: TraceResult) -> str:
                 continue
             if step.kind.startswith("sink:") or node.type in sink_types:
                 continue
-            label = "endpoint" if step.kind == "endpoint" else "step"
-            display_name = _normalize_step_label_for_terminal(node.name) if label == "step" else node.name
             display_index += 1
-            lines.append(f"  {display_index}. {label}: {display_name}")
+            if step.kind == "endpoint":
+                lines.append(f"  {display_index}. endpoint: {node.name}")
+            else:
+                lines.append(
+                    f"  {display_index}. {_format_flow_step_headline(step.kind, node.name, node.metadata)}"
+                )
             details: list[str] = []
             if node.file:
                 details.append(f"file={node.file}")
@@ -118,6 +163,9 @@ def render_terminal(result: TraceResult) -> str:
                 details.append(f"repo={node.repo}")
             if details:
                 lines.append(f"     ({', '.join(details)})")
+            expression = _extract_evidence_expression(node)
+            if expression:
+                lines.append(f"     evidence: {expression}")
 
     sink_types = {"database", "external_api", "queue", "file_sink", "sink"}
     sink_nodes = [node for node in result.nodes if node.type in sink_types]
@@ -125,8 +173,13 @@ def render_terminal(result: TraceResult) -> str:
         lines.append("Sinks:")
         for sink in sink_nodes:
             action = sink.metadata.get("action") if isinstance(sink.metadata, dict) else None
+            target = sink.metadata.get("target_entity") if isinstance(sink.metadata, dict) else None
+            operation = sink.metadata.get("operation") if isinstance(sink.metadata, dict) else None
             action_value = f"{action} " if isinstance(action, str) and action else ""
-            lines.append(f"  - {sink.type}: {action_value}{sink.name}")
+            sink_name = target or sink.name
+            lines.append(f"  - {sink.type}: {action_value}{sink_name}")
+            if isinstance(operation, str) and operation.strip():
+                lines.append(f"    operation: {operation.strip()}")
             details: list[str] = []
             if sink.file:
                 details.append(f"file={sink.file}")
