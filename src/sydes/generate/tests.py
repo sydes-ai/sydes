@@ -70,6 +70,23 @@ def _resource_words_from_route(path: str) -> str:
 
 def _flow_step_names(trace_result: TraceResult) -> list[str]:
     """Return display names for nodes participating in the selected flow."""
+    node_by_id: dict[str, GraphNode] = {node.id: node for node in trace_result.nodes}
+    nodes = _selected_flow_nodes(trace_result, node_by_id=node_by_id)
+    names: list[str] = []
+    for node in nodes:
+        if node.type in {"api_endpoint", "database", "external_api", "queue", "file_sink", "sink"}:
+            continue
+        if node.name:
+            names.append(node.name.lower().strip())
+    return names
+
+
+def _selected_flow_nodes(
+    trace_result: TraceResult,
+    *,
+    node_by_id: dict[str, GraphNode] | None = None,
+) -> list[GraphNode]:
+    """Return graph nodes that participate in the selected flow ordering."""
     if not trace_result.flows:
         return []
     flow: Flow | None = None
@@ -77,15 +94,13 @@ def _flow_step_names(trace_result: TraceResult) -> list[str]:
         flow = next((item for item in trace_result.flows if item.id == trace_result.summary.key_flow_id), None)
     if flow is None:
         flow = trace_result.flows[0]
-    node_by_id: dict[str, GraphNode] = {node.id: node for node in trace_result.nodes}
-    names: list[str] = []
+    by_id = node_by_id or {node.id: node for node in trace_result.nodes}
+    selected: list[GraphNode] = []
     for step in flow.steps:
-        node = node_by_id.get(step.node_id)
-        if node is None or node.type in {"api_endpoint", "database", "external_api", "queue", "file_sink", "sink"}:
-            continue
-        if node.name:
-            names.append(node.name.lower().strip())
-    return names
+        node = by_id.get(step.node_id)
+        if node is not None:
+            selected.append(node)
+    return selected
 
 
 def _contains_return_step(step_names: list[str]) -> bool:
@@ -179,6 +194,78 @@ def _has_validation_signal(step_names: list[str]) -> bool:
     return any(token in name for name in step_names for token in ("validate", "validation", "schema", "required field"))
 
 
+def _flow_metadata_text(trace_result: TraceResult) -> str:
+    """Flatten selected flow metadata/name/evidence text for lightweight rule matching."""
+    by_id = {node.id: node for node in trace_result.nodes}
+    nodes = _selected_flow_nodes(trace_result, node_by_id=by_id)
+    chunks: list[str] = []
+    for node in nodes:
+        if node.name:
+            chunks.append(node.name.lower())
+        if isinstance(node.metadata, dict):
+            for value in node.metadata.values():
+                if isinstance(value, str):
+                    chunks.append(value.lower())
+        for ref in node.evidence:
+            if ref.label:
+                chunks.append(ref.label.lower())
+            if ref.symbol:
+                chunks.append(ref.symbol.lower())
+    return " ".join(chunks)
+
+
+def _extract_input_model_hint(trace_result: TraceResult) -> str | None:
+    """Extract deterministic input model hint from selected flow step metadata/names."""
+    by_id = {node.id: node for node in trace_result.nodes}
+    for node in _selected_flow_nodes(trace_result, node_by_id=by_id):
+        if node.type != "internal_step":
+            continue
+        step_kind = (node.metadata or {}).get("step_kind") if isinstance(node.metadata, dict) else None
+        if step_kind != "input_model":
+            continue
+        marker = "input model:"
+        lowered = node.name.lower()
+        if marker in lowered:
+            _, _, tail = node.name.partition(":")
+            hint = tail.strip()
+            if hint:
+                return hint
+        if node.name.strip():
+            return node.name.strip()
+    return None
+
+
+def _has_lookup_signal(trace_result: TraceResult) -> bool:
+    """Detect entity-lookup style read signals (e.g., .first(), get_by_id)."""
+    blob = _flow_metadata_text(trace_result)
+    lookup_tokens = (
+        ".first()",
+        "get by id",
+        "get_by_id",
+        "find_by_id",
+        "query(",
+    )
+    return any(token in blob for token in lookup_tokens)
+
+
+def _has_db_add_signal(trace_result: TraceResult) -> bool:
+    """Detect DB add/create-path signals from deterministic/LLM flow evidence."""
+    blob = _flow_metadata_text(trace_result)
+    return any(token in blob for token in ("db.add(", "insert", "create ", "repository.save"))
+
+
+def _has_db_commit_signal(trace_result: TraceResult) -> bool:
+    """Detect commit/write-finalization signals from flow evidence."""
+    blob = _flow_metadata_text(trace_result)
+    return any(token in blob for token in ("db.commit", "commit(", "save(", "flush("))
+
+
+def _has_unique_field_hint(trace_result: TraceResult) -> bool:
+    """Detect simple uniqueness hints for duplicate-input matrix suggestions."""
+    blob = _flow_metadata_text(trace_result)
+    return any(token in blob for token in ("email", "unique", "already exists", "duplicate"))
+
+
 def _has_explicit_get_route_hint(trace_result: TraceResult) -> bool:
     """Return True when trace graph already includes GET endpoint hints."""
     target_root = _normalized_resource_root(trace_result.target.path)
@@ -241,6 +328,11 @@ def generate_test_matrix(trace_result: TraceResult, *, max_suggestions: int = 7)
     step_names = _flow_step_names(trace_result)
     has_auth = _has_auth_signal(step_names)
     has_validation = _has_validation_signal(step_names)
+    has_lookup = _has_lookup_signal(trace_result)
+    has_db_add = _has_db_add_signal(trace_result)
+    has_db_commit = _has_db_commit_signal(trace_result)
+    input_model_hint = _extract_input_model_hint(trace_result)
+    has_unique_hint = _has_unique_field_hint(trace_result)
 
     by_category: dict[str, list[IntegrationTestSuggestion]] = {
         TEST_MATRIX_CATEGORY_HAPPY_PATH: [],
@@ -248,9 +340,9 @@ def generate_test_matrix(trace_result: TraceResult, *, max_suggestions: int = 7)
         TEST_MATRIX_CATEGORY_SIDE_EFFECTS: [],
         TEST_MATRIX_CATEGORY_STATE_CONSISTENCY: [],
         TEST_MATRIX_CATEGORY_EDGE_CASES: [],
-        "downstream_failure": [],
+        "failure_modes": [],
         "data_shape": [],
-        "cross_service_contract": [],
+        "persistence": [],
     }
 
     if method == "POST":
@@ -263,6 +355,22 @@ def generate_test_matrix(trace_result: TraceResult, *, max_suggestions: int = 7)
                 expectations=[
                     TestExpectation(kind="http_response", description="request succeeds with expected response"),
                     TestExpectation(kind="behavior", description=f"a new {entity_label} resource is created"),
+                ],
+                flow_id=flow_id,
+                confidence=confidence,
+            )
+        )
+        by_category["data_shape"].append(
+            _build_matrix_suggestion(
+                name=f"{method_token}_{route_token}_returns_created_entity_shape",
+                route=route,
+                method=method,
+                summary=f"verifies {method} {route} returns created {entity_label} data with expected fields",
+                expectations=[
+                    TestExpectation(
+                        kind="data_shape",
+                        description=f"created {entity_label} response includes id and expected fields",
+                    )
                 ],
                 flow_id=flow_id,
                 confidence=confidence,
@@ -290,8 +398,26 @@ def generate_test_matrix(trace_result: TraceResult, *, max_suggestions: int = 7)
                 confidence=confidence,
             )
         )
+        if has_unique_hint:
+            duplicate_field = "email" if "email" in _flow_metadata_text(trace_result) else "unique field"
+            by_category[TEST_MATRIX_CATEGORY_VALIDATION].append(
+                _build_matrix_suggestion(
+                    name=f"{method_token}_{route_token}_rejects_duplicate_{duplicate_field.replace(' ', '_')}",
+                    route=route,
+                    method=method,
+                    summary=f"verifies {method} {route} rejects duplicate {duplicate_field} values",
+                    expectations=[
+                        TestExpectation(
+                            kind="validation",
+                            description=f"duplicate {duplicate_field} value is rejected",
+                        )
+                    ],
+                    flow_id=flow_id,
+                    confidence=confidence,
+                )
+            )
         if has_db_write:
-            by_category[TEST_MATRIX_CATEGORY_SIDE_EFFECTS].append(
+            by_category["persistence"].append(
                 _build_matrix_suggestion(
                     name=f"{method_token}_{route_token}_writes_to_database",
                     route=route,
@@ -304,6 +430,24 @@ def generate_test_matrix(trace_result: TraceResult, *, max_suggestions: int = 7)
                     confidence=confidence,
                 )
             )
+            if has_db_commit:
+                by_category["failure_modes"].append(
+                    _build_matrix_suggestion(
+                        name=f"{method_token}_{route_token}_database_commit_failure_handled",
+                        route=route,
+                        method=method,
+                        summary=f"verifies {method} {route} handles database commit failures safely",
+                        expectations=[
+                            TestExpectation(
+                                kind="failure_mode",
+                                description="database commit failure is handled safely",
+                                target="database",
+                            )
+                        ],
+                        flow_id=flow_id,
+                        confidence=confidence,
+                    )
+                )
         if has_explicit_get or inferred_get:
             notes = []
             if inferred_get:
@@ -401,6 +545,24 @@ def generate_test_matrix(trace_result: TraceResult, *, max_suggestions: int = 7)
                     confidence=confidence,
                 )
             )
+        if has_db_read:
+            by_category["failure_modes"].append(
+                _build_matrix_suggestion(
+                    name=f"{method_token}_{route_token}_database_read_failure_handled",
+                    route=route,
+                    method=method,
+                    summary=f"verifies {method} {route} handles database read failures safely",
+                    expectations=[
+                        TestExpectation(
+                            kind="failure_mode",
+                            description="database read failure is handled safely",
+                            target="database",
+                        )
+                    ],
+                    flow_id=flow_id,
+                    confidence=confidence,
+                )
+            )
 
     elif method in {"PUT", "PATCH"}:
         by_category[TEST_MATRIX_CATEGORY_HAPPY_PATH].append(
@@ -472,7 +634,7 @@ def generate_test_matrix(trace_result: TraceResult, *, max_suggestions: int = 7)
             )
 
     if has_external_api:
-        by_category["downstream_failure"].append(
+        by_category["failure_modes"].append(
             _build_matrix_suggestion(
                 name=f"{method_token}_{route_token}_downstream_unavailable",
                 route=route,
@@ -485,7 +647,7 @@ def generate_test_matrix(trace_result: TraceResult, *, max_suggestions: int = 7)
                 confidence=confidence,
             )
         )
-        by_category["downstream_failure"].append(
+        by_category["failure_modes"].append(
             _build_matrix_suggestion(
                 name=f"{method_token}_{route_token}_downstream_timeout",
                 route=route,
@@ -526,7 +688,7 @@ def generate_test_matrix(trace_result: TraceResult, *, max_suggestions: int = 7)
         )
 
     if has_cross_repo:
-        by_category["cross_service_contract"].append(
+        by_category["data_shape"].append(
             _build_matrix_suggestion(
                 name=f"{method_token}_{route_token}_cross_service_contract_compatible",
                 route=route,
@@ -541,7 +703,7 @@ def generate_test_matrix(trace_result: TraceResult, *, max_suggestions: int = 7)
         )
 
     if has_db_write:
-        by_category[TEST_MATRIX_CATEGORY_SIDE_EFFECTS].append(
+        by_category["failure_modes"].append(
             _build_matrix_suggestion(
                 name=f"{method_token}_{route_token}_database_write_failure_handled",
                 route=route,
@@ -554,7 +716,7 @@ def generate_test_matrix(trace_result: TraceResult, *, max_suggestions: int = 7)
                 confidence=confidence,
             )
         )
-        by_category[TEST_MATRIX_CATEGORY_STATE_CONSISTENCY].append(
+        by_category["persistence"].append(
             _build_matrix_suggestion(
                 name=f"{method_token}_{route_token}_write_path_is_idempotent",
                 route=route,
@@ -567,6 +729,25 @@ def generate_test_matrix(trace_result: TraceResult, *, max_suggestions: int = 7)
                 confidence=confidence,
             )
         )
+        if has_db_add:
+            by_category["persistence"].append(
+                _build_matrix_suggestion(
+                    name=f"{method_token}_{route_token}_write_sequence_persists_entity",
+                    route=route,
+                    method=method,
+                    summary=f"verifies {method} {route} persists {entity_label} through add/commit workflow",
+                    expectations=[
+                        TestExpectation(
+                            kind="persistence",
+                            description="entity is persisted after add/commit sequence",
+                            target="database",
+                        )
+                    ],
+                    flow_id=flow_id,
+                    confidence=confidence,
+                    notes=[f"input model hint: {input_model_hint}"] if input_model_hint else [],
+                )
+            )
 
     if has_db_read:
         by_category[TEST_MATRIX_CATEGORY_EDGE_CASES].append(
@@ -584,7 +765,7 @@ def generate_test_matrix(trace_result: TraceResult, *, max_suggestions: int = 7)
         )
 
     if has_queue:
-        by_category[TEST_MATRIX_CATEGORY_SIDE_EFFECTS].append(
+        by_category["failure_modes"].append(
             _build_matrix_suggestion(
                 name=f"{method_token}_{route_token}_queue_publish_failure_handled",
                 route=route,
@@ -660,10 +841,10 @@ def generate_test_matrix(trace_result: TraceResult, *, max_suggestions: int = 7)
     total = 0
     category_order = [
         TEST_MATRIX_CATEGORY_HAPPY_PATH,
-        "downstream_failure",
         "data_shape",
-        "cross_service_contract",
+        "failure_modes",
         TEST_MATRIX_CATEGORY_VALIDATION,
+        "persistence",
         TEST_MATRIX_CATEGORY_SIDE_EFFECTS,
         TEST_MATRIX_CATEGORY_STATE_CONSISTENCY,
         TEST_MATRIX_CATEGORY_EDGE_CASES,

@@ -1,6 +1,8 @@
 """Tests for deterministic API test matrix generation."""
 
 from sydes.core.models import (
+    Flow,
+    FlowStep,
     GraphEdge,
     GraphNode,
     TraceResult,
@@ -34,15 +36,16 @@ def test_generate_test_matrix_for_post_includes_expected_groups() -> None:
 
     categories = [group.category for group in matrix.groups]
     assert "happy_path" in categories
+    assert "data_shape" in categories
+    assert "failure_modes" in categories
     assert "validation" in categories
-    assert "side_effects" in categories
-    assert "state_consistency" in categories
+    assert "persistence" in categories
     names = _flatten_names(matrix)
     assert "post_users_creates_resource" in names
+    assert "post_users_returns_created_entity_shape" in names
     assert "post_users_rejects_missing_required_field" in names
     assert "post_users_rejects_invalid_payload" in names
-    assert "post_users_writes_to_database" in names
-    assert "post_users_create_then_fetch_consistent" in names
+    assert "post_users_writes_to_database" in names or "post_users_write_sequence_persists_entity" in names
     assert 1 <= len(names) <= 7
 
 
@@ -50,13 +53,26 @@ def test_generate_test_matrix_for_get_with_id_path() -> None:
     """GET matrix should include happy path, not-found edge, and id validation."""
     trace = TraceResult(
         target=TargetSpec(path="/users/{id}", method="GET"),
+        nodes=[
+            GraphNode(
+                id="step1",
+                type="internal_step",
+                name="db.query(User).filter(User.id == user_id).first()",
+                metadata={"step_kind": "db_read", "expression": "db.query(User).filter(User.id == user_id).first()"},
+                repo="api",
+            ),
+            GraphNode(id="sink", type="database", name="User", metadata={"action": "read"}, repo="api"),
+        ],
+        flows=[Flow(id="f1", name="GET /users/{id}", entry_node="step1", steps=[FlowStep(node_id="step1", kind="db_read")])],
         summary=TraceSummary(confidence=0.6),
     )
 
     matrix = generate_test_matrix(trace)
 
     categories = [group.category for group in matrix.groups]
-    assert categories == ["happy_path", "validation", "edge_cases"]
+    assert "happy_path" in categories
+    assert "validation" in categories
+    assert "edge_cases" in categories
     names = _flatten_names(matrix)
     assert "get_users_id_returns_entity_or_list" in names
     assert "get_users_id_returns_not_found_for_missing_resource" in names
@@ -164,6 +180,140 @@ def test_generate_test_matrix_cross_repo_link_adds_contract_case() -> None:
     matrix = generate_test_matrix(trace)
     names = _flatten_names(matrix)
     assert "get_goodreads_books_cross_service_contract_compatible" in names
+
+
+def test_generate_test_matrix_simple_fastapi_get_users_prefers_empty_list_not_not_found() -> None:
+    """SimpleFastPyAPI-like GET /users should use empty-list edge case, not not-found fallback."""
+    trace = TraceResult(
+        target=TargetSpec(path="/users", method="GET"),
+        nodes=[
+            GraphNode(
+                id="ep",
+                type="api_endpoint",
+                name="/users",
+                method="GET",
+                path="/users",
+                repo="api",
+            ),
+            GraphNode(
+                id="step_dep",
+                type="internal_step",
+                name="Depends(get_db)",
+                metadata={"step_kind": "dependency", "expression": "Depends(get_db)"},
+                repo="api",
+                file="main.py",
+                symbol="get_all_users",
+            ),
+            GraphNode(
+                id="step_db",
+                type="internal_step",
+                name="db.query(User).all()",
+                metadata={"step_kind": "db_read", "expression": "db.query(User).all()", "target_entity": "User"},
+                repo="api",
+                file="main.py",
+                symbol="get_all_users",
+            ),
+            GraphNode(
+                id="sink_db",
+                type="database",
+                name="User",
+                metadata={"action": "read", "operation": "db.query(User).all()", "target_entity": "User"},
+                repo="api",
+            ),
+        ],
+        flows=[
+            Flow(
+                id="f1",
+                name="GET /users",
+                entry_node="ep",
+                steps=[
+                    FlowStep(node_id="ep", kind="endpoint"),
+                    FlowStep(node_id="step_dep", kind="dependency"),
+                    FlowStep(node_id="step_db", kind="db_read"),
+                    FlowStep(node_id="sink_db", kind="sink:database"),
+                ],
+            )
+        ],
+        summary=TraceSummary(confidence=0.8),
+    )
+
+    matrix = generate_test_matrix(trace)
+    names = _flatten_names(matrix)
+    categories = [group.category for group in matrix.groups]
+    assert "happy_path" in categories
+    assert "data_shape" in categories
+    assert "edge_cases" in categories
+    assert "failure_modes" in categories
+    assert "get_users_returns_not_found_for_missing_resource" not in names
+    assert "get_users_handles_empty_result_set" in names
+    assert "get_users_database_read_failure_handled" in names
+
+
+def test_generate_test_matrix_simple_fastapi_post_users_uses_write_evidence() -> None:
+    """SimpleFastPyAPI-like POST /users should include create/validation/persistence/failure coverage."""
+    trace = TraceResult(
+        target=TargetSpec(path="/users", method="POST"),
+        nodes=[
+            GraphNode(id="ep", type="api_endpoint", name="/users", method="POST", path="/users", repo="api"),
+            GraphNode(
+                id="step_input",
+                type="internal_step",
+                name="input model: UserCreate",
+                metadata={"step_kind": "input_model", "expression": "UserCreate"},
+                repo="api",
+                file="main.py",
+                symbol="create_user",
+            ),
+            GraphNode(
+                id="step_add",
+                type="internal_step",
+                name="db.add(db_user)",
+                metadata={"step_kind": "db_write", "expression": "db.add(db_user)"},
+                repo="api",
+            ),
+            GraphNode(
+                id="step_commit",
+                type="internal_step",
+                name="db.commit()",
+                metadata={"step_kind": "db_write", "expression": "db.commit()"},
+                repo="api",
+            ),
+            GraphNode(
+                id="sink_db",
+                type="database",
+                name="database",
+                metadata={"action": "write", "operation": "db.commit()"},
+                repo="api",
+            ),
+        ],
+        flows=[
+            Flow(
+                id="f1",
+                name="POST /users",
+                entry_node="ep",
+                steps=[
+                    FlowStep(node_id="ep", kind="endpoint"),
+                    FlowStep(node_id="step_input", kind="input_model"),
+                    FlowStep(node_id="step_add", kind="db_write"),
+                    FlowStep(node_id="step_commit", kind="db_write"),
+                    FlowStep(node_id="sink_db", kind="sink:database"),
+                ],
+            )
+        ],
+        summary=TraceSummary(confidence=0.8),
+    )
+
+    matrix = generate_test_matrix(trace)
+    names = _flatten_names(matrix)
+    categories = [group.category for group in matrix.groups]
+    assert "happy_path" in categories
+    assert "validation" in categories
+    assert "persistence" in categories
+    assert "failure_modes" in categories
+    assert "post_users_creates_resource" in names
+    assert "post_users_rejects_missing_required_field" in names
+    assert "post_users_rejects_invalid_payload" in names
+    assert "post_users_database_commit_failure_handled" in names
 
 
 def test_generate_test_matrix_db_write_adds_failure_and_idempotency_cases() -> None:
