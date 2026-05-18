@@ -5,11 +5,13 @@ import pytest
 from sydes.llm.client import (
     AnthropicClient,
     LLMClientError,
+    LLMValidationResult,
     OllamaClient,
     OpenAIClient,
     create_default_llm_client,
     load_llm_settings_from_env,
     parse_model_spec,
+    validate_llm_available,
 )
 
 
@@ -329,3 +331,76 @@ def test_create_default_llm_client_requires_anthropic_key(monkeypatch) -> None:
         match="Anthropic provider selected, but ANTHROPIC_API_KEY is not set.",
     ):
         create_default_llm_client()
+
+
+def test_validate_llm_available_openai_requires_key(monkeypatch) -> None:
+    """OpenAI preflight should fail fast when API key is missing."""
+    monkeypatch.setenv("SYDES_LLM_PROVIDER", "openai")
+    monkeypatch.setenv("SYDES_LLM_MODEL", "gpt-4.1-mini")
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+
+    result = validate_llm_available()
+    assert result.ok is False
+    assert result.provider == "openai"
+    assert result.reason == "OpenAI API key is not configured."
+
+
+def test_validate_llm_available_unsupported_provider(monkeypatch) -> None:
+    """Unsupported providers should fail with a clear validation reason."""
+    monkeypatch.setenv("SYDES_LLM_PROVIDER", "unknown")
+    monkeypatch.setenv("SYDES_LLM_MODEL", "foo")
+    result = validate_llm_available()
+    assert result.ok is False
+    assert result.reason == "Unsupported LLM provider: unknown"
+
+
+def test_validate_llm_available_ollama_reports_missing_model(monkeypatch) -> None:
+    """Ollama preflight should report missing model and list available tags."""
+    monkeypatch.setenv("SYDES_LLM_PROVIDER", "ollama")
+    monkeypatch.setenv("SYDES_LLM_MODEL", "missing-model")
+    monkeypatch.setenv("SYDES_LLM_BASE_URL", "http://localhost:11434")
+
+    class _FakeResponse:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def read(self):
+            return (
+                b'{"models":[{"name":"llama3.1:latest"},{"name":"deepseek-coder:latest"}]}'
+            )
+
+    monkeypatch.setattr("sydes.llm.client.request.urlopen", lambda *_args, **_kwargs: _FakeResponse())
+
+    result = validate_llm_available()
+    assert result.ok is False
+    assert result.provider == "ollama"
+    assert result.model == "missing-model"
+    assert result.available_models == ("llama3.1:latest", "deepseek-coder:latest")
+    assert "LLM model not available: missing-model" in (result.reason or "")
+
+
+def test_validate_llm_available_ollama_success_when_model_exists(monkeypatch) -> None:
+    """Ollama preflight should pass when configured model is present in tags."""
+    monkeypatch.setenv("SYDES_LLM_PROVIDER", "ollama")
+    monkeypatch.setenv("SYDES_LLM_MODEL", "llama3.1:latest")
+    monkeypatch.setenv("SYDES_LLM_BASE_URL", "http://localhost:11434")
+
+    class _FakeResponse:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def read(self):
+            return b'{"models":[{"name":"llama3.1:latest"}]}'
+
+    monkeypatch.setattr("sydes.llm.client.request.urlopen", lambda *_args, **_kwargs: _FakeResponse())
+
+    result = validate_llm_available()
+    assert result.ok is True
+    assert result.provider == "ollama"
+    assert result.model == "llama3.1:latest"

@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 from pathlib import Path
 
+import pytest
 from typer.testing import CliRunner
 
 import sydes.cli.routes as routes_module
@@ -13,6 +14,16 @@ from sydes.discover.endpoints import discover_endpoints, run_llm_endpoint_discov
 from sydes.llm.client import LLMClientError, LLMRequest, LLMResponse
 
 runner = CliRunner()
+
+
+@pytest.fixture(autouse=True)
+def _mock_llm_preflight_success(monkeypatch):
+    """Mocked discovery tests should bypass live preflight checks."""
+    from sydes.llm.client import LLMValidationResult
+
+    ok = LLMValidationResult(ok=True, provider="ollama", model="llama3.1:latest", base_url="http://localhost:11434")
+    monkeypatch.setattr("sydes.cli.routes.validate_llm_available", lambda model_spec=None: ok)
+    monkeypatch.setattr("sydes.cli.trace.validate_llm_available", lambda model_spec=None: ok)
 
 
 @dataclass

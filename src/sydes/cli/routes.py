@@ -1,6 +1,7 @@
 """Routes CLI plumbing for V1 placeholder endpoint discovery."""
 
 from datetime import UTC, datetime
+import json
 from pathlib import Path
 from typing import Annotated, Literal
 
@@ -8,6 +9,7 @@ import typer
 
 from sydes.discover.endpoints import discover_endpoints
 from sydes.ingest.repos import parse_repo_specs
+from sydes.llm.client import validate_llm_available
 from sydes.report.json_report import render_routes_json
 from sydes.report.terminal import render_routes_terminal
 from sydes.store.workspace import compute_workspace_id, create_run_id, save_run_artifact
@@ -50,6 +52,28 @@ def routes_command(
         repos = parse_repo_specs(repo or [])
     except ValueError as exc:
         raise typer.BadParameter(str(exc), param_hint="--repo") from exc
+
+    validation = validate_llm_available(model_spec=model)
+    if not validation.ok:
+        message = validation.reason or "LLM preflight failed."
+        if output_format == "json":
+            payload = {
+                "ok": False,
+                "error": {
+                    "provider": validation.provider,
+                    "model": validation.model,
+                    "base_url": validation.base_url,
+                    "message": message,
+                    "available_models": list(validation.available_models),
+                },
+            }
+            rendered = json.dumps(payload, indent=2)
+            typer.echo(rendered)
+            if output is not None:
+                _write_output(output, rendered)
+            raise typer.Exit(code=1)
+        typer.echo(f"LLM validation failed: {message}")
+        raise typer.Exit(code=1)
 
     try:
         result = discover_endpoints(repos, model_spec=model)

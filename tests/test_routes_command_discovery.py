@@ -3,6 +3,7 @@
 import json
 from pathlib import Path
 
+import pytest
 from typer.testing import CliRunner
 
 import sydes.cli.routes as routes_module
@@ -12,6 +13,15 @@ from sydes.core.models import EndpointCandidate, RepoRef, RoutesResult
 runner = CliRunner()
 
 
+@pytest.fixture(autouse=True)
+def _mock_llm_preflight_success(monkeypatch):
+    """Routes command tests should not depend on live preflight checks."""
+    from sydes.llm.client import LLMValidationResult
+
+    ok = LLMValidationResult(ok=True, provider="ollama", model="llama3.1:latest", base_url="http://localhost:11434")
+    monkeypatch.setattr("sydes.cli.routes.validate_llm_available", lambda model_spec=None: ok)
+
+
 def test_routes_command_handles_no_endpoints(
     tmp_path: Path, monkeypatch
 ) -> None:
@@ -19,7 +29,7 @@ def test_routes_command_handles_no_endpoints(
     repo_root = tmp_path / "api"
     repo_root.mkdir()
 
-    def _fake_discovery(repos: list[RepoRef]) -> RoutesResult:
+    def _fake_discovery(repos: list[RepoRef], *, model_spec: str | None = None) -> RoutesResult:
         return RoutesResult(
             repos=repos,
             routes=[],
@@ -42,7 +52,7 @@ def test_routes_command_handles_one_endpoint(tmp_path: Path, monkeypatch) -> Non
     repo_root = tmp_path / "api"
     repo_root.mkdir()
 
-    def _fake_discovery(repos: list[RepoRef]) -> RoutesResult:
+    def _fake_discovery(repos: list[RepoRef], *, model_spec: str | None = None) -> RoutesResult:
         return RoutesResult(
             repos=repos,
             routes=[
@@ -84,7 +94,7 @@ def test_routes_command_handles_ambiguous_endpoints_json(
     repo_root = tmp_path / "api"
     repo_root.mkdir()
 
-    def _fake_discovery(repos: list[RepoRef]) -> RoutesResult:
+    def _fake_discovery(repos: list[RepoRef], *, model_spec: str | None = None) -> RoutesResult:
         return RoutesResult(
             repos=repos,
             routes=[

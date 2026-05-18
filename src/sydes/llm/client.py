@@ -49,6 +49,18 @@ class LLMClientError(RuntimeError):
 
 
 @dataclass(frozen=True)
+class LLMValidationResult:
+    """Provider-neutral preflight validation result for LLM availability."""
+
+    ok: bool
+    provider: str
+    model: str
+    base_url: str | None = None
+    reason: str | None = None
+    available_models: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
 class LLMSettings:
     """Minimal runtime settings for selecting and configuring a provider."""
 
@@ -376,6 +388,141 @@ def create_default_llm_client(model_spec: str | None = None) -> LLMClient:
     raise LLMClientError(
         f"Unsupported LLM provider: {provider}\n"
         "Supported providers: ollama, openai, anthropic."
+    )
+
+
+def _resolve_provider_and_model(model_spec: str | None) -> tuple[str, str, LLMSettings]:
+    """Resolve provider/model from model spec override plus environment defaults."""
+    settings = load_llm_settings_from_env()
+    provider = settings.provider
+    model = settings.model
+    if model_spec:
+        provider, model = parse_model_spec(model_spec)
+    return provider, model, settings
+
+
+def _validate_ollama_available(model: str, settings: LLMSettings) -> LLMValidationResult:
+    """Validate Ollama base URL reachability and model availability."""
+    base_url = settings.base_url.rstrip("/")
+    tags_url = f"{base_url}/api/tags"
+    available_models: list[str] = []
+    try:
+        with request.urlopen(tags_url, timeout=settings.timeout_seconds) as resp:
+            raw = resp.read().decode("utf-8")
+        payload = json.loads(raw)
+        models = payload.get("models")
+        if isinstance(models, list):
+            for item in models:
+                if not isinstance(item, dict):
+                    continue
+                name = item.get("name")
+                if isinstance(name, str) and name.strip():
+                    available_models.append(name.strip())
+    except error.URLError:
+        return LLMValidationResult(
+            ok=False,
+            provider="ollama",
+            model=model,
+            base_url=base_url,
+            reason=f"Ollama unavailable at {base_url}. Start it with `ollama serve`.",
+        )
+    except (error.HTTPError, json.JSONDecodeError, TimeoutError):
+        # Fall back to tiny generate probe if tags endpoint is unavailable.
+        probe = OllamaClient(
+            model=model,
+            base_url=base_url,
+            timeout_seconds=settings.timeout_seconds,
+            keep_alive=settings.keep_alive,
+            temperature=settings.temperature,
+        )
+        try:
+            probe.generate(LLMRequest(prompt='Return JSON: {"ok":true}', temperature=0))
+            return LLMValidationResult(
+                ok=True,
+                provider="ollama",
+                model=model,
+                base_url=base_url,
+            )
+        except LLMClientError as exc:
+            return LLMValidationResult(
+                ok=False,
+                provider="ollama",
+                model=model,
+                base_url=base_url,
+                reason=str(exc),
+            )
+
+    if model not in available_models:
+        preview = ", ".join(available_models[:8]) if available_models else "(none found)"
+        return LLMValidationResult(
+            ok=False,
+            provider="ollama",
+            model=model,
+            base_url=base_url,
+            reason=(
+                f"LLM model not available: {model}. "
+                f"Available local models include: {preview}"
+            ),
+            available_models=tuple(available_models),
+        )
+
+    return LLMValidationResult(
+        ok=True,
+        provider="ollama",
+        model=model,
+        base_url=base_url,
+        available_models=tuple(available_models),
+    )
+
+
+def validate_llm_available(model_spec: str | None = None) -> LLMValidationResult:
+    """Validate configured LLM availability before running discovery/trace."""
+    provider, model, settings = _resolve_provider_and_model(model_spec)
+
+    if provider == "ollama":
+        return _validate_ollama_available(model, settings)
+
+    if provider == "openai":
+        api_key = os.getenv("OPENAI_API_KEY", "").strip()
+        base_url = os.getenv("OPENAI_BASE_URL", "").strip() or DEFAULT_OPENAI_BASE_URL
+        if not api_key:
+            return LLMValidationResult(
+                ok=False,
+                provider="openai",
+                model=model,
+                base_url=base_url,
+                reason="OpenAI API key is not configured.",
+            )
+        return LLMValidationResult(
+            ok=True,
+            provider="openai",
+            model=model,
+            base_url=base_url,
+        )
+
+    if provider == "anthropic":
+        api_key = os.getenv("ANTHROPIC_API_KEY", "").strip()
+        base_url = os.getenv("ANTHROPIC_BASE_URL", "").strip() or DEFAULT_ANTHROPIC_BASE_URL
+        if not api_key:
+            return LLMValidationResult(
+                ok=False,
+                provider="anthropic",
+                model=model,
+                base_url=base_url,
+                reason="Anthropic API key is not configured.",
+            )
+        return LLMValidationResult(
+            ok=True,
+            provider="anthropic",
+            model=model,
+            base_url=base_url,
+        )
+
+    return LLMValidationResult(
+        ok=False,
+        provider=provider,
+        model=model,
+        reason=f"Unsupported LLM provider: {provider}",
     )
 
 

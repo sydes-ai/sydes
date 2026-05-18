@@ -3,6 +3,7 @@
 import json
 from pathlib import Path
 
+import pytest
 from typer.testing import CliRunner
 
 import sydes.cli.trace as trace_module
@@ -20,6 +21,15 @@ from sydes.core.models import (
 )
 
 runner = CliRunner()
+
+
+@pytest.fixture(autouse=True)
+def _mock_llm_preflight_success(monkeypatch):
+    """Trace command tests should not depend on live LLM preflight state."""
+    from sydes.llm.client import LLMValidationResult
+
+    ok = LLMValidationResult(ok=True, provider="ollama", model="llama3.1:latest", base_url="http://localhost:11434")
+    monkeypatch.setattr("sydes.cli.trace.validate_llm_available", lambda model_spec=None: ok)
 
 
 def test_trace_command_renders_match_and_alternatives(tmp_path: Path, monkeypatch) -> None:

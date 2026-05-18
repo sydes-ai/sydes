@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+import json
 from pathlib import Path
 from typing import Annotated, Literal
 
@@ -24,6 +25,7 @@ from sydes.core.graph import add_cross_repo_api_link, build_graph_from_inferred_
 from sydes.discover.endpoints import discover_endpoints
 from sydes.discover.target_match import resolve_trace_target
 from sydes.ingest.repos import parse_repo_specs
+from sydes.llm.client import validate_llm_available
 from sydes.report.json_report import render_json
 from sydes.report.terminal import render_terminal
 from sydes.store.workspace import compute_workspace_id, create_run_id, save_run_artifact
@@ -326,6 +328,27 @@ def trace_command(
 ) -> None:
     """Run target-grounded trace preparation with first-pass downstream expansion."""
     _ = emit_tests, max_hops, max_files
+    validation = validate_llm_available(model_spec=model)
+    if not validation.ok:
+        message = validation.reason or "LLM preflight failed."
+        if output_format == "json":
+            payload = {
+                "ok": False,
+                "error": {
+                    "provider": validation.provider,
+                    "model": validation.model,
+                    "base_url": validation.base_url,
+                    "message": message,
+                    "available_models": list(validation.available_models),
+                },
+            }
+            rendered = json.dumps(payload, indent=2)
+            typer.echo(rendered)
+            if output is not None:
+                _write_output(output, rendered)
+            raise typer.Exit(code=1)
+        typer.echo(f"LLM validation failed: {message}")
+        raise typer.Exit(code=1)
     try:
         result, flow_expansion = _build_trace_result(
             path=path,
