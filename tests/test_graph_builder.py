@@ -1,6 +1,10 @@
 """Tests for building coarse graph artifacts from inferred flow expansion."""
 
-from sydes.core.graph import add_cross_repo_api_link, build_graph_from_inferred_flow
+from sydes.core.graph import (
+    add_cross_repo_api_link,
+    build_graph_from_inferred_flow,
+    enrich_external_api_graph_evidence,
+)
 from sydes.core.models import (
     CrossRepoCallCandidate,
     EndpointCandidate,
@@ -164,6 +168,7 @@ def test_add_cross_repo_api_link_adds_target_endpoint_node_and_calls_api_edge() 
         source_symbol="create_checkout",
         target_path="/charge",
         target_method="POST",
+        raw_call_text="payments_client.post('/charge')",
         evidence=[EvidenceRef(file="src/routes.py", symbol="create_checkout", label="http_client_call")],
         confidence=0.82,
     )
@@ -180,7 +185,8 @@ def test_add_cross_repo_api_link_adds_target_endpoint_node_and_calls_api_edge() 
 
     assert label == "api -> payments::POST /charge"
     assert any(node.repo == "payments" and node.path == "/charge" and node.type == "api_endpoint" for node in nodes)
-    assert any(edge.type == "CALLS_API" for edge in edges)
+    calls_api_edge = next(edge for edge in edges if edge.type == "CALLS_API")
+    assert any(ref.label == "webclient_call" and ref.snippet for ref in calls_api_edge.evidence)
 
 
 def test_add_cross_repo_api_link_skips_same_repo_route_declaration_evidence() -> None:
@@ -223,3 +229,63 @@ def test_add_cross_repo_api_link_skips_same_repo_route_declaration_evidence() ->
 
     assert label is None
     assert all(edge.type != "CALLS_API" for edge in edges)
+
+
+def test_enrich_external_api_graph_evidence_attaches_http_details_and_snippets() -> None:
+    """External API sink graph nodes/edges should carry caller-side snippet + method/path metadata."""
+    endpoint = EndpointCandidate(
+        method="GET",
+        path="/goodreads/books",
+        handler="getBooks",
+        file="src/main/java/com/jmhreif/service2/Service2Application.java",
+        repo="service2",
+    )
+    expansion = FlowExpansionResult(
+        steps=[
+            TraceStep(
+                kind="unknown",
+                name="invoke downstream service",
+                repo="service2",
+                file="src/main/java/com/jmhreif/service2/Service2Application.java",
+                symbol="getBooks",
+            )
+        ],
+        sinks=[
+            SinkCandidate(
+                kind="external_api",
+                name="http call",
+                repo="service2",
+                file="src/main/java/com/jmhreif/service2/Service2Application.java",
+                symbol="getBooks",
+                action="read",
+            )
+        ],
+    )
+    nodes, edges, _flows = build_graph_from_inferred_flow(endpoint, expansion)
+    call = CrossRepoCallCandidate(
+        source_repo="service2",
+        source_file="src/main/java/com/jmhreif/service2/Service2Application.java",
+        source_symbol="getBooks",
+        target_method="GET",
+        target_path="/db/books",
+        raw_call_text='return client.get().uri("/db/books").retrieve().bodyToFlux(Book.class);',
+    )
+
+    enrich_external_api_graph_evidence(nodes=nodes, edges=edges, calls=[call])
+
+    step_node = next(node for node in nodes if node.type == "internal_step")
+    assert step_node.metadata.get("step_kind") == "external_api_call"
+    assert step_node.metadata.get("http_method") == "GET"
+    assert step_node.metadata.get("target_path") == "/db/books"
+    assert any(ref.label == "webclient_call" and ref.snippet for ref in step_node.evidence)
+
+    sink_node = next(node for node in nodes if node.type == "external_api")
+    assert sink_node.metadata.get("sink_kind") == "external_api"
+    assert sink_node.metadata.get("action") == "read"
+    assert sink_node.metadata.get("http_method") == "GET"
+    assert sink_node.metadata.get("target_path") == "/db/books"
+    assert sink_node.metadata.get("operation") == "WebClient GET /db/books"
+    assert any(ref.label == "webclient_call" and ref.snippet for ref in sink_node.evidence)
+
+    calls_external_edge = next(edge for edge in edges if edge.type == "CALLS_EXTERNAL")
+    assert any(ref.label == "webclient_call" and ref.snippet for ref in calls_external_edge.evidence)

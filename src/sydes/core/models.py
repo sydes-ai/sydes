@@ -29,6 +29,7 @@ class EvidenceRef(BaseModel):
     file: str
     symbol: str | None = None
     label: str | None = None
+    snippet: str | None = None
 
 
 class RepoRef(BaseModel):

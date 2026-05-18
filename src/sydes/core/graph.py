@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from urllib.parse import urlparse
 import re
 
 from sydes.core.models import (
@@ -56,6 +57,9 @@ DETERMINISTIC_EVIDENCE_PREFIXES = (
     "deterministic:dependency:",
 )
 DB_QUERY_ENTITY_RE = re.compile(r"db\.query\(\s*([A-Za-z_][A-Za-z0-9_]*)\s*\)", re.IGNORECASE)
+RAW_HTTP_METHOD_RE = re.compile(r"\.(get|post|put|delete|patch)\s*\(", re.IGNORECASE)
+RAW_URI_PATH_RE = re.compile(r"""\.uri\s*\(\s*["']([^"']+)["']\s*\)""", re.IGNORECASE)
+RAW_URL_RE = re.compile(r"""["'](https?://[^"']+)["']""", re.IGNORECASE)
 
 
 def _sanitize_id(value: str) -> str:
@@ -179,6 +183,73 @@ def _guess_sink_operation(sink: SinkCandidate) -> str | None:
     return None
 
 
+def _compact_snippet(text: str | None, *, max_chars: int = 220) -> str | None:
+    """Normalize a raw call snippet into one readable, bounded line."""
+    if not isinstance(text, str):
+        return None
+    compact = " ".join(text.strip().split())
+    if not compact:
+        return None
+    if len(compact) <= max_chars:
+        return compact
+    return compact[: max_chars - 3] + "..."
+
+
+def _extract_http_details_from_call(call: CrossRepoCallCandidate) -> tuple[str | None, str | None, str | None]:
+    """Extract HTTP method/path/url hints from candidate fields or raw call text."""
+    method = call.normalized_target_method or call.target_method
+    path = call.normalized_target_path or call.target_path
+    target_url = None
+    raw = call.raw_call_text or ""
+    if method is None:
+        method_match = RAW_HTTP_METHOD_RE.search(raw)
+        if method_match:
+            method = method_match.group(1).upper()
+    if path is None:
+        path_match = RAW_URI_PATH_RE.search(raw)
+        if path_match:
+            path = path_match.group(1)
+    url_match = RAW_URL_RE.search(raw)
+    if url_match:
+        target_url = url_match.group(1)
+        if path is None:
+            parsed = urlparse(target_url)
+            path = parsed.path or None
+    if isinstance(path, str) and path and not path.startswith("/"):
+        path = f"/{path}"
+    return method, path, target_url
+
+
+def _attach_call_evidence(
+    existing: list[EvidenceRef],
+    *,
+    call: CrossRepoCallCandidate,
+    label: str,
+) -> list[EvidenceRef]:
+    """Append caller-side snippet evidence when available, deduping by tuple key."""
+    merged = list(existing)
+    seen = {(item.file, item.symbol, item.label, item.snippet) for item in merged}
+    snippet = _compact_snippet(call.raw_call_text)
+    if snippet:
+        ref = EvidenceRef(
+            file=call.source_file or "?",
+            symbol=call.source_symbol,
+            label=label,
+            snippet=snippet,
+        )
+        key = (ref.file, ref.symbol, ref.label, ref.snippet)
+        if key not in seen:
+            merged.append(ref)
+            seen.add(key)
+    for ref in call.evidence:
+        key = (ref.file, ref.symbol, ref.label, ref.snippet)
+        if key in seen:
+            continue
+        merged.append(ref)
+        seen.add(key)
+    return merged
+
+
 def _find_source_node_id_for_cross_repo_call(
     nodes: list[GraphNode],
     call: CrossRepoCallCandidate,
@@ -265,6 +336,11 @@ def add_cross_repo_api_link(
     edge_id = f"edge:cross_repo:{_sanitize_id(source_node_id)}:{_sanitize_id(target_node_id)}"
     if any(edge.id == edge_id for edge in edges):
         return None
+    call_edge_evidence = _attach_call_evidence(
+        list(evidence or []),
+        call=call,
+        label="webclient_call",
+    )
 
     edges.append(
         GraphEdge(
@@ -275,7 +351,7 @@ def add_cross_repo_api_link(
             direction="outbound",
             service=target_endpoint.service,
             repo=call.source_repo,
-            evidence=evidence or list(call.evidence),
+            evidence=call_edge_evidence,
             confidence=confidence,
             status="inferred",
         )
@@ -286,6 +362,81 @@ def add_cross_repo_api_link(
     target_method = target_endpoint.method or "?"
     target_path = target_endpoint.path or "?"
     return f"{source_repo} -> {target_repo}::{target_method} {target_path}"
+
+
+def enrich_external_api_graph_evidence(
+    *,
+    nodes: list[GraphNode],
+    edges: list[GraphEdge],
+    calls: list[CrossRepoCallCandidate],
+) -> None:
+    """Attach structured caller-side HTTP evidence to external API nodes/edges/steps."""
+    node_by_id = {node.id: node for node in nodes}
+    for call in calls:
+        source_node_id = _find_source_node_id_for_cross_repo_call(nodes, call)
+        method, target_path, target_url = _extract_http_details_from_call(call)
+        operation = None
+        if method and target_path:
+            operation = f"WebClient {method} {target_path}"
+        elif method:
+            operation = f"WebClient {method}"
+        elif target_path:
+            operation = f"WebClient call {target_path}"
+
+        source_node = node_by_id.get(source_node_id) if source_node_id else None
+        if source_node is not None and source_node.type == "internal_step":
+            metadata = dict(source_node.metadata or {})
+            if metadata.get("step_kind") in {None, "", "unknown"}:
+                metadata["step_kind"] = "external_api_call"
+            if operation and not metadata.get("operation"):
+                metadata["operation"] = operation
+            if method and not metadata.get("http_method"):
+                metadata["http_method"] = method
+            if target_path and not metadata.get("target_path"):
+                metadata["target_path"] = target_path
+            if target_url and not metadata.get("target_url"):
+                metadata["target_url"] = target_url
+            source_node.metadata = metadata
+            source_node.evidence = _attach_call_evidence(
+                source_node.evidence,
+                call=call,
+                label="webclient_call",
+            )
+
+        related_sink_ids: list[str] = []
+        if source_node_id:
+            for edge in edges:
+                if edge.source == source_node_id and edge.type == EDGE_TYPE_CALLS_EXTERNAL:
+                    related_sink_ids.append(edge.target)
+                    edge.evidence = _attach_call_evidence(
+                        edge.evidence,
+                        call=call,
+                        label="webclient_call",
+                    )
+
+        for sink_id in related_sink_ids:
+            sink_node = node_by_id.get(sink_id)
+            if sink_node is None or sink_node.type != "external_api":
+                continue
+            metadata = dict(sink_node.metadata or {})
+            metadata["sink_kind"] = metadata.get("sink_kind") or "external_api"
+            metadata["action"] = metadata.get("action") or "read"
+            if method and not metadata.get("http_method"):
+                metadata["http_method"] = method
+            if target_path and not metadata.get("target_path"):
+                metadata["target_path"] = target_path
+            if target_url and not metadata.get("target_url"):
+                metadata["target_url"] = target_url
+            if operation and not metadata.get("operation"):
+                metadata["operation"] = operation
+            sink_node.metadata = metadata
+            if target_path:
+                sink_node.name = target_path
+            sink_node.evidence = _attach_call_evidence(
+                sink_node.evidence,
+                call=call,
+                label="webclient_call",
+            )
 
 
 def build_graph_from_inferred_flow(

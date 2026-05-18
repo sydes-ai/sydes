@@ -94,6 +94,17 @@ def _extract_evidence_expression(node) -> str | None:
     return None
 
 
+def _extract_evidence_snippet(node) -> str | None:
+    """Extract one-line code snippet evidence when available."""
+    for ref in node.evidence:
+        if isinstance(ref.snippet, str) and ref.snippet.strip():
+            snippet = " ".join(ref.snippet.strip().split())
+            if len(snippet) > 180:
+                return snippet[:177] + "..."
+            return snippet
+    return None
+
+
 def render_terminal(result: TraceResult) -> str:
     """Build a target-grounded terminal summary for a trace result."""
     method = result.target.method or "ANY"
@@ -175,11 +186,15 @@ def render_terminal(result: TraceResult) -> str:
             action = sink.metadata.get("action") if isinstance(sink.metadata, dict) else None
             target = sink.metadata.get("target_entity") if isinstance(sink.metadata, dict) else None
             operation = sink.metadata.get("operation") if isinstance(sink.metadata, dict) else None
+            target_path = sink.metadata.get("target_path") if isinstance(sink.metadata, dict) else None
             action_value = f"{action} " if isinstance(action, str) and action else ""
-            sink_name = target or sink.name
+            sink_name = target_path or target or sink.name
             lines.append(f"  - {sink.type}: {action_value}{sink_name}")
             if isinstance(operation, str) and operation.strip():
                 lines.append(f"    operation: {operation.strip()}")
+            snippet = _extract_evidence_snippet(sink)
+            if snippet:
+                lines.append(f"    evidence: {snippet}")
             details: list[str] = []
             if sink.file:
                 details.append(f"file={sink.file}")

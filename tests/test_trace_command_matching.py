@@ -304,7 +304,17 @@ def test_trace_command_renders_cross_repo_links_when_confident_match_exists(
             steps=[
                 TraceStep(
                     kind="handler",
-                    name="create_checkout",
+                    name="invoke downstream service",
+                    repo="api",
+                    file="src/routes.py",
+                    symbol="create_checkout",
+                )
+            ],
+            sinks=[
+                SinkCandidate(
+                    kind="external_api",
+                    name="http call",
+                    action="read",
                     repo="api",
                     file="src/routes.py",
                     symbol="create_checkout",
@@ -365,6 +375,9 @@ def test_trace_command_renders_cross_repo_links_when_confident_match_exists(
     assert terminal_result.exit_code == 0
     assert "Cross-Repo Links:" in terminal_result.stdout
     assert "api -> payments::POST /charge" in terminal_result.stdout
+    assert "external_api: read /charge" in terminal_result.stdout
+    assert "operation: WebClient POST /charge" in terminal_result.stdout
+    assert "evidence: payments_client.post('/charge')" in terminal_result.stdout
 
     json_result = runner.invoke(
         app,
@@ -385,6 +398,19 @@ def test_trace_command_renders_cross_repo_links_when_confident_match_exists(
     payload = json.loads(json_result.stdout)
     assert any(edge["type"] == "CALLS_API" for edge in payload["edges"])
     assert any(node["repo"] == "payments" and node.get("path") == "/charge" for node in payload["nodes"])
+    external_api_node = next(node for node in payload["nodes"] if node["type"] == "external_api")
+    assert external_api_node["metadata"]["http_method"] == "POST"
+    assert external_api_node["metadata"]["target_path"] == "/charge"
+    assert external_api_node["metadata"]["operation"] == "WebClient POST /charge"
+    assert any(
+        item.get("label") == "webclient_call" and item.get("snippet")
+        for item in external_api_node.get("evidence", [])
+    )
+    calls_api_edge = next(edge for edge in payload["edges"] if edge["type"] == "CALLS_API")
+    assert any(
+        item.get("label") == "webclient_call" and item.get("snippet")
+        for item in calls_api_edge.get("evidence", [])
+    )
 
 
 def test_trace_command_graceful_when_flow_expansion_fails_after_match(

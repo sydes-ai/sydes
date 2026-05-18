@@ -99,6 +99,7 @@ def test_detect_cross_repo_call_candidates_normalizes_webclient_uri_chain() -> N
     assert first.raw_call_text is not None and "uri(\"/db/books\")" in first.raw_call_text
     assert first.status == "extracted_from_chain"
     assert first.evidence and first.evidence[0].label.startswith("multiline_chain:")
+    assert any(ref.label == "webclient_call" and ref.snippet for ref in first.evidence)
 
 
 def test_detect_cross_repo_call_candidates_extracts_post_uri_chain() -> None:

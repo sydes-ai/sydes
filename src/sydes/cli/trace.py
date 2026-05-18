@@ -21,7 +21,11 @@ from sydes.core.confidence import (
     compute_test_matrix_coverage,
     compute_trace_confidence,
 )
-from sydes.core.graph import add_cross_repo_api_link, build_graph_from_inferred_flow
+from sydes.core.graph import (
+    add_cross_repo_api_link,
+    build_graph_from_inferred_flow,
+    enrich_external_api_graph_evidence,
+)
 from sydes.discover.endpoints import discover_endpoints
 from sydes.discover.target_match import resolve_trace_target
 from sydes.ingest.repos import parse_repo_specs
@@ -115,6 +119,11 @@ def _build_trace_result(
         if cross_repo_calls:
             notes.append(
                 f"Detected {len(cross_repo_calls)} cross-repo API call candidate(s) from flow context."
+            )
+            enrich_external_api_graph_evidence(
+                nodes=nodes,
+                edges=edges,
+                calls=cross_repo_calls,
             )
             call_candidates_by_id = {
                 build_call_source_lookup_id(item): item for item in cross_repo_calls

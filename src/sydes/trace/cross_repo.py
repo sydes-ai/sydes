@@ -246,6 +246,14 @@ def _extract_any_path_from_line(line: str) -> tuple[str | None, str | None]:
     return None, None
 
 
+def _compact_snippet(text: str, *, max_chars: int = 320) -> str:
+    """Normalize raw expression text into a compact single-line snippet."""
+    compact = " ".join(text.strip().split())
+    if len(compact) <= max_chars:
+        return compact
+    return compact[: max_chars - 3] + "..."
+
+
 def is_route_declaration_line(line: str) -> bool:
     """Detect route declaration/annotation syntax (not outbound API calls)."""
     stripped = line.strip()
@@ -385,9 +393,9 @@ def _dedupe_cross_repo_candidates(
             existing.normalized_target_path = normalized_path
         if existing.raw_call_text is None and item.raw_call_text:
             existing.raw_call_text = item.raw_call_text
-        labels = {(e.file, e.symbol, e.label) for e in existing.evidence}
+        labels = {(e.file, e.symbol, e.label, e.snippet) for e in existing.evidence}
         for evidence in item.evidence:
-            label_key = (evidence.file, evidence.symbol, evidence.label)
+            label_key = (evidence.file, evidence.symbol, evidence.label, evidence.snippet)
             if label_key in labels:
                 continue
             existing.evidence.append(evidence)
@@ -442,6 +450,7 @@ def detect_cross_repo_call_candidates(
 
             # Strong chained-call extraction: method + explicit uri(...) path.
             if normalized_method is not None and uri_path is not None:
+                snippet = _compact_snippet(expression_text)
                 candidates.append(
                     CrossRepoCallCandidate(
                         source_repo=source_repo,
@@ -458,7 +467,13 @@ def detect_cross_repo_call_candidates(
                                 file=source_file,
                                 symbol=symbol,
                                 label=f"{strong_label_prefix}:{normalized_method}:{normalized_path or '?'}",
-                            )
+                            ),
+                            EvidenceRef(
+                                file=source_file,
+                                symbol=symbol,
+                                label="webclient_call",
+                                snippet=snippet,
+                            ),
                         ],
                         confidence=max(0.8, _confidence_from_parts(normalized_method, normalized_path, service_hint)),
                         status="extracted_from_chain",
@@ -468,6 +483,7 @@ def detect_cross_repo_call_candidates(
 
             # Generic method+path extraction from non-chain call forms (e.g. requests.get('/x')).
             if normalized_method is not None and normalized_path is not None:
+                snippet = _compact_snippet(expression_text)
                 candidates.append(
                     CrossRepoCallCandidate(
                         source_repo=source_repo,
@@ -484,7 +500,13 @@ def detect_cross_repo_call_candidates(
                                 file=source_file,
                                 symbol=symbol,
                                 label=f"{strong_label_prefix}:{normalized_method}:{normalized_path or '?'}",
-                            )
+                            ),
+                            EvidenceRef(
+                                file=source_file,
+                                symbol=symbol,
+                                label="http_client_call",
+                                snippet=snippet,
+                            ),
                         ],
                         confidence=_confidence_from_parts(normalized_method, normalized_path, service_hint),
                         status=STATUS_INFERRED,
@@ -494,6 +516,7 @@ def detect_cross_repo_call_candidates(
 
             # Method-only lines become partial candidates; do not mark as strong.
             if normalized_method is not None and normalized_path is None:
+                snippet = _compact_snippet(expression_text)
                 candidates.append(
                     CrossRepoCallCandidate(
                         source_repo=source_repo,
@@ -510,7 +533,13 @@ def detect_cross_repo_call_candidates(
                                 file=source_file,
                                 symbol=symbol,
                                 label=f"{partial_label_prefix}:{normalized_method}:?",
-                            )
+                            ),
+                            EvidenceRef(
+                                file=source_file,
+                                symbol=symbol,
+                                label="http_client_call_partial",
+                                snippet=snippet,
+                            ),
                         ],
                         confidence=0.4,
                         status="partial",
@@ -520,6 +549,7 @@ def detect_cross_repo_call_candidates(
 
             # Path-only client context remains a partial candidate.
             if normalized_path is not None:
+                snippet = _compact_snippet(expression_text)
                 candidates.append(
                     CrossRepoCallCandidate(
                         source_repo=source_repo,
@@ -536,7 +566,13 @@ def detect_cross_repo_call_candidates(
                                 file=source_file,
                                 symbol=symbol,
                                 label=f"{partial_label_prefix}:?:{normalized_path}",
-                            )
+                            ),
+                            EvidenceRef(
+                                file=source_file,
+                                symbol=symbol,
+                                label="http_client_path_partial",
+                                snippet=snippet,
+                            ),
                         ],
                         confidence=_confidence_from_parts(None, normalized_path, service_hint),
                         status="partial",
@@ -647,9 +683,9 @@ def _merge_link_evidence(
 ) -> list[EvidenceRef]:
     """Merge call + endpoint evidence while preserving deterministic order."""
     merged: list[EvidenceRef] = []
-    seen: set[tuple[str, str | None, str | None]] = set()
+    seen: set[tuple[str, str | None, str | None, str | None]] = set()
     for evidence in [*call_evidence, *endpoint_evidence]:
-        key = (evidence.file, evidence.symbol, evidence.label)
+        key = (evidence.file, evidence.symbol, evidence.label, evidence.snippet)
         if key in seen:
             continue
         seen.add(key)
