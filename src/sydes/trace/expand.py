@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ast
 import json
 import os
 import re
@@ -54,7 +55,23 @@ RELATED_FILE_KEYWORDS = {
     "query",
     "queries",
 }
-KNOWN_STEP_KINDS = {"endpoint", "handler", "service_call", "db_read", "db_write", "external_api_call", "queue_publish", "queue_consume", "file_write", "validation", "auth", "transform", "unknown"}
+KNOWN_STEP_KINDS = {
+    "endpoint",
+    "handler",
+    "dependency",
+    "input_model",
+    "service_call",
+    "db_read",
+    "db_write",
+    "external_api_call",
+    "queue_publish",
+    "queue_consume",
+    "file_write",
+    "validation",
+    "auth",
+    "transform",
+    "unknown",
+}
 SUSPICIOUS_ABSTRACT_STEPS = {
     "call payment client",
     "call service",
@@ -64,6 +81,18 @@ SUSPICIOUS_ABSTRACT_STEPS = {
     "handle request",
 }
 GENERIC_ABSTRACT_TOKENS = {"call", "invoke", "process", "handle", "request", "service", "client", "external", "api"}
+PYTHON_DB_READ_RE = re.compile(
+    r"\bdb\.query\(\s*([A-Za-z_][A-Za-z0-9_]*)\s*\)(?:\.[A-Za-z_][A-Za-z0-9_]*\([^)]*\))*\.(all|first)\(\)",
+    re.IGNORECASE,
+)
+PYTHON_DB_WRITE_RE = re.compile(
+    r"\bdb\.(add|commit|refresh|delete)\s*\(([^)]*)\)",
+    re.IGNORECASE,
+)
+PYTHON_EXTERNAL_CALL_RE = re.compile(
+    r"\b(requests|httpx)\.(get|post|put|delete|patch)\s*\(",
+    re.IGNORECASE,
+)
 
 
 def _repo_root_map(repos: list[RepoRef]) -> dict[str, str]:
@@ -213,6 +242,291 @@ def _build_context_file(repo: str, path: str, reasons: list[str], repo_root: str
         read=read_result,
         truncated=truncated,
     )
+
+
+def _unparse_expression(node: ast.AST, source: str) -> str:
+    """Render a compact source-like expression for deterministic evidence extraction."""
+    segment = ast.get_source_segment(source, node)
+    if isinstance(segment, str) and segment.strip():
+        return " ".join(segment.strip().split())
+    try:
+        return ast.unparse(node)
+    except Exception:
+        return ""
+
+
+def _extract_depends_symbol(default_node: ast.AST) -> str | None:
+    """Extract dependency symbol from Depends(...) argument default."""
+    if not isinstance(default_node, ast.Call):
+        return None
+    if isinstance(default_node.func, ast.Name):
+        func_name = default_node.func.id
+    elif isinstance(default_node.func, ast.Attribute):
+        func_name = default_node.func.attr
+    else:
+        return None
+    if func_name != "Depends":
+        return None
+    if not default_node.args:
+        return "Depends"
+    first = default_node.args[0]
+    if isinstance(first, ast.Name):
+        return first.id
+    if isinstance(first, ast.Attribute):
+        return first.attr
+    return _unparse_expression(first, "")
+
+
+def _iter_function_defaults(function_node: ast.FunctionDef | ast.AsyncFunctionDef) -> list[ast.AST]:
+    """Collect positional and keyword defaults from a function signature."""
+    defaults = list(function_node.args.defaults)
+    defaults.extend(item for item in function_node.args.kw_defaults if item is not None)
+    return defaults
+
+
+def _safe_annotation_text(arg: ast.arg, source: str) -> str | None:
+    """Return annotation text for one function arg when available."""
+    if arg.annotation is None:
+        return None
+    annotation = _unparse_expression(arg.annotation, source)
+    return annotation or None
+
+
+def _deterministic_step_key(step: TraceStep) -> tuple[str, str, str, str, str]:
+    """Build a stable key for deterministic/LLM step merge deduplication."""
+    return (
+        (step.repo or "").strip().lower(),
+        (step.file or "").strip().lower(),
+        (step.symbol or "").strip().lower(),
+        (step.kind or "").strip().lower(),
+        " ".join((step.name or "").strip().lower().split()),
+    )
+
+
+def _merge_steps(
+    baseline_steps: list[TraceStep],
+    llm_steps: list[TraceStep],
+) -> list[TraceStep]:
+    """Merge baseline + LLM steps while preserving baseline ordering/content."""
+    merged: list[TraceStep] = []
+    seen: set[tuple[str, str, str, str, str]] = set()
+    for step in baseline_steps + llm_steps:
+        key = _deterministic_step_key(step)
+        if key in seen:
+            continue
+        seen.add(key)
+        merged.append(step)
+    return merged
+
+
+def _extract_python_handler_baseline(
+    matched_endpoint: EndpointCandidate,
+    context: FlowExpansionContext,
+) -> tuple[list[TraceStep], list[SinkCandidate], list[str]]:
+    """Extract deterministic flow evidence from Python handler code in the anchor file."""
+    notes: list[str] = []
+    anchor = next(
+        (
+            item
+            for item in context.files
+            if item.file == context.anchor_file
+        ),
+        None,
+    )
+    if anchor is None or anchor.read is None or anchor.read.skipped or anchor.read.snippet is None:
+        return [], [], notes
+
+    source = anchor.read.snippet.text
+    try:
+        tree = ast.parse(source)
+    except SyntaxError:
+        return [], [], notes
+
+    handler_name = (matched_endpoint.handler or "").strip()
+    if not handler_name:
+        return [], [], notes
+
+    handler_node: ast.FunctionDef | ast.AsyncFunctionDef | None = None
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == handler_name:
+            handler_node = node
+            break
+    if handler_node is None:
+        return [], [], notes
+
+    repo = matched_endpoint.repo
+    file_path = matched_endpoint.file
+    steps: list[TraceStep] = []
+    sinks: list[SinkCandidate] = []
+
+    def add_step(kind: str, name: str, label: str) -> None:
+        steps.append(
+            TraceStep(
+                kind=kind,
+                name=name,
+                repo=repo,
+                file=file_path,
+                symbol=handler_name,
+                status="grounded",
+                confidence=0.95,
+                evidence=[EvidenceRef(file=file_path, symbol=handler_name, label=label)],
+            )
+        )
+
+    # Dependency extraction from Depends(...) defaults
+    for default in _iter_function_defaults(handler_node):
+        depends_symbol = _extract_depends_symbol(default)
+        if depends_symbol:
+            add_step(
+                "dependency",
+                f"Depends({depends_symbol})",
+                f"deterministic:dependency:{depends_symbol}",
+            )
+
+    # Input model extraction for likely write handlers
+    method = (matched_endpoint.method or "").upper()
+    if method in {"POST", "PUT", "PATCH"}:
+        for arg in handler_node.args.args:
+            if arg.arg == "self":
+                continue
+            annotation = _safe_annotation_text(arg, source)
+            if not annotation:
+                continue
+            annotation_lower = annotation.lower()
+            if "session" in annotation_lower:
+                continue
+            add_step(
+                "input_model",
+                f"input model: {annotation}",
+                f"deterministic:input_model:{annotation}",
+            )
+            break
+
+    found_db_read = False
+    found_db_write = False
+    found_external = False
+    found_return = False
+
+    # Object creation hints from assignment calls like: db_user = User(...)
+    for node in handler_node.body:
+        if isinstance(node, ast.Assign) and isinstance(node.value, ast.Call):
+            call = node.value
+            if isinstance(call.func, ast.Name) and call.func.id and call.func.id[:1].isupper():
+                add_step(
+                    "transform",
+                    f"create {call.func.id} object",
+                    f"deterministic:object_creation:{call.func.id}",
+                )
+
+    for node in ast.walk(handler_node):
+        if isinstance(node, ast.Return):
+            found_return = True
+            continue
+        if not isinstance(node, ast.Call):
+            continue
+
+        expression = _unparse_expression(node, source)
+        if not expression:
+            continue
+        expression = " ".join(expression.split())
+
+        read_match = PYTHON_DB_READ_RE.search(expression)
+        if read_match:
+            entity = read_match.group(1)
+            add_step("db_read", expression, f"deterministic:db_read:{expression}")
+            sinks.append(
+                SinkCandidate(
+                    kind="database",
+                    name=entity or "database",
+                    repo=repo,
+                    file=file_path,
+                    symbol=handler_name,
+                    action="read",
+                    status="grounded",
+                    confidence=0.95,
+                    evidence=[
+                        EvidenceRef(
+                            file=file_path,
+                            symbol=handler_name,
+                            label=f"deterministic:db_read:{expression}",
+                        )
+                    ],
+                )
+            )
+            found_db_read = True
+
+        write_match = PYTHON_DB_WRITE_RE.search(expression)
+        if write_match:
+            action = write_match.group(1).lower()
+            add_step("db_write", expression, f"deterministic:db_write:{expression}")
+            sinks.append(
+                SinkCandidate(
+                    kind="database",
+                    name="database",
+                    repo=repo,
+                    file=file_path,
+                    symbol=handler_name,
+                    action="write",
+                    status="grounded",
+                    confidence=0.95,
+                    evidence=[
+                        EvidenceRef(
+                            file=file_path,
+                            symbol=handler_name,
+                            label=f"deterministic:db_write:{expression}",
+                        )
+                    ],
+                )
+            )
+            found_db_write = True
+            if action == "refresh":
+                add_step("transform", "return refreshed entity", "deterministic:return_refreshed_entity")
+
+        external_match = PYTHON_EXTERNAL_CALL_RE.search(expression)
+        if external_match:
+            method_label = external_match.group(2).upper()
+            add_step("external_api_call", expression, f"deterministic:external_call:{method_label}")
+            sinks.append(
+                SinkCandidate(
+                    kind="external_api",
+                    name=expression,
+                    repo=repo,
+                    file=file_path,
+                    symbol=handler_name,
+                    action="read",
+                    status="grounded",
+                    confidence=0.9,
+                    evidence=[
+                        EvidenceRef(
+                            file=file_path,
+                            symbol=handler_name,
+                            label=f"deterministic:external_call:{expression}",
+                        )
+                    ],
+                )
+            )
+            found_external = True
+
+    if found_return:
+        add_step("transform", "return response", "deterministic:return_response")
+
+    if steps:
+        notes.append(
+            f"Deterministic anchor extraction added {len(steps)} step(s)"
+            f" and {len(sinks)} sink candidate(s)."
+        )
+    else:
+        if any(isinstance(node, ast.Return) for node in ast.walk(handler_node)):
+            notes.append("Deterministic anchor extraction found handler return path but no concrete sink operations.")
+
+    if found_db_read:
+        notes.append("Deterministic evidence captured database read operations from handler body.")
+    if found_db_write:
+        notes.append("Deterministic evidence captured database write operations from handler body.")
+    if found_external:
+        notes.append("Deterministic evidence captured outbound HTTP calls from handler body.")
+
+    return steps, sinks, notes
 
 
 def prepare_flow_expansion_context(
@@ -702,6 +1016,11 @@ def run_flow_expansion(
         context_literal_parts.append(_normalize_literal_text(snippet_text))
     context_raw_lower = "\n".join(context_raw_lower_parts)
     context_literal_blob = " ".join(context_literal_parts)
+    baseline_steps, baseline_sinks, baseline_notes = _extract_python_handler_baseline(
+        matched_endpoint,
+        context,
+    )
+    notes.extend(baseline_notes)
 
     timeout_seconds: float | None = None
     if llm_client is None:
@@ -715,6 +1034,8 @@ def run_flow_expansion(
             notes.append(f"Flow expansion unavailable: {exc}")
             return FlowExpansionResult(
                 entry_endpoint_id=f"{matched_endpoint.repo}:{matched_endpoint.file}:{matched_endpoint.path or '?'}",
+                steps=baseline_steps,
+                sinks=merge_and_dedupe_sinks(baseline_sinks, derive_sink_candidates_from_steps(baseline_steps)),
                 notes=notes,
             )
     else:
@@ -733,6 +1054,8 @@ def run_flow_expansion(
         notes.append(f"Flow expansion unavailable: {exc}")
         return FlowExpansionResult(
             entry_endpoint_id=f"{matched_endpoint.repo}:{matched_endpoint.file}:{matched_endpoint.path or '?'}",
+            steps=baseline_steps,
+            sinks=merge_and_dedupe_sinks(baseline_sinks, derive_sink_candidates_from_steps(baseline_steps)),
             notes=notes,
         )
 
@@ -745,6 +1068,8 @@ def run_flow_expansion(
         notes.append("Flow expansion output was not valid JSON.")
         return FlowExpansionResult(
             entry_endpoint_id=f"{matched_endpoint.repo}:{matched_endpoint.file}:{matched_endpoint.path or '?'}",
+            steps=baseline_steps,
+            sinks=merge_and_dedupe_sinks(baseline_sinks, derive_sink_candidates_from_steps(baseline_steps)),
             notes=notes,
         )
 
@@ -754,11 +1079,23 @@ def run_flow_expansion(
         context_raw_lower=context_raw_lower,
         context_literal_blob=context_literal_blob,
     )
+    merged_steps = _merge_steps(baseline_steps, normalized.steps)
+    explicit_sinks = merge_and_dedupe_sinks(baseline_sinks, normalized.sinks)
+    merged_sinks = merge_and_dedupe_sinks(explicit_sinks, derive_sink_candidates_from_steps(merged_steps))
+    if baseline_steps:
+        normalize_notes.append(
+            f"Merged deterministic baseline with LLM flow output (baseline_steps={len(baseline_steps)})."
+        )
     merged_notes = notes + [note for note in normalize_notes if note not in notes]
+    merged_confidence = normalized.confidence
+    if merged_confidence is None:
+        confidences = [item.confidence for item in [*merged_steps, *merged_sinks] if item.confidence is not None]
+        if confidences:
+            merged_confidence = sum(confidences) / len(confidences)
     return FlowExpansionResult(
         entry_endpoint_id=f"{matched_endpoint.repo}:{matched_endpoint.file}:{matched_endpoint.path or '?'}",
-        steps=normalized.steps,
-        sinks=normalized.sinks,
+        steps=merged_steps,
+        sinks=merged_sinks,
         notes=merged_notes,
-        confidence=normalized.confidence,
+        confidence=merged_confidence,
     )

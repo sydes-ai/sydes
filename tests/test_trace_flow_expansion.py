@@ -8,6 +8,7 @@ from typer.testing import CliRunner
 
 import sydes.cli.trace as trace_module
 from sydes.cli.main import app
+from sydes.core.graph import build_graph_from_inferred_flow
 from sydes.core.models import (
     EndpointCandidate,
     EvidenceRef,
@@ -125,8 +126,17 @@ def test_run_flow_expansion_graceful_fallback_on_client_failure(tmp_path: Path) 
     """Flow expansion should return valid empty result with notes on client error."""
     repo_root = tmp_path / "api"
     (repo_root / "src").mkdir(parents=True)
-    (repo_root / "src" / "routes.py").write_text("router.get('/status', status)\n", encoding="utf-8")
-    endpoint = EndpointCandidate(method="GET", path="/status", file="src/routes.py", repo="api")
+    (repo_root / "src" / "routes.py").write_text(
+        "def status(db = Depends(get_db)):\n    return db.query(User).all()\n",
+        encoding="utf-8",
+    )
+    endpoint = EndpointCandidate(
+        method="GET",
+        path="/status",
+        handler="status",
+        file="src/routes.py",
+        repo="api",
+    )
     repos = [RepoRef(name="api", root=str(repo_root))]
 
     class _ErrorClient:
@@ -135,8 +145,7 @@ def test_run_flow_expansion_graceful_fallback_on_client_failure(tmp_path: Path) 
 
     result = run_flow_expansion(endpoint, repos, llm_client=_ErrorClient())
 
-    assert result.steps == []
-    assert result.sinks == []
+    assert any(step.name == "return response" for step in result.steps)
     assert any("Flow expansion unavailable" in note for note in result.notes)
 
 
@@ -151,6 +160,120 @@ def test_run_flow_expansion_raises_on_malformed_json_in_strict_mode(tmp_path: Pa
 
     with pytest.raises(LLMClientError, match="model output parse failure"):
         run_flow_expansion(endpoint, repos, llm_client=client, strict_llm=True)
+
+
+def test_run_flow_expansion_extracts_deterministic_get_query_steps(tmp_path: Path) -> None:
+    """GET handler baseline extraction should preserve literal db.query(...).all() evidence."""
+    repo_root = tmp_path / "api"
+    repo_root.mkdir(parents=True)
+    (repo_root / "main.py").write_text(
+        "\n".join(
+            [
+                "from fastapi import Depends",
+                "",
+                "def get_db():",
+                "    return None",
+                "",
+                "def get_all_users(db = Depends(get_db)):",
+                "    return db.query(User).all()",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    endpoint = EndpointCandidate(
+        method="GET",
+        path="/users",
+        handler="get_all_users",
+        file="main.py",
+        repo="api",
+    )
+    repos = [RepoRef(name="api", root=str(repo_root))]
+    client = _FakeFlowClient(payload='{"steps":[],"sinks":[]}')
+
+    result = run_flow_expansion(endpoint, repos, llm_client=client)
+
+    step_names = [step.name for step in result.steps]
+    assert "Depends(get_db)" in step_names
+    assert "db.query(User).all()" in step_names
+    assert any(sink.kind == "database" and sink.action == "read" for sink in result.sinks)
+    assert any("db_read:db.query(User).all()" in (ref.label or "") for sink in result.sinks for ref in sink.evidence)
+
+
+def test_run_flow_expansion_extracts_deterministic_post_write_steps(tmp_path: Path) -> None:
+    """POST handler baseline extraction should preserve db.add/commit/refresh operations."""
+    repo_root = tmp_path / "api"
+    repo_root.mkdir(parents=True)
+    (repo_root / "main.py").write_text(
+        "\n".join(
+            [
+                "from fastapi import Depends",
+                "",
+                "def get_db():",
+                "    return None",
+                "",
+                "def create_user(user_in: UserCreate, db = Depends(get_db)):",
+                "    db_user = User(**user_in.model_dump())",
+                "    db.add(db_user)",
+                "    db.commit()",
+                "    db.refresh(db_user)",
+                "    return db_user",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    endpoint = EndpointCandidate(
+        method="POST",
+        path="/users",
+        handler="create_user",
+        file="main.py",
+        repo="api",
+    )
+    repos = [RepoRef(name="api", root=str(repo_root))]
+    client = _FakeFlowClient(payload='{"steps":[{"kind":"service_call","name":"process"}],"sinks":[]}')
+
+    result = run_flow_expansion(endpoint, repos, llm_client=client)
+
+    step_names = [step.name for step in result.steps]
+    assert "input model: UserCreate" in step_names
+    assert "create User object" in step_names
+    assert "db.add(db_user)" in step_names
+    assert "db.commit()" in step_names
+    assert "db.refresh(db_user)" in step_names
+    assert any(sink.kind == "database" and sink.action == "write" for sink in result.sinks)
+
+
+def test_deterministic_baseline_steps_are_included_in_graph_nodes_and_edges(tmp_path: Path) -> None:
+    """Graph assembly should include deterministic baseline steps from handler extraction."""
+    repo_root = tmp_path / "api"
+    repo_root.mkdir(parents=True)
+    (repo_root / "main.py").write_text(
+        "\n".join(
+            [
+                "from fastapi import Depends",
+                "def get_db():",
+                "    return None",
+                "",
+                "def get_all_users(db = Depends(get_db)):",
+                "    return db.query(User).all()",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    endpoint = EndpointCandidate(
+        method="GET",
+        path="/users",
+        handler="get_all_users",
+        file="main.py",
+        repo="api",
+    )
+    repos = [RepoRef(name="api", root=str(repo_root))]
+    result = run_flow_expansion(endpoint, repos, llm_client=_FakeFlowClient(payload='{"steps":[],"sinks":[]}'))
+
+    nodes, edges, _flows = build_graph_from_inferred_flow(endpoint, result)
+
+    assert any(node.type == "internal_step" and node.name == "db.query(User).all()" for node in nodes)
+    assert any(edge.type == "CALLS_INTERNAL" for edge in edges)
+    assert any(edge.type == "READS_DB" for edge in edges)
 
 
 def test_trace_command_saves_flow_expansion_artifact(tmp_path: Path, monkeypatch) -> None:
