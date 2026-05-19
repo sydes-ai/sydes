@@ -7,6 +7,7 @@ from typing import Annotated, Literal
 
 import typer
 
+from sydes.cli.output_paths import resolve_output_file_path, write_output_text
 from sydes.discover.endpoints import discover_endpoints
 from sydes.ingest.repos import parse_repo_specs
 from sydes.llm.client import LLMClientError, validate_llm_available
@@ -15,10 +16,16 @@ from sydes.report.terminal import render_routes_terminal
 from sydes.store.workspace import compute_workspace_id, create_run_id, save_run_artifact
 
 
-def _write_output(path: Path, content: str) -> None:
-    """Write rendered command output to disk."""
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(content + "\n", encoding="utf-8")
+def _write_command_output(
+    output: Path,
+    content: str,
+    *,
+    output_format: Literal["terminal", "json"],
+) -> None:
+    """Resolve and write command output without leaking low-level path errors."""
+    default_name = "routes.json" if output_format == "json" else "routes.txt"
+    resolved = resolve_output_file_path(output, default_filename=default_name)
+    write_output_text(resolved, content)
 
 
 def routes_command(
@@ -71,7 +78,11 @@ def routes_command(
             rendered = json.dumps(payload, indent=2)
             typer.echo(rendered)
             if output is not None:
-                _write_output(output, rendered)
+                try:
+                    _write_command_output(output, rendered, output_format=output_format)
+                except (OSError, ValueError) as exc:
+                    typer.echo(str(exc))
+                    raise typer.Exit(code=1) from exc
             raise typer.Exit(code=1)
         typer.echo(f"LLM validation failed: {message}")
         raise typer.Exit(code=1)
@@ -100,7 +111,11 @@ def routes_command(
             rendered = json.dumps(payload, indent=2)
             typer.echo(rendered)
             if output is not None:
-                _write_output(output, rendered)
+                try:
+                    _write_command_output(output, rendered, output_format=output_format)
+                except (OSError, ValueError) as exc:
+                    typer.echo(str(exc))
+                    raise typer.Exit(code=1) from exc
             raise typer.Exit(code=1)
         typer.echo(f"LLM discovery failed: {message}")
         raise typer.Exit(code=1)
@@ -131,4 +146,8 @@ def routes_command(
 
     typer.echo(rendered)
     if output is not None:
-        _write_output(output, rendered)
+        try:
+            _write_command_output(output, rendered, output_format=output_format)
+        except (OSError, ValueError) as exc:
+            typer.echo(str(exc))
+            raise typer.Exit(code=1) from exc

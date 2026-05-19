@@ -9,6 +9,11 @@ from typing import Annotated, Literal
 
 import typer
 
+from sydes.cli.output_paths import (
+    resolve_output_file_path,
+    resolve_trace_output_target,
+    write_output_text,
+)
 from sydes.core.models import (
     FlowExpansionResult,
     TargetSpec,
@@ -291,8 +296,48 @@ def _build_trace_result(
 
 def _write_output(path: Path, content: str) -> None:
     """Write rendered command output to disk."""
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(content + "\n", encoding="utf-8")
+    write_output_text(path, content)
+
+
+def _write_trace_json_outputs(
+    output: Path,
+    rendered_trace_result: str,
+    result: TraceResult | None = None,
+    flow_expansion: FlowExpansionResult | None = None,
+) -> None:
+    """Write trace JSON output to either a single file or an artifact directory."""
+    target = resolve_trace_output_target(output)
+    if target.kind == "file":
+        _write_output(target.path, rendered_trace_result)
+        return
+
+    _write_output(target.path / "trace_result.json", rendered_trace_result)
+    if result is None:
+        return
+
+    graph_payload = {
+        "target": result.target.model_dump(),
+        "key_flow_id": result.summary.key_flow_id,
+        "nodes": [item.model_dump() for item in result.nodes],
+        "edges": [item.model_dump() for item in result.edges],
+        "flows": [item.model_dump() for item in result.flows],
+    }
+    _write_output(
+        target.path / "trace_graph.json",
+        json.dumps(graph_payload, indent=2),
+    )
+
+    if result.test_matrix is not None:
+        _write_output(
+            target.path / "test_matrix.json",
+            result.test_matrix.model_dump_json(indent=2),
+        )
+
+    if flow_expansion is not None:
+        _write_output(
+            target.path / "flow_expansion.json",
+            flow_expansion.model_dump_json(indent=2),
+        )
 
 
 def _concise_terminal_notes(notes: list[str]) -> list[str]:
@@ -357,7 +402,11 @@ def trace_command(
             rendered = json.dumps(payload, indent=2)
             typer.echo(rendered)
             if output is not None:
-                _write_output(output, rendered)
+                try:
+                    _write_trace_json_outputs(output, rendered)
+                except (OSError, ValueError) as exc:
+                    typer.echo(str(exc))
+                    raise typer.Exit(code=1) from exc
             raise typer.Exit(code=1)
         typer.echo(f"LLM validation failed: {message}")
         raise typer.Exit(code=1)
@@ -387,7 +436,11 @@ def trace_command(
             rendered = json.dumps(payload, indent=2)
             typer.echo(rendered)
             if output is not None:
-                _write_output(output, rendered)
+                try:
+                    _write_trace_json_outputs(output, rendered)
+                except (OSError, ValueError) as exc:
+                    typer.echo(str(exc))
+                    raise typer.Exit(code=1) from exc
             raise typer.Exit(code=1)
         typer.echo(f"LLM trace failed: {message}")
         raise typer.Exit(code=1)
@@ -457,4 +510,17 @@ def trace_command(
         rendered = render_terminal(display_result)
     typer.echo(rendered)
     if output is not None:
-        _write_output(output, rendered)
+        try:
+            if output_format == "json":
+                _write_trace_json_outputs(
+                    output,
+                    rendered,
+                    result=result,
+                    flow_expansion=flow_expansion,
+                )
+            else:
+                resolved = resolve_output_file_path(output, default_filename="trace.txt")
+                _write_output(resolved, rendered)
+        except (OSError, ValueError) as exc:
+            typer.echo(str(exc))
+            raise typer.Exit(code=1) from exc

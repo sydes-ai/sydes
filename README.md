@@ -124,6 +124,22 @@ sydes export ~/.sydes/workspaces/<workspace-id>/artifacts/<run-id>/trace_result.
 
 Artifacts are stored locally under `~/.sydes/`.
 
+## Output path contract
+
+`--output` supports either an explicit file path or an artifact directory.
+
+Routes:
+- `--output path/to/routes.json` writes that file.
+- `--output path/to/run_dir` writes `path/to/run_dir/routes.json`.
+
+Trace:
+- `--output path/to/run_dir` writes:
+  - `trace_result.json`
+  - `trace_graph.json`
+  - `test_matrix.json` (when generated)
+  - `flow_expansion.json` (when generated)
+- `--output path/to/trace.json` writes a single trace result JSON file.
+
 ## Build outputs
 
 Build Python package artifacts:
