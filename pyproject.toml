@@ -29,3 +29,8 @@ dev = [
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/sydes"]
+
+[dependency-groups]
+dev = [
+    "pyinstaller>=6.20.0",
+]

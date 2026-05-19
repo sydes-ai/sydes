@@ -12,6 +12,7 @@ ENV/
 build/
 dist/
 *.egg-info/
+*.spec
 
 # Tool caches
 .pytest_cache/

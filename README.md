@@ -124,6 +124,36 @@ sydes export ~/.sydes/workspaces/<workspace-id>/artifacts/<run-id>/trace_result.
 
 Artifacts are stored locally under `~/.sydes/`.
 
+## Build outputs
+
+Build Python package artifacts:
+
+```bash
+uv build
+```
+
+This produces:
+- `dist/sydes-*.whl`
+- `dist/sydes-*.tar.gz`
+
+Build a standalone executable for the current OS/arch:
+
+```bash
+uv run python scripts/build_binary.py
+```
+
+This produces:
+- `dist/binaries/<platform-key>/sydes`
+- on Windows: `dist/binaries/<platform-key>/sydes.exe`
+
+Platform keys follow:
+- `darwin-arm64`
+- `darwin-x64`
+- `linux-x64`
+- `win32-x64`
+
+Cross-platform binaries should be built on the target OS/architecture (or via CI runners for each target).
+
 ## Current limitations
 
 - Local model quality can vary by model choice, prompt fit, and hardware/runtime conditions.
