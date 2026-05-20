@@ -2,7 +2,14 @@
 
 import json
 
-from sydes.core.models import GraphNode, TargetSpec, TraceResult, TraceSummary
+from sydes.core.models import (
+    GraphNode,
+    TargetSpec,
+    TestMatrix as SydesTestMatrix,
+    TestMatrixGroup as SydesTestMatrixGroup,
+    TraceResult,
+    TraceSummary,
+)
 from sydes.export.json_export import export_trace_result
 from sydes.report.json_report import render_json
 
@@ -49,7 +56,7 @@ def test_export_trace_result_includes_metadata_and_clean_top_level_shape() -> No
     assert "edges" in payload
     assert "flows" in payload
     assert "tests" in payload
-    assert "test_matrix" in payload
+    assert "test_matrix" not in payload
     assert "notes" in payload
     assert "summary" in payload
     assert "sinks" not in payload
@@ -67,9 +74,20 @@ def test_render_json_keeps_trace_keys_and_uses_exporter_shape() -> None:
     assert "edges" in payload
     assert "flows" in payload
     assert "tests" in payload
-    assert "test_matrix" in payload
+    assert "test_matrix" not in payload
     assert "unknowns" in payload
     assert "notes" in payload
     assert "summary" in payload
     assert "metadata" in payload
     assert "sinks" not in payload
+
+
+def test_export_trace_result_includes_test_matrix_when_present() -> None:
+    """Exporter should include grouped test matrix when trace result has one."""
+    result = _trace_with_sink_node()
+    result.test_matrix = SydesTestMatrix(groups=[SydesTestMatrixGroup(category="happy_path", tests=[])])
+
+    payload = export_trace_result(result)
+
+    assert "test_matrix" in payload
+    assert payload["test_matrix"]["groups"][0]["category"] == "happy_path"

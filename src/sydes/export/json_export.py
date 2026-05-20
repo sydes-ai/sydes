@@ -30,15 +30,12 @@ def export_trace_result(trace_result: TraceResult) -> dict[str, Any]:
         "edges": [item.model_dump(exclude_none=True) for item in trace_result.edges],
         "flows": [item.model_dump(exclude_none=True) for item in trace_result.flows],
         "tests": [item.model_dump(exclude_none=True) for item in trace_result.tests],
-        "test_matrix": (
-            trace_result.test_matrix.model_dump(exclude_none=True)
-            if trace_result.test_matrix is not None
-            else None
-        ),
         "unknowns": [item.model_dump(exclude_none=True) for item in trace_result.unknowns],
         "notes": list(trace_result.notes),
         "summary": trace_result.summary.model_dump(exclude_none=True),
     }
+    if trace_result.test_matrix is not None:
+        payload["test_matrix"] = trace_result.test_matrix.model_dump(exclude_none=True)
     payload["metadata"] = {
         "format": "sydes_trace_json",
         "export_version": "v1",
