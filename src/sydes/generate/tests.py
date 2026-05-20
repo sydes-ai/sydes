@@ -292,6 +292,9 @@ def _build_matrix_suggestion(
     notes: list[str] | None = None,
 ) -> IntegrationTestSuggestion:
     """Create deterministic matrix suggestion with minimal repeated boilerplate."""
+    suggestion_notes = list(notes or [])
+    if not any("deterministic" in note.lower() for note in suggestion_notes):
+        suggestion_notes.append("deterministic baseline derived from traced flow evidence")
     return IntegrationTestSuggestion(
         name=name,
         route=route,
@@ -304,8 +307,42 @@ def _build_matrix_suggestion(
         expectations=expectations,
         derived_from_flow_id=flow_id,
         confidence=confidence,
-        notes=notes or [],
+        notes=suggestion_notes,
     )
+
+
+def _build_fallback_matrix(
+    *,
+    route: str,
+    method: str,
+    route_token: str,
+    flow_id: str | None,
+    confidence: float | None,
+) -> list[TestMatrixGroup]:
+    """Build minimal grouped baseline when no category rules produced tests."""
+    method_token = method.lower()
+    happy = _build_matrix_suggestion(
+        name=f"{method_token}_{route_token}_baseline_happy_path",
+        route=route,
+        method=method,
+        summary=f"verifies {method} {route} succeeds for a valid request",
+        expectations=[TestExpectation(kind="http_response", description="request succeeds with expected response")],
+        flow_id=flow_id,
+        confidence=confidence,
+    )
+    edge = _build_matrix_suggestion(
+        name=f"{method_token}_{route_token}_baseline_edge_case",
+        route=route,
+        method=method,
+        summary=f"verifies {method} {route} handles an edge-case input safely",
+        expectations=[TestExpectation(kind="edge_case", description="edge-case input is handled safely")],
+        flow_id=flow_id,
+        confidence=confidence,
+    )
+    return [
+        TestMatrixGroup(category=TEST_MATRIX_CATEGORY_HAPPY_PATH, tests=[happy]),
+        TestMatrixGroup(category=TEST_MATRIX_CATEGORY_EDGE_CASES, tests=[edge]),
+    ]
 
 
 def generate_test_matrix(trace_result: TraceResult, *, max_suggestions: int = 7) -> TestMatrix:
@@ -873,6 +910,15 @@ def generate_test_matrix(trace_result: TraceResult, *, max_suggestions: int = 7)
     notes: list[str] = []
     if inferred_get:
         notes.append("consistency group includes inferred fetch checks from write + route shape hints")
+    if not matrix_groups:
+        matrix_groups = _build_fallback_matrix(
+            route=route,
+            method=method,
+            route_token=route_token,
+            flow_id=flow_id,
+            confidence=confidence,
+        )
+        notes.append("applied fallback grouped baseline test matrix")
     return TestMatrix(groups=matrix_groups, notes=notes)
 
 

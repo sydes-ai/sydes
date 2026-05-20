@@ -177,6 +177,21 @@ def test_trace_get_users_regression_includes_deterministic_query_evidence(
         and n.get("metadata", {}).get("target_entity") == "User"
         for n in db_sinks
     )
+    assert "test_matrix" in payload
+    assert payload["test_matrix"] is not None
+    groups = payload["test_matrix"]["groups"]
+    categories = [group["category"] for group in groups]
+    assert "happy_path" in categories
+    assert "data_shape" in categories
+    assert "edge_cases" in categories
+    assert "failure_modes" in categories
+    names = {
+        test_case["name"]
+        for group in groups
+        for test_case in group.get("tests", [])
+    }
+    assert "get_users_database_read_failure_handled" in names
+    assert payload.get("tests"), "flat tests[] compatibility should remain populated"
 
 
 def test_trace_post_users_regression_includes_write_sequence_evidence(

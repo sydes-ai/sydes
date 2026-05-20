@@ -49,6 +49,7 @@ def test_export_trace_result_includes_metadata_and_clean_top_level_shape() -> No
     assert "edges" in payload
     assert "flows" in payload
     assert "tests" in payload
+    assert "test_matrix" in payload
     assert "notes" in payload
     assert "summary" in payload
     assert "sinks" not in payload
@@ -66,6 +67,7 @@ def test_render_json_keeps_trace_keys_and_uses_exporter_shape() -> None:
     assert "edges" in payload
     assert "flows" in payload
     assert "tests" in payload
+    assert "test_matrix" in payload
     assert "unknowns" in payload
     assert "notes" in payload
     assert "summary" in payload

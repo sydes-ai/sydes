@@ -358,3 +358,16 @@ def test_generate_test_matrix_simple_get_without_sinks_keeps_generic_happy_path_
     names = _flatten_names(generate_test_matrix(trace))
     assert "get_health_returns_entity_or_list" in names
     assert "get_health_proxies_downstream_response" not in names
+
+
+def test_generate_test_matrix_fallback_still_emits_grouped_output() -> None:
+    """Unknown-method traces should still emit grouped baseline matrix output."""
+    trace = TraceResult(
+        target=TargetSpec(path="/mystery", method=None),
+        summary=TraceSummary(confidence=0.4),
+    )
+    matrix = generate_test_matrix(trace)
+    assert matrix.groups
+    categories = [group.category for group in matrix.groups]
+    assert "happy_path" in categories
+    assert "edge_cases" in categories
