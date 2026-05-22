@@ -332,3 +332,74 @@ def test_trace_command_saves_flow_expansion_artifact(tmp_path: Path, monkeypatch
     assert result.exit_code == 0
     assert "trace_result" in saved_names
     assert "flow_expansion" in saved_names
+
+
+def test_run_flow_expansion_extracts_deterministic_flask_post_steps(tmp_path: Path) -> None:
+    """Flask POST handlers should emit grounded input/store/response baseline steps."""
+    repo_root = tmp_path / "flask-app"
+    (repo_root / "app").mkdir(parents=True)
+    (repo_root / "app" / "routes.py").write_text(
+        "\n".join(
+            [
+                "from flask import jsonify, request",
+                "items = []",
+                "",
+                "def add_item():",
+                "    data = request.get_json()",
+                "    item = {'name': data.get('name')}",
+                "    items.append(item)",
+                "    return jsonify(item), 201",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    endpoint = EndpointCandidate(
+        method="POST",
+        path="/items",
+        handler="add_item",
+        file="app/routes.py",
+        repo="flask",
+    )
+    repos = [RepoRef(name="flask", root=str(repo_root))]
+    result = run_flow_expansion(endpoint, repos, llm_client=_FakeFlowClient(payload='{"steps":[],"sinks":[]}'))
+
+    step_names = [step.name for step in result.steps]
+    assert "read JSON request body" in step_names
+    assert "items.append(item)" in step_names
+    assert "return JSON response" in step_names
+    assert all(step.file == "app/routes.py" for step in result.steps)
+
+
+def test_run_flow_expansion_extracts_deterministic_flask_get_lookup_and_error(tmp_path: Path) -> None:
+    """Flask GET item handlers should capture lookup and obvious error-path signals."""
+    repo_root = tmp_path / "flask-app"
+    (repo_root / "app").mkdir(parents=True)
+    (repo_root / "app" / "routes.py").write_text(
+        "\n".join(
+            [
+                "from flask import abort, jsonify",
+                "items = {1: {'id': 1}}",
+                "",
+                "def get_item(item_id):",
+                "    if item_id not in items:",
+                "        abort(404)",
+                "    return jsonify(items[item_id])",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    endpoint = EndpointCandidate(
+        method="GET",
+        path="/items/{item_id}",
+        handler="get_item",
+        file="app/routes.py",
+        repo="flask",
+    )
+    repos = [RepoRef(name="flask", root=str(repo_root))]
+    result = run_flow_expansion(endpoint, repos, llm_client=_FakeFlowClient(payload='{"steps":[],"sinks":[]}'))
+
+    step_names = [step.name for step in result.steps]
+    assert any(name.startswith("if ") for name in step_names)
+    assert "abort request" in step_names
+    assert "return JSON response" in step_names
+    assert any(name == "read items[item_id]" for name in step_names)

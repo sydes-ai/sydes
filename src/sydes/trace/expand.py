@@ -93,6 +93,18 @@ PYTHON_EXTERNAL_CALL_RE = re.compile(
     r"\b(requests|httpx)\.(get|post|put|delete|patch)\s*\(",
     re.IGNORECASE,
 )
+PYTHON_INPUT_CALL_RE = re.compile(
+    r"\brequest\.(get_json|json|form|args)\b",
+    re.IGNORECASE,
+)
+PYTHON_IN_MEMORY_WRITE_RE = re.compile(
+    r"\b([A-Za-z_][A-Za-z0-9_]*)\.(append|extend|insert|pop|remove|clear)\s*\(",
+    re.IGNORECASE,
+)
+PYTHON_STATUS_RETURN_RE = re.compile(
+    r"return\s+.+,\s*(\d{3}|status(?:_code)?\s*=\s*\d{3})\b",
+    re.IGNORECASE,
+)
 
 
 def _repo_root_map(repos: list[RepoRef]) -> dict[str, str]:
@@ -292,6 +304,17 @@ def _safe_annotation_text(arg: ast.arg, source: str) -> str | None:
     return annotation or None
 
 
+def _handler_snippet(source: str, node: ast.AST) -> str | None:
+    """Extract a compact, single-line snippet from a handler AST node."""
+    segment = ast.get_source_segment(source, node)
+    if not isinstance(segment, str):
+        return None
+    compact = " ".join(line.strip() for line in segment.splitlines() if line.strip())
+    if not compact:
+        return None
+    return compact[:220]
+
+
 def _deterministic_step_key(step: TraceStep) -> tuple[str, str, str, str, str]:
     """Build a stable key for deterministic/LLM step merge deduplication."""
     return (
@@ -359,7 +382,7 @@ def _extract_python_handler_baseline(
     steps: list[TraceStep] = []
     sinks: list[SinkCandidate] = []
 
-    def add_step(kind: str, name: str, label: str) -> None:
+    def add_step(kind: str, name: str, label: str, *, snippet: str | None = None) -> None:
         steps.append(
             TraceStep(
                 kind=kind,
@@ -369,7 +392,7 @@ def _extract_python_handler_baseline(
                 symbol=handler_name,
                 status="grounded",
                 confidence=0.95,
-                evidence=[EvidenceRef(file=file_path, symbol=handler_name, label=label)],
+                evidence=[EvidenceRef(file=file_path, symbol=handler_name, label=label, snippet=snippet)],
             )
         )
 
@@ -381,6 +404,7 @@ def _extract_python_handler_baseline(
                 "dependency",
                 f"Depends({depends_symbol})",
                 f"deterministic:dependency:{depends_symbol}",
+                snippet=f"Depends({depends_symbol})",
             )
 
     # Input model extraction for likely write handlers
@@ -399,6 +423,7 @@ def _extract_python_handler_baseline(
                 "input_model",
                 f"input model: {annotation}",
                 f"deterministic:input_model:{annotation}",
+                snippet=annotation,
             )
             break
 
@@ -416,11 +441,96 @@ def _extract_python_handler_baseline(
                     "transform",
                     f"create {call.func.id} object",
                     f"deterministic:object_creation:{call.func.id}",
+                    snippet=_handler_snippet(source, node),
                 )
 
     for node in ast.walk(handler_node):
         if isinstance(node, ast.Return):
             found_return = True
+            return_expr = _unparse_expression(node.value, source) if node.value is not None else ""
+            return_expr = " ".join(return_expr.split()) if return_expr else ""
+            snippet = _handler_snippet(source, node)
+            if return_expr:
+                if "jsonify(" in return_expr:
+                    add_step(
+                        "response",
+                        "return JSON response",
+                        "deterministic:response:jsonify",
+                        snippet=snippet,
+                    )
+                elif PYTHON_STATUS_RETURN_RE.search(f"return {return_expr}"):
+                    add_step(
+                        "response",
+                        "return response with status code",
+                        "deterministic:response:status",
+                        snippet=snippet,
+                    )
+                elif return_expr.startswith("{") or return_expr.startswith("["):
+                    add_step(
+                        "response",
+                        "return response body",
+                        "deterministic:response:literal",
+                        snippet=snippet,
+                    )
+            continue
+        if isinstance(node, ast.Raise):
+            add_step("error", "raise error", "deterministic:error:raise", snippet=_handler_snippet(source, node))
+            continue
+        if isinstance(node, ast.If):
+            condition = _unparse_expression(node.test, source)
+            if condition:
+                add_step(
+                    "validation",
+                    f"if {condition}",
+                    "deterministic:branch:if",
+                    snippet=_handler_snippet(source, node),
+                )
+            continue
+        if isinstance(node, ast.Delete):
+            for target in node.targets:
+                target_expr = _unparse_expression(target, source)
+                if target_expr:
+                    add_step(
+                        "store_write",
+                        f"delete {target_expr}",
+                        f"deterministic:store_write:{target_expr}",
+                        snippet=_handler_snippet(source, node),
+                    )
+            continue
+        if isinstance(node, ast.Assign):
+            assign_snippet = _handler_snippet(source, node)
+            value_expr = _unparse_expression(node.value, source)
+            if value_expr:
+                value_expr = " ".join(value_expr.split())
+            input_match = PYTHON_INPUT_CALL_RE.search(value_expr or "")
+            if input_match:
+                input_kind = input_match.group(1).lower()
+                readable = "JSON request body" if input_kind == "get_json" else f"request {input_kind}"
+                add_step(
+                    "input",
+                    f"read {readable}",
+                    f"deterministic:input:{input_kind}",
+                    snippet=assign_snippet,
+                )
+            for target in node.targets:
+                target_expr = _unparse_expression(target, source)
+                if isinstance(target, ast.Subscript) and target_expr:
+                    add_step(
+                        "store_write",
+                        f"assign {target_expr}",
+                        f"deterministic:store_write:{target_expr}",
+                        snippet=assign_snippet,
+                    )
+            continue
+        if isinstance(node, ast.Subscript):
+            sub_expr = _unparse_expression(node, source)
+            if sub_expr:
+                add_step(
+                    "store_read",
+                    f"read {sub_expr}",
+                    f"deterministic:store_read:{sub_expr}",
+                    snippet=_handler_snippet(source, node),
+                )
             continue
         if not isinstance(node, ast.Call):
             continue
@@ -433,7 +543,12 @@ def _extract_python_handler_baseline(
         read_match = PYTHON_DB_READ_RE.search(expression)
         if read_match:
             entity = read_match.group(1)
-            add_step("db_read", expression, f"deterministic:db_read:{expression}")
+            add_step(
+                "db_read",
+                expression,
+                f"deterministic:db_read:{expression}",
+                snippet=_handler_snippet(source, node),
+            )
             sinks.append(
                 SinkCandidate(
                     kind="database",
@@ -458,7 +573,12 @@ def _extract_python_handler_baseline(
         write_match = PYTHON_DB_WRITE_RE.search(expression)
         if write_match:
             action = write_match.group(1).lower()
-            add_step("db_write", expression, f"deterministic:db_write:{expression}")
+            add_step(
+                "db_write",
+                expression,
+                f"deterministic:db_write:{expression}",
+                snippet=_handler_snippet(source, node),
+            )
             sinks.append(
                 SinkCandidate(
                     kind="database",
@@ -480,12 +600,22 @@ def _extract_python_handler_baseline(
             )
             found_db_write = True
             if action == "refresh":
-                add_step("transform", "return refreshed entity", "deterministic:return_refreshed_entity")
+                add_step(
+                    "transform",
+                    "return refreshed entity",
+                    "deterministic:return_refreshed_entity",
+                    snippet=_handler_snippet(source, node),
+                )
 
         external_match = PYTHON_EXTERNAL_CALL_RE.search(expression)
         if external_match:
             method_label = external_match.group(2).upper()
-            add_step("external_api_call", expression, f"deterministic:external_call:{method_label}")
+            add_step(
+                "external_api_call",
+                expression,
+                f"deterministic:external_call:{method_label}",
+                snippet=_handler_snippet(source, node),
+            )
             sinks.append(
                 SinkCandidate(
                     kind="external_api",
@@ -507,8 +637,34 @@ def _extract_python_handler_baseline(
             )
             found_external = True
 
+        if expression.startswith("abort("):
+            add_step("error", "abort request", "deterministic:error:abort", snippet=_handler_snippet(source, node))
+
+        input_match = PYTHON_INPUT_CALL_RE.search(expression)
+        if input_match and not expression.startswith("Depends("):
+            input_kind = input_match.group(1).lower()
+            readable = "JSON request body" if input_kind == "get_json" else f"request {input_kind}"
+            add_step(
+                "input",
+                f"read {readable}",
+                f"deterministic:input:{input_kind}",
+                snippet=_handler_snippet(source, node),
+            )
+
+        memory_write = PYTHON_IN_MEMORY_WRITE_RE.search(expression)
+        if memory_write:
+            target = memory_write.group(1)
+            op = memory_write.group(2)
+            add_step(
+                "store_write",
+                expression,
+                f"deterministic:store_write:{target}.{op}",
+                snippet=_handler_snippet(source, node),
+            )
+            notes.append(f"Detected in-memory store mutation in handler: {target}.{op}(...)")
+
     if found_return:
-        add_step("transform", "return response", "deterministic:return_response")
+        add_step("transform", "return response", "deterministic:return_response", snippet="return ...")
 
     if steps:
         notes.append(
