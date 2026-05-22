@@ -37,6 +37,7 @@ from sydes.llm.client import (
     load_llm_settings_from_env,
 )
 from sydes.llm.prompts import build_endpoint_discovery_prompt
+from sydes.discover.deterministic_routes import extract_deterministic_routes
 
 
 def _strip_markdown_fences(text: str) -> str:
@@ -614,6 +615,8 @@ def discover_endpoints(
         files_examined += sum(1 for item in reads if not item.skipped and item.snippet is not None)
         files_sent_to_llm += len(llm_candidates)
 
+        deterministic_routes, deterministic_frameworks = extract_deterministic_routes(reads)
+
         discovery = run_llm_endpoint_discovery(
             llm_candidates,
             llm_client=llm_client,
@@ -631,6 +634,10 @@ def discover_endpoints(
             f"prompt_chars={discovery.prompt_chars}, "
             f"candidate_roles: {role_counts_text}"
         )
+        notes.append(
+            f"{repo.name}: deterministic_routes_found={len(deterministic_routes)}, "
+            f"deterministic_frameworks={','.join(sorted(deterministic_frameworks)) if deterministic_frameworks else 'none'}"
+        )
         selected_files_text = ", ".join(
             f"{item.relative_path}({item.role or 'unknown'})" for item in llm_candidates
         )
@@ -640,7 +647,9 @@ def discover_endpoints(
             notes.append(
                 f"{repo.name}: selected_files: none (test/docs-only candidates were not sent for route declaration discovery)"
             )
+        endpoints.extend(deterministic_routes)
         endpoints.extend(discovery.endpoints)
+        notes.append(f"{repo.name}: merged_llm_routes={len(discovery.endpoints)}")
         notes.extend([f"{repo.name}: {note}" for note in discovery.notes])
 
     deduped = _dedupe_endpoints(endpoints)

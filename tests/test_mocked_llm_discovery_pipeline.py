@@ -211,7 +211,7 @@ def test_trace_command_resolves_target_with_mocked_llm(tmp_path: Path, monkeypat
 def test_discovery_fallback_when_mocked_client_unavailable(
     tmp_path: Path, monkeypatch
 ) -> None:
-    """Discovery should gracefully fallback when client creation fails."""
+    """Discovery should keep deterministic routes even when LLM client creation fails."""
     repo_root = tmp_path / "api"
     (repo_root / "src").mkdir(parents=True)
     (repo_root / "src" / "routes.py").write_text("router.get('/status', status)\n")
@@ -223,5 +223,8 @@ def test_discovery_fallback_when_mocked_client_unavailable(
 
     result = discover_endpoints([RepoRef(name="api", root=str(repo_root))])
 
-    assert result.routes == []
+    assert len(result.routes) == 1
+    assert result.routes[0].method == "GET"
+    assert result.routes[0].path == "/status"
+    assert result.routes[0].file == "src/routes.py"
     assert any("LLM discovery unavailable" in note for note in result.notes)

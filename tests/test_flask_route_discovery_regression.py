@@ -9,8 +9,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from sydes.core.models import CandidateFileRead, ReadFileSnippet
-from sydes.discover.endpoints import run_llm_endpoint_discovery
+from sydes.core.models import CandidateFileRead, ReadFileSnippet, RepoRef
+from sydes.discover.endpoints import discover_endpoints, run_llm_endpoint_discovery
 from sydes.llm.client import LLMRequest, LLMResponse
 
 
@@ -147,3 +147,25 @@ def test_flask_test_client_calls_are_not_route_declarations_regression(tmp_path:
     paths = {item.path for item in result.endpoints}
     assert "/items/0" not in paths
     assert "/items/1" not in paths
+
+
+def test_flask_discovery_pipeline_prefers_source_declarations_and_drops_test_calls(tmp_path: Path) -> None:
+    """End-to-end discovery should include source declarations and exclude test invocations."""
+    repo_root = tmp_path / "flask_sample_app"
+    _write_flask_sample_fixture(repo_root)
+    # Intentionally noisy LLM output: deterministic extraction should still ground valid declarations.
+    llm_payload = {"endpoints": [{"method": "GET", "path": "/items/0", "file": "tests/test_app.py", "repo": "flask_sample_app"}]}
+    result = discover_endpoints(
+        [RepoRef(name="flask_sample_app", root=str(repo_root))],
+        llm_client=_FakeDiscoveryClient(llm_payload),
+        read_top_n=20,
+        rank_top_k=100,
+    )
+
+    route_keys = {(item.method, item.path, item.file) for item in result.routes}
+    assert ("GET", "/", "app/routes.py") in route_keys
+    assert ("GET", "/items", "app/routes.py") in route_keys
+    assert ("GET", "/items/{item_id}", "app/routes.py") in route_keys
+    assert ("POST", "/items", "app/routes.py") in route_keys
+    assert all(item.file != "tests/test_app.py" for item in result.routes)
+    assert all(item.path not in {"/items/0", "/items/1"} for item in result.routes)

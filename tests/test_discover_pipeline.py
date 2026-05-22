@@ -24,7 +24,7 @@ class _FakeEndpointClient:
 
 
 def test_discover_endpoints_fallback_without_llm(tmp_path: Path) -> None:
-    """Pipeline should degrade gracefully when no LLM client is configured."""
+    """Pipeline should still return deterministic declarations when LLM is unavailable."""
     repo_root = tmp_path / "api"
     repo_root.mkdir()
     (repo_root / "src").mkdir()
@@ -38,7 +38,10 @@ def test_discover_endpoints_fallback_without_llm(tmp_path: Path) -> None:
     assert result.repos[0].name == "api"
     assert result.candidate_files >= 1
     assert result.files_examined >= 1
-    assert result.routes == []
+    assert len(result.routes) == 1
+    assert result.routes[0].method == "POST"
+    assert result.routes[0].path == "/checkout"
+    assert result.routes[0].file == "src/routes.py"
     assert any("LLM discovery unavailable" in note for note in result.notes)
     assert any("candidate_roles:" in note for note in result.notes)
 
