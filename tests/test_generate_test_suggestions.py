@@ -108,3 +108,46 @@ def test_generate_test_suggestions_names_are_stable_and_non_empty() -> None:
     assert first_names == second_names
     assert first_names
     assert all(name.strip() for name in first_names)
+
+
+def test_generate_test_suggestions_post_includes_request_body_when_inferred() -> None:
+    """Write-route suggestions should carry request_body inputs when flow evidence exposes fields."""
+    trace = TraceResult(
+        target=TargetSpec(path="/items", method="POST"),
+        nodes=[
+            GraphNode(id="endpoint", type="api_endpoint", name="/items"),
+            GraphNode(
+                id="n1",
+                type="internal_step",
+                name="read JSON request body",
+                metadata={"step_kind": "input"},
+                evidence=[
+                    {
+                        "file": "app/routes.py",
+                        "symbol": "add_item",
+                        "snippet": 'data = request.get_json(); item = {"name": data["name"], "price": data.get("price")}',
+                    }
+                ],
+            ),
+        ],
+        flows=[
+            Flow(
+                id="flow:items",
+                name="items",
+                entry_node="endpoint",
+                steps=[
+                    FlowStep(node_id="endpoint", kind="endpoint"),
+                    FlowStep(node_id="n1", kind="input"),
+                ],
+            )
+        ],
+        summary=TraceSummary(key_flow_id="flow:items", confidence=0.8),
+    )
+    suggestions = generate_test_suggestions(trace)
+    body_hint = next(
+        input_hint.value_hint
+        for suggestion in suggestions
+        for input_hint in suggestion.inputs
+        if input_hint.kind == "request_body"
+    )
+    assert body_hint["name"] == "string"

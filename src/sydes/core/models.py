@@ -1,5 +1,7 @@
 """Soft data models for graph-backed API tracing output in Sydes V1."""
 
+from typing import Any
+
 from pydantic import BaseModel, Field
 
 # Common V1 labels for low-friction interoperability across modules.
@@ -225,7 +227,7 @@ class TestInputHint(BaseModel):
 
     kind: str
     name: str | None = None
-    value_hint: str | None = None
+    value_hint: Any | None = None
     required: bool | None = None
 
 
