@@ -21,7 +21,7 @@ class _FakeDiscoveryClient:
         self._payload = payload
 
     def generate(self, request: LLMRequest) -> LLMResponse:
-        assert "HTTP API endpoints" in request.prompt
+        assert "HTTP API route declarations" in request.prompt
         return LLMResponse(text=json.dumps(self._payload))
 
 

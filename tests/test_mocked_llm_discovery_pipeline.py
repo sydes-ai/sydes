@@ -35,7 +35,7 @@ class _FakeClient:
 
     def generate(self, request: LLMRequest) -> LLMResponse:
         self.call_count += 1
-        assert "Task: extract likely HTTP API endpoints" in request.prompt
+        assert "Task: extract likely HTTP API route declarations" in request.prompt
         return LLMResponse(text=self.payload)
 
 

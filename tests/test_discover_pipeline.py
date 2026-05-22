@@ -19,7 +19,7 @@ class _FakeEndpointClient:
     payload: str
 
     def generate(self, request: LLMRequest) -> LLMResponse:
-        assert "Task: extract likely HTTP API endpoints" in request.prompt
+        assert "Task: extract likely HTTP API route declarations" in request.prompt
         return LLMResponse(text=self.payload)
 
 

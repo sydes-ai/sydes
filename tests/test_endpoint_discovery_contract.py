@@ -21,6 +21,7 @@ def test_build_endpoint_discovery_prompt_encodes_rules_and_grounding() -> None:
         CandidateFileRead(
             repo="api",
             relative_path="src/routes.py",
+            role="source_route_candidate",
             snippet=ReadFileSnippet(
                 repo="api",
                 relative_path="src/routes.py",
@@ -38,10 +39,17 @@ def test_build_endpoint_discovery_prompt_encodes_rules_and_grounding() -> None:
         method_hint="POST",
     )
 
-    assert "Task: extract likely HTTP API endpoints" in prompt
+    assert "Task: extract likely HTTP API route declarations" in prompt
+    assert "Do NOT return HTTP requests" in prompt
+    assert "test client calls" in prompt
+    assert "source_route_candidate files may contain declarations" in prompt
+    assert "test_usage_candidate files may show route invocations" in prompt
+    assert "client.get(\"/items/0\") -> do not report GET /items/0" in prompt
+    assert "@app.route(\"/items\", methods=[\"POST\"])" in prompt
     assert "use null" in prompt
     assert "Return JSON only" in prompt
     assert '"target_hint":"/checkout"' in prompt
+    assert '"role":"source_route_candidate"' in prompt
     assert "src/routes.py" in prompt
 
 

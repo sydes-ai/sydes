@@ -46,20 +46,36 @@ def build_endpoint_discovery_prompt(
         "candidates": [_serialize_candidate(candidate) for candidate in candidates],
     }
     return (
-        "Task: extract likely HTTP API endpoints from provided files only.\n"
+        "Task: extract likely HTTP API route declarations from provided files only.\n"
         "Rules:\n"
-        "- Only report endpoints grounded in snippets.\n"
+        "- Return only API route declarations or framework route registrations.\n"
+        "- Do NOT return HTTP requests, test client calls, outbound client calls, docs/examples, curl commands, or OpenAPI examples.\n"
+        "- source_route_candidate files may contain declarations.\n"
+        "- test_usage_candidate files may show route invocations; do not emit declarations from them.\n"
+        "- docs_candidate files are documentation/examples; do not emit declarations from them.\n"
+        "- Only report endpoints grounded in declaration/registration snippets.\n"
         "- Do not invent unsupported routes.\n"
         "- If HTTP method/path/handler is unclear, use null.\n"
         "- If path is only '/' with weak evidence, return nothing for that candidate.\n"
         "- Prefer extracting handler symbol/function name when clearly visible.\n"
         "- Keep repo/file grounding and evidence labels.\n"
         "- Prefer uncertainty over guessing when ambiguous.\n\n"
+        "Declaration examples (allowed):\n"
+        "- Flask: @app.route(\"/items\", methods=[\"POST\"]), @bp.route(\"/items/<int:item_id>\", methods=[\"GET\"]), @app.get(\"/items\")\n"
+        "- FastAPI: @app.get(\"/users/\"), @router.post(\"/items\")\n"
+        "- Express: app.get(\"/items\", handler), router.post(\"/items\", handler)\n"
+        "- Spring: @GetMapping(\"/books\"), @PostMapping(\"/users\"), @RequestMapping(\"/db\")\n\n"
+        "Invocation examples (disallowed):\n"
+        "- client.get(\"/items/0\") -> do not report GET /items/0\n"
+        "- client.post(\"/items\", json={...}) -> do not report POST /items from this line\n"
+        "- test_client.get(\"/items\"), requests.get(\"/items\"), httpx.post(\"/items\")\n"
+        "- request(app).get(\"/items\"), supertest(app).post(\"/items\"), fetch(\"/items\"), axios.get(\"/items\")\n\n"
         "Return JSON only.\n"
         "Use either:\n"
         '{"endpoints":[{"method":null,"path":null,"handler":null,"file":"","repo":"","service":null,'
-        '"evidence":[{"file":"","symbol":null,"label":null}],"confidence":null,"status":null}],"notes":[]}\n'
+        '"evidence":[{"file":"","symbol":null,"label":"declaration line"}],"confidence":null,"status":null}],"notes":[]}\n'
         "or a top-level list of endpoint objects.\n\n"
+        "When possible, include declaration evidence such as decorator/registration line and handler name.\n\n"
         "Input:\n"
         f"{json.dumps(payload, separators=(',', ':'))}\n"
     )
