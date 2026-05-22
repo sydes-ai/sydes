@@ -22,6 +22,11 @@ from sydes.ingest.ranking import rank_candidate_files
 from sydes.ingest.readers import read_ranked_candidate_files_for_discovery
 from sydes.ingest.repos import validate_repo_roots
 from sydes.ingest.sense import sense_repo
+from sydes.ingest.file_roles import (
+    FILE_ROLE_DOCS_CANDIDATE,
+    FILE_ROLE_SOURCE_ROUTE_CANDIDATE,
+    FILE_ROLE_TEST_USAGE_CANDIDATE,
+)
 from sydes.llm.client import LLMClient, LLMRequest
 from sydes.llm.client import (
     classify_llm_error,
@@ -526,7 +531,7 @@ def discover_endpoints(
             ranked,
             top_n=read_top_n,
         )
-        llm_candidates = reads[:files_to_llm]
+        llm_candidates = _select_route_discovery_llm_candidates(reads, files_to_llm)
         role_counts = Counter(item.role or "unknown" for item in llm_candidates)
         role_counts_text = ", ".join(
             f"{role}={count}" for role, count in sorted(role_counts.items())
@@ -553,6 +558,15 @@ def discover_endpoints(
             f"prompt_chars={discovery.prompt_chars}, "
             f"candidate_roles: {role_counts_text}"
         )
+        selected_files_text = ", ".join(
+            f"{item.relative_path}({item.role or 'unknown'})" for item in llm_candidates
+        )
+        if selected_files_text:
+            notes.append(f"{repo.name}: selected_files: {selected_files_text}")
+        elif any((item.role or "unknown") == FILE_ROLE_TEST_USAGE_CANDIDATE for item in reads):
+            notes.append(
+                f"{repo.name}: selected_files: none (test/docs-only candidates were not sent for route declaration discovery)"
+            )
         endpoints.extend(discovery.endpoints)
         notes.extend([f"{repo.name}: {note}" for note in discovery.notes])
 
@@ -578,3 +592,31 @@ def discover_endpoints(
         notes=notes,
         confidence_summary=confidence_summary,
     )
+
+
+def _select_route_discovery_llm_candidates(
+    reads: list[CandidateFileRead],
+    files_to_llm: int,
+) -> list[CandidateFileRead]:
+    """Select role-aware candidates for route declaration discovery prompts."""
+    if files_to_llm <= 0:
+        return []
+
+    def _role(item: CandidateFileRead) -> str:
+        return item.role or "unknown"
+
+    source = [item for item in reads if _role(item) == FILE_ROLE_SOURCE_ROUTE_CANDIDATE]
+    unknown = [item for item in reads if _role(item) == "unknown"]
+    test_or_docs = [
+        item
+        for item in reads
+        if _role(item) in {FILE_ROLE_TEST_USAGE_CANDIDATE, FILE_ROLE_DOCS_CANDIDATE}
+    ]
+
+    if source:
+        return (source + unknown)[:files_to_llm]
+    if unknown:
+        return unknown[:files_to_llm]
+    if test_or_docs:
+        return []
+    return reads[:files_to_llm]

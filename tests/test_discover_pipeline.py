@@ -4,7 +4,11 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from sydes.core.models import RepoRef
-from sydes.discover.endpoints import discover_endpoints, run_llm_endpoint_discovery
+from sydes.discover.endpoints import (
+    _select_route_discovery_llm_candidates,
+    discover_endpoints,
+    run_llm_endpoint_discovery,
+)
 from sydes.llm.client import LLMRequest, LLMResponse
 
 
@@ -235,3 +239,33 @@ def test_run_llm_endpoint_discovery_keeps_strong_evidence_partial_candidate() ->
     assert len(result.endpoints) == 1
     assert result.endpoints[0].path is None
     assert result.endpoints[0].handler is None
+
+
+def test_select_route_discovery_candidates_excludes_tests_when_source_exists() -> None:
+    """Route-declaration selection should avoid test/docs when source candidates exist."""
+    from sydes.core.models import CandidateFileRead
+
+    reads = [
+        CandidateFileRead(repo="api", relative_path="app/routes.py", role="source_route_candidate"),
+        CandidateFileRead(repo="api", relative_path="main.py", role="source_route_candidate"),
+        CandidateFileRead(repo="api", relative_path="tests/test_app.py", role="test_usage_candidate"),
+        CandidateFileRead(repo="api", relative_path="README.md", role="docs_candidate"),
+    ]
+    selected = _select_route_discovery_llm_candidates(reads, files_to_llm=3)
+    selected_paths = [item.relative_path for item in selected]
+    assert "app/routes.py" in selected_paths
+    assert "main.py" in selected_paths
+    assert "tests/test_app.py" not in selected_paths
+    assert "README.md" not in selected_paths
+
+
+def test_select_route_discovery_candidates_returns_none_for_test_docs_only() -> None:
+    """Test/docs-only repositories should not send declaration candidates in this phase."""
+    from sydes.core.models import CandidateFileRead
+
+    reads = [
+        CandidateFileRead(repo="api", relative_path="tests/test_app.py", role="test_usage_candidate"),
+        CandidateFileRead(repo="api", relative_path="README.md", role="docs_candidate"),
+    ]
+    selected = _select_route_discovery_llm_candidates(reads, files_to_llm=5)
+    assert selected == []
