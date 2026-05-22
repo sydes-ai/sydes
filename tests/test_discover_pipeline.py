@@ -3,6 +3,8 @@
 from dataclasses import dataclass
 from pathlib import Path
 
+import pytest
+
 from sydes.core.models import EndpointCandidate, RepoRef
 from sydes.discover.endpoints import (
     _select_route_discovery_llm_candidates,
@@ -12,6 +14,7 @@ from sydes.discover.endpoints import (
     run_llm_endpoint_discovery,
 )
 from sydes.llm.client import LLMRequest, LLMResponse
+from sydes.llm.client import LLMClientError
 
 
 @dataclass
@@ -25,6 +28,16 @@ class _FakeEndpointClient:
         return LLMResponse(text=self.payload)
 
 
+class _FailingEndpointClient:
+    """Fake client that fails to simulate strict-mode parse/runtime errors."""
+
+    def __init__(self, message: str) -> None:
+        self.message = message
+
+    def generate(self, request: LLMRequest) -> LLMResponse:
+        raise LLMClientError(self.message)
+
+
 def test_discover_endpoints_fallback_without_llm(tmp_path: Path) -> None:
     """Pipeline should still return deterministic declarations when LLM is unavailable."""
     repo_root = tmp_path / "api"
@@ -35,7 +48,10 @@ def test_discover_endpoints_fallback_without_llm(tmp_path: Path) -> None:
         encoding="utf-8",
     )
 
-    result = discover_endpoints([RepoRef(name="api", root=str(repo_root))])
+    result = discover_endpoints(
+        [RepoRef(name="api", root=str(repo_root))],
+        llm_client=_FailingEndpointClient("mock unavailable"),
+    )
 
     assert result.repos[0].name == "api"
     assert result.candidate_files >= 1
@@ -44,8 +60,48 @@ def test_discover_endpoints_fallback_without_llm(tmp_path: Path) -> None:
     assert result.routes[0].method == "POST"
     assert result.routes[0].path == "/checkout"
     assert result.routes[0].file == "src/routes.py"
-    assert any("LLM discovery unavailable" in note for note in result.notes)
     assert any("candidate_roles:" in note for note in result.notes)
+
+
+def test_discover_endpoints_strict_keeps_deterministic_routes_when_llm_fails(tmp_path: Path) -> None:
+    """Strict discovery should still succeed with deterministic routes when LLM parsing/runtime fails."""
+    repo_root = tmp_path / "flask"
+    repo_root.mkdir()
+    (repo_root / "app").mkdir()
+    (repo_root / "app" / "routes.py").write_text(
+        "\n".join(
+            [
+                "@app.route('/items', methods=['GET'])",
+                "def get_items():",
+                "    return []",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    result = discover_endpoints(
+        [RepoRef(name="flask", root=str(repo_root))],
+        llm_client=_FailingEndpointClient("model output parse failure: malformed JSON"),
+        strict_llm=True,
+    )
+
+    assert result.routes
+    assert any(item.method == "GET" and item.path == "/items" for item in result.routes)
+    assert any("LLM discovery failed; using deterministic routes only" in note for note in result.notes)
+
+
+def test_discover_endpoints_strict_raises_when_no_deterministic_routes_and_llm_fails(tmp_path: Path) -> None:
+    """Strict discovery should fail when both deterministic and LLM extraction are unavailable."""
+    repo_root = tmp_path / "empty"
+    repo_root.mkdir()
+    (repo_root / "README.md").write_text("# no routes here\n", encoding="utf-8")
+
+    with pytest.raises(LLMClientError, match="model output parse failure"):
+        discover_endpoints(
+            [RepoRef(name="empty", root=str(repo_root))],
+            llm_client=_FailingEndpointClient("model output parse failure: malformed JSON"),
+            strict_llm=True,
+        )
 
 
 def test_run_llm_endpoint_discovery_normalizes_and_dedupes() -> None:

@@ -48,11 +48,33 @@ def test_load_llm_settings_from_env_defaults(monkeypatch) -> None:
     settings = load_llm_settings_from_env()
 
     assert settings.provider == "ollama"
-    assert settings.model == "llama3.1:8b"
+    assert settings.model == "llama3.1:latest"
     assert settings.base_url == "http://localhost:11434"
     assert settings.timeout_seconds == 90.0
     assert settings.temperature == 0.0
     assert settings.keep_alive == "10m"
+
+
+def test_load_llm_settings_ignores_model_env_without_provider(monkeypatch) -> None:
+    """Model-only env should not force ollama+hosted-model mismatches."""
+    monkeypatch.delenv("SYDES_LLM_PROVIDER", raising=False)
+    monkeypatch.setenv("SYDES_LLM_MODEL", "gpt-4.1-mini")
+
+    settings = load_llm_settings_from_env()
+
+    assert settings.provider == "ollama"
+    assert settings.model == "llama3.1:latest"
+
+
+def test_load_llm_settings_uses_provider_prefixed_model_env_without_provider(monkeypatch) -> None:
+    """Provider-prefixed SYDES_LLM_MODEL should be honored when provider env is unset."""
+    monkeypatch.delenv("SYDES_LLM_PROVIDER", raising=False)
+    monkeypatch.setenv("SYDES_LLM_MODEL", "openai:gpt-4.1-mini")
+
+    settings = load_llm_settings_from_env()
+
+    assert settings.provider == "openai"
+    assert settings.model == "gpt-4.1-mini"
 
 
 def test_create_default_llm_client_uses_env(monkeypatch) -> None:

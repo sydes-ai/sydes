@@ -14,7 +14,7 @@ from openai import OpenAI
 from openai import OpenAIError
 
 DEFAULT_PROVIDER = "ollama"
-DEFAULT_MODEL = "llama3.1:8b"
+DEFAULT_MODEL = "llama3.1:latest"
 DEFAULT_OLLAMA_BASE_URL = "http://localhost:11434"
 DEFAULT_OPENAI_BASE_URL = "https://api.openai.com/v1"
 DEFAULT_ANTHROPIC_BASE_URL = "https://api.anthropic.com/v1"
@@ -325,8 +325,22 @@ class AnthropicClient:
 
 def load_llm_settings_from_env() -> LLMSettings:
     """Load minimal LLM settings from environment variables."""
-    provider = os.getenv("SYDES_LLM_PROVIDER", DEFAULT_PROVIDER).strip().lower() or DEFAULT_PROVIDER
-    model = os.getenv("SYDES_LLM_MODEL", DEFAULT_MODEL).strip() or DEFAULT_MODEL
+    provider_env = os.getenv("SYDES_LLM_PROVIDER", "").strip().lower()
+    model_env = os.getenv("SYDES_LLM_MODEL", "").strip()
+    provider = provider_env or DEFAULT_PROVIDER
+
+    model = DEFAULT_MODEL
+    if provider_env:
+        model = model_env or DEFAULT_MODEL
+    elif model_env:
+        # Prevent accidental provider/model mismatch such as ollama + gpt-* when provider is unset.
+        if any(model_env.lower().startswith(f"{item}:") for item in SUPPORTED_PROVIDERS):
+            guessed_provider, guessed_model = parse_model_spec(model_env)
+            provider = guessed_provider
+            model = guessed_model
+        else:
+            model = DEFAULT_MODEL
+
     base_url = os.getenv("SYDES_LLM_BASE_URL", DEFAULT_OLLAMA_BASE_URL).strip() or DEFAULT_OLLAMA_BASE_URL
     timeout_raw = os.getenv("SYDES_LLM_TIMEOUT_SECONDS", "90").strip()
     temperature_raw = os.getenv("SYDES_LLM_TEMPERATURE", "0").strip()

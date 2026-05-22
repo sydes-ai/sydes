@@ -802,12 +802,23 @@ def discover_endpoints(
 
         deterministic_routes, deterministic_frameworks = extract_deterministic_routes(reads)
 
-        discovery = run_llm_endpoint_discovery(
-            llm_candidates,
-            llm_client=llm_client,
-            model_spec=model_spec,
-            strict_llm=strict_llm,
-        )
+        try:
+            discovery = run_llm_endpoint_discovery(
+                llm_candidates,
+                llm_client=llm_client,
+                model_spec=model_spec,
+                strict_llm=strict_llm,
+            )
+        except LLMClientError as exc:
+            if deterministic_routes:
+                reason = str(exc)
+                discovery = EndpointDiscoveryResult(
+                    endpoints=[],
+                    notes=[f"LLM discovery failed; using deterministic routes only: {reason}"],
+                    files_sent_to_llm=len(llm_candidates),
+                )
+            else:
+                raise
         total_prompt_chars += discovery.prompt_chars
         truncated_files += discovery.truncated_files
         if timeout_seconds is None and discovery.timeout_seconds is not None:
