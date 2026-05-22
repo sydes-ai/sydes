@@ -145,6 +145,18 @@ def _normalize_path(path: str | None) -> str | None:
     return normalized
 
 
+def _normalize_path_identity(path: str | None) -> str | None:
+    """Normalize path for route identity/dedupe across framework syntax variants."""
+    normalized = _normalize_path(path)
+    if normalized is None:
+        return None
+    # Flask-style params: <int:item_id>, <item_id>, <string:name> -> {item_id}, {name}
+    normalized = re.sub(r"<(?:[^:>]+:)?([^>]+)>", r"{\1}", normalized)
+    # Express-style params: /items/:id -> /items/{id}
+    normalized = re.sub(r":([A-Za-z_]\w*)", r"{\1}", normalized)
+    return _normalize_path(normalized)
+
+
 def _normalize_handler(handler: str | None) -> str | None:
     """Normalize handler symbol/name values when present."""
     if handler is None:
@@ -394,8 +406,8 @@ def _normalize_endpoints(
 
 def _endpoint_dedupe_key(endpoint: EndpointCandidate) -> tuple[str, ...]:
     """Build a dedupe key that stays safe for partial endpoints."""
-    method = endpoint.method or ""
-    path = endpoint.path or ""
+    method = _normalize_method(endpoint.method) or ""
+    path = _normalize_path_identity(endpoint.path) or ""
     handler = endpoint.handler or ""
     if method or path or handler:
         return (endpoint.repo, endpoint.file, method, path, handler)
@@ -436,6 +448,106 @@ def _dedupe_endpoints(endpoints: list[EndpointCandidate]) -> list[EndpointCandid
             status=existing.status or endpoint.status,
         )
     return list(deduped.values())
+
+
+def _route_identity_key(endpoint: EndpointCandidate) -> tuple[str, str, str]:
+    """Identity key for safe route merge across deterministic + LLM outputs."""
+    return (
+        endpoint.repo.strip(),
+        _normalize_method(endpoint.method) or "",
+        _normalize_path_identity(endpoint.path) or "",
+    )
+
+
+def _endpoint_priority(endpoint: EndpointCandidate) -> tuple[int, int, float]:
+    """Sort key where lower means preferred canonical endpoint."""
+    role = classify_candidate_file_role(endpoint.file)
+    deterministic_rank = 0 if endpoint.status == "deterministic" else 1
+    role_rank = 0 if role == FILE_ROLE_SOURCE_ROUTE_CANDIDATE else (1 if role == "unknown" else 2)
+    confidence = endpoint.confidence if endpoint.confidence is not None else -1.0
+    return (deterministic_rank, role_rank, -confidence)
+
+
+def _dedupe_evidence(items: list[EvidenceRef]) -> list[EvidenceRef]:
+    """Dedupe evidence refs while preserving order."""
+    seen: set[tuple[str, str, str, str]] = set()
+    output: list[EvidenceRef] = []
+    for item in items:
+        key = (
+            item.file,
+            item.symbol or "",
+            item.label or "",
+            item.snippet or "",
+        )
+        if key in seen:
+            continue
+        seen.add(key)
+        output.append(item)
+    return output
+
+
+def merge_route_candidates(
+    deterministic_routes: list[EndpointCandidate],
+    llm_routes: list[EndpointCandidate],
+) -> tuple[list[EndpointCandidate], list[str]]:
+    """Merge deterministic + LLM route candidates with safe source precedence."""
+    by_identity: dict[tuple[str, str, str], EndpointCandidate] = {}
+    notes: list[str] = []
+
+    for endpoint in deterministic_routes + llm_routes:
+        identity = _route_identity_key(endpoint)
+        if not identity[1] or not identity[2]:
+            # Preserve legacy behavior for unresolved partial endpoints.
+            key = (
+                endpoint.repo,
+                endpoint.file,
+                endpoint.method or "",
+                endpoint.path or "",
+                endpoint.handler or "",
+            )
+            identity = (key[0], key[2], key[3])
+
+        existing = by_identity.get(identity)
+        if existing is None:
+            merged = endpoint.model_copy(deep=True)
+            merged.method = _normalize_method(merged.method)
+            merged.path = _normalize_path_identity(merged.path)
+            by_identity[identity] = merged
+            continue
+
+        winner, loser = existing, endpoint
+        if _endpoint_priority(endpoint) < _endpoint_priority(existing):
+            winner, loser = endpoint, existing
+
+        merged_evidence = _dedupe_evidence((winner.evidence or []) + (loser.evidence or []))
+        merged = winner.model_copy(deep=True)
+        merged.method = _normalize_method(merged.method)
+        merged.path = _normalize_path_identity(merged.path)
+        merged.evidence = merged_evidence
+        if merged.service is None and loser.service is not None:
+            merged.service = loser.service
+        if merged.confidence is None and loser.confidence is not None:
+            merged.confidence = loser.confidence
+        if merged.status is None and loser.status is not None:
+            merged.status = loser.status
+        by_identity[identity] = merged
+
+        if (
+            existing.handler
+            and endpoint.handler
+            and existing.handler != endpoint.handler
+            and merged.handler == winner.handler
+        ):
+            method = merged.method or "?"
+            path = merged.path or "?"
+            notes.append(
+                f"Merged route {method} {path}: kept {winner.status or 'preferred'} handler "
+                f"{winner.handler} over {loser.handler}."
+            )
+
+    merged_routes = list(by_identity.values())
+    merged_routes.sort(key=lambda item: (item.repo, item.method or "", item.path or "", item.file, item.handler or ""))
+    return merged_routes, notes
 
 
 def run_llm_endpoint_discovery(
@@ -647,8 +759,18 @@ def discover_endpoints(
             notes.append(
                 f"{repo.name}: selected_files: none (test/docs-only candidates were not sent for route declaration discovery)"
             )
-        endpoints.extend(deterministic_routes)
-        endpoints.extend(discovery.endpoints)
+        merged_repo_routes, merge_notes = merge_route_candidates(
+            deterministic_routes,
+            discovery.endpoints,
+        )
+        endpoints.extend(merged_repo_routes)
+        rejected_routes = sum(1 for note in discovery.notes if note.startswith("Rejected route "))
+        notes.append(
+            f"{repo.name}: deterministic_routes={len(deterministic_routes)}, "
+            f"llm_routes={len(discovery.endpoints)}, merged_routes={len(merged_repo_routes)}, "
+            f"rejected_routes={rejected_routes}, final_routes={len(merged_repo_routes)}"
+        )
+        notes.extend([f"{repo.name}: {note}" for note in merge_notes])
         notes.append(f"{repo.name}: merged_llm_routes={len(discovery.endpoints)}")
         notes.extend([f"{repo.name}: {note}" for note in discovery.notes])
 

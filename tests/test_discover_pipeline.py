@@ -3,10 +3,11 @@
 from dataclasses import dataclass
 from pathlib import Path
 
-from sydes.core.models import RepoRef
+from sydes.core.models import EndpointCandidate, RepoRef
 from sydes.discover.endpoints import (
     _select_route_discovery_llm_candidates,
     discover_endpoints,
+    merge_route_candidates,
     run_llm_endpoint_discovery,
 )
 from sydes.llm.client import LLMRequest, LLMResponse
@@ -362,3 +363,86 @@ def test_select_route_discovery_candidates_returns_none_for_test_docs_only() -> 
     ]
     selected = _select_route_discovery_llm_candidates(reads, files_to_llm=5)
     assert selected == []
+
+
+def test_merge_route_candidates_prefers_deterministic_and_dedupes_identity() -> None:
+    """Same repo+method+path should merge into one canonical deterministic route."""
+    det = EndpointCandidate(
+        method="GET",
+        path="/users/",
+        handler="get_users",
+        file="app/routes.py",
+        repo="api",
+        confidence=1.0,
+        status="deterministic",
+        evidence=[{"file": "app/routes.py", "label": "@app.get('/users/')"}],
+    )
+    llm = EndpointCandidate(
+        method="get",
+        path="/users",
+        handler="users_handler",
+        file="tests/test_app.py",
+        repo="api",
+        confidence=0.5,
+        status="inferred",
+        evidence=[{"file": "tests/test_app.py", "label": "client.get('/users')"}],
+    )
+    merged, notes = merge_route_candidates([det], [llm])
+    assert len(merged) == 1
+    assert merged[0].file == "app/routes.py"
+    assert merged[0].handler == "get_users"
+    assert merged[0].path == "/users"
+    assert merged[0].method == "GET"
+    assert notes
+
+
+def test_merge_route_candidates_normalizes_parameter_syntax_and_keeps_one() -> None:
+    """Flask/FastAPI/Express param syntax variants should collapse to one identity."""
+    det = EndpointCandidate(
+        method="GET",
+        path="/items/{item_id}",
+        handler="get_item",
+        file="app/routes.py",
+        repo="api",
+        confidence=1.0,
+        status="deterministic",
+    )
+    llm_flask = EndpointCandidate(
+        method="GET",
+        path="/items/<int:item_id>",
+        handler="getItem",
+        file="app/routes.py",
+        repo="api",
+        confidence=0.7,
+        status="inferred",
+    )
+    llm_express = EndpointCandidate(
+        method="GET",
+        path="/items/:item_id",
+        handler="getItem",
+        file="src/routes.ts",
+        repo="api",
+        confidence=0.7,
+        status="inferred",
+    )
+    merged, _ = merge_route_candidates([det], [llm_flask, llm_express])
+    assert len(merged) == 1
+    assert merged[0].path == "/items/{item_id}"
+
+
+def test_merge_route_candidates_keeps_llm_only_valid_source_route() -> None:
+    """LLM-only source route should be preserved when deterministic route is absent."""
+    llm = EndpointCandidate(
+        method="POST",
+        path="/checkout",
+        handler="checkout",
+        file="src/routes.py",
+        repo="api",
+        confidence=0.8,
+        status="inferred",
+    )
+    merged, _ = merge_route_candidates([], [llm])
+    assert len(merged) == 1
+    assert merged[0].file == "src/routes.py"
+    assert merged[0].method == "POST"
+    assert merged[0].path == "/checkout"
