@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 from typing import Any
 from collections import Counter
+import re
 
 from sydes.core.models import (
     CandidateFileRead,
@@ -26,6 +27,7 @@ from sydes.ingest.file_roles import (
     FILE_ROLE_DOCS_CANDIDATE,
     FILE_ROLE_SOURCE_ROUTE_CANDIDATE,
     FILE_ROLE_TEST_USAGE_CANDIDATE,
+    classify_candidate_file_role,
 )
 from sydes.llm.client import LLMClient, LLMRequest
 from sydes.llm.client import (
@@ -179,6 +181,69 @@ def _has_strong_evidence(endpoint: EndpointCandidate) -> bool:
     return any(any(marker in label for marker in strong_markers) for label in labels)
 
 
+INVOCATION_PATTERNS = (
+    r"\bclient\.(get|post|put|patch|delete)\s*\(",
+    r"\btest_client\.(get|post|put|patch|delete)\s*\(",
+    r"\brequests\.(get|post|put|patch|delete)\s*\(",
+    r"\bhttpx\.(get|post|put|patch|delete)\s*\(",
+    r"\brequest\(app\)\.(get|post|put|patch|delete)\s*\(",
+    r"\bsupertest\(app\)\.(get|post|put|patch|delete)\s*\(",
+    r"\bfetch\s*\(",
+    r"\baxios\.(get|post|put|patch|delete)\s*\(",
+)
+DECLARATION_PATTERNS = (
+    r"@app\.route\s*\(",
+    r"@bp\.route\s*\(",
+    r"@router\.(get|post|put|patch|delete)\s*\(",
+    r"@app\.(get|post|put|patch|delete)\s*\(",
+    r"\bapp\.(get|post|put|patch|delete)\s*\(",
+    r"\brouter\.(get|post|put|patch|delete)\s*\(",
+    r"@GetMapping\s*\(",
+    r"@PostMapping\s*\(",
+    r"@PutMapping\s*\(",
+    r"@DeleteMapping\s*\(",
+    r"@PatchMapping\s*\(",
+    r"@RequestMapping\s*\(",
+)
+
+
+def _evidence_text(endpoint: EndpointCandidate) -> str:
+    """Flatten endpoint evidence/handler into one text blob for heuristics."""
+    parts: list[str] = []
+    if endpoint.handler:
+        parts.append(endpoint.handler)
+    for item in endpoint.evidence:
+        if item.label:
+            parts.append(item.label)
+        if item.snippet:
+            parts.append(item.snippet)
+    return " ".join(parts).lower()
+
+
+def _has_route_invocation_evidence(endpoint: EndpointCandidate) -> bool:
+    """Return True when evidence looks like HTTP invocation, not declaration."""
+    blob = _evidence_text(endpoint)
+    return any(re.search(pattern, blob, flags=re.IGNORECASE) for pattern in INVOCATION_PATTERNS)
+
+
+def _has_route_declaration_evidence(endpoint: EndpointCandidate) -> bool:
+    """Return True when evidence looks like route declaration syntax."""
+    blob = _evidence_text(endpoint)
+    return any(re.search(pattern, blob, flags=re.IGNORECASE) for pattern in DECLARATION_PATTERNS)
+
+
+def _validate_route_source(endpoint: EndpointCandidate) -> str | None:
+    """Validate likely declaration source; return rejection reason when invalid."""
+    role = classify_candidate_file_role(endpoint.file)
+    if role == FILE_ROLE_TEST_USAGE_CANDIDATE:
+        return "route_declared_in_test_file"
+    if role == FILE_ROLE_DOCS_CANDIDATE:
+        return "route_declared_in_docs_file"
+    if _has_route_invocation_evidence(endpoint) and not _has_route_declaration_evidence(endpoint):
+        return "route_invocation_not_declaration"
+    return None
+
+
 def _apply_quality_filters(
     endpoints: list[EndpointCandidate],
 ) -> tuple[list[EndpointCandidate], list[str]]:
@@ -186,6 +251,14 @@ def _apply_quality_filters(
     kept: list[EndpointCandidate] = []
     notes: list[str] = []
     for idx, endpoint in enumerate(endpoints, start=1):
+        rejected_reason = _validate_route_source(endpoint)
+        if rejected_reason is not None:
+            method = endpoint.method or "?"
+            path = endpoint.path or "?"
+            notes.append(
+                f"Rejected route {method} {path} from {endpoint.file}: {rejected_reason}"
+            )
+            continue
         if not endpoint.file:
             notes.append(f"Dropped endpoint #{idx}: missing file grounding.")
             continue

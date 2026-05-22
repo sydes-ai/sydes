@@ -241,6 +241,96 @@ def test_run_llm_endpoint_discovery_keeps_strong_evidence_partial_candidate() ->
     assert result.endpoints[0].handler is None
 
 
+def test_run_llm_endpoint_discovery_rejects_test_file_route_declaration() -> None:
+    """Routes declared from test files should be rejected post-LLM."""
+    client = _FakeEndpointClient(
+        payload='{"endpoints":[{"method":"GET","path":"/items/0","file":"tests/test_app.py","repo":"api"}]}'
+    )
+    from sydes.core.models import CandidateFileRead, ReadFileSnippet
+
+    candidates = [
+        CandidateFileRead(
+            repo="api",
+            relative_path="tests/test_app.py",
+            role="test_usage_candidate",
+            snippet=ReadFileSnippet(
+                repo="api",
+                relative_path="tests/test_app.py",
+                text="response = client.get('/items/0')",
+                line_count=1,
+                char_count=33,
+            ),
+        )
+    ]
+
+    result = run_llm_endpoint_discovery(candidates, llm_client=client)
+    assert result.endpoints == []
+    assert any("route_declared_in_test_file" in note for note in result.notes)
+
+
+def test_run_llm_endpoint_discovery_rejects_invocation_evidence() -> None:
+    """Invocation-like evidence should be rejected as non-declaration route sources."""
+    client = _FakeEndpointClient(
+        payload=(
+            '{"endpoints":[{"method":"GET","path":"/items/0","file":"src/client_calls.py","repo":"api",'
+            '"evidence":[{"file":"src/client_calls.py","label":"client.get(\\"/items/0\\")"}]}]}'
+        )
+    )
+    from sydes.core.models import CandidateFileRead, ReadFileSnippet
+
+    candidates = [
+        CandidateFileRead(
+            repo="api",
+            relative_path="src/client_calls.py",
+            role="source_route_candidate",
+            snippet=ReadFileSnippet(
+                repo="api",
+                relative_path="src/client_calls.py",
+                text='client.get("/items/0")',
+                line_count=1,
+                char_count=22,
+            ),
+        )
+    ]
+
+    result = run_llm_endpoint_discovery(candidates, llm_client=client)
+    assert result.endpoints == []
+    assert any("route_invocation_not_declaration" in note for note in result.notes)
+
+
+def test_run_llm_endpoint_discovery_accepts_declaration_evidence_for_source_file() -> None:
+    """Declaration-like evidence in source files should remain accepted."""
+    client = _FakeEndpointClient(
+        payload=(
+            '{"endpoints":['
+            '{"method":"POST","path":"/items","file":"app/routes.py","repo":"api",'
+            '"evidence":[{"file":"app/routes.py","label":"@app.route(\\"/items\\", methods=[\\"POST\\"])"},'
+            '{"file":"app/routes.py","label":"router.post(\\"/items\\", handler)"}]}'
+            ']}'
+        )
+    )
+    from sydes.core.models import CandidateFileRead, ReadFileSnippet
+
+    candidates = [
+        CandidateFileRead(
+            repo="api",
+            relative_path="app/routes.py",
+            role="source_route_candidate",
+            snippet=ReadFileSnippet(
+                repo="api",
+                relative_path="app/routes.py",
+                text='@app.route("/items", methods=["POST"])',
+                line_count=1,
+                char_count=37,
+            ),
+        )
+    ]
+
+    result = run_llm_endpoint_discovery(candidates, llm_client=client)
+    assert len(result.endpoints) == 1
+    assert result.endpoints[0].path == "/items"
+
+
 def test_select_route_discovery_candidates_excludes_tests_when_source_exists() -> None:
     """Route-declaration selection should avoid test/docs when source candidates exist."""
     from sydes.core.models import CandidateFileRead
