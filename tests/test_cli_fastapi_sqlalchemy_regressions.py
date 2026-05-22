@@ -41,6 +41,7 @@ def _write_fastapi_sqlalchemy_fixture(repo_root: Path) -> None:
         "\n".join(
             [
                 "from fastapi import FastAPI, Depends",
+                "from pydantic import BaseModel",
                 "from sqlalchemy.orm import Session",
                 "",
                 "app = FastAPI()",
@@ -51,9 +52,10 @@ def _write_fastapi_sqlalchemy_fixture(repo_root: Path) -> None:
                 "class User:",
                 "    pass",
                 "",
-                "class UserCreate:",
-                "    def model_dump(self):",
-                "        return {}",
+                "class UserCreate(BaseModel):",
+                "    name: str",
+                "    email: str",
+                "    password: str",
                 "",
                 "@app.get('/users/')",
                 "def get_all_users(db: Session = Depends(get_db)):",
@@ -246,6 +248,20 @@ def test_trace_post_users_regression_includes_write_sequence_evidence(
     assert "db.refresh(db_user)" in expressions
     db_sinks = [n for n in payload["nodes"] if n["type"] == "database"]
     assert any(n.get("metadata", {}).get("action") == "write" for n in db_sinks)
+    groups = payload.get("test_matrix", {}).get("groups", [])
+    request_body_hints = [
+        input_hint.get("value_hint")
+        for group in groups
+        for test_case in group.get("tests", [])
+        for input_hint in test_case.get("inputs", [])
+        if input_hint.get("kind") == "request_body"
+    ]
+    assert request_body_hints, "POST /users matrix should include request_body input hints"
+    assert any(
+        isinstance(hint, dict)
+        and {"name", "email", "password"}.issubset(set(hint.keys()))
+        for hint in request_body_hints
+    )
 
 
 def test_routes_strict_failure_missing_ollama_model_exits_nonzero_without_artifact(
