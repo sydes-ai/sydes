@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from sydes.core.models import RankedFileCandidate, RepoInventory, RepoSenseSummary
+from sydes.ingest.file_roles import classify_candidate_file_role
 
 PATH_SIGNAL_WEIGHTS = {
     "route": 2.0,
@@ -135,6 +136,7 @@ def rank_candidate_files(
                 file=item.path,
                 score=round(score, 3),
                 reasons=reasons,
+                role=classify_candidate_file_role(item.path),
                 repo=inventory.repo,
             )
         )

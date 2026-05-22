@@ -76,9 +76,9 @@ def test_read_ranked_candidate_files_reads_top_n_in_order(tmp_path: Path) -> Non
     (repo_root / "c.py").write_text("print('c')\n", encoding="utf-8")
 
     ranked = [
-        RankedFileCandidate(file="a.py", score=10.0, repo="api"),
-        RankedFileCandidate(file="b.py", score=9.0, repo="api"),
-        RankedFileCandidate(file="c.py", score=8.0, repo="api"),
+        RankedFileCandidate(file="a.py", score=10.0, repo="api", role="source_route_candidate"),
+        RankedFileCandidate(file="b.py", score=9.0, repo="api", role="source_route_candidate"),
+        RankedFileCandidate(file="c.py", score=8.0, repo="api", role="source_route_candidate"),
     ]
 
     results = read_ranked_candidate_files("api", repo_root, ranked, top_n=2)
@@ -86,5 +86,6 @@ def test_read_ranked_candidate_files_reads_top_n_in_order(tmp_path: Path) -> Non
     assert len(results) == 2
     assert results[0].relative_path == "a.py"
     assert results[1].relative_path == "b.py"
+    assert results[0].role == "source_route_candidate"
+    assert results[1].role == "source_route_candidate"
     assert all(not item.skipped for item in results)
-

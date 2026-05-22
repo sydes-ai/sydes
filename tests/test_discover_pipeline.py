@@ -36,6 +36,7 @@ def test_discover_endpoints_fallback_without_llm(tmp_path: Path) -> None:
     assert result.files_examined >= 1
     assert result.routes == []
     assert any("LLM discovery unavailable" in note for note in result.notes)
+    assert any("candidate_roles:" in note for note in result.notes)
 
 
 def test_run_llm_endpoint_discovery_normalizes_and_dedupes() -> None:

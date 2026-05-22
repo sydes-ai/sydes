@@ -6,6 +6,7 @@ import json
 import os
 from pathlib import Path
 from typing import Any
+from collections import Counter
 
 from sydes.core.models import (
     CandidateFileRead,
@@ -526,6 +527,10 @@ def discover_endpoints(
             top_n=read_top_n,
         )
         llm_candidates = reads[:files_to_llm]
+        role_counts = Counter(item.role or "unknown" for item in llm_candidates)
+        role_counts_text = ", ".join(
+            f"{role}={count}" for role, count in sorted(role_counts.items())
+        )
 
         candidate_files += len(ranked)
         files_examined += sum(1 for item in reads if not item.skipped and item.snippet is not None)
@@ -545,7 +550,8 @@ def discover_endpoints(
         notes.append(
             f"{repo.name}: candidate_files={len(ranked)}, "
             f"files_sent_to_llm={len(llm_candidates)}, "
-            f"prompt_chars={discovery.prompt_chars}"
+            f"prompt_chars={discovery.prompt_chars}, "
+            f"candidate_roles: {role_counts_text}"
         )
         endpoints.extend(discovery.endpoints)
         notes.extend([f"{repo.name}: {note}" for note in discovery.notes])

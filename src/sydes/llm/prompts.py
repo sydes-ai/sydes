@@ -13,6 +13,7 @@ def _serialize_candidate(candidate: CandidateFileRead) -> dict:
         return {
             "repo": candidate.repo,
             "file": candidate.relative_path,
+            "role": candidate.role,
             "skipped": True,
             "skip_reason": candidate.skip_reason,
         }
@@ -20,6 +21,7 @@ def _serialize_candidate(candidate: CandidateFileRead) -> dict:
     return {
         "repo": candidate.repo,
         "file": candidate.relative_path,
+        "role": candidate.role,
         "truncated": candidate.snippet.truncated,
         "line_count": candidate.snippet.line_count,
         "char_count": candidate.snippet.char_count,

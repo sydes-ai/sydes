@@ -75,6 +75,7 @@ def read_text_file_safely(
         return CandidateFileRead(
             repo=repo,
             relative_path=relative_path,
+            role=None,
             skipped=True,
             skip_reason="missing_file",
         )
@@ -83,6 +84,7 @@ def read_text_file_safely(
         return CandidateFileRead(
             repo=repo,
             relative_path=relative_path,
+            role=None,
             skipped=True,
             skip_reason="binary_file",
         )
@@ -93,6 +95,7 @@ def read_text_file_safely(
         return CandidateFileRead(
             repo=repo,
             relative_path=relative_path,
+            role=None,
             skipped=True,
             skip_reason="unreadable_file",
         )
@@ -101,6 +104,7 @@ def read_text_file_safely(
         return CandidateFileRead(
             repo=repo,
             relative_path=relative_path,
+            role=None,
             skipped=True,
             skip_reason="file_too_large",
         )
@@ -113,6 +117,7 @@ def read_text_file_safely(
         return CandidateFileRead(
             repo=repo,
             relative_path=relative_path,
+            role=None,
             skipped=True,
             skip_reason="unreadable_file",
         )
@@ -143,6 +148,7 @@ def read_text_file_safely(
     return CandidateFileRead(
         repo=repo,
         relative_path=relative_path,
+        role=None,
         snippet=snippet,
         skipped=False,
     )
@@ -172,6 +178,7 @@ def read_ranked_candidate_files(
             max_read_chars=max_read_chars,
             max_read_lines=max_read_lines,
         )
+        read_result.role = candidate.role
         results.append(read_result)
     return results
 

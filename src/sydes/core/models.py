@@ -76,6 +76,7 @@ class RankedFileCandidate(BaseModel):
     file: str
     score: float
     reasons: list[str] = Field(default_factory=list)
+    role: str | None = None
     repo: str | None = None
     service: str | None = None
 
@@ -96,6 +97,7 @@ class CandidateFileRead(BaseModel):
 
     repo: str
     relative_path: str
+    role: str | None = None
     snippet: ReadFileSnippet | None = None
     skipped: bool = False
     skip_reason: str | None = None

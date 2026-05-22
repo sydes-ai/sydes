@@ -57,5 +57,6 @@ def test_rank_candidate_files_emits_reason_labels_and_limits_results() -> None:
 
     assert len(ranked) == 2
     assert ranked[0].repo == "gateway"
+    assert ranked[0].role is not None
     assert ranked[0].reasons
     assert any(reason.startswith("path:") for reason in ranked[0].reasons)
