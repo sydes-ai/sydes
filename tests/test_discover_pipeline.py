@@ -7,6 +7,7 @@ from sydes.core.models import EndpointCandidate, RepoRef
 from sydes.discover.endpoints import (
     _select_route_discovery_llm_candidates,
     discover_endpoints,
+    is_high_quality_route_evidence,
     merge_route_candidates,
     run_llm_endpoint_discovery,
 )
@@ -446,3 +447,45 @@ def test_merge_route_candidates_keeps_llm_only_valid_source_route() -> None:
     assert merged[0].file == "src/routes.py"
     assert merged[0].method == "POST"
     assert merged[0].path == "/checkout"
+
+
+def test_merge_route_candidates_prefers_high_quality_deterministic_evidence() -> None:
+    """Weak LLM evidence should not replace deterministic declaration evidence."""
+    det = EndpointCandidate(
+        method="POST",
+        path="/items",
+        handler="add_item",
+        file="app/routes.py",
+        repo="api",
+        confidence=1.0,
+        status="deterministic",
+        evidence=[
+            {
+                "file": "app/routes.py",
+                "symbol": "add_item",
+                "label": "@bp.route('/items', methods=['POST'])",
+                "snippet": "@bp.route('/items', methods=['POST'])\ndef add_item():",
+            }
+        ],
+    )
+    llm = EndpointCandidate(
+        method="POST",
+        path="/items/",
+        handler="create_item",
+        file="app/routes.py",
+        repo="api",
+        confidence=0.7,
+        status="inferred",
+        evidence=[
+            {
+                "file": "app/routes.py",
+                "label": "# app/routes.py",
+                "snippet": None,
+            }
+        ],
+    )
+    merged, _ = merge_route_candidates([det], [llm])
+    assert len(merged) == 1
+    assert merged[0].evidence
+    assert is_high_quality_route_evidence(merged[0].evidence[0])
+    assert "# app/routes.py" not in (merged[0].evidence[0].label or "")

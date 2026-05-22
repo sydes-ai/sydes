@@ -53,6 +53,10 @@ def test_extract_flask_routes_and_ignore_test_invocations() -> None:
     assert ("GET", "/items/{item_id}", "app/routes.py") in keys
     assert ("POST", "/items", "app/routes.py") in keys
     assert all(item.file != "tests/test_app.py" for item in endpoints)
+    post_item = next(item for item in endpoints if item.method == "POST" and item.path == "/items")
+    assert post_item.evidence
+    assert "@bp.route('/items', methods=['POST'])" in (post_item.evidence[0].snippet or "")
+    assert "def add_item():" in (post_item.evidence[0].snippet or "")
     assert "flask_fastapi" in frameworks
 
 
@@ -79,6 +83,9 @@ def test_extract_fastapi_routes() -> None:
     assert ("GET", "/users") in keys
     assert ("POST", "/users") in keys
     assert ("GET", "/items/{item_id}") in keys
+    get_users = next(item for item in endpoints if item.method == "GET" and item.path == "/users")
+    assert "@app.get('/users/')" in (get_users.evidence[0].snippet or "")
+    assert "def get_users():" in (get_users.evidence[0].snippet or "")
 
 
 def test_extract_express_routes_and_ignore_invocations() -> None:
@@ -100,6 +107,8 @@ def test_extract_express_routes_and_ignore_invocations() -> None:
     assert ("GET", "/items") in keys
     assert ("GET", "/items/{id}") in keys
     assert ("POST", "/items") in keys
+    first = next(item for item in endpoints if item.method == "GET" and item.path == "/items")
+    assert "app.get(" in (first.evidence[0].snippet or "")
     assert "express" in frameworks
 
 
@@ -123,4 +132,6 @@ def test_extract_spring_routes_with_class_prefix() -> None:
     keys = {(item.method, item.path, item.handler) for item in endpoints}
     assert ("GET", "/db/books", "getBooks") in keys
     assert ("POST", "/db/users", "createUser") in keys
+    spring_get = next(item for item in endpoints if item.method == "GET" and item.path == "/db/books")
+    assert "@GetMapping(\"/books\")" in (spring_get.evidence[0].snippet or "")
     assert "spring" in frameworks

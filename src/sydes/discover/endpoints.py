@@ -486,6 +486,79 @@ def _dedupe_evidence(items: list[EvidenceRef]) -> list[EvidenceRef]:
     return output
 
 
+def is_high_quality_route_evidence(evidence: EvidenceRef) -> bool:
+    """Return True when evidence likely points to a real route declaration."""
+    text = " ".join(
+        part for part in [evidence.label or "", evidence.snippet or ""] if part
+    ).lower()
+    if not text.strip():
+        return False
+    if text.strip().startswith("#"):
+        return False
+    declaration_tokens = (
+        "@app.route",
+        "@bp.route",
+        "@blueprint.route",
+        "@app.get",
+        "@app.post",
+        "@app.put",
+        "@app.patch",
+        "@app.delete",
+        "@router.get",
+        "@router.post",
+        "@router.put",
+        "@router.patch",
+        "@router.delete",
+        "app.get(",
+        "app.post(",
+        "app.put(",
+        "app.patch(",
+        "app.delete(",
+        "router.get(",
+        "router.post(",
+        "router.put(",
+        "router.patch(",
+        "router.delete(",
+        "@getmapping(",
+        "@postmapping(",
+        "@putmapping(",
+        "@deletemapping(",
+        "@requestmapping(",
+        " def ",
+    )
+    invocation_tokens = (
+        "client.get(",
+        "client.post(",
+        "client.put(",
+        "client.patch(",
+        "client.delete(",
+        "test_client.get(",
+        "request(app).get(",
+        "supertest(app).",
+        "requests.get(",
+        "requests.post(",
+        "httpx.get(",
+        "httpx.post(",
+        "fetch(",
+        "axios.get(",
+        "axios.post(",
+    )
+    if any(token in text for token in invocation_tokens):
+        return False
+    return any(token in text for token in declaration_tokens)
+
+
+def _merge_evidence_prefer_quality(winner: EndpointCandidate, loser: EndpointCandidate) -> list[EvidenceRef]:
+    """Merge evidence while prioritizing high-quality declaration snippets."""
+    combined = _dedupe_evidence((winner.evidence or []) + (loser.evidence or []))
+    if not combined:
+        return combined
+    has_high = any(is_high_quality_route_evidence(item) for item in combined)
+    if has_high:
+        combined = [item for item in combined if is_high_quality_route_evidence(item)]
+    return combined
+
+
 def merge_route_candidates(
     deterministic_routes: list[EndpointCandidate],
     llm_routes: list[EndpointCandidate],
@@ -519,7 +592,7 @@ def merge_route_candidates(
         if _endpoint_priority(endpoint) < _endpoint_priority(existing):
             winner, loser = endpoint, existing
 
-        merged_evidence = _dedupe_evidence((winner.evidence or []) + (loser.evidence or []))
+        merged_evidence = _merge_evidence_prefer_quality(winner, loser)
         merged = winner.model_copy(deep=True)
         merged.method = _normalize_method(merged.method)
         merged.path = _normalize_path_identity(merged.path)

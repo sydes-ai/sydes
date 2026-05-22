@@ -59,6 +59,7 @@ def _extract_python_decorator_routes(
         def_match = def_re.match(line)
         if pending and def_match:
             handler = def_match.group("name")
+            handler_signature = line.strip()
             for decorator_idx, verb, raw_path, rest in pending:
                 methods: list[str] = []
                 if verb == "route":
@@ -90,7 +91,7 @@ def _extract_python_decorator_routes(
                                     file=relative_path,
                                     symbol=handler,
                                     label=evidence_line,
-                                    snippet=f"{evidence_line}\ndef {handler}(...):",
+                                    snippet=f"{evidence_line}\n{handler_signature}",
                                 )
                             ],
                             confidence=1.0,
@@ -208,6 +209,7 @@ def _extract_spring_routes(repo: str, relative_path: str, text: str) -> list[End
         method_match = method_re.match(stripped)
         if pending_annotations and method_match:
             handler = method_match.group("name")
+            handler_signature = stripped
             for ann in pending_annotations:
                 if not ann.startswith(
                     ("@GetMapping", "@PostMapping", "@PutMapping", "@DeleteMapping", "@PatchMapping", "@RequestMapping")
@@ -232,7 +234,7 @@ def _extract_spring_routes(repo: str, relative_path: str, text: str) -> list[End
                                     file=relative_path,
                                     symbol=handler,
                                     label=ann,
-                                    snippet=f"{ann}\n{stripped}",
+                                    snippet=f"{ann}\n{handler_signature}",
                                 )
                             ],
                             confidence=1.0,
