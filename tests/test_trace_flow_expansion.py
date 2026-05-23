@@ -239,6 +239,10 @@ def test_run_flow_expansion_extracts_deterministic_post_write_steps(tmp_path: Pa
     assert "db.add(db_user)" in step_names
     assert "db.commit()" in step_names
     assert "db.refresh(db_user)" in step_names
+    assert step_names.index("input model: UserCreate") < step_names.index("create User object")
+    assert step_names.index("create User object") < step_names.index("db.add(db_user)")
+    assert step_names.index("db.add(db_user)") < step_names.index("db.commit()")
+    assert step_names.index("db.commit()") < step_names.index("db.refresh(db_user)")
     assert any(sink.kind == "database" and sink.action == "write" for sink in result.sinks)
 
 
@@ -367,6 +371,9 @@ def test_run_flow_expansion_extracts_deterministic_flask_post_steps(tmp_path: Pa
     assert "read JSON request body" in step_names
     assert "items.append(item)" in step_names
     assert "return JSON response" in step_names
+    assert step_names.index("read JSON request body") < step_names.index("items.append(item)")
+    assert step_names.index("items.append(item)") < step_names.index("return JSON response")
+    assert "return response" not in step_names
     assert all(step.file == "app/routes.py" for step in result.steps)
 
 

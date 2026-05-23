@@ -379,20 +379,35 @@ def _extract_python_handler_baseline(
 
     repo = matched_endpoint.repo
     file_path = matched_endpoint.file
-    steps: list[TraceStep] = []
+    ordered_steps: list[tuple[int, int, TraceStep]] = []
     sinks: list[SinkCandidate] = []
+    step_seq = 0
 
-    def add_step(kind: str, name: str, label: str, *, snippet: str | None = None) -> None:
-        steps.append(
-            TraceStep(
-                kind=kind,
-                name=name,
-                repo=repo,
-                file=file_path,
-                symbol=handler_name,
-                status="grounded",
-                confidence=0.95,
-                evidence=[EvidenceRef(file=file_path, symbol=handler_name, label=label, snippet=snippet)],
+    def add_step(
+        kind: str,
+        name: str,
+        label: str,
+        *,
+        snippet: str | None = None,
+        source_order: int | None = None,
+    ) -> None:
+        nonlocal step_seq
+        step_seq += 1
+        order = source_order if source_order is not None else 10_000_000 + step_seq
+        ordered_steps.append(
+            (
+                order,
+                step_seq,
+                TraceStep(
+                    kind=kind,
+                    name=name,
+                    repo=repo,
+                    file=file_path,
+                    symbol=handler_name,
+                    status="grounded",
+                    confidence=0.95,
+                    evidence=[EvidenceRef(file=file_path, symbol=handler_name, label=label, snippet=snippet)],
+                ),
             )
         )
 
@@ -405,6 +420,7 @@ def _extract_python_handler_baseline(
                 f"Depends({depends_symbol})",
                 f"deterministic:dependency:{depends_symbol}",
                 snippet=f"Depends({depends_symbol})",
+                source_order=handler_node.lineno - 2,
             )
 
     # Input model extraction for likely write handlers
@@ -424,6 +440,7 @@ def _extract_python_handler_baseline(
                 f"input model: {annotation}",
                 f"deterministic:input_model:{annotation}",
                 snippet=annotation,
+                source_order=handler_node.lineno - 1,
             )
             break
 
@@ -431,6 +448,7 @@ def _extract_python_handler_baseline(
     found_db_write = False
     found_external = False
     found_return = False
+    found_concrete_response = False
 
     # Object creation hints from assignment calls like: db_user = User(...)
     for node in handler_node.body:
@@ -442,6 +460,7 @@ def _extract_python_handler_baseline(
                     f"create {call.func.id} object",
                     f"deterministic:object_creation:{call.func.id}",
                     snippet=_handler_snippet(source, node),
+                    source_order=getattr(node, "lineno", None),
                 )
 
     for node in ast.walk(handler_node):
@@ -457,24 +476,36 @@ def _extract_python_handler_baseline(
                         "return JSON response",
                         "deterministic:response:jsonify",
                         snippet=snippet,
+                        source_order=getattr(node, "lineno", None),
                     )
+                    found_concrete_response = True
                 elif PYTHON_STATUS_RETURN_RE.search(f"return {return_expr}"):
                     add_step(
                         "response",
                         "return response with status code",
                         "deterministic:response:status",
                         snippet=snippet,
+                        source_order=getattr(node, "lineno", None),
                     )
+                    found_concrete_response = True
                 elif return_expr.startswith("{") or return_expr.startswith("["):
                     add_step(
                         "response",
                         "return response body",
                         "deterministic:response:literal",
                         snippet=snippet,
+                        source_order=getattr(node, "lineno", None),
                     )
+                    found_concrete_response = True
             continue
         if isinstance(node, ast.Raise):
-            add_step("error", "raise error", "deterministic:error:raise", snippet=_handler_snippet(source, node))
+            add_step(
+                "error",
+                "raise error",
+                "deterministic:error:raise",
+                snippet=_handler_snippet(source, node),
+                source_order=getattr(node, "lineno", None),
+            )
             continue
         if isinstance(node, ast.If):
             condition = _unparse_expression(node.test, source)
@@ -484,6 +515,7 @@ def _extract_python_handler_baseline(
                     f"if {condition}",
                     "deterministic:branch:if",
                     snippet=_handler_snippet(source, node),
+                    source_order=getattr(node, "lineno", None),
                 )
             continue
         if isinstance(node, ast.Delete):
@@ -495,6 +527,7 @@ def _extract_python_handler_baseline(
                         f"delete {target_expr}",
                         f"deterministic:store_write:{target_expr}",
                         snippet=_handler_snippet(source, node),
+                        source_order=getattr(node, "lineno", None),
                     )
             continue
         if isinstance(node, ast.Assign):
@@ -511,6 +544,7 @@ def _extract_python_handler_baseline(
                     f"read {readable}",
                     f"deterministic:input:{input_kind}",
                     snippet=assign_snippet,
+                    source_order=getattr(node, "lineno", None),
                 )
             for target in node.targets:
                 target_expr = _unparse_expression(target, source)
@@ -520,6 +554,7 @@ def _extract_python_handler_baseline(
                         f"assign {target_expr}",
                         f"deterministic:store_write:{target_expr}",
                         snippet=assign_snippet,
+                        source_order=getattr(node, "lineno", None),
                     )
             continue
         if isinstance(node, ast.Subscript):
@@ -530,6 +565,7 @@ def _extract_python_handler_baseline(
                     f"read {sub_expr}",
                     f"deterministic:store_read:{sub_expr}",
                     snippet=_handler_snippet(source, node),
+                    source_order=getattr(node, "lineno", None),
                 )
             continue
         if not isinstance(node, ast.Call):
@@ -548,6 +584,7 @@ def _extract_python_handler_baseline(
                 expression,
                 f"deterministic:db_read:{expression}",
                 snippet=_handler_snippet(source, node),
+                source_order=getattr(node, "lineno", None),
             )
             sinks.append(
                 SinkCandidate(
@@ -578,6 +615,7 @@ def _extract_python_handler_baseline(
                 expression,
                 f"deterministic:db_write:{expression}",
                 snippet=_handler_snippet(source, node),
+                source_order=getattr(node, "lineno", None),
             )
             sinks.append(
                 SinkCandidate(
@@ -605,6 +643,7 @@ def _extract_python_handler_baseline(
                     "return refreshed entity",
                     "deterministic:return_refreshed_entity",
                     snippet=_handler_snippet(source, node),
+                    source_order=getattr(node, "lineno", None),
                 )
 
         external_match = PYTHON_EXTERNAL_CALL_RE.search(expression)
@@ -615,6 +654,7 @@ def _extract_python_handler_baseline(
                 expression,
                 f"deterministic:external_call:{method_label}",
                 snippet=_handler_snippet(source, node),
+                source_order=getattr(node, "lineno", None),
             )
             sinks.append(
                 SinkCandidate(
@@ -638,7 +678,13 @@ def _extract_python_handler_baseline(
             found_external = True
 
         if expression.startswith("abort("):
-            add_step("error", "abort request", "deterministic:error:abort", snippet=_handler_snippet(source, node))
+            add_step(
+                "error",
+                "abort request",
+                "deterministic:error:abort",
+                snippet=_handler_snippet(source, node),
+                source_order=getattr(node, "lineno", None),
+            )
 
         input_match = PYTHON_INPUT_CALL_RE.search(expression)
         if input_match and not expression.startswith("Depends("):
@@ -649,6 +695,7 @@ def _extract_python_handler_baseline(
                 f"read {readable}",
                 f"deterministic:input:{input_kind}",
                 snippet=_handler_snippet(source, node),
+                source_order=getattr(node, "lineno", None),
             )
 
         memory_write = PYTHON_IN_MEMORY_WRITE_RE.search(expression)
@@ -660,11 +707,21 @@ def _extract_python_handler_baseline(
                 expression,
                 f"deterministic:store_write:{target}.{op}",
                 snippet=_handler_snippet(source, node),
+                source_order=getattr(node, "lineno", None),
             )
             notes.append(f"Detected in-memory store mutation in handler: {target}.{op}(...)")
 
-    if found_return:
-        add_step("transform", "return response", "deterministic:return_response", snippet="return ...")
+    if found_return and not found_concrete_response:
+        add_step(
+            "transform",
+            "return response",
+            "deterministic:return_response",
+            snippet="return ...",
+            source_order=(getattr(handler_node, "end_lineno", None) or handler_node.lineno) + 1,
+        )
+
+    ordered_steps.sort(key=lambda item: (item[0], item[1]))
+    steps = [item[2] for item in ordered_steps]
 
     if steps:
         notes.append(
