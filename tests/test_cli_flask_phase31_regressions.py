@@ -163,7 +163,7 @@ def test_flask_trace_post_items_has_grounded_steps_and_request_body_matrix(tmp_p
         for group in matrix_groups
         for test_case in group.get("tests", [])
     }
-    assert "post_items_malformed_body_handled" in names
+    assert "post_items_rejects_invalid_payload" in names
 
 
 def test_flask_trace_get_item_includes_lookup_and_error_path(tmp_path: Path, monkeypatch) -> None:

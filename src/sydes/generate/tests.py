@@ -5,8 +5,10 @@ It does not emit runnable framework-specific test files yet.
 """
 
 import ast
+from dataclasses import dataclass
 import re
 from pathlib import Path
+from typing import Any
 
 from sydes.core.models import (
     Flow,
@@ -31,6 +33,32 @@ PY_TEST_JSON_PAYLOAD_RE = re.compile(
     r"client\.(post|put|patch)\s*\(\s*['\"](?P<path>/[^'\"]*)['\"][^)]*json\s*=\s*(?P<body>\{.*?\})",
     re.IGNORECASE | re.DOTALL,
 )
+REQUEST_BODY_SIGNAL_TOKENS = (
+    "request.get_json(",
+    "request.json",
+    "request.form",
+    "request.data",
+    "request.post",
+    "await request.json(",
+    "req.body",
+    "request.body",
+    "ctx.request.body",
+    "await req.json(",
+    "@requestbody",
+    "json.newdecoder(r.body).decode",
+    "io.readall(r.body)",
+)
+
+
+@dataclass(frozen=True)
+class RequestBodySignal:
+    """Generic route input signal describing HTTP request-body consumption."""
+
+    consumed: bool
+    shape: dict[str, Any] | None
+    required: bool
+    required_fields: set[str]
+    notes: list[str]
 
 
 def _py_value_type(value: object) -> str:
@@ -326,8 +354,6 @@ def _extract_fields_from_flow_evidence(trace_result: TraceResult) -> tuple[dict[
 
 def _extract_fields_from_test_payload_examples(trace_result: TraceResult, route: str, method: str) -> tuple[dict[str, str], list[str]]:
     """Use test client payload examples as supporting request-body hints."""
-    if method.upper() not in WRITE_METHODS:
-        return {}, []
     normalized_route = route.rstrip("/") or "/"
     fields: dict[str, str] = {}
     notes: list[str] = []
@@ -361,18 +387,49 @@ def _extract_fields_from_test_payload_examples(trace_result: TraceResult, route:
     return fields, notes
 
 
-def _infer_request_body_input(trace_result: TraceResult) -> tuple[dict[str, str] | None, set[str], list[str]]:
-    """Infer request-body field hints for write routes from flow/code evidence."""
+def _route_consumes_request_body(trace_result: TraceResult) -> tuple[bool, list[str]]:
+    """Infer request-body consumption from generic flow/node/evidence signals."""
+    by_id = {node.id: node for node in trace_result.nodes}
+    notes: list[str] = []
+    for node in _selected_flow_nodes(trace_result, node_by_id=by_id):
+        metadata = node.metadata if isinstance(node.metadata, dict) else {}
+        step_kind = str(metadata.get("step_kind") or "").strip().lower()
+        if step_kind in {"input", "input_model"}:
+            notes.append(f"request body signal from step_kind={step_kind}")
+            return True, notes
+
+        text_parts: list[str] = []
+        if node.name:
+            text_parts.append(node.name)
+        for value in metadata.values():
+            if isinstance(value, str):
+                text_parts.append(value)
+        for ref in node.evidence:
+            if ref.label:
+                text_parts.append(ref.label)
+            if ref.snippet:
+                text_parts.append(ref.snippet)
+        blob = " ".join(text_parts).lower()
+        for token in REQUEST_BODY_SIGNAL_TOKENS:
+            if token in blob:
+                notes.append(f"request body signal from token '{token}'")
+                return True, notes
+    return False, notes
+
+
+def infer_request_body_signal(trace_result: TraceResult) -> RequestBodySignal:
+    """Infer generic request-body input signal from trace evidence."""
     method = (trace_result.target.method or "ANY").upper()
-    if method not in WRITE_METHODS:
-        return None, set(), []
 
     fields: dict[str, str] = {}
     required: set[str] = set()
     notes: list[str] = []
+    consumed, consumed_notes = _route_consumes_request_body(trace_result)
+    notes.extend(consumed_notes)
 
     input_model_hint = _extract_input_model_hint(trace_result)
     if input_model_hint:
+        consumed = True
         model_name = input_model_hint.split("[", 1)[0].split(".", 1)[-1].strip()
         for repo in trace_result.repos:
             model_fields, model_required, model_notes = _extract_fields_from_model_class(repo.root, model_name)
@@ -384,6 +441,8 @@ def _infer_request_body_input(trace_result: TraceResult) -> tuple[dict[str, str]
                 break
 
     flow_fields, flow_required, flow_notes = _extract_fields_from_flow_evidence(trace_result)
+    if flow_fields:
+        consumed = True
     for name, value in flow_fields.items():
         fields.setdefault(name, value)
     required.update(flow_required)
@@ -394,14 +453,37 @@ def _infer_request_body_input(trace_result: TraceResult) -> tuple[dict[str, str]
         route=trace_result.target.path,
         method=method,
     )
+    if test_fields:
+        consumed = True
     for name, value in test_fields.items():
         if name not in fields or fields[name] == "unknown":
             fields[name] = value
     notes.extend(test_notes)
 
-    if not fields:
-        return None, set(), []
-    return fields, required, list(dict.fromkeys(notes))
+    deduped_notes = list(dict.fromkeys(notes))
+    if not consumed:
+        return RequestBodySignal(
+            consumed=False,
+            shape=None,
+            required=False,
+            required_fields=set(),
+            notes=deduped_notes,
+        )
+
+    if fields:
+        shape: dict[str, Any] = dict(fields)
+    else:
+        shape = {"type": "object", "description": "valid JSON payload"}
+        deduped_notes.append("request body consumed but exact fields were not inferred")
+
+    # For consumed request bodies, keep required=True so tests include an explicit payload input.
+    return RequestBodySignal(
+        consumed=True,
+        shape=shape,
+        required=True,
+        required_fields=required,
+        notes=deduped_notes,
+    )
 
 
 def _has_lookup_signal(trace_result: TraceResult) -> bool:
@@ -550,8 +632,10 @@ def generate_test_matrix(trace_result: TraceResult, *, max_suggestions: int = 7)
     has_db_commit = _has_db_commit_signal(trace_result)
     input_model_hint = _extract_input_model_hint(trace_result)
     has_unique_hint = _has_unique_field_hint(trace_result)
-    body_shape, required_fields, body_notes = _infer_request_body_input(trace_result)
-    body_required = True if body_shape and required_fields else (False if body_shape else None)
+    body_signal = infer_request_body_signal(trace_result)
+    body_shape = body_signal.shape if body_signal.consumed else None
+    body_required = body_signal.required if body_signal.consumed else None
+    body_notes = body_signal.notes
 
     by_category: dict[str, list[IntegrationTestSuggestion]] = {
         TEST_MATRIX_CATEGORY_HAPPY_PATH: [],
@@ -617,18 +701,6 @@ def generate_test_matrix(trace_result: TraceResult, *, max_suggestions: int = 7)
                 confidence=confidence,
             )
         )
-        if body_shape:
-            by_category["failure_modes"].append(
-                _build_matrix_suggestion(
-                    name=f"{method_token}_{route_token}_malformed_body_handled",
-                    route=route,
-                    method=method,
-                    summary=f"verifies {method} {route} handles malformed JSON/body payload safely",
-                    expectations=[TestExpectation(kind="failure_mode", description="malformed request body is handled safely")],
-                    flow_id=flow_id,
-                    confidence=confidence,
-                )
-            )
         if has_unique_hint:
             duplicate_field = "email" if "email" in _flow_metadata_text(trace_result) else "unique field"
             by_category[TEST_MATRIX_CATEGORY_VALIDATION].append(
@@ -1114,7 +1186,7 @@ def generate_test_matrix(trace_result: TraceResult, *, max_suggestions: int = 7)
         )
         notes.append("applied fallback grouped baseline test matrix")
 
-    if body_shape and method in WRITE_METHODS:
+    if body_signal.consumed and body_shape:
         for group in matrix_groups:
             for suggestion in group.tests:
                 if any(item.kind == "request_body" for item in suggestion.inputs):
@@ -1150,8 +1222,10 @@ def generate_test_suggestions(trace_result: TraceResult) -> list[IntegrationTest
     step_names = _flow_step_names(trace_result)
     has_return_step = _contains_return_step(step_names)
     sink_only_evidence = bool(sink_nodes) and not step_names
-    body_shape, required_fields, body_notes = _infer_request_body_input(trace_result)
-    body_required = True if body_shape and required_fields else (False if body_shape else None)
+    body_signal = infer_request_body_signal(trace_result)
+    body_shape = body_signal.shape if body_signal.consumed else None
+    body_required = body_signal.required if body_signal.consumed else None
+    body_notes = body_signal.notes
 
     core_expectations: list[TestExpectation] = [
         TestExpectation(
@@ -1267,7 +1341,7 @@ def generate_test_suggestions(trace_result: TraceResult) -> list[IntegrationTest
                 TestExpectation(kind="side_effect", description="outbound dependency interaction occurs", target="external_api")
             )
 
-    if body_shape and method in WRITE_METHODS:
+    if body_signal.consumed and body_shape:
         for suggestion in suggestions:
             if not any(item.kind == "request_path" for item in suggestion.inputs):
                 suggestion.inputs.append(TestInputHint(kind="request_path", value_hint=route, required=True))

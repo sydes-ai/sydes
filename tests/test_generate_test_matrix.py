@@ -321,7 +321,7 @@ def test_generate_test_matrix_simple_fastapi_post_users_uses_write_evidence() ->
 
 
 def test_generate_test_matrix_flask_post_infers_request_body_from_handler_evidence() -> None:
-    """Flask POST flow evidence should drive request_body test inputs and malformed payload coverage."""
+    """Flask POST flow evidence should drive request_body test inputs and validation coverage."""
     trace = TraceResult(
         target=TargetSpec(path="/items", method="POST"),
         nodes=[
@@ -372,7 +372,7 @@ def test_generate_test_matrix_flask_post_infers_request_body_from_handler_eviden
     assert request_body_hint["name"] == "string"
     assert request_body_hint["price"] in {"unknown", "string", "number"}
     assert "post_items_rejects_missing_required_field" in _flatten_names(matrix)
-    assert "post_items_malformed_body_handled" in _flatten_names(matrix)
+    assert "post_items_rejects_invalid_payload" in _flatten_names(matrix)
 
 
 def test_generate_test_matrix_fastapi_post_infers_request_body_from_pydantic_model(tmp_path: Path) -> None:
@@ -440,6 +440,53 @@ def test_generate_test_matrix_get_route_does_not_include_request_body_input() ->
         for group in matrix.groups
         for suggestion in group.tests
     )
+
+
+def test_generate_test_matrix_body_signal_without_fields_uses_generic_request_body_input() -> None:
+    """When body consumption is detected but fields are unknown, matrix should still include generic request_body."""
+    trace = TraceResult(
+        target=TargetSpec(path="/items", method="POST"),
+        nodes=[
+            GraphNode(id="ep", type="api_endpoint", name="/items", method="POST", path="/items", repo="api"),
+            GraphNode(
+                id="step_input",
+                type="internal_step",
+                name="read JSON request body",
+                metadata={"step_kind": "input", "expression": "request.get_json()"},
+                repo="api",
+                evidence=[
+                    EvidenceRef(
+                        file="app/routes.py",
+                        symbol="add_item",
+                        label="deterministic:input:get_json",
+                        snippet="data = request.get_json()",
+                    )
+                ],
+            ),
+        ],
+        flows=[
+            Flow(
+                id="f1",
+                name="POST /items",
+                entry_node="ep",
+                steps=[
+                    FlowStep(node_id="ep", kind="endpoint"),
+                    FlowStep(node_id="step_input", kind="input"),
+                ],
+            )
+        ],
+        summary=TraceSummary(confidence=0.8),
+    )
+    matrix = generate_test_matrix(trace)
+    request_body_hints = [
+        item.value_hint
+        for group in matrix.groups
+        for suggestion in group.tests
+        for item in suggestion.inputs
+        if item.kind == "request_body"
+    ]
+    assert request_body_hints
+    assert {"type": "object", "description": "valid JSON payload"} in request_body_hints
 
 
 def test_generate_test_matrix_db_write_adds_failure_and_idempotency_cases() -> None:
