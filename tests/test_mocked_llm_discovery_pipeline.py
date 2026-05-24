@@ -156,7 +156,7 @@ def test_routes_command_shows_discovered_endpoints_with_mocked_llm(
         routes_module, "save_run_artifact", lambda **kwargs: Path("/tmp/routes_discovery.json")
     )
 
-    result = runner.invoke(app, ["routes", "--repo", f"api={repo_root}"])
+    result = runner.invoke(app, ["routes", "--repo", f"api={repo_root}", "--llm-policy", "always"])
 
     assert result.exit_code == 0
     assert "Routes discovered: 1" in result.stdout
@@ -221,7 +221,7 @@ def test_discovery_fallback_when_mocked_client_unavailable(
         lambda **_kwargs: (_ for _ in ()).throw(LLMClientError("mock unavailable")),
     )
 
-    result = discover_endpoints([RepoRef(name="api", root=str(repo_root))])
+    result = discover_endpoints([RepoRef(name="api", root=str(repo_root))], llm_policy="always")
 
     assert len(result.routes) == 1
     assert result.routes[0].method == "GET"

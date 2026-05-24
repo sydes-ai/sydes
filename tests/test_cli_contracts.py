@@ -155,6 +155,74 @@ def test_routes_model_option_is_passed_to_discovery(monkeypatch, tmp_path: Path)
     assert captured["model_spec"] == "openai:gpt-4.1-mini"
 
 
+def test_routes_model_timeout_option_is_passed_to_discovery(monkeypatch, tmp_path: Path) -> None:
+    """Routes command should forward --model-timeout to discovery."""
+    api_dir = tmp_path / "api"
+    api_dir.mkdir()
+    captured: dict[str, object] = {}
+
+    def _fake_discover_endpoints(repos, *, model_timeout_seconds=None, **_kwargs):
+        captured["model_timeout_seconds"] = model_timeout_seconds
+        return RoutesResult(
+            repos=repos,
+            routes=[],
+            candidate_files=0,
+            files_examined=0,
+            notes=[],
+            confidence_summary=ConfidenceSummary(average=0.0, minimum=0.0, maximum=0.0),
+        )
+
+    monkeypatch.setattr("sydes.cli.routes.discover_endpoints", _fake_discover_endpoints)
+
+    result = runner.invoke(
+        app,
+        [
+            "routes",
+            "--repo",
+            f"api={api_dir}",
+            "--llm-policy",
+            "always",
+            "--model-timeout",
+            "300",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert captured["model_timeout_seconds"] == 300.0
+
+
+def test_routes_llm_policy_never_skips_preflight(monkeypatch, tmp_path: Path) -> None:
+    """Routes with --llm-policy never should not call LLM preflight validation."""
+    api_dir = tmp_path / "api"
+    api_dir.mkdir()
+    called = {"preflight": False}
+
+    def _fake_validate(model_spec=None):  # noqa: ANN001
+        called["preflight"] = True
+        return LLMValidationResult(ok=False, provider="ollama", model="missing", reason="should not be used")
+
+    monkeypatch.setattr("sydes.cli.routes.validate_llm_available", _fake_validate)
+    monkeypatch.setattr(
+        "sydes.cli.routes.discover_endpoints",
+        lambda repos, **_kwargs: RoutesResult(
+            repos=repos,
+            routes=[],
+            candidate_files=0,
+            files_examined=0,
+            notes=[],
+            confidence_summary=ConfidenceSummary(average=0.0, minimum=0.0, maximum=0.0),
+        ),
+    )
+
+    result = runner.invoke(
+        app,
+        ["routes", "--repo", f"api={api_dir}", "--llm-policy", "never"],
+    )
+
+    assert result.exit_code == 0
+    assert called["preflight"] is False
+
+
 def test_trace_model_option_is_passed_to_discovery_and_expansion(monkeypatch, tmp_path: Path) -> None:
     """Trace command should forward --model through discovery and flow expansion."""
     api_dir = tmp_path / "api"
@@ -254,7 +322,15 @@ def test_routes_fails_fast_on_llm_preflight_failure(monkeypatch, tmp_path: Path)
 
     result = runner.invoke(
         app,
-        ["routes", "--repo", f"api={api_dir}", "--model", "ollama:missing-model"],
+        [
+            "routes",
+            "--repo",
+            f"api={api_dir}",
+            "--model",
+            "ollama:missing-model",
+            "--llm-policy",
+            "always",
+        ],
     )
     assert result.exit_code != 0
     assert "LLM validation failed: LLM model not available: missing-model." in result.stdout

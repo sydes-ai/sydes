@@ -369,9 +369,14 @@ def load_llm_settings_from_env() -> LLMSettings:
     )
 
 
-def create_default_llm_client(model_spec: str | None = None) -> LLMClient:
+def create_default_llm_client(
+    model_spec: str | None = None,
+    *,
+    timeout_seconds_override: float | None = None,
+) -> LLMClient:
     """Create the default LLM client from model spec or environment configuration."""
     settings = load_llm_settings_from_env()
+    timeout_seconds = timeout_seconds_override if timeout_seconds_override is not None else settings.timeout_seconds
 
     provider = settings.provider
     model = settings.model
@@ -382,7 +387,7 @@ def create_default_llm_client(model_spec: str | None = None) -> LLMClient:
         return OllamaClient(
             model=model,
             base_url=settings.base_url,
-            timeout_seconds=settings.timeout_seconds,
+            timeout_seconds=timeout_seconds,
             keep_alive=settings.keep_alive,
             temperature=settings.temperature,
         )
@@ -402,7 +407,7 @@ def create_default_llm_client(model_spec: str | None = None) -> LLMClient:
             model=model,
             api_key=api_key,
             base_url=openai_base_url,
-            timeout_seconds=settings.timeout_seconds,
+            timeout_seconds=timeout_seconds,
             temperature=settings.temperature,
         )
 
@@ -421,7 +426,7 @@ def create_default_llm_client(model_spec: str | None = None) -> LLMClient:
             model=model,
             api_key=api_key,
             base_url=anthropic_base_url,
-            timeout_seconds=settings.timeout_seconds,
+            timeout_seconds=timeout_seconds,
             temperature=settings.temperature,
         )
 

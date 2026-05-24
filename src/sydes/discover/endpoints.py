@@ -629,6 +629,7 @@ def run_llm_endpoint_discovery(
     *,
     llm_client: LLMClient | None = None,
     model_spec: str | None = None,
+    model_timeout_seconds: float | None = None,
     strict_llm: bool = False,
     target_hint: str | None = None,
     method_hint: str | None = None,
@@ -643,9 +644,12 @@ def run_llm_endpoint_discovery(
     )
     if llm_client is None:
         settings = load_llm_settings_from_env()
-        timeout_seconds = settings.timeout_seconds
+        timeout_seconds = model_timeout_seconds if model_timeout_seconds is not None else settings.timeout_seconds
         try:
-            llm_client = create_default_llm_client(model_spec=model_spec)
+            llm_client = create_default_llm_client(
+                model_spec=model_spec,
+                timeout_seconds_override=model_timeout_seconds,
+            )
         except LLMClientError as exc:
             if strict_llm:
                 raise LLMClientError(classify_llm_error(str(exc))) from exc
@@ -728,6 +732,7 @@ def discover_endpoints_from_candidates(
     *,
     llm_client: LLMClient | None = None,
     model_spec: str | None = None,
+    model_timeout_seconds: float | None = None,
     strict_llm: bool = False,
     target_hint: str | None = None,
     method_hint: str | None = None,
@@ -737,6 +742,7 @@ def discover_endpoints_from_candidates(
         candidates,
         llm_client=llm_client,
         model_spec=model_spec,
+        model_timeout_seconds=model_timeout_seconds,
         strict_llm=strict_llm,
         target_hint=target_hint,
         method_hint=method_hint,
@@ -749,12 +755,16 @@ def discover_endpoints(
     *,
     llm_client: LLMClient | None = None,
     model_spec: str | None = None,
+    llm_policy: str = "auto",
+    model_timeout_seconds: float | None = None,
     strict_llm: bool = False,
     inventory_max_files: int = 5000,
     rank_top_k: int = 80,
     read_top_n: int = 5,
 ) -> RoutesResult:
     """Run end-to-end shallow endpoint discovery across input repositories."""
+    if llm_policy not in {"auto", "always", "never"}:
+        raise ValueError(f"Unsupported llm_policy '{llm_policy}'. Use: auto, always, never.")
     validated = validate_repo_roots(repos)
     endpoints: list[EndpointCandidate] = []
     notes: list[str] = []
@@ -809,23 +819,53 @@ def discover_endpoints(
 
         deterministic_routes, deterministic_frameworks = extract_deterministic_routes(deterministic_reads)
 
-        try:
-            discovery = run_llm_endpoint_discovery(
-                llm_candidates,
-                llm_client=llm_client,
-                model_spec=model_spec,
-                strict_llm=strict_llm,
+        deterministic_high_confidence = (
+            bool(deterministic_routes)
+            and all((item.confidence or 0.0) >= 0.95 for item in deterministic_routes)
+            and all(
+                not item.snippet.truncated
+                for item in deterministic_reads
+                if not item.skipped and item.snippet is not None and (item.role or "unknown") == FILE_ROLE_SOURCE_ROUTE_CANDIDATE
             )
-        except LLMClientError as exc:
-            if deterministic_routes:
-                reason = str(exc)
-                discovery = EndpointDiscoveryResult(
-                    endpoints=[],
-                    notes=[f"LLM discovery failed; using deterministic routes only: {reason}"],
-                    files_sent_to_llm=len(llm_candidates),
+        )
+        should_run_llm = True
+        llm_skip_note: str | None = None
+        if llm_policy == "never":
+            should_run_llm = False
+            llm_skip_note = "LLM route discovery disabled by policy (never)."
+        elif llm_policy == "auto" and deterministic_high_confidence:
+            should_run_llm = False
+            llm_skip_note = "LLM route discovery skipped by auto policy because deterministic routes were found."
+
+        if should_run_llm:
+            try:
+                discovery = run_llm_endpoint_discovery(
+                    llm_candidates,
+                    llm_client=llm_client,
+                    model_spec=model_spec,
+                    model_timeout_seconds=model_timeout_seconds,
+                    strict_llm=strict_llm,
                 )
-            else:
-                raise
+            except LLMClientError as exc:
+                if deterministic_routes:
+                    reason = str(exc)
+                    discovery = EndpointDiscoveryResult(
+                        endpoints=[],
+                        notes=[f"LLM discovery failed; using deterministic routes only: {reason}"],
+                        files_sent_to_llm=len(llm_candidates),
+                    )
+                else:
+                    raise
+        else:
+            discovery = EndpointDiscoveryResult(
+                endpoints=[],
+                notes=[llm_skip_note] if llm_skip_note else [],
+                files_sent_to_llm=0,
+            )
+        if llm_skip_note:
+            notes.append(f"{repo.name}: llm_policy={llm_policy}, llm_skipped=true")
+        else:
+            notes.append(f"{repo.name}: llm_policy={llm_policy}, llm_skipped=false")
         total_prompt_chars += discovery.prompt_chars
         truncated_files += discovery.truncated_files
         if timeout_seconds is None and discovery.timeout_seconds is not None:

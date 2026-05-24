@@ -296,7 +296,15 @@ def test_routes_strict_failure_missing_ollama_model_exits_nonzero_without_artifa
 
     result = runner.invoke(
         app,
-        ["routes", "--repo", f"SimpleFastPyAPI={repo_root}", "--model", "ollama:missing-model"],
+        [
+            "routes",
+            "--repo",
+            f"SimpleFastPyAPI={repo_root}",
+            "--model",
+            "ollama:missing-model",
+            "--llm-policy",
+            "always",
+        ],
     )
 
     assert result.exit_code != 0
@@ -329,6 +337,8 @@ def test_routes_strict_failure_missing_openai_key_exits_nonzero_without_artifact
             f"SimpleFastPyAPI={repo_root}",
             "--model",
             "openai:gpt-4.1-mini",
+            "--llm-policy",
+            "always",
         ],
     )
 

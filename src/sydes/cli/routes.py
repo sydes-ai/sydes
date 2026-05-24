@@ -53,6 +53,14 @@ def routes_command(
         Literal["terminal", "json"], typer.Option("--format")
     ] = "terminal",
     output: Annotated[Path | None, typer.Option("--output")] = None,
+    llm_policy: Annotated[
+        Literal["auto", "always", "never"],
+        typer.Option("--llm-policy"),
+    ] = "auto",
+    model_timeout: Annotated[
+        float | None,
+        typer.Option("--model-timeout"),
+    ] = None,
     allow_partial: Annotated[bool, typer.Option("--allow-partial")] = False,
 ) -> None:
     """Discover routes for input repositories using shallow+LLM pipeline."""
@@ -61,38 +69,44 @@ def routes_command(
     except ValueError as exc:
         raise typer.BadParameter(str(exc), param_hint="--repo") from exc
 
-    validation = validate_llm_available(model_spec=model)
-    if not validation.ok:
-        message = validation.reason or "LLM preflight failed."
-        if output_format == "json":
-            payload = {
-                "ok": False,
-                "error": {
-                    "provider": validation.provider,
-                    "model": validation.model,
-                    "base_url": validation.base_url,
-                    "message": message,
-                    "available_models": list(validation.available_models),
-                },
-            }
-            rendered = json.dumps(payload, indent=2)
-            typer.echo(rendered)
-            if output is not None:
-                try:
-                    _write_command_output(output, rendered, output_format=output_format)
-                except (OSError, ValueError) as exc:
-                    typer.echo(str(exc))
-                    raise typer.Exit(code=1) from exc
+    validation = None
+    if llm_policy == "always":
+        validation = validate_llm_available(model_spec=model)
+        if not validation.ok:
+            message = validation.reason or "LLM preflight failed."
+            if output_format == "json":
+                payload = {
+                    "ok": False,
+                    "error": {
+                        "provider": validation.provider,
+                        "model": validation.model,
+                        "base_url": validation.base_url,
+                        "message": message,
+                        "available_models": list(validation.available_models),
+                    },
+                }
+                rendered = json.dumps(payload, indent=2)
+                typer.echo(rendered)
+                if output is not None:
+                    try:
+                        _write_command_output(output, rendered, output_format=output_format)
+                    except (OSError, ValueError) as exc:
+                        typer.echo(str(exc))
+                        raise typer.Exit(code=1) from exc
+                raise typer.Exit(code=1)
+            typer.echo(f"LLM validation failed: {message}")
             raise typer.Exit(code=1)
-        typer.echo(f"LLM validation failed: {message}")
-        raise typer.Exit(code=1)
 
     try:
-        result = discover_endpoints(
-            repos,
-            model_spec=model,
-            strict_llm=not allow_partial,
-        )
+        discover_kwargs: dict[str, object] = {
+            "model_spec": model,
+            "strict_llm": not allow_partial,
+        }
+        if llm_policy != "auto":
+            discover_kwargs["llm_policy"] = llm_policy
+        if model_timeout is not None:
+            discover_kwargs["model_timeout_seconds"] = model_timeout
+        result = discover_endpoints(repos, **discover_kwargs)
     except ValueError as exc:
         raise typer.BadParameter(str(exc), param_hint="--repo") from exc
     except LLMClientError as exc:
@@ -101,11 +115,11 @@ def routes_command(
             payload = {
                 "ok": False,
                 "error": {
-                    "provider": validation.provider,
-                    "model": validation.model,
-                    "base_url": validation.base_url,
+                    "provider": validation.provider if validation is not None else None,
+                    "model": validation.model if validation is not None else None,
+                    "base_url": validation.base_url if validation is not None else None,
                     "message": message,
-                    "available_models": list(validation.available_models),
+                    "available_models": list(validation.available_models) if validation is not None else [],
                 },
             }
             rendered = json.dumps(payload, indent=2)

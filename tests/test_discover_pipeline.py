@@ -38,6 +38,18 @@ class _FailingEndpointClient:
         raise LLMClientError(self.message)
 
 
+class _CountingEndpointClient:
+    """Fake client that tracks call count and returns a static payload."""
+
+    def __init__(self, payload: str) -> None:
+        self.payload = payload
+        self.calls = 0
+
+    def generate(self, request: LLMRequest) -> LLMResponse:
+        self.calls += 1
+        return LLMResponse(text=self.payload)
+
+
 def test_discover_endpoints_fallback_without_llm(tmp_path: Path) -> None:
     """Pipeline should still return deterministic declarations when LLM is unavailable."""
     repo_root = tmp_path / "api"
@@ -82,6 +94,7 @@ def test_discover_endpoints_strict_keeps_deterministic_routes_when_llm_fails(tmp
     result = discover_endpoints(
         [RepoRef(name="flask", root=str(repo_root))],
         llm_client=_FailingEndpointClient("model output parse failure: malformed JSON"),
+        llm_policy="always",
         strict_llm=True,
     )
 
@@ -133,6 +146,111 @@ def test_discover_endpoints_deterministic_scans_full_file_not_discovery_snippet(
     assert any("deterministic_routes_found=100" in note for note in result.notes)
     assert any("deterministic_files_scanned=1" in note for note in result.notes)
     assert any("deterministic_scan_truncated_files=0" in note for note in result.notes)
+
+
+def test_discover_endpoints_llm_policy_never_skips_llm_calls(tmp_path: Path) -> None:
+    """llm_policy=never should return deterministic routes without invoking LLM."""
+    repo_root = tmp_path / "api"
+    repo_root.mkdir()
+    (repo_root / "main.py").write_text(
+        "@app.get('/users')\ndef users():\n    return []\n",
+        encoding="utf-8",
+    )
+    client = _CountingEndpointClient('{"endpoints":[{"method":"GET","path":"/llm","file":"main.py","repo":"api"}]}')
+
+    result = discover_endpoints(
+        [RepoRef(name="api", root=str(repo_root))],
+        llm_client=client,
+        llm_policy="never",
+    )
+
+    assert client.calls == 0
+    assert any(item.path == "/users" for item in result.routes)
+    assert any("llm_policy=never, llm_skipped=true" in note for note in result.notes)
+
+
+def test_discover_endpoints_llm_policy_auto_skips_with_high_conf_deterministic(tmp_path: Path) -> None:
+    """llm_policy=auto should skip LLM when deterministic routes are strong and untruncated."""
+    repo_root = tmp_path / "api"
+    repo_root.mkdir()
+    (repo_root / "main.py").write_text(
+        "@app.get('/users')\ndef users():\n    return []\n",
+        encoding="utf-8",
+    )
+    client = _CountingEndpointClient('{"endpoints":[{"method":"GET","path":"/llm","file":"main.py","repo":"api"}]}')
+
+    result = discover_endpoints(
+        [RepoRef(name="api", root=str(repo_root))],
+        llm_client=client,
+        llm_policy="auto",
+    )
+
+    assert client.calls == 0
+    assert any(item.path == "/users" for item in result.routes)
+    assert any("LLM route discovery skipped by auto policy because deterministic routes were found." in note for note in result.notes)
+
+
+def test_discover_endpoints_llm_policy_auto_runs_when_no_deterministic_routes(tmp_path: Path) -> None:
+    """llm_policy=auto should call LLM fallback when deterministic extraction is empty."""
+    repo_root = tmp_path / "api"
+    repo_root.mkdir()
+    (repo_root / "main.py").write_text("print('no decorators')\n", encoding="utf-8")
+    client = _CountingEndpointClient(
+        '{"endpoints":[{"method":"GET","path":"/llm","handler":"llm_handler","file":"main.py","repo":"api"}]}'
+    )
+
+    result = discover_endpoints(
+        [RepoRef(name="api", root=str(repo_root))],
+        llm_client=client,
+        llm_policy="auto",
+    )
+
+    assert client.calls >= 1
+    assert any(item.path == "/llm" for item in result.routes)
+    assert any("llm_policy=auto, llm_skipped=false" in note for note in result.notes)
+
+
+def test_discover_endpoints_llm_policy_always_runs_even_with_deterministic_routes(tmp_path: Path) -> None:
+    """llm_policy=always should call LLM even when deterministic routes exist."""
+    repo_root = tmp_path / "api"
+    repo_root.mkdir()
+    (repo_root / "main.py").write_text(
+        "@app.get('/users')\ndef users():\n    return []\n",
+        encoding="utf-8",
+    )
+    client = _CountingEndpointClient(
+        '{"endpoints":[{"method":"GET","path":"/users","handler":"users","file":"main.py","repo":"api"}]}'
+    )
+
+    result = discover_endpoints(
+        [RepoRef(name="api", root=str(repo_root))],
+        llm_client=client,
+        llm_policy="always",
+    )
+
+    assert client.calls >= 1
+    assert any(item.path == "/users" for item in result.routes)
+    assert any("llm_policy=always, llm_skipped=false" in note for note in result.notes)
+
+
+def test_discover_endpoints_llm_policy_always_falls_back_to_deterministic_on_llm_failure(tmp_path: Path) -> None:
+    """llm_policy=always should still return deterministic routes with warning if LLM fails."""
+    repo_root = tmp_path / "api"
+    repo_root.mkdir()
+    (repo_root / "main.py").write_text(
+        "@app.get('/users')\ndef users():\n    return []\n",
+        encoding="utf-8",
+    )
+
+    result = discover_endpoints(
+        [RepoRef(name="api", root=str(repo_root))],
+        llm_client=_FailingEndpointClient("model output parse failure: malformed JSON"),
+        llm_policy="always",
+        strict_llm=True,
+    )
+
+    assert any(item.path == "/users" for item in result.routes)
+    assert any("LLM discovery failed; using deterministic routes only:" in note for note in result.notes)
 
 
 def test_run_llm_endpoint_discovery_normalizes_and_dedupes() -> None:
