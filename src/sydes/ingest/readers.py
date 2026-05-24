@@ -20,6 +20,10 @@ FLOW_EXPANSION_MAX_FILE_SIZE_BYTES = 180_000
 FLOW_EXPANSION_MAX_READ_BYTES = 6_000
 FLOW_EXPANSION_MAX_READ_CHARS = 3_500
 FLOW_EXPANSION_MAX_READ_LINES = 90
+DETERMINISTIC_ROUTE_MAX_FILE_SIZE_BYTES = 2_000_000
+DETERMINISTIC_ROUTE_MAX_READ_BYTES = 2_000_000
+DETERMINISTIC_ROUTE_MAX_READ_CHARS = 2_000_000
+DETERMINISTIC_ROUTE_MAX_READ_LINES = 100_000
 
 BINARY_SUFFIXES = {
     ".png",
@@ -217,4 +221,24 @@ def read_text_file_for_flow_expansion(
         max_read_bytes=FLOW_EXPANSION_MAX_READ_BYTES,
         max_read_chars=FLOW_EXPANSION_MAX_READ_CHARS,
         max_read_lines=FLOW_EXPANSION_MAX_READ_LINES,
+    )
+
+
+def read_ranked_candidate_files_for_deterministic_routes(
+    repo: str,
+    repo_root: Path | str,
+    ranked_candidates: Iterable[RankedFileCandidate],
+    *,
+    top_n: int = 80,
+) -> list[CandidateFileRead]:
+    """Batch-read candidates with high caps for deterministic route declaration scanning."""
+    return read_ranked_candidate_files(
+        repo=repo,
+        repo_root=repo_root,
+        ranked_candidates=ranked_candidates,
+        top_n=top_n,
+        max_file_size_bytes=DETERMINISTIC_ROUTE_MAX_FILE_SIZE_BYTES,
+        max_read_bytes=DETERMINISTIC_ROUTE_MAX_READ_BYTES,
+        max_read_chars=DETERMINISTIC_ROUTE_MAX_READ_CHARS,
+        max_read_lines=DETERMINISTIC_ROUTE_MAX_READ_LINES,
     )

@@ -104,6 +104,37 @@ def test_discover_endpoints_strict_raises_when_no_deterministic_routes_and_llm_f
         )
 
 
+def test_discover_endpoints_deterministic_scans_full_file_not_discovery_snippet(tmp_path: Path) -> None:
+    """Deterministic extraction should read full source files and not inherit discovery snippet truncation."""
+    repo_root = tmp_path / "stress-fastapi-100"
+    repo_root.mkdir()
+    lines = ["from fastapi import FastAPI", "", "app = FastAPI()", ""]
+    for index in range(1, 101):
+        lines.extend(
+            [
+                f"@app.get('/api/v1/resource{index}')",
+                f"def resource_{index}():",
+                f"    return {{'id': {index}}}",
+                "",
+            ]
+        )
+    (repo_root / "main.py").write_text("\n".join(lines), encoding="utf-8")
+
+    result = discover_endpoints(
+        [RepoRef(name="stress", root=str(repo_root))],
+        llm_client=_FailingEndpointClient("model output parse failure: malformed JSON"),
+        strict_llm=True,
+    )
+
+    routes = {(item.method, item.path, item.file) for item in result.routes}
+    assert len(result.routes) == 100
+    assert ("GET", "/api/v1/resource1", "main.py") in routes
+    assert ("GET", "/api/v1/resource100", "main.py") in routes
+    assert any("deterministic_routes_found=100" in note for note in result.notes)
+    assert any("deterministic_files_scanned=1" in note for note in result.notes)
+    assert any("deterministic_scan_truncated_files=0" in note for note in result.notes)
+
+
 def test_run_llm_endpoint_discovery_normalizes_and_dedupes() -> None:
     """LLM discovery should normalize soft outputs and dedupe obvious duplicates."""
     client = _FakeEndpointClient(

@@ -21,6 +21,7 @@ from sydes.core.models import (
 from sydes.ingest.inventory import build_repo_inventory
 from sydes.ingest.ranking import rank_candidate_files
 from sydes.ingest.readers import read_ranked_candidate_files_for_discovery
+from sydes.ingest.readers import read_ranked_candidate_files_for_deterministic_routes
 from sydes.ingest.repos import validate_repo_roots
 from sydes.ingest.sense import sense_repo
 from sydes.ingest.file_roles import (
@@ -790,6 +791,12 @@ def discover_endpoints(
             ranked,
             top_n=read_top_n,
         )
+        deterministic_reads = read_ranked_candidate_files_for_deterministic_routes(
+            repo.name,
+            repo.root,
+            ranked,
+            top_n=rank_top_k,
+        )
         llm_candidates = _select_route_discovery_llm_candidates(reads, files_to_llm)
         role_counts = Counter(item.role or "unknown" for item in llm_candidates)
         role_counts_text = ", ".join(
@@ -800,7 +807,7 @@ def discover_endpoints(
         files_examined += sum(1 for item in reads if not item.skipped and item.snippet is not None)
         files_sent_to_llm += len(llm_candidates)
 
-        deterministic_routes, deterministic_frameworks = extract_deterministic_routes(reads)
+        deterministic_routes, deterministic_frameworks = extract_deterministic_routes(deterministic_reads)
 
         try:
             discovery = run_llm_endpoint_discovery(
@@ -833,6 +840,10 @@ def discover_endpoints(
         notes.append(
             f"{repo.name}: deterministic_routes_found={len(deterministic_routes)}, "
             f"deterministic_frameworks={','.join(sorted(deterministic_frameworks)) if deterministic_frameworks else 'none'}"
+        )
+        notes.append(
+            f"{repo.name}: deterministic_files_scanned={sum(1 for item in deterministic_reads if not item.skipped and item.snippet is not None and (item.role or 'unknown') == FILE_ROLE_SOURCE_ROUTE_CANDIDATE)}, "
+            f"deterministic_scan_truncated_files={sum(1 for item in deterministic_reads if not item.skipped and item.snippet is not None and item.snippet.truncated and (item.role or 'unknown') == FILE_ROLE_SOURCE_ROUTE_CANDIDATE)}"
         )
         selected_files_text = ", ".join(
             f"{item.relative_path}({item.role or 'unknown'})" for item in llm_candidates
