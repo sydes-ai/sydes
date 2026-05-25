@@ -26,3 +26,5 @@ htmlcov/
 .DS_Store
 .vscode/
 .idea/
+
+scripts/run_sydes_phase32_tests.sh
