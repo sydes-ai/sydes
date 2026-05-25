@@ -389,6 +389,7 @@ class TraceSummary(BaseModel):
     test_matrix_coverage: float | None = None
     test_matrix_confidence: float | None = None
     confidence: float | None = None
+    text: str | None = None
 
 
 class TraceResult(BaseModel):
@@ -405,3 +406,11 @@ class TraceResult(BaseModel):
     unknowns: list[Unknown] = Field(default_factory=list)
     notes: list[str] = Field(default_factory=list)
     summary: TraceSummary
+    matched_endpoint: EndpointCandidate | None = None
+    flow: dict[str, Any] | None = None
+    layers: list[dict[str, Any]] = Field(default_factory=list)
+    sinks: list[dict[str, Any]] = Field(default_factory=list)
+    resolved_handlers: list[dict[str, Any]] = Field(default_factory=list)
+    budgets: dict[str, Any] | None = None
+    diagnostics: list[str] = Field(default_factory=list)
+    artifacts: dict[str, str] = Field(default_factory=dict)

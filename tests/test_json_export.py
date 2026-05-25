@@ -91,3 +91,21 @@ def test_export_trace_result_includes_test_matrix_when_present() -> None:
 
     assert "test_matrix" in payload
     assert payload["test_matrix"]["groups"][0]["category"] == "happy_path"
+
+
+def test_export_trace_result_includes_layered_fields_back_compat() -> None:
+    result = _trace_with_sink_node()
+    result.flow = {"steps": [{"id": "step:1", "kind": "endpoint", "name": "endpoint", "repo": "api", "evidence": [], "confidence": 1.0, "status": "grounded"}]}
+    result.layers = [{"depth": 0, "kind": "endpoint", "name": "POST /users", "steps": []}]
+    result.sinks = [{"kind": "database", "operation": "write", "name": "users"}]
+    result.diagnostics = ["trace_truncated=false"]
+    result.artifacts = {"trace_result": "/tmp/trace_result.json"}
+
+    payload = export_trace_result(result)
+
+    assert "nodes" in payload and "edges" in payload and "flows" in payload
+    assert "flow" in payload
+    assert "layers" in payload
+    assert "sinks" in payload
+    assert "diagnostics" in payload
+    assert "artifacts" in payload

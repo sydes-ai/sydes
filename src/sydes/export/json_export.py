@@ -34,6 +34,22 @@ def export_trace_result(trace_result: TraceResult) -> dict[str, Any]:
         "notes": list(trace_result.notes),
         "summary": trace_result.summary.model_dump(exclude_none=True),
     }
+    if trace_result.matched_endpoint is not None:
+        payload["matched_endpoint"] = trace_result.matched_endpoint.model_dump(exclude_none=True)
+    if trace_result.flow is not None:
+        payload["flow"] = trace_result.flow
+    if trace_result.layers:
+        payload["layers"] = trace_result.layers
+    if trace_result.sinks:
+        payload["sinks"] = trace_result.sinks
+    if trace_result.resolved_handlers:
+        payload["resolved_handlers"] = trace_result.resolved_handlers
+    if trace_result.budgets is not None:
+        payload["budgets"] = trace_result.budgets
+    if trace_result.diagnostics:
+        payload["diagnostics"] = trace_result.diagnostics
+    if trace_result.artifacts:
+        payload["artifacts"] = trace_result.artifacts
     if trace_result.test_matrix is not None:
         payload["test_matrix"] = trace_result.test_matrix.model_dump(exclude_none=True)
     payload["metadata"] = {

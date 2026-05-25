@@ -139,7 +139,38 @@ def render_terminal(result: TraceResult) -> str:
                 if details:
                     lines.append(f"    ({', '.join(details)})")
 
-    if result.flows:
+    if result.summary.text:
+        lines.append("Summary:")
+        lines.append(f"  {result.summary.text}")
+
+    layered_steps = []
+    if isinstance(result.flow, dict):
+        layered_steps = [item for item in result.flow.get("steps", []) if isinstance(item, dict)]
+
+    if layered_steps:
+        lines.append("Flow:")
+        for idx, step in enumerate(layered_steps, start=1):
+            kind = (step.get("kind") or "step").replace("_", " ")
+            detail = step.get("detail") or step.get("name") or "step"
+            lines.append(f"  {idx}. {kind}: {detail}")
+            details: list[str] = []
+            if step.get("file"):
+                details.append(f"file={step.get('file')}")
+            if step.get("symbol"):
+                details.append(f"symbol={step.get('symbol')}")
+            if step.get("repo"):
+                details.append(f"repo={step.get('repo')}")
+            if details:
+                lines.append(f"     ({', '.join(details)})")
+            evidence = step.get("evidence") or []
+            if evidence and isinstance(evidence[0], dict):
+                snippet = evidence[0].get("snippet")
+                if isinstance(snippet, str) and snippet.strip():
+                    compact = " ".join(snippet.split())
+                    if len(compact) > 140:
+                        compact = compact[:137] + "..."
+                    lines.append(f"     evidence: {compact}")
+    elif result.flows:
         lines.append("Flow:")
         node_by_id = {node.id: node for node in result.nodes}
         sink_types = {"database", "external_api", "queue", "file_sink", "sink"}
@@ -180,6 +211,7 @@ def render_terminal(result: TraceResult) -> str:
 
     sink_types = {"database", "external_api", "queue", "file_sink", "sink"}
     sink_nodes = [node for node in result.nodes if node.type in sink_types]
+    layered_sinks = result.sinks or []
     if sink_nodes:
         lines.append("Sinks:")
         for sink in sink_nodes:
@@ -204,6 +236,20 @@ def render_terminal(result: TraceResult) -> str:
                 details.append(f"repo={sink.repo}")
             if details:
                 lines.append(f"    ({', '.join(details)})")
+    elif layered_sinks:
+        lines.append("Sinks:")
+        for sink in layered_sinks:
+            action = sink.get("operation") or sink.get("action") or ""
+            name = sink.get("name") or sink.get("kind") or "sink"
+            lines.append(f"  - {sink.get('kind', 'sink')}: {action} {name}".strip())
+            evidence = sink.get("evidence") or []
+            if evidence and isinstance(evidence[0], dict):
+                snippet = evidence[0].get("snippet")
+                if isinstance(snippet, str) and snippet.strip():
+                    compact = " ".join(snippet.split())
+                    if len(compact) > 140:
+                        compact = compact[:137] + "..."
+                    lines.append(f"    evidence: {compact}")
 
     cross_repo_edges = [edge for edge in result.edges if edge.type == "CALLS_API"]
     unmatched_cross_repo_notes = [
@@ -312,6 +358,9 @@ def render_terminal(result: TraceResult) -> str:
         if artifact_notes:
             lines.append("Artifacts:")
             lines.extend(f"  - {note}" for note in artifact_notes)
+    if result.diagnostics:
+        lines.append("Diagnostics:")
+        lines.extend(f"  - {item}" for item in result.diagnostics)
     return "\n".join(lines)
 
 

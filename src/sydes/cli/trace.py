@@ -16,8 +16,13 @@ from sydes.cli.output_paths import (
     write_output_text,
 )
 from sydes.core.models import (
+    EvidenceRef,
     EndpointCandidate,
     FlowExpansionResult,
+    FlowStep,
+    Flow,
+    GraphEdge,
+    GraphNode,
     TargetSpec,
     TraceResult,
     TraceSummary,
@@ -54,6 +59,7 @@ from sydes.trace.handler_resolver import resolve_handler_reference
 from sydes.trace.function_body_slicer import slice_resolved_handler_body
 from sydes.trace.call_follower import CallFollowBudgets, build_layered_trace_expansion
 from sydes.trace.trace_llm_summarizer import run_trace_llm_summarizer
+from sydes.trace.layered_contract import build_layered_trace_contract
 
 VERBOSE_NOTE_MARKERS = (
     "Flow expansion context files selected:",
@@ -316,6 +322,7 @@ def _write_trace_json_outputs(
     handler_body_slices: dict | None = None,
     layered_trace_expansion: dict | None = None,
     trace_llm_summary: dict | None = None,
+    layered_trace_contract: dict | None = None,
 ) -> None:
     """Write trace JSON output to either a single file or an artifact directory."""
     target = resolve_trace_output_target(output)
@@ -374,6 +381,11 @@ def _write_trace_json_outputs(
         _write_output(
             target.path / "trace_llm_summary.json",
             json.dumps(trace_llm_summary, indent=2),
+        )
+    if layered_trace_contract is not None:
+        _write_output(
+            target.path / "layered_trace_contract.json",
+            json.dumps(layered_trace_contract, indent=2),
         )
 
 
@@ -502,6 +514,8 @@ def trace_command(
     handler_body_slices_payload: dict | None = None
     layered_trace_expansion_payload: dict | None = None
     trace_llm_summary_payload: dict | None = None
+    layered_contract_payload: dict | None = None
+    artifact_index: dict[str, str] = {}
     try:
         workspace_id = compute_workspace_id(result.repos)
         run_id = create_run_id()
@@ -651,6 +665,93 @@ def trace_command(
                                     result.notes.append(f"Trace LLM summary warning: {warning}")
                     except LLMClientError as exc:
                         result.notes.append(f"Trace LLM summarizer failed: {exc}")
+                    artifact_names = {}
+                    layered_contract_payload = build_layered_trace_contract(
+                        matched_endpoint=matched_endpoint.model_dump(),
+                        primary_slice=primary_slice,
+                        resolved_handlers=resolved_handlers_payload,
+                        layered_trace_expansion=layered_trace_expansion_payload,
+                        llm_summary=trace_llm_summary_payload,
+                        budgets=asdict(budgets) if trace_depth >= 2 else {"max_depth": trace_depth},
+                        artifact_paths=artifact_names,
+                    )
+                    result.matched_endpoint = matched_endpoint
+                    result.flow = layered_contract_payload.get("flow")
+                    result.layers = layered_contract_payload.get("layers", [])
+                    result.sinks = layered_contract_payload.get("sinks", [])
+                    result.resolved_handlers = layered_contract_payload.get("resolved_handlers", [])
+                    result.budgets = layered_contract_payload.get("budgets")
+                    result.diagnostics = layered_contract_payload.get("diagnostics", [])
+                    if isinstance(layered_contract_payload.get("summary"), str) and layered_contract_payload.get("summary"):
+                        result.summary.text = layered_contract_payload.get("summary")
+
+                    # Add layered steps to graph in source order for UI-friendly trace graph.
+                    steps = (result.flow or {}).get("steps", []) if isinstance(result.flow, dict) else []
+                    if steps:
+                        flow_steps: list[FlowStep] = []
+                        prev_node_id: str | None = None
+                        for idx, step in enumerate(steps, start=1):
+                            if not isinstance(step, dict):
+                                continue
+                            node_id = f"layered:{idx}"
+                            evidence = []
+                            for ref in step.get("evidence", []):
+                                if isinstance(ref, dict) and isinstance(ref.get("file"), str):
+                                    evidence.append(
+                                        EvidenceRef(
+                                            file=ref.get("file"),
+                                            symbol=ref.get("symbol"),
+                                            label=ref.get("label"),
+                                            snippet=ref.get("snippet"),
+                                        )
+                                    )
+                            result.nodes.append(
+                                GraphNode(
+                                    id=node_id,
+                                    type=str(step.get("kind") or "step"),
+                                    name=str(step.get("name") or step.get("detail") or "step"),
+                                    repo=step.get("repo"),
+                                    file=step.get("file"),
+                                    symbol=step.get("symbol"),
+                                    metadata={
+                                        "detail": step.get("detail"),
+                                        "depth": step.get("depth"),
+                                        "layer": step.get("layer"),
+                                        "line_start": step.get("line_start"),
+                                        "line_end": step.get("line_end"),
+                                    },
+                                    evidence=evidence,
+                                    confidence=step.get("confidence"),
+                                    status=step.get("status"),
+                                )
+                            )
+                            flow_steps.append(
+                                FlowStep(node_id=node_id, kind=str(step.get("kind") or "unknown_important"))
+                            )
+                            if prev_node_id is not None:
+                                result.edges.append(
+                                    GraphEdge(
+                                        id=f"layered-edge:{idx-1}:{idx}",
+                                        source=prev_node_id,
+                                        target=node_id,
+                                        type="NEXT_STEP",
+                                        repo=step.get("repo"),
+                                        status="grounded",
+                                        confidence=step.get("confidence"),
+                                    )
+                                )
+                            prev_node_id = node_id
+                        if flow_steps:
+                            layered_flow = Flow(
+                                id="flow:layered",
+                                name="layered_handler_trace",
+                                entry_node=flow_steps[0].node_id,
+                                steps=flow_steps,
+                                summary=result.summary.text,
+                                confidence=result.summary.trace_confidence,
+                            )
+                            result.flows.insert(0, layered_flow)
+                            result.summary.key_flow_id = layered_flow.id
         handler_symbol_artifact_path = save_run_artifact(
             workspace_id=workspace_id,
             run_id=run_id,
@@ -663,6 +764,7 @@ def trace_command(
             },
         )
         result.notes.append(f"Saved handler symbol index artifact: {handler_symbol_artifact_path}")
+        artifact_index["handler_symbol_index"] = str(handler_symbol_artifact_path)
         summary = handler_symbol_index.get("summary", {})
         result.notes.append(
             "Handler symbol index summary: "
@@ -678,6 +780,7 @@ def trace_command(
             payload=artifact_payload,
         )
         result.notes.append(f"Saved trace artifact: {trace_artifact_path}")
+        artifact_index["trace_result"] = str(trace_artifact_path)
         if resolved_handlers_payload is not None:
             resolved_handlers_artifact_path = save_run_artifact(
                 workspace_id=workspace_id,
@@ -688,6 +791,7 @@ def trace_command(
             result.notes.append(
                 f"Saved resolved handlers artifact: {resolved_handlers_artifact_path}"
             )
+            artifact_index["resolved_handlers"] = str(resolved_handlers_artifact_path)
         if handler_body_slices_payload is not None:
             handler_body_slices_artifact_path = save_run_artifact(
                 workspace_id=workspace_id,
@@ -698,6 +802,7 @@ def trace_command(
             result.notes.append(
                 f"Saved handler body slices artifact: {handler_body_slices_artifact_path}"
             )
+            artifact_index["handler_body_slices"] = str(handler_body_slices_artifact_path)
         if layered_trace_expansion_payload is not None:
             layered_trace_artifact_path = save_run_artifact(
                 workspace_id=workspace_id,
@@ -708,6 +813,7 @@ def trace_command(
             result.notes.append(
                 f"Saved layered trace expansion artifact: {layered_trace_artifact_path}"
             )
+            artifact_index["layered_trace_expansion"] = str(layered_trace_artifact_path)
         if trace_llm_summary_payload is not None:
             trace_llm_summary_artifact_path = save_run_artifact(
                 workspace_id=workspace_id,
@@ -718,6 +824,18 @@ def trace_command(
             result.notes.append(
                 f"Saved trace LLM summary artifact: {trace_llm_summary_artifact_path}"
             )
+            artifact_index["trace_llm_summary"] = str(trace_llm_summary_artifact_path)
+        if layered_contract_payload is not None:
+            contract_artifact_path = save_run_artifact(
+                workspace_id=workspace_id,
+                run_id=run_id,
+                artifact_name="layered_trace_contract",
+                payload=layered_contract_payload,
+            )
+            result.notes.append(
+                f"Saved layered trace contract artifact: {contract_artifact_path}"
+            )
+            artifact_index["layered_trace_contract"] = str(contract_artifact_path)
 
         if flow_expansion is not None:
             expansion_artifact_payload = {
@@ -734,6 +852,7 @@ def trace_command(
                 payload=expansion_artifact_payload,
             )
             result.notes.append(f"Saved flow expansion artifact: {expansion_artifact_path}")
+            artifact_index["flow_expansion"] = str(expansion_artifact_path)
 
         if result.nodes or result.edges or result.flows:
             graph_artifact_payload = {
@@ -754,6 +873,11 @@ def trace_command(
                 payload=graph_artifact_payload,
             )
             result.notes.append(f"Saved graph artifact: {graph_artifact_path}")
+            artifact_index["trace_graph"] = str(graph_artifact_path)
+        if artifact_index:
+            result.artifacts = artifact_index
+            if layered_contract_payload is not None:
+                layered_contract_payload["artifacts"] = dict(artifact_index)
     except OSError as exc:
         result.notes.append(f"Could not save trace artifact: {exc}")
         handler_symbol_index = None
@@ -780,6 +904,7 @@ def trace_command(
                     handler_body_slices=handler_body_slices_payload,
                     layered_trace_expansion=layered_trace_expansion_payload,
                     trace_llm_summary=trace_llm_summary_payload,
+                    layered_trace_contract=layered_contract_payload,
                 )
             else:
                 resolved = resolve_output_file_path(output, default_filename="trace.txt")
