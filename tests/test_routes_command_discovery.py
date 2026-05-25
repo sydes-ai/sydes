@@ -130,3 +130,35 @@ def test_routes_command_handles_ambiguous_endpoints_json(
     assert payload["files_examined"] == 3
     assert len(payload["routes"]) == 2
     assert payload["notes"][0] == "ambiguous candidate set"
+
+
+def test_routes_command_saves_repo_map_artifact(tmp_path: Path, monkeypatch) -> None:
+    """Routes CLI should save repo_map artifact alongside routes_discovery."""
+    repo_root = tmp_path / "api"
+    repo_root.mkdir()
+    saved_names: list[str] = []
+
+    def _fake_discovery(repos: list[RepoRef], *, model_spec: str | None = None, strict_llm: bool = False, **_kwargs) -> RoutesResult:
+        return RoutesResult(
+            repos=repos,
+            routes=[],
+            candidate_files=0,
+            files_examined=0,
+            notes=[],
+        )
+
+    def _fake_save_run_artifact(**kwargs):
+        saved_names.append(kwargs["artifact_name"])
+        return Path(f"/tmp/{kwargs['artifact_name']}.json")
+
+    monkeypatch.setattr(routes_module, "discover_endpoints", _fake_discovery)
+    monkeypatch.setattr(routes_module, "compute_workspace_id", lambda repos: "ws-test")
+    monkeypatch.setattr(routes_module, "create_run_id", lambda: "run-test")
+    monkeypatch.setattr(routes_module, "save_run_artifact", _fake_save_run_artifact)
+
+    result = runner.invoke(app, ["routes", "--repo", f"api={repo_root}"])
+
+    assert result.exit_code == 0
+    assert "routes_discovery" in saved_names
+    assert "repo_map" in saved_names
+    assert "Saved repo map artifact" in result.stdout

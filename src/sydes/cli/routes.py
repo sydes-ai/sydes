@@ -9,6 +9,7 @@ import typer
 
 from sydes.cli.output_paths import resolve_output_file_path, write_output_text
 from sydes.discover.endpoints import discover_endpoints
+from sydes.discover.repo_map import build_repo_map_batch
 from sydes.ingest.repos import parse_repo_specs
 from sydes.llm.client import LLMClientError, validate_llm_available
 from sydes.report.json_report import render_routes_json
@@ -139,9 +140,10 @@ def routes_command(
         "repo_inputs": [item.model_dump() for item in repos],
         "result": result.model_dump(),
     }
+    workspace_id = compute_workspace_id(repos)
+    run_id = create_run_id()
+
     try:
-        workspace_id = compute_workspace_id(repos)
-        run_id = create_run_id()
         artifact_path = save_run_artifact(
             workspace_id=workspace_id,
             run_id=run_id,
@@ -151,6 +153,22 @@ def routes_command(
         result.notes.append(f"Saved discovery artifact: {artifact_path}")
     except OSError as exc:
         result.notes.append(f"Could not save discovery artifact: {exc}")
+
+    try:
+        repo_map_payload = {
+            "timestamp": datetime.now(tz=UTC).isoformat(),
+            "repo_inputs": [item.model_dump() for item in repos],
+            "map": build_repo_map_batch(repos),
+        }
+        repo_map_artifact_path = save_run_artifact(
+            workspace_id=workspace_id,
+            run_id=run_id,
+            artifact_name="repo_map",
+            payload=repo_map_payload,
+        )
+        result.notes.append(f"Saved repo map artifact: {repo_map_artifact_path}")
+    except OSError as exc:
+        result.notes.append(f"Could not save repo map artifact: {exc}")
 
     rendered = (
         render_routes_json(result)
