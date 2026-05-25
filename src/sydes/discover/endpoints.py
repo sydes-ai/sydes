@@ -928,6 +928,11 @@ def discover_endpoints(
             f"deterministic_frameworks={','.join(sorted(deterministic_frameworks)) if deterministic_frameworks else 'none'}"
         )
         notes.append(
+            f"{repo.name}: route_index_route_calls={route_index_summary.get('route_call_count', 0)}, "
+            f"route_index_mount_calls={route_index_summary.get('mount_call_count', 0)}, "
+            f"route_index_router_symbols={route_index_summary.get('router_symbol_count', 0)}"
+        )
+        notes.append(
             f"{repo.name}: discovery_coverage={coverage.get('label')} score={coverage.get('score')}"
         )
         if coverage.get("reasons"):

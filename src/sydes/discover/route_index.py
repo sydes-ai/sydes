@@ -139,6 +139,8 @@ def _extract_index_for_file(relative_path: str, text: str, role: str) -> dict:
         line = raw_line.strip()
         if not line:
             continue
+        if line.startswith("//") or line.startswith("#"):
+            continue
 
         for match in _ROUTER_DECL_RE.finditer(line):
             symbol = match.group("symbol")
@@ -149,12 +151,13 @@ def _extract_index_for_file(relative_path: str, text: str, role: str) -> dict:
             method = match.group("method").lower()
             path = match.group("path")
             receiver = match.group("receiver")
+            handler_hint = _extract_handler_hint_from_route_snippet(raw_line)
             route_calls.append(
                 {
                     "receiver": receiver,
                     "method": method,
                     "path": path,
-                    "handler_hint": None,
+                    "handler_hint": handler_hint,
                     "line": idx,
                     "snippet": _trim(raw_line),
                 }
@@ -210,6 +213,82 @@ def _extract_index_for_file(relative_path: str, text: str, role: str) -> dict:
         "exports": exports,
         "path_literals": path_literals,
     }
+
+
+def _split_args(expr: str) -> list[str]:
+    args: list[str] = []
+    buf: list[str] = []
+    depth = 0
+    quote: str | None = None
+    escape = False
+    for ch in expr:
+        if quote is not None:
+            buf.append(ch)
+            if escape:
+                escape = False
+            elif ch == "\\":
+                escape = True
+            elif ch == quote:
+                quote = None
+            continue
+        if ch in {"'", '"', "`"}:
+            quote = ch
+            buf.append(ch)
+            continue
+        if ch == "(":
+            depth += 1
+            buf.append(ch)
+            continue
+        if ch == ")":
+            depth = max(0, depth - 1)
+            buf.append(ch)
+            continue
+        if ch == "," and depth == 0:
+            part = "".join(buf).strip()
+            if part:
+                args.append(part)
+            buf = []
+            continue
+        buf.append(ch)
+    part = "".join(buf).strip()
+    if part:
+        args.append(part)
+    return args
+
+
+def _extract_handler_hint_from_route_snippet(snippet: str) -> str | None:
+    line = " ".join(snippet.strip().split())
+    if "(" not in line or ")" not in line:
+        return None
+    start = line.find("(")
+    end = line.rfind(")")
+    if end <= start:
+        return None
+    args = _split_args(line[start + 1 : end])
+    if len(args) < 2:
+        return None
+    candidate = args[-1].strip().rstrip(";")
+    if not candidate:
+        return None
+
+    def _unwrap(expr: str) -> str | None:
+        expr = expr.strip().rstrip(";")
+        if re.fullmatch(r"[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)+", expr):
+            return expr
+        if re.fullmatch(r"[A-Za-z_]\w*", expr):
+            return expr
+        call_match = re.fullmatch(r"[A-Za-z_]\w*\((.*)\)", expr)
+        if call_match:
+            inner = call_match.group(1).strip()
+            if not inner:
+                return None
+            inner_args = _split_args(inner)
+            if not inner_args:
+                return None
+            return _unwrap(inner_args[0])
+        return None
+
+    return _unwrap(candidate)
 
 
 def build_route_index(repo: RepoRef, *, repo_map: dict | None = None) -> dict:

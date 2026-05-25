@@ -20,6 +20,7 @@ def _write_route_index_fixture(root: Path) -> None:
                 'const tasksApiRouter = express.Router();',
                 'tasksApiRouter.post("/", taskCreateBodyValidator, safeControllerFunction(TasksController.create));',
                 'tasksApiRouter.get("/project/:id", idParamValidator, safeControllerFunction(TasksController.getTasksByProject));',
+                '// tasksApiRouter.delete("/commented/:id", safeControllerFunction(TasksController.delete));',
                 'export default tasksApiRouter;',
             ]
         )
@@ -70,6 +71,9 @@ def test_route_index_extracts_route_calls_mounts_symbols_and_imports(tmp_path: P
     assert "tasksApiRouter" in tasks["router_symbols"]
     assert any(call["method"] == "post" and call["path"] == "/" for call in tasks["route_calls"])
     assert any(call["method"] == "get" and call["path"] == "/project/:id" for call in tasks["route_calls"])
+    assert any(call["handler_hint"] == "TasksController.create" for call in tasks["route_calls"])
+    assert any(call["handler_hint"] == "TasksController.getTasksByProject" for call in tasks["route_calls"])
+    assert not any(call["path"] == "/commented/:id" for call in tasks["route_calls"])
     assert any(item["kind"] == "default" and item["symbol"] == "tasksApiRouter" for item in tasks["exports"])
 
     api_index = files["src/routes/apis/index.ts"]
