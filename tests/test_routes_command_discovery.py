@@ -9,6 +9,7 @@ from typer.testing import CliRunner
 import sydes.cli.routes as routes_module
 from sydes.cli.main import app
 from sydes.core.models import EndpointCandidate, RepoRef, RoutesResult
+from sydes.discover.discovery_cache import DiscoveryCacheBundle, DiscoveryCacheStatus
 
 runner = CliRunner()
 
@@ -318,3 +319,79 @@ def test_routes_command_planner_does_not_run_under_never(tmp_path: Path, monkeyp
     result = runner.invoke(app, ["routes", "--repo", f"api={repo_root}", "--llm-policy", "never"])
     assert result.exit_code == 0
     assert "routing_pattern_planner=skipped reason=policy_never" in result.stdout
+
+
+def test_routes_command_cache_hit_bypasses_discovery_and_planner(tmp_path: Path, monkeypatch) -> None:
+    """Cache hit should return cached routes without running discovery/planner."""
+    repo_root = tmp_path / "api"
+    repo_root.mkdir()
+    cached_result = RoutesResult(
+        repos=[RepoRef(name="api", root=str(repo_root))],
+        routes=[
+            EndpointCandidate(method="GET", path="/cached", handler="h", file="app.py", repo="api"),
+        ],
+        candidate_files=1,
+        files_examined=1,
+        notes=[],
+    )
+    cached_artifacts = {
+        "routes_discovery": {"result": cached_result.model_dump()},
+        "repo_map": {"map": {}},
+        "route_index": {"index": {}},
+        "route_graph_facts": {"graph_facts": {}},
+        "discovery_coverage": {"coverage": {}},
+        "routing_pattern_plan": {"plans": {}},
+    }
+    monkeypatch.setattr(
+        routes_module,
+        "load_cache_bundle",
+        lambda *args, **kwargs: (
+            DiscoveryCacheStatus(hit=True, reason="cache_hit", changed_files=0),
+            DiscoveryCacheBundle(manifest={"version": "v1"}, artifacts=cached_artifacts),
+        ),
+    )
+
+    def _should_not_discover(*_args, **_kwargs):
+        raise AssertionError("discover_endpoints should not run on cache hit")
+
+    def _should_not_create_client(*_args, **_kwargs):
+        raise AssertionError("planner client should not be created on cache hit")
+
+    monkeypatch.setattr(routes_module, "discover_endpoints", _should_not_discover)
+    monkeypatch.setattr(routes_module, "create_default_llm_client", _should_not_create_client)
+    monkeypatch.setattr(routes_module, "compute_workspace_id", lambda repos: "ws-test")
+    monkeypatch.setattr(routes_module, "create_run_id", lambda: "run-test")
+    monkeypatch.setattr(routes_module, "save_run_artifact", lambda **kwargs: Path(f"/tmp/{kwargs['artifact_name']}.json"))
+
+    result = runner.invoke(app, ["routes", "--repo", f"api={repo_root}", "--llm-policy", "auto"])
+    assert result.exit_code == 0
+    assert "/cached" in result.stdout
+    assert "discovery_cache=hit" in result.stdout
+
+
+def test_routes_command_no_cache_bypasses_cache_lookup(tmp_path: Path, monkeypatch) -> None:
+    """--no-cache should skip cache lookup and run discovery path."""
+    repo_root = tmp_path / "api"
+    repo_root.mkdir()
+    called = {"cache_load": False, "discover": False}
+
+    def _fake_load(*_args, **_kwargs):
+        called["cache_load"] = True
+        return DiscoveryCacheStatus(hit=False, reason="cache_missing"), None
+
+    def _fake_discover(repos, **_kwargs):
+        called["discover"] = True
+        return RoutesResult(repos=repos, routes=[], candidate_files=0, files_examined=0, notes=[])
+
+    monkeypatch.setattr(routes_module, "load_cache_bundle", _fake_load)
+    monkeypatch.setattr(routes_module, "discover_endpoints", _fake_discover)
+    monkeypatch.setattr(routes_module, "compute_workspace_id", lambda repos: "ws-test")
+    monkeypatch.setattr(routes_module, "create_run_id", lambda: "run-test")
+    monkeypatch.setattr(routes_module, "save_run_artifact", lambda **kwargs: Path(f"/tmp/{kwargs['artifact_name']}.json"))
+    monkeypatch.setattr(routes_module, "save_cache_bundle", lambda **kwargs: Path("/tmp/cache"))
+
+    result = runner.invoke(app, ["routes", "--repo", f"api={repo_root}", "--no-cache"])
+    assert result.exit_code == 0
+    assert called["cache_load"] is False
+    assert called["discover"] is True
+    assert "discovery_cache=disabled" in result.stdout

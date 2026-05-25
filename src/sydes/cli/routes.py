@@ -9,8 +9,14 @@ from typing import Annotated, Literal
 import typer
 
 from sydes.cli.output_paths import resolve_output_file_path, write_output_text
+from sydes.core.models import RoutesResult
 from sydes.discover.endpoints import discover_endpoints
 from sydes.discover.discovery_coverage import evaluate_discovery_coverage
+from sydes.discover.discovery_cache import (
+    ARTIFACT_NAMES as CACHEABLE_ARTIFACT_NAMES,
+    load_cache_bundle,
+    save_cache_bundle,
+)
 from sydes.discover.route_graph import build_route_graph_facts_batch
 from sydes.discover.route_index import build_route_index_batch
 from sydes.discover.repo_map import build_repo_map_batch
@@ -145,6 +151,7 @@ def routes_command(
         float | None,
         typer.Option("--model-timeout"),
     ] = None,
+    no_cache: Annotated[bool, typer.Option("--no-cache")] = False,
     allow_partial: Annotated[bool, typer.Option("--allow-partial")] = False,
 ) -> None:
     """Discover routes for input repositories using shallow+LLM pipeline."""
@@ -152,6 +159,75 @@ def routes_command(
         repos = parse_repo_specs(repo or [])
     except ValueError as exc:
         raise typer.BadParameter(str(exc), param_hint="--repo") from exc
+
+    workspace_id = compute_workspace_id(repos)
+    run_id = create_run_id()
+
+    if no_cache:
+        cache_status = None
+        cached = None
+    else:
+        cache_status, cached = load_cache_bundle(
+            workspace_id=workspace_id,
+            repos=repos,
+            llm_policy=llm_policy,
+            model_fingerprint=model,
+        )
+
+    if not no_cache and cache_status is not None and cache_status.hit and cached is not None:
+        try:
+            routes_payload = cached.artifacts.get("routes_discovery", {})
+            result = RoutesResult.model_validate(routes_payload.get("result", {}))
+        except Exception:  # noqa: BLE001
+            cached = None
+            cache_status = None
+        else:
+            result.notes.append("discovery_cache=hit")
+            result.notes.append(
+                "discovery_cache_reused_artifacts="
+                + ",".join(name for name in CACHEABLE_ARTIFACT_NAMES if name in cached.artifacts)
+            )
+            for name in CACHEABLE_ARTIFACT_NAMES:
+                payload = cached.artifacts.get(name)
+                if payload is None:
+                    continue
+                try:
+                    path = save_run_artifact(
+                        workspace_id=workspace_id,
+                        run_id=run_id,
+                        artifact_name=name,
+                        payload=payload,
+                    )
+                    if name == "routes_discovery":
+                        result.notes.append(f"Saved discovery artifact: {path}")
+                    elif name == "repo_map":
+                        result.notes.append(f"Saved repo map artifact: {path}")
+                    elif name == "route_index":
+                        result.notes.append(f"Saved route index artifact: {path}")
+                    elif name == "route_graph_facts":
+                        result.notes.append(f"Saved route graph facts artifact: {path}")
+                    elif name == "discovery_coverage":
+                        result.notes.append(f"Saved discovery coverage artifact: {path}")
+                    elif name == "routing_pattern_plan":
+                        result.notes.append(f"Saved routing pattern plan artifact: {path}")
+                    elif name == "routing_pattern_execution":
+                        result.notes.append(f"Saved routing pattern execution artifact: {path}")
+                except OSError:
+                    continue
+
+            rendered = (
+                render_routes_json(result)
+                if output_format == "json"
+                else render_routes_terminal(result)
+            )
+            typer.echo(rendered)
+            if output is not None:
+                try:
+                    _write_command_output(output, rendered, output_format=output_format)
+                except (OSError, ValueError) as exc:
+                    typer.echo(str(exc))
+                    raise typer.Exit(code=1) from exc
+            return
 
     validation = None
     if llm_policy == "always":
@@ -218,13 +294,22 @@ def routes_command(
         typer.echo(f"LLM discovery failed: {message}")
         raise typer.Exit(code=1)
 
+    if no_cache:
+        cache_note = "discovery_cache=disabled"
+    elif cache_status is not None and not cache_status.hit:
+        cache_note = (
+            f"discovery_cache=miss reason={cache_status.reason}"
+            + (f" changed_files={cache_status.changed_files}" if cache_status.changed_files else "")
+        )
+    else:
+        cache_note = "discovery_cache=miss reason=cache_bypass"
+    result.notes.append(cache_note)
+
     artifact_payload = {
         "timestamp": datetime.now(tz=UTC).isoformat(),
         "repo_inputs": [item.model_dump() for item in repos],
         "result": result.model_dump(),
     }
-    workspace_id = compute_workspace_id(repos)
-    run_id = create_run_id()
 
     try:
         artifact_path = save_run_artifact(
@@ -447,6 +532,28 @@ def routes_command(
         result.notes.append(f"Saved routing pattern execution artifact: {execution_artifact_path}")
     except OSError as exc:
         result.notes.append(f"Could not save routing pattern execution artifact: {exc}")
+
+    if not no_cache:
+        try:
+            cache_artifacts = {
+                "routes_discovery": artifact_payload,
+                "repo_map": repo_map_payload if "repo_map_payload" in locals() else None,
+                "route_index": route_index_payload if "route_index_payload" in locals() else None,
+                "route_graph_facts": route_graph_payload if "route_graph_payload" in locals() else None,
+                "discovery_coverage": coverage_payload if "coverage_payload" in locals() else None,
+                "routing_pattern_plan": routing_pattern_payload if "routing_pattern_payload" in locals() else None,
+                "routing_pattern_execution": execution_payload if "execution_payload" in locals() else None,
+            }
+            cache_artifacts = {k: v for k, v in cache_artifacts.items() if v is not None}
+            save_cache_bundle(
+                workspace_id=workspace_id,
+                repos=repos,
+                llm_policy=llm_policy,
+                model_fingerprint=model,
+                artifacts=cache_artifacts,
+            )
+        except OSError as exc:
+            result.notes.append(f"Could not update discovery cache: {exc}")
 
     rendered = (
         render_routes_json(result)
