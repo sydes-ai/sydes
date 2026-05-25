@@ -15,6 +15,7 @@ from sydes.cli.output_paths import (
     write_output_text,
 )
 from sydes.core.models import (
+    EndpointCandidate,
     FlowExpansionResult,
     TargetSpec,
     TraceResult,
@@ -48,6 +49,7 @@ from sydes.trace.cross_repo import (
 from sydes.trace.expand import prepare_flow_expansion_context, run_flow_expansion
 from sydes.trace.sinks import normalize_sink_candidates
 from sydes.trace.handler_symbol_index import build_handler_symbol_index_batch
+from sydes.trace.handler_resolver import resolve_handler_reference
 
 VERBOSE_NOTE_MARKERS = (
     "Flow expansion context files selected:",
@@ -70,7 +72,7 @@ def _build_trace_result(
     repo_specs: list[str],
     model_spec: str | None = None,
     strict_llm: bool = False,
-) -> tuple[TraceResult, FlowExpansionResult | None]:
+) -> tuple[TraceResult, FlowExpansionResult | None, EndpointCandidate | None]:
     """Run endpoint discovery and target resolution to ground a trace target."""
     try:
         repos = parse_repo_specs(repo_specs)
@@ -292,7 +294,7 @@ def _build_trace_result(
         result.summary.test_matrix_confidence = matrix_coverage
         result.test_matrix.coverage = matrix_coverage
         result.test_matrix.confidence = matrix_coverage
-    return result, flow_expansion
+    return result, flow_expansion, match.selected
 
 
 def _write_output(path: Path, content: str) -> None:
@@ -306,6 +308,7 @@ def _write_trace_json_outputs(
     result: TraceResult | None = None,
     flow_expansion: FlowExpansionResult | None = None,
     handler_symbol_index: dict | None = None,
+    resolved_handlers: dict | None = None,
 ) -> None:
     """Write trace JSON output to either a single file or an artifact directory."""
     target = resolve_trace_output_target(output)
@@ -344,6 +347,11 @@ def _write_trace_json_outputs(
         _write_output(
             target.path / "handler_symbol_index.json",
             json.dumps(handler_symbol_index, indent=2),
+        )
+    if resolved_handlers is not None:
+        _write_output(
+            target.path / "resolved_handlers.json",
+            json.dumps(resolved_handlers, indent=2),
         )
 
 
@@ -418,13 +426,18 @@ def trace_command(
         typer.echo(f"LLM validation failed: {message}")
         raise typer.Exit(code=1)
     try:
-        result, flow_expansion = _build_trace_result(
+        build_output = _build_trace_result(
             path=path,
             method=method,
             repo_specs=repo or [],
             model_spec=model,
             strict_llm=not allow_partial,
         )
+        if len(build_output) == 3:
+            result, flow_expansion, matched_endpoint = build_output
+        else:
+            result, flow_expansion = build_output
+            matched_endpoint = None
     except ValueError as exc:
         raise typer.BadParameter(str(exc), param_hint="--repo") from exc
     except LLMClientError as exc:
@@ -459,10 +472,44 @@ def trace_command(
         "result": result.model_dump(),
     }
     handler_symbol_index: dict | None = None
+    resolved_handlers_payload: dict | None = None
     try:
         workspace_id = compute_workspace_id(result.repos)
         run_id = create_run_id()
         handler_symbol_index = build_handler_symbol_index_batch(result.repos)
+        resolved_handlers_payload = None
+        if (
+            matched_endpoint is not None
+            and isinstance(matched_endpoint.handler, str)
+            and matched_endpoint.handler.strip()
+        ):
+            repo_index = next(
+                (
+                    item
+                    for item in handler_symbol_index.get("repos", [])
+                    if item.get("repo") == matched_endpoint.repo
+                ),
+                None,
+            )
+            if repo_index is not None:
+                resolved_handlers_payload = {
+                    "timestamp": datetime.now(tz=UTC).isoformat(),
+                    "target": result.target.model_dump(),
+                    "matched_endpoint": matched_endpoint.model_dump(),
+                    "resolution": resolve_handler_reference(matched_endpoint, repo_index),
+                }
+                resolution = resolved_handlers_payload["resolution"]
+                primary = resolution.get("primary_handler")
+                if isinstance(primary, dict) and primary.get("symbol"):
+                    symbol = primary["symbol"]
+                    result.notes.append(
+                        "Resolved handler: "
+                        f"{primary.get('normalized_handler')} -> {symbol.get('file')}"
+                    )
+                else:
+                    result.notes.append(
+                        f"Handler resolution incomplete: {matched_endpoint.handler}"
+                    )
         handler_symbol_artifact_path = save_run_artifact(
             workspace_id=workspace_id,
             run_id=run_id,
@@ -490,6 +537,16 @@ def trace_command(
             payload=artifact_payload,
         )
         result.notes.append(f"Saved trace artifact: {trace_artifact_path}")
+        if resolved_handlers_payload is not None:
+            resolved_handlers_artifact_path = save_run_artifact(
+                workspace_id=workspace_id,
+                run_id=run_id,
+                artifact_name="resolved_handlers",
+                payload=resolved_handlers_payload,
+            )
+            result.notes.append(
+                f"Saved resolved handlers artifact: {resolved_handlers_artifact_path}"
+            )
 
         if flow_expansion is not None:
             expansion_artifact_payload = {
@@ -548,6 +605,7 @@ def trace_command(
                     result=result,
                     flow_expansion=flow_expansion,
                     handler_symbol_index=handler_symbol_index,
+                    resolved_handlers=resolved_handlers_payload,
                 )
             else:
                 resolved = resolve_output_file_path(output, default_filename="trace.txt")
