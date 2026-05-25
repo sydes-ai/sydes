@@ -1,10 +1,7 @@
 from pathlib import Path
 
 from sydes.core.models import RepoRef
-from sydes.trace.handler_symbol_index import (
-    build_handler_symbol_index,
-    resolve_local_import,
-)
+from sydes.trace.handler_symbol_index import build_handler_symbol_index, resolve_local_import
 
 
 def _write(path: Path, text: str) -> None:
@@ -34,6 +31,52 @@ def test_extracts_default_and_named_imports(tmp_path: Path) -> None:
         and item["local"] == "listFn"
         and item["imported"] == "getList"
         for item in imports
+    )
+
+
+def test_extracts_aliased_named_and_namespace_imports(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "src/routes/task-router.ts",
+        "\n".join(
+            [
+                'import { create as createTask } from "./task-controller";',
+                'import * as Utils from "../utils";',
+            ]
+        ),
+    )
+    _write(tmp_path / "src/routes/task-controller.ts", "export const create = async () => ({});")
+    _write(tmp_path / "src/utils.ts", "export const parse = () => null;")
+    repo = RepoRef(name="api", root=str(tmp_path))
+    index = build_handler_symbol_index(repo)
+    route_file = next(item for item in index["files"] if item["path"] == "src/routes/task-router.ts")
+    assert any(
+        item["kind"] == "named"
+        and item["local"] == "createTask"
+        and item["imported"] == "create"
+        for item in route_file["imports"]
+    )
+    assert any(
+        item["kind"] == "namespace"
+        and item["local"] == "Utils"
+        and item["source"] == "../utils"
+        for item in route_file["imports"]
+    )
+
+
+def test_extracts_require_import(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "src/routes/attachments.js",
+        'const AttachmentController = require("../controllers/attachment-controller");',
+    )
+    _write(tmp_path / "src/controllers/attachment-controller.js", "module.exports = {};")
+    repo = RepoRef(name="api", root=str(tmp_path))
+    index = build_handler_symbol_index(repo)
+    route_file = next(item for item in index["files"] if item["path"] == "src/routes/attachments.js")
+    assert any(
+        item["kind"] == "require"
+        and item["local"] == "AttachmentController"
+        and item["resolved_file"] == "src/controllers/attachment-controller.js"
+        for item in route_file["imports"]
     )
 
 
@@ -90,6 +133,19 @@ def test_extracts_class_with_separate_default_export(tmp_path: Path) -> None:
     )
 
 
+def test_extracts_named_export_class(tmp_path: Path) -> None:
+    _write(tmp_path / "src/controllers/tasks-controller.ts", "export class TasksController {}")
+    repo = RepoRef(name="api", root=str(tmp_path))
+    index = build_handler_symbol_index(repo)
+    file_payload = next(item for item in index["files"] if item["path"] == "src/controllers/tasks-controller.ts")
+    assert any(
+        item["kind"] == "class"
+        and item["name"] == "TasksController"
+        and item["export_kind"] == "named"
+        for item in file_payload["symbols"]
+    )
+
+
 def test_extracts_exported_functions_and_const_arrow(tmp_path: Path) -> None:
     _write(
         tmp_path / "src/controllers/users.ts",
@@ -120,6 +176,17 @@ def test_extracts_exported_functions_and_const_arrow(tmp_path: Path) -> None:
     )
 
 
+def test_extracts_const_function_assignment(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "src/controllers/users.ts",
+        "const create = function(req, res) { return res.send({}); };",
+    )
+    repo = RepoRef(name="api", root=str(tmp_path))
+    index = build_handler_symbol_index(repo)
+    file_payload = next(item for item in index["files"] if item["path"] == "src/controllers/users.ts")
+    assert any(item["kind"] == "function" and item["name"] == "create" for item in file_payload["symbols"])
+
+
 def test_relative_import_and_directory_resolution(tmp_path: Path) -> None:
     _write(tmp_path / "src/controllers/attachment-controller.ts", "export default class AttachmentController {}")
     _write(tmp_path / "src/routes/apis/index.ts", "export default api;")
@@ -145,3 +212,39 @@ def test_ignores_test_and_noise_directories(tmp_path: Path) -> None:
     assert "tests/controllers/test_controller.ts" not in indexed_paths
     assert "node_modules/lib/index.js" not in indexed_paths
     assert "dist/out.js" not in indexed_paths
+
+
+def test_import_entry_uses_resolved_file_field(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "src/routes/attachments-api-router.ts",
+        'import AttachmentController from "../controllers/attachment-controller";',
+    )
+    _write(
+        tmp_path / "src/controllers/attachment-controller.ts",
+        "\n".join(
+            [
+                "export default class AttachmentController {",
+                "  public static async createTaskAttachment(req, res) {",
+                "    return res.send({});",
+                "  }",
+                "}",
+            ]
+        ),
+    )
+    repo = RepoRef(name="api", root=str(tmp_path))
+    index = build_handler_symbol_index(repo)
+    router_file = next(
+        item for item in index["files"] if item["path"] == "src/routes/attachments-api-router.ts"
+    )
+    controller_file = next(
+        item for item in index["files"] if item["path"] == "src/controllers/attachment-controller.ts"
+    )
+    assert any(
+        item["local"] == "AttachmentController"
+        and item["resolved_file"] == "src/controllers/attachment-controller.ts"
+        for item in router_file["imports"]
+    )
+    assert any(
+        item.get("qualified_name") == "AttachmentController.createTaskAttachment"
+        for item in controller_file["symbols"]
+    )

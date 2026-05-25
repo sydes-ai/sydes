@@ -478,10 +478,10 @@ def trace_command(
         summary = handler_symbol_index.get("summary", {})
         result.notes.append(
             "Handler symbol index summary: "
-            f"files={summary.get('files_indexed', 0)}, "
-            f"symbols={summary.get('symbols', 0)}, "
-            f"imports={summary.get('imports', 0)}, "
-            f"exports={summary.get('exports', 0)}."
+            f"handler_symbol_index_files={summary.get('files_indexed', 0)}, "
+            f"handler_symbol_index_symbols={summary.get('symbols', 0)}, "
+            f"handler_symbol_index_imports={summary.get('imports', 0)}, "
+            f"handler_symbol_index_exports={summary.get('exports', 0)}."
         )
         trace_artifact_path = save_run_artifact(
             workspace_id=workspace_id,
