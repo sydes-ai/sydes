@@ -169,6 +169,62 @@ def test_discover_endpoints_llm_policy_never_skips_llm_calls(tmp_path: Path) -> 
     assert any("llm_policy=never, llm_skipped=true" in note for note in result.notes)
 
 
+def test_discover_endpoints_llm_policy_never_warns_when_coverage_weak(tmp_path: Path, monkeypatch) -> None:
+    """llm_policy=never should not call LLM but should warn when deterministic coverage is weak."""
+    repo_root = tmp_path / "api"
+    repo_root.mkdir()
+    (repo_root / "main.py").write_text(
+        "@app.get('/users')\ndef users():\n    return []\n",
+        encoding="utf-8",
+    )
+
+    def _fake_route_index(_repo):
+        return {
+            "repo": "api",
+            "summary": {
+                "files_indexed": 80,
+                "files_with_route_calls": 50,
+                "route_call_count": 250,
+                "mount_call_count": 60,
+                "router_symbol_count": 55,
+            },
+            "files": [],
+        }
+
+    def _fake_route_graph(_batch):
+        return {
+            "repos": [
+                {
+                    "repo": "api",
+                    "summary": {
+                        "containers": 55,
+                        "declarations": 250,
+                        "mount_edges": 60,
+                        "composed_routes": 6,
+                        "unresolved_mounts": 40,
+                    },
+                }
+            ],
+            "_repo_endpoint_candidates": {"api": []},
+        }
+
+    monkeypatch.setattr("sydes.discover.endpoints.build_route_index", _fake_route_index)
+    monkeypatch.setattr(
+        "sydes.discover.endpoints.build_route_graph_facts_from_route_index_batch",
+        _fake_route_graph,
+    )
+    client = _CountingEndpointClient('{"endpoints":[{"method":"GET","path":"/llm","file":"main.py","repo":"api"}]}')
+
+    result = discover_endpoints(
+        [RepoRef(name="api", root=str(repo_root))],
+        llm_client=client,
+        llm_policy="never",
+    )
+
+    assert client.calls == 0
+    assert any("Discovery coverage is weak under llm_policy=never" in note for note in result.notes)
+
+
 def test_discover_endpoints_llm_policy_auto_skips_with_high_conf_deterministic(tmp_path: Path) -> None:
     """llm_policy=auto should skip LLM when deterministic routes are strong and untruncated."""
     repo_root = tmp_path / "api"
@@ -187,7 +243,64 @@ def test_discover_endpoints_llm_policy_auto_skips_with_high_conf_deterministic(t
 
     assert client.calls == 0
     assert any(item.path == "/users" for item in result.routes)
-    assert any("LLM route discovery skipped by auto policy because deterministic routes were found." in note for note in result.notes)
+    assert any("LLM route discovery skipped by auto policy because deterministic coverage is strong." in note for note in result.notes)
+
+
+def test_discover_endpoints_llm_policy_auto_runs_when_coverage_weak(tmp_path: Path, monkeypatch) -> None:
+    """llm_policy=auto should call LLM when deterministic coverage is weak."""
+    repo_root = tmp_path / "api"
+    repo_root.mkdir()
+    (repo_root / "main.py").write_text(
+        "@app.get('/users')\ndef users():\n    return []\n",
+        encoding="utf-8",
+    )
+
+    def _fake_route_index(_repo):
+        return {
+            "repo": "api",
+            "summary": {
+                "files_indexed": 80,
+                "files_with_route_calls": 50,
+                "route_call_count": 250,
+                "mount_call_count": 60,
+                "router_symbol_count": 55,
+            },
+            "files": [],
+        }
+
+    def _fake_route_graph(_batch):
+        return {
+            "repos": [
+                {
+                    "repo": "api",
+                    "summary": {
+                        "containers": 55,
+                        "declarations": 250,
+                        "mount_edges": 60,
+                        "composed_routes": 6,
+                        "unresolved_mounts": 30,
+                    },
+                }
+            ],
+            "_repo_endpoint_candidates": {"api": []},
+        }
+
+    monkeypatch.setattr("sydes.discover.endpoints.build_route_index", _fake_route_index)
+    monkeypatch.setattr(
+        "sydes.discover.endpoints.build_route_graph_facts_from_route_index_batch",
+        _fake_route_graph,
+    )
+    client = _CountingEndpointClient('{"endpoints":[{"method":"GET","path":"/llm","file":"main.py","repo":"api"}]}')
+
+    result = discover_endpoints(
+        [RepoRef(name="api", root=str(repo_root))],
+        llm_client=client,
+        llm_policy="auto",
+    )
+
+    assert client.calls >= 1
+    assert any("discovery_coverage=weak" in note for note in result.notes)
+    assert any("llm_policy=auto, llm_skipped=false" in note for note in result.notes)
 
 
 def test_discover_endpoints_llm_policy_auto_runs_when_no_deterministic_routes(tmp_path: Path) -> None:

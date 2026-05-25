@@ -39,6 +39,7 @@ from sydes.llm.client import (
 )
 from sydes.llm.prompts import build_endpoint_discovery_prompt
 from sydes.discover.deterministic_routes import extract_deterministic_routes
+from sydes.discover.discovery_coverage import auto_policy_should_skip_llm, evaluate_discovery_coverage
 from sydes.discover.route_index import build_route_index
 from sydes.discover.route_graph import build_route_graph_facts_from_route_index_batch
 
@@ -827,6 +828,26 @@ def discover_endpoints(
             deterministic_routes = [*deterministic_routes, *composed_routes]
             deterministic_frameworks.add("express_mount_graph")
         deterministic_routes, _ = merge_route_candidates(deterministic_routes, [])
+        route_index_summary = route_index_repo_batch["repos"][0].get("summary", {})
+        repo_graph_facts = None
+        repos_payload = route_graph_repo.get("repos")
+        if isinstance(repos_payload, list) and repos_payload:
+            repo_graph_facts = repos_payload[0]
+        route_graph_summary = repo_graph_facts.get("summary", {}) if isinstance(repo_graph_facts, dict) else {}
+        deterministic_scan_truncated_files = sum(
+            1
+            for item in deterministic_reads
+            if not item.skipped
+            and item.snippet is not None
+            and item.snippet.truncated
+            and (item.role or "unknown") == FILE_ROLE_SOURCE_ROUTE_CANDIDATE
+        )
+        coverage = evaluate_discovery_coverage(
+            route_index_summary=route_index_summary,
+            route_graph_summary=route_graph_summary,
+            deterministic_route_count=len(deterministic_routes),
+            deterministic_scan_truncated_files=deterministic_scan_truncated_files,
+        )
 
         deterministic_high_confidence = (
             bool(deterministic_routes)
@@ -842,9 +863,17 @@ def discover_endpoints(
         if llm_policy == "never":
             should_run_llm = False
             llm_skip_note = "LLM route discovery disabled by policy (never)."
-        elif llm_policy == "auto" and deterministic_high_confidence:
+            if coverage.get("label") == "weak":
+                notes.append(f"{repo.name}: Discovery coverage is weak under llm_policy=never; route list may be incomplete.")
+        elif llm_policy == "auto" and deterministic_high_confidence and auto_policy_should_skip_llm(coverage):
             should_run_llm = False
-            llm_skip_note = "LLM route discovery skipped by auto policy because deterministic routes were found."
+            if coverage.get("label") == "moderate":
+                llm_skip_note = (
+                    "LLM route discovery skipped by auto policy (moderate deterministic coverage). "
+                    "Use --llm-policy always for extra enrichment."
+                )
+            else:
+                llm_skip_note = "LLM route discovery skipped by auto policy because deterministic coverage is strong."
 
         if should_run_llm:
             try:
@@ -858,9 +887,17 @@ def discover_endpoints(
             except LLMClientError as exc:
                 if deterministic_routes:
                     reason = str(exc)
+                    extra_warning = (
+                        "Deterministic discovery coverage appears weak; LLM enrichment was not available or failed."
+                        if coverage.get("label") in {"weak", "unknown"}
+                        else None
+                    )
                     discovery = EndpointDiscoveryResult(
                         endpoints=[],
-                        notes=[f"LLM discovery failed; using deterministic routes only: {reason}"],
+                        notes=[
+                            f"LLM discovery failed; using deterministic routes only: {reason}",
+                            *( [extra_warning] if extra_warning else [] ),
+                        ],
                         files_sent_to_llm=len(llm_candidates),
                     )
                 else:
@@ -890,10 +927,11 @@ def discover_endpoints(
             f"{repo.name}: deterministic_routes_found={len(deterministic_routes)}, "
             f"deterministic_frameworks={','.join(sorted(deterministic_frameworks)) if deterministic_frameworks else 'none'}"
         )
-        repo_graph_facts = None
-        repos_payload = route_graph_repo.get("repos")
-        if isinstance(repos_payload, list) and repos_payload:
-            repo_graph_facts = repos_payload[0]
+        notes.append(
+            f"{repo.name}: discovery_coverage={coverage.get('label')} score={coverage.get('score')}"
+        )
+        if coverage.get("reasons"):
+            notes.append(f"{repo.name}: discovery_coverage_reasons={'; '.join(coverage['reasons'])}")
         if isinstance(repo_graph_facts, dict):
             summary = repo_graph_facts.get("summary", {})
             notes.append(
@@ -905,7 +943,7 @@ def discover_endpoints(
             )
         notes.append(
             f"{repo.name}: deterministic_files_scanned={sum(1 for item in deterministic_reads if not item.skipped and item.snippet is not None and (item.role or 'unknown') == FILE_ROLE_SOURCE_ROUTE_CANDIDATE)}, "
-            f"deterministic_scan_truncated_files={sum(1 for item in deterministic_reads if not item.skipped and item.snippet is not None and item.snippet.truncated and (item.role or 'unknown') == FILE_ROLE_SOURCE_ROUTE_CANDIDATE)}"
+            f"deterministic_scan_truncated_files={deterministic_scan_truncated_files}"
         )
         selected_files_text = ", ".join(
             f"{item.relative_path}({item.role or 'unknown'})" for item in llm_candidates

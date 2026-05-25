@@ -3,12 +3,14 @@
 from datetime import UTC, datetime
 import json
 from pathlib import Path
+import re
 from typing import Annotated, Literal
 
 import typer
 
 from sydes.cli.output_paths import resolve_output_file_path, write_output_text
 from sydes.discover.endpoints import discover_endpoints
+from sydes.discover.discovery_coverage import evaluate_discovery_coverage
 from sydes.discover.route_graph import build_route_graph_facts_batch
 from sydes.discover.route_index import build_route_index_batch
 from sydes.discover.repo_map import build_repo_map_batch
@@ -29,6 +31,15 @@ def _write_command_output(
     default_name = "routes.json" if output_format == "json" else "routes.txt"
     resolved = resolve_output_file_path(output, default_filename=default_name)
     write_output_text(resolved, content)
+
+
+def _extract_repo_note_int(notes: list[str], repo_name: str, field: str) -> int:
+    pattern = re.compile(rf"^{re.escape(repo_name)}:\s.*\b{re.escape(field)}=(\d+)")
+    for note in notes:
+        match = pattern.search(note)
+        if match:
+            return int(match.group(1))
+    return 0
 
 
 def routes_command(
@@ -192,6 +203,7 @@ def routes_command(
     except OSError as exc:
         result.notes.append(f"Could not save route index artifact: {exc}")
 
+    route_graph_facts: dict = {"repos": []}
     try:
         route_graph_facts = build_route_graph_facts_batch(repos, route_index_batch=route_index_batch)
         route_graph_facts.pop("_repo_endpoint_candidates", None)
@@ -209,6 +221,46 @@ def routes_command(
         result.notes.append(f"Saved route graph facts artifact: {route_graph_artifact_path}")
     except OSError as exc:
         result.notes.append(f"Could not save route graph facts artifact: {exc}")
+
+    try:
+        coverage_by_repo: dict[str, dict] = {}
+        route_index_repos = {
+            item.get("repo"): item
+            for item in (route_index_batch or {}).get("repos", [])
+            if isinstance(item, dict) and isinstance(item.get("repo"), str)
+        }
+        route_graph_repos = {
+            item.get("repo"): item
+            for item in route_graph_facts.get("repos", [])
+            if isinstance(item, dict) and isinstance(item.get("repo"), str)
+        }
+        for repo_ref in repos:
+            repo_name = repo_ref.name
+            route_index_summary = route_index_repos.get(repo_name, {}).get("summary", {})
+            route_graph_summary = route_graph_repos.get(repo_name, {}).get("summary", {})
+            deterministic_route_count = _extract_repo_note_int(result.notes, repo_name, "deterministic_routes_found")
+            truncated_files = _extract_repo_note_int(result.notes, repo_name, "deterministic_scan_truncated_files")
+            coverage_by_repo[repo_name] = evaluate_discovery_coverage(
+                route_index_summary=route_index_summary,
+                route_graph_summary=route_graph_summary,
+                deterministic_route_count=deterministic_route_count,
+                deterministic_scan_truncated_files=truncated_files,
+            )
+
+        coverage_payload = {
+            "timestamp": datetime.now(tz=UTC).isoformat(),
+            "repo_inputs": [item.model_dump() for item in repos],
+            "coverage": coverage_by_repo,
+        }
+        coverage_artifact_path = save_run_artifact(
+            workspace_id=workspace_id,
+            run_id=run_id,
+            artifact_name="discovery_coverage",
+            payload=coverage_payload,
+        )
+        result.notes.append(f"Saved discovery coverage artifact: {coverage_artifact_path}")
+    except OSError as exc:
+        result.notes.append(f"Could not save discovery coverage artifact: {exc}")
 
     rendered = (
         render_routes_json(result)
