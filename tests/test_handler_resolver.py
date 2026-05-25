@@ -219,6 +219,7 @@ def test_unresolved_handler_does_not_crash() -> None:
     resolved = resolve_handler_reference(_endpoint("MissingController.create"), {"files": []})
     assert resolved["resolved"] is False
     assert resolved["unresolved_handlers"][0]["reason"] in {"not_found", "ambiguous"}
+    assert "diagnostics" in resolved["unresolved_handlers"][0]
 
 
 def test_directory_import_resolution_flow() -> None:
@@ -258,3 +259,88 @@ def test_directory_import_resolution_flow() -> None:
     assert resolved["resolved"] is True
     assert resolved["primary_handler"]["symbol"]["qualified_name"] == "ApiController.list"
 
+
+def test_resolver_matches_by_parent_and_name_when_qualified_missing() -> None:
+    index = {
+        "files": [
+            {
+                "path": "src/routes/router.ts",
+                "imports": [
+                    {
+                        "local": "AttachmentController",
+                        "source": "../controllers/attachment-controller",
+                        "resolved_file": "src/controllers/attachment-controller.ts",
+                    }
+                ],
+                "exports": [],
+                "symbols": [],
+            },
+            {
+                "path": "src/controllers/attachment-controller.ts",
+                "imports": [],
+                "exports": [{"kind": "default", "symbol": "AttachmentController"}],
+                "symbols": [
+                    {"name": "AttachmentController", "kind": "class", "file": "src/controllers/attachment-controller.ts", "line": 1},
+                    {
+                        "name": "createTaskAttachment",
+                        "kind": "class_method",
+                        "parent": "AttachmentController",
+                        "file": "src/controllers/attachment-controller.ts",
+                        "line": 12,
+                        "start_line": 12,
+                        "end_line": 20,
+                        "static": True,
+                        "async": True,
+                    },
+                ],
+            },
+        ]
+    }
+    resolved = resolve_handler_reference(_endpoint("AttachmentController.createTaskAttachment"), index)
+    assert resolved["resolved"] is True
+    assert resolved["primary_handler"]["symbol"]["qualified_name"] == "createTaskAttachment"
+
+
+def test_resolver_supports_wrapped_index_payload_shape() -> None:
+    wrapped_index = {
+        "timestamp": "2026-05-25T00:00:00Z",
+        "index": {
+            "files": [
+                {
+                    "path": "src/routes/router.ts",
+                    "imports": [
+                        {
+                            "local": "AttachmentController",
+                            "source": "../controllers/attachment-controller",
+                            "resolved_file": "src/controllers/attachment-controller.ts",
+                        }
+                    ],
+                    "exports": [],
+                    "symbols": [],
+                },
+                {
+                    "path": "src/controllers/attachment-controller.ts",
+                    "imports": [],
+                    "exports": [{"kind": "default", "symbol": "AttachmentController"}],
+                    "symbols": [
+                        {"name": "AttachmentController", "kind": "class", "file": "src/controllers/attachment-controller.ts", "line": 1},
+                        {
+                            "name": "createTaskAttachment",
+                            "qualified_name": "AttachmentController.createTaskAttachment",
+                            "kind": "class_method",
+                            "parent": "AttachmentController",
+                            "file": "src/controllers/attachment-controller.ts",
+                            "line": 10,
+                            "start_line": 10,
+                            "end_line": 22,
+                            "static": True,
+                            "async": True,
+                        },
+                    ],
+                },
+            ]
+        },
+    }
+    resolved = resolve_handler_reference(_endpoint("AttachmentController.createTaskAttachment"), wrapped_index)
+    assert resolved["resolved"] is True
+    assert resolved["primary_handler"]["symbol"]["qualified_name"] == "AttachmentController.createTaskAttachment"

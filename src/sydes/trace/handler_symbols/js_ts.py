@@ -56,6 +56,15 @@ _METHOD_RE = re.compile(
     r"^\s*(?P<prefix>(?:(?:public|private|protected|readonly|static|async)\s+)*)"
     r"(?P<name>[A-Za-z_]\w*)\s*\((?P<params>[^\)]*)\)\s*\{"
 )
+_METHOD_SIGNATURE_RE = re.compile(
+    r"^\s*(?P<prefix>(?:(?:public|private|protected|readonly|static|async|override)\s+)*)"
+    r"(?P<name>[A-Za-z_]\w*)\s*\((?P<params>.*?)\)\s*(?::\s*[^={]+)?\s*\{",
+    re.DOTALL,
+)
+_METHOD_HEADER_START_RE = re.compile(
+    r"^\s*(?:(?:public|private|protected|readonly|static|async|override)\s+)*[A-Za-z_]\w*\s*\("
+)
+_DECORATOR_RE = re.compile(r"^\s*@(?P<name>[A-Za-z_]\w*)")
 
 
 def _parse_named_items(named_chunk: str) -> list[tuple[str, str]]:
@@ -175,8 +184,12 @@ class JsTsHandlerSymbolExtractor:
         symbols: list[dict] = []
 
         class_stack: list[dict[str, int | str]] = []
+        method_stack: list[dict[str, int]] = []
         pending_class: str | None = None
         pending_class_export_kind: str | None = None
+        pending_decorators: list[str] = []
+        pending_method_lines: list[str] = []
+        pending_method_start_line: int | None = None
         brace_depth = 0
 
         for idx, raw_line in enumerate(text.splitlines(), start=1):
@@ -360,29 +373,57 @@ class JsTsHandlerSymbolExtractor:
                 exports.append({"kind": "commonjs_named", "symbol": exports_assign_match.group("symbol")})
 
             if class_stack:
-                method_match = _METHOD_RE.search(raw_line)
-                if method_match and method_match.group("name") != "constructor":
-                    prefix = method_match.group("prefix") or ""
-                    current_class = class_stack[-1]
-                    method_name = method_match.group("name")
-                    symbols.append(
-                        {
-                            "name": method_name,
-                            "qualified_name": f"{current_class['name']}.{method_name}",
-                            "kind": "class_method",
-                            "parent": str(current_class["name"]),
-                            "language": language,
-                            "static": "static" in prefix.split(),
-                            "async": "async" in prefix.split(),
-                            "file": relative_path,
-                            "line": idx,
-                            "start_line": idx,
-                            "end_line": None,
-                            "signature": stripped.rstrip("{").strip(),
-                            "exported": True,
-                            "export_kind": current_class.get("export_kind"),
-                        }
-                    )
+                decorator_match = _DECORATOR_RE.search(raw_line)
+                if decorator_match and not pending_method_lines:
+                    pending_decorators.append(decorator_match.group("name"))
+                else:
+                    if not pending_method_lines and _METHOD_HEADER_START_RE.search(raw_line):
+                        pending_method_lines = [raw_line.rstrip("\n")]
+                        pending_method_start_line = idx
+                    elif pending_method_lines:
+                        pending_method_lines.append(raw_line.rstrip("\n"))
+
+                    method_blob = "\n".join(pending_method_lines) if pending_method_lines else raw_line
+                    method_match = _METHOD_SIGNATURE_RE.search(method_blob)
+                    if method_match and "{" in method_blob and method_match.group("name") != "constructor":
+                        prefix = method_match.group("prefix") or ""
+                        current_class = class_stack[-1]
+                        method_name = method_match.group("name")
+                        start_line = pending_method_start_line or idx
+                        signature_line = " ".join(line.strip() for line in pending_method_lines) if pending_method_lines else stripped
+                        symbols.append(
+                            {
+                                "name": method_name,
+                                "qualified_name": f"{current_class['name']}.{method_name}",
+                                "kind": "class_method",
+                                "parent": str(current_class["name"]),
+                                "language": language,
+                                "static": "static" in prefix.split(),
+                                "async": "async" in prefix.split(),
+                                "file": relative_path,
+                                "line": start_line,
+                                "start_line": start_line,
+                                "end_line": None,
+                                "signature": signature_line.strip(),
+                                "decorators": list(pending_decorators),
+                                "exported": True,
+                                "export_kind": current_class.get("export_kind"),
+                            }
+                        )
+                        method_stack.append(
+                            {
+                                "symbol_index": len(symbols) - 1,
+                                "start_depth": brace_depth + 1,
+                            }
+                        )
+                        pending_method_lines = []
+                        pending_method_start_line = None
+                        pending_decorators = []
+                    elif pending_method_lines and (stripped.endswith(";") or stripped.startswith("if ")):
+                        # Not a method signature after all.
+                        pending_method_lines = []
+                        pending_method_start_line = None
+                        pending_decorators = []
 
             open_braces, close_braces = _count_braces(raw_line)
             previous_depth = brace_depth
@@ -400,7 +441,17 @@ class JsTsHandlerSymbolExtractor:
                 pending_class_export_kind = None
 
             while class_stack and brace_depth < int(class_stack[-1]["start_depth"]):
-                class_stack.pop()
+                popped = class_stack.pop()
+                for symbol in reversed(symbols):
+                    if symbol.get("kind") == "class" and symbol.get("name") == popped.get("name") and symbol.get("end_line") is None:
+                        symbol["end_line"] = idx
+                        break
+            while method_stack and brace_depth < int(method_stack[-1]["start_depth"]):
+                popped = method_stack.pop()
+                symbol_index = popped.get("symbol_index")
+                if isinstance(symbol_index, int) and 0 <= symbol_index < len(symbols):
+                    if symbols[symbol_index].get("end_line") is None:
+                        symbols[symbol_index]["end_line"] = idx
 
         exported_by_symbol: dict[str, str] = {}
         for export in exports:
@@ -429,4 +480,3 @@ class JsTsHandlerSymbolExtractor:
             exports=exports,
             symbols=symbols,
         )
-

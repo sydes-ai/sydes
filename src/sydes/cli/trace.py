@@ -553,6 +553,19 @@ def trace_command(
                     result.notes.append(
                         f"Handler resolution incomplete: {matched_endpoint.handler}"
                     )
+                    unresolved = resolution.get("unresolved_handlers", [])
+                    if unresolved and isinstance(unresolved[0], dict):
+                        diag = unresolved[0].get("diagnostics", {})
+                        if isinstance(diag, dict):
+                            result.notes.append(
+                                "Handler resolution failed: "
+                                f"normalized={diag.get('normalized')}, "
+                                f"route_file={diag.get('route_file')}, "
+                                f"resolved_file={diag.get('resolved_file')}, "
+                                f"file_indexed={diag.get('file_indexed')}, "
+                                f"class_candidates={diag.get('class_candidates')}, "
+                                f"method_candidates={diag.get('method_candidates')}"
+                            )
                 slices: list[dict] = []
                 for handler_item in ([resolution.get("primary_handler")] + list(resolution.get("prehandlers", []))):
                     if not isinstance(handler_item, dict):

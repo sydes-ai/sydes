@@ -98,9 +98,17 @@ def extract_handler_candidates(handler_hint: str | None) -> dict:
 
 
 def _build_file_maps(handler_symbol_index: dict) -> tuple[dict[str, dict], dict[str, list[dict]]]:
+    if "files" in handler_symbol_index and isinstance(handler_symbol_index.get("files"), list):
+        index_payload = handler_symbol_index
+    elif isinstance(handler_symbol_index.get("index"), dict):
+        index_payload = handler_symbol_index["index"]
+    elif isinstance(handler_symbol_index.get("handler_symbol_index"), dict):
+        index_payload = handler_symbol_index["handler_symbol_index"]
+    else:
+        index_payload = handler_symbol_index
     files_by_path: dict[str, dict] = {}
     symbols_by_name: dict[str, list[dict]] = {}
-    for file_item in handler_symbol_index.get("files", []):
+    for file_item in index_payload.get("files", []):
         path = file_item.get("path")
         if not isinstance(path, str):
             continue
@@ -150,6 +158,19 @@ def _resolve_from_imports(
     target_file = files_by_path.get(resolved_file)
     if not target_file:
         return None, chain
+    chain.append(
+        {
+            "kind": "resolved_file_index_check",
+            "resolved_file": resolved_file,
+            "file_indexed": True,
+            "symbols_in_file": len(target_file.get("symbols", [])),
+            "class_candidates": [
+                item.get("name")
+                for item in target_file.get("symbols", [])
+                if isinstance(item, dict) and item.get("kind") == "class"
+            ][:12],
+        }
+    )
 
     if target_member is None:
         for symbol in target_file.get("symbols", []):
@@ -167,6 +188,24 @@ def _resolve_from_imports(
             and symbol.get("name") == target_member
         ):
             return symbol, chain
+    for symbol in target_file.get("symbols", []):
+        if (
+            symbol.get("kind") == "class_method"
+            and symbol.get("qualified_name") == f"{root_symbol}.{target_member}"
+        ):
+            return symbol, chain
+    chain.append(
+        {
+            "kind": "method_candidates",
+            "root_symbol": root_symbol,
+            "member": target_member,
+            "candidates": [
+                item.get("qualified_name") or f"{item.get('parent')}.{item.get('name')}"
+                for item in target_file.get("symbols", [])
+                if isinstance(item, dict) and item.get("kind") == "class_method" and item.get("parent") == root_symbol
+            ][:20],
+        }
+    )
     return None, chain
 
 
@@ -263,10 +302,58 @@ def resolve_handler_reference(
                 continue
 
         if symbol is None:
+            parts = normalized.split(".")
+            root_symbol = parts[0] if parts else normalized
+            member_name = parts[-1] if len(parts) > 1 else None
+            import_source = None
+            resolved_file = None
+            file_indexed = False
+            symbols_in_resolved_file: list[str] = []
+            class_candidates: list[str] = []
+            method_candidates: list[str] = []
+            if route_file_payload is not None:
+                for item in route_file_payload.get("imports", []):
+                    if isinstance(item, dict) and item.get("local") == root_symbol:
+                        import_source = item.get("source")
+                        resolved_file = item.get("resolved_file")
+                        if isinstance(resolved_file, str):
+                            target_file = files_by_path.get(resolved_file)
+                            file_indexed = target_file is not None
+                            if target_file is not None:
+                                symbols_in_resolved_file = [
+                                    s.get("name") if isinstance(s, dict) else None
+                                    for s in target_file.get("symbols", [])
+                                ]
+                                class_candidates = [
+                                    s.get("name")
+                                    for s in target_file.get("symbols", [])
+                                    if isinstance(s, dict) and s.get("kind") == "class"
+                                ]
+                                if member_name:
+                                    method_candidates = [
+                                        s.get("qualified_name") or f"{s.get('parent')}.{s.get('name')}"
+                                        for s in target_file.get("symbols", [])
+                                        if isinstance(s, dict)
+                                        and s.get("kind") == "class_method"
+                                        and (s.get("parent") == root_symbol or s.get("qualified_name") == normalized)
+                                    ]
+                        break
             unresolved_items.append(
                 {
                     "normalized_handler": normalized,
                     "reason": "not_found",
+                    "diagnostics": {
+                        "normalized": normalized,
+                        "route_file": route_file_payload.get("path") if isinstance(route_file_payload, dict) else route_file,
+                        "root_symbol": root_symbol,
+                        "member_name": member_name,
+                        "import_source": import_source,
+                        "resolved_file": resolved_file,
+                        "file_indexed": file_indexed,
+                        "symbols_in_resolved_file": [x for x in symbols_in_resolved_file if isinstance(x, str)][:30],
+                        "class_candidates": [x for x in class_candidates if isinstance(x, str)][:20],
+                        "method_candidates": [x for x in method_candidates if isinstance(x, str)][:20],
+                    },
                     "resolution_chain": chain,
                 }
             )
@@ -295,4 +382,3 @@ def resolve_handler_reference(
     if result["primary_handler"] is not None:
         result["resolution_chain"] = result["primary_handler"].get("resolution_chain", [])
     return result
-

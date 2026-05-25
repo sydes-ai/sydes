@@ -112,6 +112,38 @@ def test_extracts_default_export_class_and_static_async_method(tmp_path: Path) -
     )
 
 
+def test_extracts_decorated_typed_public_static_async_method(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "src/controllers/attachment-controller.ts",
+        "\n".join(
+            [
+                "export default class AttachmentController {",
+                "  @HandleExceptions()",
+                "  public static async createTaskAttachment(req: IReq, res: IRes): Promise<IRes> {",
+                "    const { file } = req.body;",
+                "    return res.status(200).send(file);",
+                "  }",
+                "}",
+            ]
+        ),
+    )
+    repo = RepoRef(name="api", root=str(tmp_path))
+    index = build_handler_symbol_index(repo)
+    controller_file = next(
+        item for item in index["files"] if item["path"] == "src/controllers/attachment-controller.ts"
+    )
+    method = next(
+        item for item in controller_file["symbols"] if item.get("qualified_name") == "AttachmentController.createTaskAttachment"
+    )
+    assert method["static"] is True
+    assert method["async"] is True
+    assert isinstance(method.get("start_line"), int)
+    assert isinstance(method.get("end_line"), int)
+    assert method.get("end_line", 0) > method.get("start_line", 0)
+    assert "Promise<IRes>" in method.get("signature", "")
+    assert "HandleExceptions" in method.get("decorators", [])
+
+
 def test_extracts_class_with_separate_default_export(tmp_path: Path) -> None:
     _write(
         tmp_path / "src/controllers/tasks-controller.ts",

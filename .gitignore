@@ -28,3 +28,4 @@ htmlcov/
 .idea/
 
 scripts/run_sydes_phase32_tests.sh
+scripts/run_sydes_phase33_tests.sh
