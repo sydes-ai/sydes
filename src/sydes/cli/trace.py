@@ -51,6 +51,7 @@ from sydes.trace.sinks import normalize_sink_candidates
 from sydes.trace.handler_symbol_index import build_handler_symbol_index_batch
 from sydes.trace.handler_resolver import resolve_handler_reference
 from sydes.trace.function_body_slicer import slice_resolved_handler_body
+from sydes.trace.call_follower import CallFollowBudgets, build_layered_trace_expansion
 
 VERBOSE_NOTE_MARKERS = (
     "Flow expansion context files selected:",
@@ -311,6 +312,7 @@ def _write_trace_json_outputs(
     handler_symbol_index: dict | None = None,
     resolved_handlers: dict | None = None,
     handler_body_slices: dict | None = None,
+    layered_trace_expansion: dict | None = None,
 ) -> None:
     """Write trace JSON output to either a single file or an artifact directory."""
     target = resolve_trace_output_target(output)
@@ -360,6 +362,11 @@ def _write_trace_json_outputs(
             target.path / "handler_body_slices.json",
             json.dumps(handler_body_slices, indent=2),
         )
+    if layered_trace_expansion is not None:
+        _write_output(
+            target.path / "layered_trace_expansion.json",
+            json.dumps(layered_trace_expansion, indent=2),
+        )
 
 
 def _concise_terminal_notes(notes: list[str]) -> list[str]:
@@ -402,6 +409,7 @@ def trace_command(
     emit_tests: Annotated[bool, typer.Option("--emit-tests")] = False,
     max_hops: Annotated[int | None, typer.Option("--max-hops")] = None,
     max_files: Annotated[int | None, typer.Option("--max-files")] = None,
+    trace_depth: Annotated[int, typer.Option("--trace-depth")] = 2,
     verbose: Annotated[bool, typer.Option("--verbose")] = False,
     allow_partial: Annotated[bool, typer.Option("--allow-partial")] = False,
 ) -> None:
@@ -481,6 +489,7 @@ def trace_command(
     handler_symbol_index: dict | None = None
     resolved_handlers_payload: dict | None = None
     handler_body_slices_payload: dict | None = None
+    layered_trace_expansion_payload: dict | None = None
     try:
         workspace_id = compute_workspace_id(result.repos)
         run_id = create_run_id()
@@ -571,6 +580,38 @@ def trace_command(
                         "handler_body_slice_signals="
                         + ",".join(primary_slice.get("summary", {}).get("signals", []))
                     )
+                    if trace_depth >= 2:
+                        primary_repo_root = None
+                        primary_symbol = primary.get("symbol") if isinstance(primary, dict) else None
+                        primary_symbol_file = (
+                            primary_symbol.get("file")
+                            if isinstance(primary_symbol, dict)
+                            else None
+                        )
+                        if isinstance(primary_symbol_file, str):
+                            for repo_ref in result.repos:
+                                candidate = Path(repo_ref.root).expanduser().resolve() / primary_symbol_file
+                                if candidate.is_file():
+                                    primary_repo_root = Path(repo_ref.root).expanduser().resolve()
+                                    break
+                        if primary_repo_root is None:
+                            primary_repo_root = repo_root_path
+                        budgets = CallFollowBudgets(max_depth=max(1, trace_depth))
+                        layered_trace_expansion_payload = build_layered_trace_expansion(
+                            repo_root=primary_repo_root,
+                            matched_endpoint=matched_endpoint.model_dump(),
+                            resolution=resolution,
+                            primary_slice=primary_slice,
+                            repo_index=repo_index,
+                            budgets=budgets,
+                        )
+                        summary = layered_trace_expansion_payload.get("summary", {})
+                        result.notes.append(
+                            f"layered_trace_functions_followed={summary.get('functions_followed', 0)}"
+                        )
+                        result.notes.append(
+                            f"layered_trace_steps_added={summary.get('steps_added', 0)}"
+                        )
         handler_symbol_artifact_path = save_run_artifact(
             workspace_id=workspace_id,
             run_id=run_id,
@@ -617,6 +658,16 @@ def trace_command(
             )
             result.notes.append(
                 f"Saved handler body slices artifact: {handler_body_slices_artifact_path}"
+            )
+        if layered_trace_expansion_payload is not None:
+            layered_trace_artifact_path = save_run_artifact(
+                workspace_id=workspace_id,
+                run_id=run_id,
+                artifact_name="layered_trace_expansion",
+                payload=layered_trace_expansion_payload,
+            )
+            result.notes.append(
+                f"Saved layered trace expansion artifact: {layered_trace_artifact_path}"
             )
 
         if flow_expansion is not None:
@@ -678,6 +729,7 @@ def trace_command(
                     handler_symbol_index=handler_symbol_index,
                     resolved_handlers=resolved_handlers_payload,
                     handler_body_slices=handler_body_slices_payload,
+                    layered_trace_expansion=layered_trace_expansion_payload,
                 )
             else:
                 resolved = resolve_output_file_path(output, default_filename="trace.txt")
