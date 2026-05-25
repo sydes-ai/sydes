@@ -31,6 +31,30 @@ def _mock_llm_preflight_success(monkeypatch):
     monkeypatch.setattr("sydes.cli.trace.validate_llm_available", lambda model_spec=None: ok)
 
 
+@pytest.fixture(autouse=True)
+def _mock_routes_planner_fast(monkeypatch):
+    """Prevent real planner LLM calls in general CLI contract tests."""
+
+    monkeypatch.setattr(
+        "sydes.cli.routes.run_routing_pattern_planner",
+        lambda **_kwargs: {
+            "version": "v1",
+            "repo": "api",
+            "framework_family": "express",
+            "routing_convention": "modular_router_mount_graph",
+            "confidence": 0.8,
+            "route_container_patterns": [],
+            "route_declaration_patterns": [],
+            "mount_patterns": [],
+            "entrypoint_hints": [],
+            "route_dir_hints": [],
+            "ignore_hints": [],
+            "risks": [],
+            "recommended_next_action": "apply_mount_graph_extraction",
+        },
+    )
+
+
 def test_trace_terminal_output_contains_target_and_repos(tmp_path: Path, monkeypatch) -> None:
     """Trace terminal mode should include target and selected repos."""
     gateway_dir = tmp_path / "gateway"

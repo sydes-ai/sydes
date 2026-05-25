@@ -41,6 +41,30 @@ def _mock_llm_preflight_success(monkeypatch):
     monkeypatch.setattr("sydes.cli.trace.validate_llm_available", lambda model_spec=None: ok)
 
 
+@pytest.fixture(autouse=True)
+def _mock_routes_planner_fast(monkeypatch):
+    """Avoid planner runtime/LLM calls in output-path tests."""
+
+    monkeypatch.setattr(
+        "sydes.cli.routes.run_routing_pattern_planner",
+        lambda **_kwargs: {
+            "version": "v1",
+            "repo": "api",
+            "framework_family": "express",
+            "routing_convention": "modular_router_mount_graph",
+            "confidence": 0.8,
+            "route_container_patterns": [],
+            "route_declaration_patterns": [],
+            "mount_patterns": [],
+            "entrypoint_hints": [],
+            "route_dir_hints": [],
+            "ignore_hints": [],
+            "risks": [],
+            "recommended_next_action": "apply_mount_graph_extraction",
+        },
+    )
+
+
 def _fake_routes_result(repo_name: str, repo_root: Path) -> RoutesResult:
     return RoutesResult(
         repos=[RepoRef(name=repo_name, root=str(repo_root))],

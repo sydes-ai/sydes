@@ -10,6 +10,7 @@ import sydes.cli.routes as routes_module
 import sydes.cli.trace as trace_module
 from sydes.cli.main import app
 from sydes.core.models import CandidateFileRead, ReadFileSnippet, RepoRef
+from sydes.core.models import FlowExpansionResult
 from sydes.discover.endpoints import discover_endpoints, run_llm_endpoint_discovery
 from sydes.llm.client import LLMClientError, LLMRequest, LLMResponse
 
@@ -24,6 +25,45 @@ def _mock_llm_preflight_success(monkeypatch):
     ok = LLMValidationResult(ok=True, provider="ollama", model="llama3.1:latest", base_url="http://localhost:11434")
     monkeypatch.setattr("sydes.cli.routes.validate_llm_available", lambda model_spec=None: ok)
     monkeypatch.setattr("sydes.cli.trace.validate_llm_available", lambda model_spec=None: ok)
+
+
+@pytest.fixture(autouse=True)
+def _mock_routes_planner_fast(monkeypatch):
+    """Avoid planner LLM runtime in mocked discovery pipeline tests."""
+
+    monkeypatch.setattr(
+        "sydes.cli.routes.run_routing_pattern_planner",
+        lambda **_kwargs: {
+            "version": "v1",
+            "repo": "api",
+            "framework_family": "express",
+            "routing_convention": "modular_router_mount_graph",
+            "confidence": 0.8,
+            "route_container_patterns": [],
+            "route_declaration_patterns": [],
+            "mount_patterns": [],
+            "entrypoint_hints": [],
+            "route_dir_hints": [],
+            "ignore_hints": [],
+            "risks": [],
+            "recommended_next_action": "apply_mount_graph_extraction",
+        },
+    )
+
+
+@pytest.fixture(autouse=True)
+def _mock_trace_flow_expansion_fast(monkeypatch):
+    """Avoid live flow-expansion LLM calls in mocked CLI trace tests."""
+    monkeypatch.setattr(
+        trace_module,
+        "run_flow_expansion",
+        lambda matched_endpoint, repos, **_kwargs: FlowExpansionResult(
+            steps=[],
+            sinks=[],
+            notes=[],
+            confidence=0.0,
+        ),
+    )
 
 
 @dataclass

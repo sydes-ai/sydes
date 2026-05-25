@@ -33,6 +33,21 @@ def _mock_llm_preflight_success(monkeypatch):
     monkeypatch.setattr("sydes.cli.trace.validate_llm_available", lambda model_spec=None: ok)
 
 
+@pytest.fixture(autouse=True)
+def _mock_flow_expansion_fast(monkeypatch):
+    """Default trace command tests should not invoke live flow-expansion LLM calls."""
+    monkeypatch.setattr(
+        trace_module,
+        "run_flow_expansion",
+        lambda matched_endpoint, repos, **_kwargs: FlowExpansionResult(
+            steps=[],
+            sinks=[],
+            notes=[],
+            confidence=0.0,
+        ),
+    )
+
+
 def test_trace_command_renders_match_and_alternatives(tmp_path: Path, monkeypatch) -> None:
     """Trace CLI should show matched endpoint and ambiguous alternatives."""
     repo_root = tmp_path / "api"
