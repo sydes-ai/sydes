@@ -50,6 +50,7 @@ from sydes.trace.expand import prepare_flow_expansion_context, run_flow_expansio
 from sydes.trace.sinks import normalize_sink_candidates
 from sydes.trace.handler_symbol_index import build_handler_symbol_index_batch
 from sydes.trace.handler_resolver import resolve_handler_reference
+from sydes.trace.function_body_slicer import slice_resolved_handler_body
 
 VERBOSE_NOTE_MARKERS = (
     "Flow expansion context files selected:",
@@ -309,6 +310,7 @@ def _write_trace_json_outputs(
     flow_expansion: FlowExpansionResult | None = None,
     handler_symbol_index: dict | None = None,
     resolved_handlers: dict | None = None,
+    handler_body_slices: dict | None = None,
 ) -> None:
     """Write trace JSON output to either a single file or an artifact directory."""
     target = resolve_trace_output_target(output)
@@ -352,6 +354,11 @@ def _write_trace_json_outputs(
         _write_output(
             target.path / "resolved_handlers.json",
             json.dumps(resolved_handlers, indent=2),
+        )
+    if handler_body_slices is not None:
+        _write_output(
+            target.path / "handler_body_slices.json",
+            json.dumps(handler_body_slices, indent=2),
         )
 
 
@@ -473,6 +480,7 @@ def trace_command(
     }
     handler_symbol_index: dict | None = None
     resolved_handlers_payload: dict | None = None
+    handler_body_slices_payload: dict | None = None
     try:
         workspace_id = compute_workspace_id(result.repos)
         run_id = create_run_id()
@@ -510,6 +518,59 @@ def trace_command(
                     result.notes.append(
                         f"Handler resolution incomplete: {matched_endpoint.handler}"
                     )
+                slices: list[dict] = []
+                for handler_item in ([resolution.get("primary_handler")] + list(resolution.get("prehandlers", []))):
+                    if not isinstance(handler_item, dict):
+                        continue
+                    symbol = handler_item.get("symbol")
+                    if not isinstance(symbol, dict):
+                        continue
+                    symbol_file = symbol.get("file")
+                    if not isinstance(symbol_file, str):
+                        continue
+                    repo_name = matched_endpoint.repo
+                    repo_root_path = None
+                    for repo_ref in result.repos:
+                        if repo_ref.name == repo_name:
+                            candidate = Path(repo_ref.root).expanduser().resolve() / symbol_file
+                            if candidate.is_file():
+                                repo_root_path = Path(repo_ref.root).expanduser().resolve()
+                                break
+                    if repo_root_path is None:
+                        for repo_ref in result.repos:
+                            candidate = Path(repo_ref.root).expanduser().resolve() / symbol_file
+                            if candidate.is_file():
+                                repo_root_path = Path(repo_ref.root).expanduser().resolve()
+                                break
+                    if repo_root_path is None:
+                        continue
+                    slice_payload = slice_resolved_handler_body(
+                        repo_root=repo_root_path,
+                        handler_name=handler_item.get("normalized_handler") or handler_item.get("handler_hint") or "handler",
+                        symbol=symbol,
+                        language=str(symbol.get("language") or "typescript"),
+                    )
+                    if slice_payload is not None:
+                        slices.append(slice_payload)
+                if slices:
+                    handler_body_slices_payload = {
+                        "timestamp": datetime.now(tz=UTC).isoformat(),
+                        "target": result.target.model_dump(),
+                        "matched_endpoint": matched_endpoint.model_dump(),
+                        "resolved_handlers": resolution,
+                        "slices": slices,
+                    }
+                    primary_slice = slices[0]
+                    result.notes.append(
+                        f"handler_body_slices={len(slices)}"
+                    )
+                    result.notes.append(
+                        f"handler_body_slice_statements={primary_slice.get('summary', {}).get('statement_count', 0)}"
+                    )
+                    result.notes.append(
+                        "handler_body_slice_signals="
+                        + ",".join(primary_slice.get("summary", {}).get("signals", []))
+                    )
         handler_symbol_artifact_path = save_run_artifact(
             workspace_id=workspace_id,
             run_id=run_id,
@@ -546,6 +607,16 @@ def trace_command(
             )
             result.notes.append(
                 f"Saved resolved handlers artifact: {resolved_handlers_artifact_path}"
+            )
+        if handler_body_slices_payload is not None:
+            handler_body_slices_artifact_path = save_run_artifact(
+                workspace_id=workspace_id,
+                run_id=run_id,
+                artifact_name="handler_body_slices",
+                payload=handler_body_slices_payload,
+            )
+            result.notes.append(
+                f"Saved handler body slices artifact: {handler_body_slices_artifact_path}"
             )
 
         if flow_expansion is not None:
@@ -606,6 +677,7 @@ def trace_command(
                     flow_expansion=flow_expansion,
                     handler_symbol_index=handler_symbol_index,
                     resolved_handlers=resolved_handlers_payload,
+                    handler_body_slices=handler_body_slices_payload,
                 )
             else:
                 resolved = resolve_output_file_path(output, default_filename="trace.txt")
