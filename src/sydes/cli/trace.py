@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from dataclasses import asdict
 import json
 from pathlib import Path
 from typing import Annotated, Literal
@@ -52,6 +53,7 @@ from sydes.trace.handler_symbol_index import build_handler_symbol_index_batch
 from sydes.trace.handler_resolver import resolve_handler_reference
 from sydes.trace.function_body_slicer import slice_resolved_handler_body
 from sydes.trace.call_follower import CallFollowBudgets, build_layered_trace_expansion
+from sydes.trace.trace_llm_summarizer import run_trace_llm_summarizer
 
 VERBOSE_NOTE_MARKERS = (
     "Flow expansion context files selected:",
@@ -313,6 +315,7 @@ def _write_trace_json_outputs(
     resolved_handlers: dict | None = None,
     handler_body_slices: dict | None = None,
     layered_trace_expansion: dict | None = None,
+    trace_llm_summary: dict | None = None,
 ) -> None:
     """Write trace JSON output to either a single file or an artifact directory."""
     target = resolve_trace_output_target(output)
@@ -367,6 +370,11 @@ def _write_trace_json_outputs(
             target.path / "layered_trace_expansion.json",
             json.dumps(layered_trace_expansion, indent=2),
         )
+    if trace_llm_summary is not None:
+        _write_output(
+            target.path / "trace_llm_summary.json",
+            json.dumps(trace_llm_summary, indent=2),
+        )
 
 
 def _concise_terminal_notes(notes: list[str]) -> list[str]:
@@ -410,6 +418,9 @@ def trace_command(
     max_hops: Annotated[int | None, typer.Option("--max-hops")] = None,
     max_files: Annotated[int | None, typer.Option("--max-files")] = None,
     trace_depth: Annotated[int, typer.Option("--trace-depth")] = 2,
+    trace_llm_policy: Annotated[
+        Literal["auto", "always", "never"], typer.Option("--trace-llm-policy")
+    ] = "auto",
     verbose: Annotated[bool, typer.Option("--verbose")] = False,
     allow_partial: Annotated[bool, typer.Option("--allow-partial")] = False,
 ) -> None:
@@ -490,6 +501,7 @@ def trace_command(
     resolved_handlers_payload: dict | None = None
     handler_body_slices_payload: dict | None = None
     layered_trace_expansion_payload: dict | None = None
+    trace_llm_summary_payload: dict | None = None
     try:
         workspace_id = compute_workspace_id(result.repos)
         run_id = create_run_id()
@@ -612,6 +624,33 @@ def trace_command(
                         result.notes.append(
                             f"layered_trace_steps_added={summary.get('steps_added', 0)}"
                         )
+                    try:
+                        trace_llm_summary_payload = run_trace_llm_summarizer(
+                            model_spec=model,
+                            route={"matched_endpoint": matched_endpoint.model_dump()},
+                            resolved_handlers=resolved_handlers_payload,
+                            primary_slice=primary_slice,
+                            layered_trace_expansion=layered_trace_expansion_payload,
+                            policy=trace_llm_policy,
+                            budgets=asdict(budgets) if trace_depth >= 2 else {"max_depth": trace_depth},
+                        )
+                        if trace_llm_summary_payload.get("skipped"):
+                            result.notes.append(
+                                "trace_llm_summarizer=skipped"
+                            )
+                        else:
+                            result.notes.append(
+                                "trace_llm_summarizer=ran"
+                            )
+                            llm_result = trace_llm_summary_payload.get("result") or {}
+                            summary_text = llm_result.get("summary")
+                            if isinstance(summary_text, str) and summary_text.strip():
+                                result.notes.append(f"Trace summary: {summary_text.strip()}")
+                            for warning in trace_llm_summary_payload.get("warnings", []):
+                                if isinstance(warning, str) and warning.strip():
+                                    result.notes.append(f"Trace LLM summary warning: {warning}")
+                    except LLMClientError as exc:
+                        result.notes.append(f"Trace LLM summarizer failed: {exc}")
         handler_symbol_artifact_path = save_run_artifact(
             workspace_id=workspace_id,
             run_id=run_id,
@@ -668,6 +707,16 @@ def trace_command(
             )
             result.notes.append(
                 f"Saved layered trace expansion artifact: {layered_trace_artifact_path}"
+            )
+        if trace_llm_summary_payload is not None:
+            trace_llm_summary_artifact_path = save_run_artifact(
+                workspace_id=workspace_id,
+                run_id=run_id,
+                artifact_name="trace_llm_summary",
+                payload=trace_llm_summary_payload,
+            )
+            result.notes.append(
+                f"Saved trace LLM summary artifact: {trace_llm_summary_artifact_path}"
             )
 
         if flow_expansion is not None:
@@ -730,6 +779,7 @@ def trace_command(
                     resolved_handlers=resolved_handlers_payload,
                     handler_body_slices=handler_body_slices_payload,
                     layered_trace_expansion=layered_trace_expansion_payload,
+                    trace_llm_summary=trace_llm_summary_payload,
                 )
             else:
                 resolved = resolve_output_file_path(output, default_filename="trace.txt")
