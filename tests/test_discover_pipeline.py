@@ -694,3 +694,30 @@ def test_merge_route_candidates_prefers_high_quality_deterministic_evidence() ->
     assert merged[0].evidence
     assert is_high_quality_route_evidence(merged[0].evidence[0])
     assert "# app/routes.py" not in (merged[0].evidence[0].label or "")
+
+
+def test_merge_route_candidates_dedupes_direct_and_composed_same_identity() -> None:
+    """Direct and composed deterministic routes with same identity should collapse to one."""
+    direct = EndpointCandidate(
+        method="POST",
+        path="/api/v1/tasks",
+        handler="create_task_direct",
+        file="src/routes.ts",
+        repo="demo",
+        status="deterministic",
+        confidence=1.0,
+    )
+    composed = EndpointCandidate(
+        method="POST",
+        path="/api/v1/tasks/",
+        handler="TasksController.create",
+        file="src/routes/apis/tasks-api-router.ts",
+        repo="demo",
+        status="deterministic_composed",
+        confidence=1.0,
+    )
+
+    merged, _ = merge_route_candidates([direct, composed], [])
+    assert len(merged) == 1
+    assert merged[0].method == "POST"
+    assert merged[0].path == "/api/v1/tasks"

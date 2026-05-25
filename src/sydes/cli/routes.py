@@ -9,6 +9,7 @@ import typer
 
 from sydes.cli.output_paths import resolve_output_file_path, write_output_text
 from sydes.discover.endpoints import discover_endpoints
+from sydes.discover.route_graph import build_route_graph_facts_batch
 from sydes.discover.route_index import build_route_index_batch
 from sydes.discover.repo_map import build_repo_map_batch
 from sydes.ingest.repos import parse_repo_specs
@@ -173,12 +174,14 @@ def routes_command(
     except OSError as exc:
         result.notes.append(f"Could not save repo map artifact: {exc}")
 
+    route_index_batch: dict | None = None
     try:
         route_index_payload = {
             "timestamp": datetime.now(tz=UTC).isoformat(),
             "repo_inputs": [item.model_dump() for item in repos],
             "index": build_route_index_batch(repos, repo_map_batch=repo_map_batch),
         }
+        route_index_batch = route_index_payload["index"]
         route_index_artifact_path = save_run_artifact(
             workspace_id=workspace_id,
             run_id=run_id,
@@ -188,6 +191,24 @@ def routes_command(
         result.notes.append(f"Saved route index artifact: {route_index_artifact_path}")
     except OSError as exc:
         result.notes.append(f"Could not save route index artifact: {exc}")
+
+    try:
+        route_graph_facts = build_route_graph_facts_batch(repos, route_index_batch=route_index_batch)
+        route_graph_facts.pop("_repo_endpoint_candidates", None)
+        route_graph_payload = {
+            "timestamp": datetime.now(tz=UTC).isoformat(),
+            "repo_inputs": [item.model_dump() for item in repos],
+            "graph_facts": route_graph_facts,
+        }
+        route_graph_artifact_path = save_run_artifact(
+            workspace_id=workspace_id,
+            run_id=run_id,
+            artifact_name="route_graph_facts",
+            payload=route_graph_payload,
+        )
+        result.notes.append(f"Saved route graph facts artifact: {route_graph_artifact_path}")
+    except OSError as exc:
+        result.notes.append(f"Could not save route graph facts artifact: {exc}")
 
     rendered = (
         render_routes_json(result)

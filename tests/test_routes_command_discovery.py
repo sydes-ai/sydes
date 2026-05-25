@@ -132,8 +132,8 @@ def test_routes_command_handles_ambiguous_endpoints_json(
     assert payload["notes"][0] == "ambiguous candidate set"
 
 
-def test_routes_command_saves_repo_map_and_route_index_artifacts(tmp_path: Path, monkeypatch) -> None:
-    """Routes CLI should save repo_map and route_index artifacts alongside routes_discovery."""
+def test_routes_command_saves_repo_map_route_index_and_graph_artifacts(tmp_path: Path, monkeypatch) -> None:
+    """Routes CLI should save repo_map, route_index, and route_graph_facts artifacts."""
     repo_root = tmp_path / "api"
     repo_root.mkdir()
     saved_names: list[str] = []
@@ -162,5 +162,7 @@ def test_routes_command_saves_repo_map_and_route_index_artifacts(tmp_path: Path,
     assert "routes_discovery" in saved_names
     assert "repo_map" in saved_names
     assert "route_index" in saved_names
+    assert "route_graph_facts" in saved_names
     assert "Saved repo map artifact" in result.stdout
     assert "Saved route index artifact" in result.stdout
+    assert "Saved route graph facts artifact" in result.stdout

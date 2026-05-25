@@ -39,6 +39,8 @@ from sydes.llm.client import (
 )
 from sydes.llm.prompts import build_endpoint_discovery_prompt
 from sydes.discover.deterministic_routes import extract_deterministic_routes
+from sydes.discover.route_index import build_route_index
+from sydes.discover.route_graph import build_route_graph_facts_from_route_index_batch
 
 
 def _strip_markdown_fences(text: str) -> str:
@@ -818,6 +820,13 @@ def discover_endpoints(
         files_sent_to_llm += len(llm_candidates)
 
         deterministic_routes, deterministic_frameworks = extract_deterministic_routes(deterministic_reads)
+        route_index_repo_batch = {"version": "v1", "repos": [build_route_index(repo)]}
+        route_graph_repo = build_route_graph_facts_from_route_index_batch(route_index_repo_batch)
+        composed_routes = route_graph_repo.get("_repo_endpoint_candidates", {}).get(repo.name, [])
+        if composed_routes:
+            deterministic_routes = [*deterministic_routes, *composed_routes]
+            deterministic_frameworks.add("express_mount_graph")
+        deterministic_routes, _ = merge_route_candidates(deterministic_routes, [])
 
         deterministic_high_confidence = (
             bool(deterministic_routes)
@@ -881,6 +890,19 @@ def discover_endpoints(
             f"{repo.name}: deterministic_routes_found={len(deterministic_routes)}, "
             f"deterministic_frameworks={','.join(sorted(deterministic_frameworks)) if deterministic_frameworks else 'none'}"
         )
+        repo_graph_facts = None
+        repos_payload = route_graph_repo.get("repos")
+        if isinstance(repos_payload, list) and repos_payload:
+            repo_graph_facts = repos_payload[0]
+        if isinstance(repo_graph_facts, dict):
+            summary = repo_graph_facts.get("summary", {})
+            notes.append(
+                f"{repo.name}: route_graph_containers={summary.get('containers', 0)}, "
+                f"route_graph_declarations={summary.get('declarations', 0)}, "
+                f"route_graph_mount_edges={summary.get('mount_edges', 0)}, "
+                f"route_graph_composed_routes={summary.get('composed_routes', 0)}, "
+                f"route_graph_unresolved_mounts={summary.get('unresolved_mounts', 0)}"
+            )
         notes.append(
             f"{repo.name}: deterministic_files_scanned={sum(1 for item in deterministic_reads if not item.skipped and item.snippet is not None and (item.role or 'unknown') == FILE_ROLE_SOURCE_ROUTE_CANDIDATE)}, "
             f"deterministic_scan_truncated_files={sum(1 for item in deterministic_reads if not item.skipped and item.snippet is not None and item.snippet.truncated and (item.role or 'unknown') == FILE_ROLE_SOURCE_ROUTE_CANDIDATE)}"
