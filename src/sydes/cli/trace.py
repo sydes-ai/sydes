@@ -47,6 +47,7 @@ from sydes.trace.cross_repo import (
 )
 from sydes.trace.expand import prepare_flow_expansion_context, run_flow_expansion
 from sydes.trace.sinks import normalize_sink_candidates
+from sydes.trace.handler_symbol_index import build_handler_symbol_index_batch
 
 VERBOSE_NOTE_MARKERS = (
     "Flow expansion context files selected:",
@@ -304,6 +305,7 @@ def _write_trace_json_outputs(
     rendered_trace_result: str,
     result: TraceResult | None = None,
     flow_expansion: FlowExpansionResult | None = None,
+    handler_symbol_index: dict | None = None,
 ) -> None:
     """Write trace JSON output to either a single file or an artifact directory."""
     target = resolve_trace_output_target(output)
@@ -337,6 +339,11 @@ def _write_trace_json_outputs(
         _write_output(
             target.path / "flow_expansion.json",
             flow_expansion.model_dump_json(indent=2),
+        )
+    if handler_symbol_index is not None:
+        _write_output(
+            target.path / "handler_symbol_index.json",
+            json.dumps(handler_symbol_index, indent=2),
         )
 
 
@@ -451,9 +458,31 @@ def trace_command(
         "target": result.target.model_dump(),
         "result": result.model_dump(),
     }
+    handler_symbol_index: dict | None = None
     try:
         workspace_id = compute_workspace_id(result.repos)
         run_id = create_run_id()
+        handler_symbol_index = build_handler_symbol_index_batch(result.repos)
+        handler_symbol_artifact_path = save_run_artifact(
+            workspace_id=workspace_id,
+            run_id=run_id,
+            artifact_name="handler_symbol_index",
+            payload={
+                "timestamp": datetime.now(tz=UTC).isoformat(),
+                "repo_inputs": [item.model_dump() for item in result.repos],
+                "target": result.target.model_dump(),
+                "index": handler_symbol_index,
+            },
+        )
+        result.notes.append(f"Saved handler symbol index artifact: {handler_symbol_artifact_path}")
+        summary = handler_symbol_index.get("summary", {})
+        result.notes.append(
+            "Handler symbol index summary: "
+            f"files={summary.get('files_indexed', 0)}, "
+            f"symbols={summary.get('symbols', 0)}, "
+            f"imports={summary.get('imports', 0)}, "
+            f"exports={summary.get('exports', 0)}."
+        )
         trace_artifact_path = save_run_artifact(
             workspace_id=workspace_id,
             run_id=run_id,
@@ -499,6 +528,7 @@ def trace_command(
             result.notes.append(f"Saved graph artifact: {graph_artifact_path}")
     except OSError as exc:
         result.notes.append(f"Could not save trace artifact: {exc}")
+        handler_symbol_index = None
 
     if output_format == "json":
         rendered = render_json(result)
@@ -517,6 +547,7 @@ def trace_command(
                     rendered,
                     result=result,
                     flow_expansion=flow_expansion,
+                    handler_symbol_index=handler_symbol_index,
                 )
             else:
                 resolved = resolve_output_file_path(output, default_filename="trace.txt")
