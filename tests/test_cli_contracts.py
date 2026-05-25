@@ -31,7 +31,7 @@ def _mock_llm_preflight_success(monkeypatch):
     monkeypatch.setattr("sydes.cli.trace.validate_llm_available", lambda model_spec=None: ok)
 
 
-def test_trace_terminal_output_contains_target_and_repos(tmp_path: Path) -> None:
+def test_trace_terminal_output_contains_target_and_repos(tmp_path: Path, monkeypatch) -> None:
     """Trace terminal mode should include target and selected repos."""
     gateway_dir = tmp_path / "gateway"
     api_dir = tmp_path / "api"
@@ -39,6 +39,27 @@ def test_trace_terminal_output_contains_target_and_repos(tmp_path: Path) -> None
     api_dir.mkdir()
     (api_dir / "src").mkdir()
     (api_dir / "src" / "routes.py").write_text("router.post('/checkout', checkout)\n")
+
+    monkeypatch.setattr(
+        "sydes.cli.trace._build_trace_result",
+        lambda **_kwargs: (
+            TraceResult(
+                target=TargetSpec(path="/checkout", method="POST"),
+                repos=[
+                    RepoRef(name="gateway", root=str(gateway_dir)),
+                    RepoRef(name="api", root=str(api_dir)),
+                ],
+                summary=TraceSummary(confidence=0.0),
+            ),
+            None,
+        ),
+    )
+    monkeypatch.setattr("sydes.cli.trace.compute_workspace_id", lambda repos: "ws-test")
+    monkeypatch.setattr("sydes.cli.trace.create_run_id", lambda: "run-test")
+    monkeypatch.setattr(
+        "sydes.cli.trace.save_run_artifact",
+        lambda **kwargs: Path(f"/tmp/{kwargs['artifact_name']}.json"),
+    )
 
     result = runner.invoke(
         app,
@@ -66,10 +87,28 @@ def test_trace_terminal_output_contains_target_and_repos(tmp_path: Path) -> None
     )
 
 
-def test_trace_json_output_contains_expected_fields(tmp_path: Path) -> None:
+def test_trace_json_output_contains_expected_fields(tmp_path: Path, monkeypatch) -> None:
     """Trace JSON mode should emit stable structured fields."""
     gateway_dir = tmp_path / "gateway"
     gateway_dir.mkdir()
+
+    monkeypatch.setattr(
+        "sydes.cli.trace._build_trace_result",
+        lambda **_kwargs: (
+            TraceResult(
+                target=TargetSpec(path="/checkout", method="POST"),
+                repos=[RepoRef(name="gateway", root=str(gateway_dir))],
+                summary=TraceSummary(confidence=0.0),
+            ),
+            None,
+        ),
+    )
+    monkeypatch.setattr("sydes.cli.trace.compute_workspace_id", lambda repos: "ws-test")
+    monkeypatch.setattr("sydes.cli.trace.create_run_id", lambda: "run-test")
+    monkeypatch.setattr(
+        "sydes.cli.trace.save_run_artifact",
+        lambda **kwargs: Path(f"/tmp/{kwargs['artifact_name']}.json"),
+    )
 
     result = runner.invoke(
         app,
@@ -95,13 +134,31 @@ def test_trace_json_output_contains_expected_fields(tmp_path: Path) -> None:
     assert "notes" in payload
 
 
-def test_routes_terminal_output_runs_successfully(tmp_path: Path) -> None:
+def test_routes_terminal_output_runs_successfully(tmp_path: Path, monkeypatch) -> None:
     """Routes command should run and report discovery status."""
     gateway_dir = tmp_path / "gateway"
     api_dir = tmp_path / "api"
     gateway_dir.mkdir()
     api_dir.mkdir()
     (api_dir / "app.py").write_text("print('ok')\n", encoding="utf-8")
+
+    monkeypatch.setattr(
+        "sydes.cli.routes.discover_endpoints",
+        lambda repos, **_kwargs: RoutesResult(
+            repos=repos,
+            routes=[],
+            candidate_files=1,
+            files_examined=1,
+            notes=[],
+            confidence_summary=ConfidenceSummary(average=0.0, minimum=0.0, maximum=0.0),
+        ),
+    )
+    monkeypatch.setattr("sydes.cli.routes.compute_workspace_id", lambda repos: "ws-test")
+    monkeypatch.setattr("sydes.cli.routes.create_run_id", lambda: "run-test")
+    monkeypatch.setattr(
+        "sydes.cli.routes.save_run_artifact",
+        lambda **kwargs: Path(f"/tmp/{kwargs['artifact_name']}.json"),
+    )
 
     result = runner.invoke(
         app,
