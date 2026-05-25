@@ -14,8 +14,17 @@ from sydes.discover.discovery_coverage import evaluate_discovery_coverage
 from sydes.discover.route_graph import build_route_graph_facts_batch
 from sydes.discover.route_index import build_route_index_batch
 from sydes.discover.repo_map import build_repo_map_batch
+from sydes.discover.routing_pattern_planner import (
+    build_routing_pattern_planner_input,
+    run_routing_pattern_planner,
+)
 from sydes.ingest.repos import parse_repo_specs
-from sydes.llm.client import LLMClientError, validate_llm_available
+from sydes.llm.client import (
+    LLMClient,
+    LLMClientError,
+    create_default_llm_client,
+    validate_llm_available,
+)
 from sydes.report.json_report import render_routes_json
 from sydes.report.terminal import render_routes_terminal
 from sydes.store.workspace import compute_workspace_id, create_run_id, save_run_artifact
@@ -40,6 +49,19 @@ def _extract_repo_note_int(notes: list[str], repo_name: str, field: str) -> int:
         if match:
             return int(match.group(1))
     return 0
+
+
+def _repo_index_by_name(payload: dict | None, key: str) -> dict[str, dict]:
+    if not isinstance(payload, dict):
+        return {}
+    items = payload.get(key, [])
+    if not isinstance(items, list):
+        return {}
+    return {
+        item.get("repo"): item
+        for item in items
+        if isinstance(item, dict) and isinstance(item.get("repo"), str)
+    }
 
 
 def routes_command(
@@ -222,18 +244,11 @@ def routes_command(
     except OSError as exc:
         result.notes.append(f"Could not save route graph facts artifact: {exc}")
 
+    coverage_by_repo: dict[str, dict] = {}
+    route_index_repos = _repo_index_by_name(route_index_batch, "repos")
+    route_graph_repos = _repo_index_by_name(route_graph_facts, "repos")
+    repo_map_repos = _repo_index_by_name(repo_map_batch, "repos")
     try:
-        coverage_by_repo: dict[str, dict] = {}
-        route_index_repos = {
-            item.get("repo"): item
-            for item in (route_index_batch or {}).get("repos", [])
-            if isinstance(item, dict) and isinstance(item.get("repo"), str)
-        }
-        route_graph_repos = {
-            item.get("repo"): item
-            for item in route_graph_facts.get("repos", [])
-            if isinstance(item, dict) and isinstance(item.get("repo"), str)
-        }
         for repo_ref in repos:
             repo_name = repo_ref.name
             route_index_summary = route_index_repos.get(repo_name, {}).get("summary", {})
@@ -261,6 +276,85 @@ def routes_command(
         result.notes.append(f"Saved discovery coverage artifact: {coverage_artifact_path}")
     except OSError as exc:
         result.notes.append(f"Could not save discovery coverage artifact: {exc}")
+
+    planner_llm_client: LLMClient | None = None
+    planner_client_init_error: str | None = None
+    plans_by_repo: dict[str, dict] = {}
+    for repo_ref in repos:
+        repo_name = repo_ref.name
+        coverage = coverage_by_repo.get(repo_name, {"label": "unknown", "score": 0.0, "reasons": []})
+        coverage_label = str(coverage.get("label") or "unknown")
+        should_run_planner = False
+        skip_reason = ""
+        if llm_policy == "never":
+            skip_reason = "policy_never"
+        elif llm_policy == "always":
+            should_run_planner = True
+        elif coverage_label in {"weak", "unknown"}:
+            should_run_planner = True
+        else:
+            skip_reason = f"coverage_{coverage_label}"
+
+        if not should_run_planner:
+            plans_by_repo[repo_name] = {
+                "skipped": True,
+                "reason": skip_reason,
+                "coverage_label": coverage_label,
+            }
+            result.notes.append(f"{repo_name}: routing_pattern_planner=skipped reason={skip_reason}")
+            continue
+
+        if planner_llm_client is None and planner_client_init_error is None:
+            try:
+                planner_llm_client = create_default_llm_client(
+                    model_spec=model,
+                    timeout_seconds_override=model_timeout,
+                )
+            except LLMClientError as exc:
+                planner_client_init_error = str(exc)
+
+        if planner_client_init_error is not None or planner_llm_client is None:
+            reason = planner_client_init_error or "LLM client unavailable"
+            plans_by_repo[repo_name] = {"failed": True, "reason": reason}
+            result.notes.append(f"{repo_name}: routing_pattern_planner=failed reason={reason}")
+            continue
+
+        planner_input = build_routing_pattern_planner_input(
+            repo_name=repo_name,
+            repo_map_repo=repo_map_repos.get(repo_name),
+            route_index_repo=route_index_repos.get(repo_name),
+            route_graph_repo=route_graph_repos.get(repo_name),
+            coverage=coverage,
+        )
+        try:
+            plan = run_routing_pattern_planner(
+                repo_name=repo_name,
+                planner_input=planner_input,
+                llm_client=planner_llm_client,
+            )
+            plans_by_repo[repo_name] = plan
+            result.notes.append(
+                f"{repo_name}: routing_pattern_planner=ran confidence={plan.get('confidence')} convention={plan.get('routing_convention')}"
+            )
+        except (LLMClientError, ValueError) as exc:
+            plans_by_repo[repo_name] = {"failed": True, "reason": str(exc)}
+            result.notes.append(f"{repo_name}: routing_pattern_planner=failed reason={exc}")
+
+    try:
+        routing_pattern_payload = {
+            "timestamp": datetime.now(tz=UTC).isoformat(),
+            "repo_inputs": [item.model_dump() for item in repos],
+            "plans": plans_by_repo,
+        }
+        routing_pattern_artifact_path = save_run_artifact(
+            workspace_id=workspace_id,
+            run_id=run_id,
+            artifact_name="routing_pattern_plan",
+            payload=routing_pattern_payload,
+        )
+        result.notes.append(f"Saved routing pattern plan artifact: {routing_pattern_artifact_path}")
+    except OSError as exc:
+        result.notes.append(f"Could not save routing pattern plan artifact: {exc}")
 
     rendered = (
         render_routes_json(result)

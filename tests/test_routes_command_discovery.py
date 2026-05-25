@@ -164,7 +164,155 @@ def test_routes_command_saves_repo_map_route_index_graph_and_coverage_artifacts(
     assert "route_index" in saved_names
     assert "route_graph_facts" in saved_names
     assert "discovery_coverage" in saved_names
+    assert "routing_pattern_plan" in saved_names
     assert "Saved repo map artifact" in result.stdout
     assert "Saved route index artifact" in result.stdout
     assert "Saved route graph facts artifact" in result.stdout
     assert "Saved discovery coverage artifact" in result.stdout
+    assert "Saved routing pattern plan artifact" in result.stdout
+
+
+def test_routes_command_planner_skips_under_auto_when_coverage_strong(tmp_path: Path, monkeypatch) -> None:
+    """Planner should skip in auto mode when coverage is strong."""
+    repo_root = tmp_path / "api"
+    repo_root.mkdir()
+
+    def _fake_discovery(repos: list[RepoRef], *, model_spec: str | None = None, strict_llm: bool = False, **_kwargs) -> RoutesResult:
+        return RoutesResult(
+            repos=repos,
+            routes=[],
+            candidate_files=0,
+            files_examined=0,
+            notes=[
+                "api: deterministic_routes_found=100, deterministic_frameworks=flask_fastapi",
+                "api: deterministic_scan_truncated_files=0",
+            ],
+        )
+
+    monkeypatch.setattr(routes_module, "discover_endpoints", _fake_discovery)
+    monkeypatch.setattr(routes_module, "compute_workspace_id", lambda repos: "ws-test")
+    monkeypatch.setattr(routes_module, "create_run_id", lambda: "run-test")
+    monkeypatch.setattr(
+        routes_module,
+        "build_route_index_batch",
+        lambda repos, repo_map_batch=None: {
+            "version": "v1",
+            "repos": [{"repo": "api", "summary": {"files_indexed": 10, "files_with_route_calls": 0, "route_call_count": 0, "mount_call_count": 0, "router_symbol_count": 0}, "files": []}],
+        },
+    )
+    monkeypatch.setattr(
+        routes_module,
+        "build_route_graph_facts_batch",
+        lambda repos, route_index_batch=None: {"version": "v1", "repos": [{"repo": "api", "summary": {"containers": 0, "declarations": 0, "mount_edges": 0, "composed_routes": 0, "unresolved_mounts": 0}}]},
+    )
+    monkeypatch.setattr(
+        routes_module,
+        "save_run_artifact",
+        lambda **kwargs: Path(f"/tmp/{kwargs['artifact_name']}.json"),
+    )
+
+    result = runner.invoke(app, ["routes", "--repo", f"api={repo_root}", "--llm-policy", "auto"])
+    assert result.exit_code == 0
+    assert "routing_pattern_planner=skipped reason=coverage_strong" in result.stdout
+
+
+def test_routes_command_planner_runs_under_auto_when_coverage_weak(tmp_path: Path, monkeypatch) -> None:
+    """Planner should run in auto mode when coverage is weak."""
+    repo_root = tmp_path / "api"
+    repo_root.mkdir()
+
+    def _fake_discovery(repos: list[RepoRef], *, model_spec: str | None = None, strict_llm: bool = False, **_kwargs) -> RoutesResult:
+        return RoutesResult(
+            repos=repos,
+            routes=[],
+            candidate_files=0,
+            files_examined=0,
+            notes=[
+                "api: deterministic_routes_found=1, deterministic_frameworks=none",
+                "api: deterministic_scan_truncated_files=0",
+            ],
+        )
+
+    class _PlannerClient:
+        def generate(self, request):
+            payload = {
+                "version": "v1",
+                "repo": "api",
+                "framework_family": "express",
+                "routing_convention": "modular_router_mount_graph",
+                "confidence": 0.8,
+                "route_container_patterns": [],
+                "route_declaration_patterns": [],
+                "mount_patterns": [],
+                "entrypoint_hints": [],
+                "route_dir_hints": [],
+                "ignore_hints": [],
+                "risks": [],
+                "recommended_next_action": "apply_mount_graph_extraction",
+            }
+            return type("R", (), {"text": json.dumps(payload)})()
+
+    monkeypatch.setattr(routes_module, "discover_endpoints", _fake_discovery)
+    monkeypatch.setattr(routes_module, "compute_workspace_id", lambda repos: "ws-test")
+    monkeypatch.setattr(routes_module, "create_run_id", lambda: "run-test")
+    monkeypatch.setattr(
+        routes_module,
+        "build_route_index_batch",
+        lambda repos, repo_map_batch=None: {
+            "version": "v1",
+            "repos": [{"repo": "api", "summary": {"files_indexed": 10, "files_with_route_calls": 8, "route_call_count": 25, "mount_call_count": 6, "router_symbol_count": 7}, "files": []}],
+        },
+    )
+    monkeypatch.setattr(
+        routes_module,
+        "build_route_graph_facts_batch",
+        lambda repos, route_index_batch=None: {"version": "v1", "repos": [{"repo": "api", "summary": {"containers": 7, "declarations": 25, "mount_edges": 6, "composed_routes": 1, "unresolved_mounts": 6}}]},
+    )
+    monkeypatch.setattr(routes_module, "create_default_llm_client", lambda **kwargs: _PlannerClient())
+    monkeypatch.setattr(
+        routes_module,
+        "save_run_artifact",
+        lambda **kwargs: Path(f"/tmp/{kwargs['artifact_name']}.json"),
+    )
+
+    result = runner.invoke(app, ["routes", "--repo", f"api={repo_root}", "--llm-policy", "auto"])
+    assert result.exit_code == 0
+    assert "routing_pattern_planner=ran confidence=0.8 convention=modular_router_mount_graph" in result.stdout
+
+
+def test_routes_command_planner_does_not_run_under_never(tmp_path: Path, monkeypatch) -> None:
+    """Planner should not run when llm-policy is never."""
+    repo_root = tmp_path / "api"
+    repo_root.mkdir()
+
+    def _fake_discovery(repos: list[RepoRef], *, model_spec: str | None = None, strict_llm: bool = False, **_kwargs) -> RoutesResult:
+        return RoutesResult(
+            repos=repos,
+            routes=[],
+            candidate_files=0,
+            files_examined=0,
+            notes=["api: deterministic_routes_found=0, deterministic_frameworks=none", "api: deterministic_scan_truncated_files=0"],
+        )
+
+    monkeypatch.setattr(routes_module, "discover_endpoints", _fake_discovery)
+    monkeypatch.setattr(routes_module, "compute_workspace_id", lambda repos: "ws-test")
+    monkeypatch.setattr(routes_module, "create_run_id", lambda: "run-test")
+    monkeypatch.setattr(
+        routes_module,
+        "build_route_index_batch",
+        lambda repos, repo_map_batch=None: {"version": "v1", "repos": [{"repo": "api", "summary": {}, "files": []}]},
+    )
+    monkeypatch.setattr(
+        routes_module,
+        "build_route_graph_facts_batch",
+        lambda repos, route_index_batch=None: {"version": "v1", "repos": [{"repo": "api", "summary": {}}]},
+    )
+    monkeypatch.setattr(
+        routes_module,
+        "save_run_artifact",
+        lambda **kwargs: Path(f"/tmp/{kwargs['artifact_name']}.json"),
+    )
+
+    result = runner.invoke(app, ["routes", "--repo", f"api={repo_root}", "--llm-policy", "never"])
+    assert result.exit_code == 0
+    assert "routing_pattern_planner=skipped reason=policy_never" in result.stdout
