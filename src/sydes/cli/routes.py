@@ -18,6 +18,7 @@ from sydes.discover.routing_pattern_planner import (
     build_routing_pattern_planner_input,
     run_routing_pattern_planner,
 )
+from sydes.discover.routing_pattern_executor import execute_routing_pattern_plan
 from sydes.ingest.repos import parse_repo_specs
 from sydes.llm.client import (
     LLMClient,
@@ -62,6 +63,53 @@ def _repo_index_by_name(payload: dict | None, key: str) -> dict[str, dict]:
         for item in items
         if isinstance(item, dict) and isinstance(item.get("repo"), str)
     }
+
+
+def _normalize_identity_path(path: str | None) -> str:
+    if path is None:
+        return ""
+    value = path.strip()
+    if not value:
+        return ""
+    if not value.startswith("/"):
+        value = "/" + value
+    value = re.sub(r"/+", "/", value)
+    if value != "/" and value.endswith("/"):
+        value = value[:-1]
+    value = re.sub(r"<(?:[^:>]+:)?([^>]+)>", r"{\1}", value)
+    value = re.sub(r":([A-Za-z_]\w*)", r"{\1}", value)
+    return value
+
+
+def _merge_route_lists(existing: list, extra: list) -> list:
+    merged: dict[tuple[str, str, str], object] = {}
+    for route in [*existing, *extra]:
+        method = (getattr(route, "method", None) or "").upper()
+        path = _normalize_identity_path(getattr(route, "path", None))
+        repo = getattr(route, "repo", "")
+        key = (repo, method, path)
+        if key not in merged:
+            merged[key] = route
+            continue
+        current = merged[key]
+        current_status = getattr(current, "status", "") or ""
+        new_status = getattr(route, "status", "") or ""
+        if current_status.startswith("deterministic_plan"):
+            continue
+        if new_status.startswith("deterministic_plan"):
+            merged[key] = route
+            continue
+        if getattr(current, "handler", None) is None and getattr(route, "handler", None) is not None:
+            merged[key] = route
+    return sorted(
+        merged.values(),
+        key=lambda item: (
+            getattr(item, "repo", ""),
+            (getattr(item, "method", "") or ""),
+            _normalize_identity_path(getattr(item, "path", None)),
+            getattr(item, "file", ""),
+        ),
+    )
 
 
 def routes_command(
@@ -340,6 +388,34 @@ def routes_command(
             plans_by_repo[repo_name] = {"failed": True, "reason": str(exc)}
             result.notes.append(f"{repo_name}: routing_pattern_planner=failed reason={exc}")
 
+    execution_by_repo: dict[str, dict] = {}
+    plan_routes: list = []
+    for repo_ref in repos:
+        repo_name = repo_ref.name
+        plan = plans_by_repo.get(repo_name)
+        if not isinstance(plan, dict) or plan.get("skipped") or plan.get("failed"):
+            continue
+        execution = execute_routing_pattern_plan(
+            repo_name=repo_name,
+            plan=plan,
+            route_graph_repo=route_graph_repos.get(repo_name),
+        )
+        execution_by_repo[repo_name] = {
+            "plan_applied": execution.get("plan_applied", False),
+            "routes_added": execution.get("routes_added", 0),
+            "mount_edges_used": execution.get("mount_edges_used", 0),
+            "unresolved_mounts": execution.get("unresolved_mounts", 0),
+            "warnings": execution.get("warnings", []),
+        }
+        if execution.get("plan_applied"):
+            plan_routes.extend(execution.get("routes", []))
+            result.notes.append(f"{repo_name}: Applied routing pattern plan: routes_added={execution.get('routes_added', 0)}")
+        for warning in execution.get("warnings", []):
+            result.notes.append(f"{repo_name}: routing_pattern_execution_warning={warning}")
+
+    if plan_routes:
+        result.routes = _merge_route_lists(result.routes, plan_routes)
+
     try:
         routing_pattern_payload = {
             "timestamp": datetime.now(tz=UTC).isoformat(),
@@ -355,6 +431,22 @@ def routes_command(
         result.notes.append(f"Saved routing pattern plan artifact: {routing_pattern_artifact_path}")
     except OSError as exc:
         result.notes.append(f"Could not save routing pattern plan artifact: {exc}")
+
+    try:
+        execution_payload = {
+            "timestamp": datetime.now(tz=UTC).isoformat(),
+            "repo_inputs": [item.model_dump() for item in repos],
+            "execution": execution_by_repo,
+        }
+        execution_artifact_path = save_run_artifact(
+            workspace_id=workspace_id,
+            run_id=run_id,
+            artifact_name="routing_pattern_execution",
+            payload=execution_payload,
+        )
+        result.notes.append(f"Saved routing pattern execution artifact: {execution_artifact_path}")
+    except OSError as exc:
+        result.notes.append(f"Could not save routing pattern execution artifact: {exc}")
 
     rendered = (
         render_routes_json(result)

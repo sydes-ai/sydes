@@ -132,8 +132,8 @@ def test_routes_command_handles_ambiguous_endpoints_json(
     assert payload["notes"][0] == "ambiguous candidate set"
 
 
-def test_routes_command_saves_repo_map_route_index_graph_and_coverage_artifacts(tmp_path: Path, monkeypatch) -> None:
-    """Routes CLI should save repo_map, route_index, route_graph_facts, and discovery_coverage artifacts."""
+def test_routes_command_saves_repo_map_route_index_graph_coverage_and_plan_artifacts(tmp_path: Path, monkeypatch) -> None:
+    """Routes CLI should save repo_map, route_index, route_graph_facts, coverage, plan, and execution artifacts."""
     repo_root = tmp_path / "api"
     repo_root.mkdir()
     saved_names: list[str] = []
@@ -165,11 +165,13 @@ def test_routes_command_saves_repo_map_route_index_graph_and_coverage_artifacts(
     assert "route_graph_facts" in saved_names
     assert "discovery_coverage" in saved_names
     assert "routing_pattern_plan" in saved_names
+    assert "routing_pattern_execution" in saved_names
     assert "Saved repo map artifact" in result.stdout
     assert "Saved route index artifact" in result.stdout
     assert "Saved route graph facts artifact" in result.stdout
     assert "Saved discovery coverage artifact" in result.stdout
     assert "Saved routing pattern plan artifact" in result.stdout
+    assert "Saved routing pattern execution artifact" in result.stdout
 
 
 def test_routes_command_planner_skips_under_auto_when_coverage_strong(tmp_path: Path, monkeypatch) -> None:
