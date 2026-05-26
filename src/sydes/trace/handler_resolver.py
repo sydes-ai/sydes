@@ -97,6 +97,16 @@ def extract_handler_candidates(handler_hint: str | None) -> dict:
     return {"raw": raw, "candidates": candidates, "primary": primary}
 
 
+def _extract_route_call_arguments_from_snippet(snippet: str) -> list[str]:
+    text = snippet.strip()
+    open_idx = text.find("(")
+    close_idx = text.rfind(")")
+    if open_idx == -1 or close_idx == -1 or close_idx <= open_idx:
+        return []
+    inner = text[open_idx + 1 : close_idx]
+    return _split_args(inner)
+
+
 def _build_file_maps(handler_symbol_index: dict) -> tuple[dict[str, dict], dict[str, list[dict]]]:
     if "files" in handler_symbol_index and isinstance(handler_symbol_index.get("files"), list):
         index_payload = handler_symbol_index
@@ -229,6 +239,30 @@ def resolve_handler_reference(
     """Resolve endpoint handler hints to implementation symbols."""
     hint = endpoint.handler
     extracted = extract_handler_candidates(hint)
+    route_decl_snippet = None
+    for ref in endpoint.evidence:
+        if (ref.label or "").strip() == "route_declaration" and isinstance(ref.snippet, str):
+            route_decl_snippet = ref.snippet
+            break
+    if route_decl_snippet:
+        arg_candidates = []
+        for arg in _extract_route_call_arguments_from_snippet(route_decl_snippet):
+            normalized, wrappers = _unwrap_handler(arg)
+            if re.fullmatch(r"[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*", normalized):
+                arg_candidates.append(
+                    {
+                        "hint": arg.strip(),
+                        "normalized": normalized,
+                        "wrappers": wrappers,
+                        "position": len(arg_candidates),
+                    }
+                )
+        if arg_candidates:
+            extracted = {
+                "raw": route_decl_snippet,
+                "candidates": arg_candidates,
+                "primary": arg_candidates[-1],
+            }
     result: dict = {
         "handler_hint": hint,
         "route_file": endpoint.file,
@@ -373,8 +407,40 @@ def resolve_handler_reference(
 
     if resolved_items:
         result["resolved"] = True
-        result["primary_handler"] = resolved_items[-1]
-        result["prehandlers"] = resolved_items[:-1]
+        primary_normalized = extracted.get("primary", {}).get("normalized")
+        primary_resolved = None
+        if isinstance(primary_normalized, str):
+            for item in resolved_items:
+                if item.get("normalized_handler") == primary_normalized:
+                    primary_resolved = item
+                    break
+        if primary_resolved is None:
+            primary_resolved = resolved_items[-1]
+        result["primary_handler"] = primary_resolved
+        resolved_by_name = {
+            item.get("normalized_handler"): item for item in resolved_items if isinstance(item.get("normalized_handler"), str)
+        }
+        prehandlers: list[dict] = []
+        for candidate in extracted.get("candidates", []):
+            normalized = candidate.get("normalized")
+            if not isinstance(normalized, str):
+                continue
+            if normalized == result["primary_handler"].get("normalized_handler"):
+                continue
+            if normalized in resolved_by_name:
+                prehandlers.append(resolved_by_name[normalized])
+            else:
+                prehandlers.append(
+                    {
+                        "handler_hint": candidate.get("hint"),
+                        "normalized_handler": normalized,
+                        "resolved": False,
+                        "symbol": None,
+                        "wrappers": candidate.get("wrappers", []),
+                        "confidence": 0.4,
+                    }
+                )
+        result["prehandlers"] = prehandlers
         result["confidence"] = result["primary_handler"].get("confidence", 0.8)
     result["unresolved_handlers"] = unresolved_items
     if extracted["primary"] is not None:

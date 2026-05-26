@@ -68,6 +68,8 @@ def canonical_step_kind(raw_kind: str, signals: Iterable[str] | None = None, tex
         return "database_write"
     if "sql_literal" in signal_set and "select " in line:
         return "database_read"
+    if "sql_literal" in signal_set and ("update " in line or "delete " in line):
+        return "database_write"
     if "possible_db_call" in signal_set:
         if re.search(r"\b(insert|update|delete|create|save|commit|add)\b", line):
             return "database_write"
@@ -132,6 +134,45 @@ def _truncate(text: str | None, max_chars: int = 200) -> str | None:
     if len(compact) <= max_chars:
         return compact
     return compact[: max_chars - 3] + "..."
+
+
+def _concise_sink_name(kind: str, detail: str) -> str:
+    text = (detail or "").strip()
+    lowered = text.lower()
+    if kind == "database":
+        if "insert into" in lowered:
+            m = re.search(r"insert\s+into\s+([a-zA-Z_][\w]*)", lowered)
+            if m:
+                return f"INSERT {m.group(1)}"
+            return "INSERT query"
+        if "update " in lowered:
+            m = re.search(r"update\s+([a-zA-Z_][\w]*)", lowered)
+            if m:
+                return f"UPDATE {m.group(1)}"
+            return "UPDATE query"
+        if "delete from" in lowered:
+            m = re.search(r"delete\s+from\s+([a-zA-Z_][\w]*)", lowered)
+            if m:
+                return f"DELETE {m.group(1)}"
+            return "DELETE query"
+        if "select " in lowered:
+            m = re.search(r"from\s+([a-zA-Z_][\w]*)", lowered)
+            if m:
+                return f"SELECT {m.group(1)}"
+            return "SELECT query"
+        if "db.query" in lowered:
+            return "db.query(q)"
+    if kind == "storage":
+        m = re.search(r"(uploadBase64|uploadBuffer|uploadFile|downloadFile|putObject)", text, flags=re.IGNORECASE)
+        if m:
+            return m.group(1)
+        return "storage call"
+    if kind == "external_api":
+        m = re.search(r"([A-Za-z_]\w*)\s*\(", text)
+        if m:
+            return m.group(1)
+        return "external call"
+    return _truncate(text, 120) or kind
 
 
 def _mk_step(
@@ -381,7 +422,7 @@ def build_layered_trace_contract(
             {
                 "kind": sink_kind,
                 "operation": operation,
-                "name": _truncate(name, 120) or sink_kind,
+                "name": _concise_sink_name(sink_kind, str(name)),
                 "repo": step.get("repo"),
                 "file": step.get("file"),
                 "symbol": step.get("symbol"),
@@ -430,4 +471,3 @@ def build_layered_trace_contract(
         "diagnostics": diagnostics,
         "artifacts": artifact_paths or {},
     }
-

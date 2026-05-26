@@ -80,3 +80,28 @@ def test_layered_contract_sink_normalization_database_and_storage() -> None:
     assert "database" in kinds
     assert "storage" in kinds
 
+
+def test_sql_update_classifies_as_database_write_and_sink_name_is_concise() -> None:
+    payload = build_layered_trace_contract(
+        matched_endpoint={"repo": "api", "method": "POST", "path": "/avatar", "file": "src/routes.ts", "handler": "Controller.update"},
+        primary_slice={
+            "file": "src/controller.ts",
+            "statements": [
+                {
+                    "index": 1,
+                    "kind_hint": "statement",
+                    "signals": ["sql_literal"],
+                    "text": 'const q = "UPDATE users SET avatar_url = $2 WHERE id = $1 RETURNING avatar_url";',
+                }
+            ],
+        },
+        resolved_handlers=None,
+        layered_trace_expansion=None,
+        llm_summary=None,
+        budgets={"max_depth": 2, "max_steps": 40},
+        artifact_paths={},
+    )
+    step_kinds = [item["kind"] for item in payload["flow"]["steps"]]
+    assert "database_write" in step_kinds
+    db_sink = next(item for item in payload["sinks"] if item["kind"] == "database")
+    assert db_sink["name"].startswith("UPDATE users")

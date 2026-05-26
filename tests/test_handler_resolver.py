@@ -260,6 +260,64 @@ def test_directory_import_resolution_flow() -> None:
     assert resolved["primary_handler"]["symbol"]["qualified_name"] == "ApiController.list"
 
 
+def test_route_declaration_snippet_preserves_middleware_and_prehandler_order() -> None:
+    endpoint = EndpointCandidate(
+        method="POST",
+        path="/avatar",
+        handler="AttachmentController.createAvatarAttachment",
+        file="src/routes/router.ts",
+        repo="api",
+        evidence=[
+            {
+                "file": "src/routes/router.ts",
+                "label": "route_declaration",
+                "snippet": 'attachmentsApiRouter.post("/avatar", avatarValidator, safeControllerFunction(imageToWebp), safeControllerFunction(AttachmentController.createAvatarAttachment));',
+            }
+        ],
+    )
+    index = {
+        "files": [
+            {
+                "path": "src/routes/router.ts",
+                "imports": [
+                    {"local": "imageToWebp", "source": "../img", "resolved_file": "src/img.ts"},
+                    {"local": "AttachmentController", "source": "../controllers/a", "resolved_file": "src/controllers/a.ts"},
+                ],
+                "exports": [],
+                "symbols": [],
+            },
+            {
+                "path": "src/img.ts",
+                "imports": [],
+                "exports": [{"kind": "named", "symbol": "imageToWebp"}],
+                "symbols": [{"name": "imageToWebp", "kind": "function", "file": "src/img.ts", "line": 1}],
+            },
+            {
+                "path": "src/controllers/a.ts",
+                "imports": [],
+                "exports": [{"kind": "default", "symbol": "AttachmentController"}],
+                "symbols": [
+                    {"name": "AttachmentController", "kind": "class", "file": "src/controllers/a.ts", "line": 1},
+                    {
+                        "name": "createAvatarAttachment",
+                        "qualified_name": "AttachmentController.createAvatarAttachment",
+                        "kind": "class_method",
+                        "parent": "AttachmentController",
+                        "file": "src/controllers/a.ts",
+                        "line": 10,
+                    },
+                ],
+            },
+        ]
+    }
+    resolved = resolve_handler_reference(endpoint, index)
+    assert resolved["resolved"] is True
+    assert resolved["primary_handler"]["normalized_handler"] == "AttachmentController.createAvatarAttachment"
+    pre_names = [item.get("normalized_handler") for item in resolved["prehandlers"]]
+    assert "avatarValidator" in pre_names
+    assert "imageToWebp" in pre_names
+
+
 def test_resolver_matches_by_parent_and_name_when_qualified_missing() -> None:
     index = {
         "files": [

@@ -677,7 +677,10 @@ def trace_command(
                                 if isinstance(warning, str) and warning.strip():
                                     result.notes.append(f"Trace LLM summary warning: {warning}")
                     except LLMClientError as exc:
-                        result.notes.append(f"Trace LLM summarizer failed: {exc}")
+                        if trace_llm_policy == "always":
+                            result.notes.append(f"Trace LLM summarizer failed: {exc}")
+                        else:
+                            result.diagnostics.append(f"trace_llm_summarizer_failed={exc}")
                     artifact_names = {}
                     layered_contract_payload = build_layered_trace_contract(
                         matched_endpoint=matched_endpoint.model_dump(),
