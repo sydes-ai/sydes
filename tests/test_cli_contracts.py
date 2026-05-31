@@ -111,6 +111,15 @@ def test_trace_terminal_output_contains_target_and_repos(tmp_path: Path, monkeyp
     )
 
 
+def test_cli_version_flag_outputs_version() -> None:
+    """Top-level --version should return concise Sydes version output."""
+    result = runner.invoke(app, ["--version"])
+    assert result.exit_code == 0
+    output = result.stdout.strip().lower()
+    assert output.startswith("sydes ")
+    assert "unknown" in output or any(ch.isdigit() for ch in output)
+
+
 def test_trace_json_output_contains_expected_fields(tmp_path: Path, monkeypatch) -> None:
     """Trace JSON mode should emit stable structured fields."""
     gateway_dir = tmp_path / "gateway"
