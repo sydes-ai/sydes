@@ -23,6 +23,7 @@ from sydes.core.models import (
     Flow,
     GraphEdge,
     GraphNode,
+    RoutesResult,
     TargetSpec,
     TraceResult,
     TraceSummary,
@@ -45,7 +46,8 @@ from sydes.llm.client import LLMClientError, validate_llm_available
 from sydes.report.json_report import render_json
 from sydes.report.terminal import render_terminal
 from sydes.store.workspace import compute_workspace_id, create_run_id, save_run_artifact
-from sydes.generate.tests import generate_test_matrix, generate_test_suggestions
+from sydes.generate.contracts import build_api_contract_from_routes
+from sydes.generate.tests import generate_test_matrix, generate_test_suggestions, match_route_contract
 from sydes.trace.cross_repo import (
     build_call_source_lookup_id,
     detect_cross_repo_call_candidates,
@@ -296,7 +298,22 @@ def _build_trace_result(
     elif nodes:
         result.summary.key_flow_id = nodes[0].id
     result.tests = generate_test_suggestions(result)
-    result.test_matrix = generate_test_matrix(result)
+    route_contract = None
+    try:
+        repo_roots = {item.name: item.root for item in routes.repos}
+        contract_artifact = build_api_contract_from_routes(routes, repo_roots=repo_roots)
+        route_contract = match_route_contract(
+            contract_artifact,
+            method=target.method,
+            path=target.path,
+        )
+    except Exception:  # noqa: BLE001
+        route_contract = None
+    try:
+        result.test_matrix = generate_test_matrix(result, route_contract=route_contract)
+    except TypeError:
+        # Compatibility for patched/mocked single-arg test helpers.
+        result.test_matrix = generate_test_matrix(result)
     matrix_coverage = compute_test_matrix_coverage(result, result.test_matrix)
     if matrix_coverage is not None:
         result.summary.test_matrix_coverage = matrix_coverage
@@ -323,6 +340,7 @@ def _write_trace_json_outputs(
     layered_trace_expansion: dict | None = None,
     trace_llm_summary: dict | None = None,
     layered_trace_contract: dict | None = None,
+    api_contract: dict | None = None,
 ) -> None:
     """Write trace JSON output to either a single file or an artifact directory."""
     target = resolve_trace_output_target(output)
@@ -386,6 +404,11 @@ def _write_trace_json_outputs(
         _write_output(
             target.path / "layered_trace_contract.json",
             json.dumps(layered_trace_contract, indent=2),
+        )
+    if api_contract is not None:
+        _write_output(
+            target.path / "api_contract.json",
+            json.dumps(api_contract, indent=2),
         )
 
 
@@ -515,7 +538,19 @@ def trace_command(
     layered_trace_expansion_payload: dict | None = None
     trace_llm_summary_payload: dict | None = None
     layered_contract_payload: dict | None = None
+    api_contract_payload: dict | None = None
     artifact_index: dict[str, str] = {}
+
+    if matched_endpoint is not None:
+        try:
+            contract_result = build_api_contract_from_routes(
+                RoutesResult(repos=result.repos, routes=[matched_endpoint]),
+                repo_roots={item.name: item.root for item in result.repos},
+            )
+            api_contract_payload = contract_result.model_dump()
+        except Exception:  # noqa: BLE001
+            api_contract_payload = None
+
     try:
         workspace_id = compute_workspace_id(result.repos)
         run_id = create_run_id()
@@ -797,6 +832,20 @@ def trace_command(
         )
         result.notes.append(f"Saved trace artifact: {trace_artifact_path}")
         artifact_index["trace_result"] = str(trace_artifact_path)
+        if api_contract_payload is not None:
+            api_contract_artifact_path = save_run_artifact(
+                workspace_id=workspace_id,
+                run_id=run_id,
+                artifact_name="api_contract",
+                payload={
+                    "timestamp": datetime.now(tz=UTC).isoformat(),
+                    "repo_inputs": [item.model_dump() for item in result.repos],
+                    "target": result.target.model_dump(),
+                    "contract": api_contract_payload,
+                },
+            )
+            result.notes.append(f"Saved API contract artifact: {api_contract_artifact_path}")
+            artifact_index["api_contract"] = str(api_contract_artifact_path)
         if resolved_handlers_payload is not None:
             resolved_handlers_artifact_path = save_run_artifact(
                 workspace_id=workspace_id,
@@ -921,6 +970,7 @@ def trace_command(
                     layered_trace_expansion=layered_trace_expansion_payload,
                     trace_llm_summary=trace_llm_summary_payload,
                     layered_trace_contract=layered_contract_payload,
+                    api_contract=api_contract_payload,
                 )
             else:
                 resolved = resolve_output_file_path(output, default_filename="trace.txt")

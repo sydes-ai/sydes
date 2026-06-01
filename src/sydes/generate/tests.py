@@ -11,6 +11,8 @@ from pathlib import Path
 from typing import Any
 
 from sydes.core.models import (
+    ApiContractArtifact,
+    ApiRouteContract,
     Flow,
     GraphNode,
     IntegrationTestSuggestion,
@@ -48,6 +50,48 @@ REQUEST_BODY_SIGNAL_TOKENS = (
     "json.newdecoder(r.body).decode",
     "io.readall(r.body)",
 )
+
+
+def _normalize_contract_path(path: str | None) -> str:
+    if not path:
+        return ""
+    value = path.strip()
+    if not value.startswith("/"):
+        value = "/" + value
+    value = re.sub(r"/+", "/", value)
+    value = re.sub(r"<(?:[^:>]+:)?([^>]+)>", r"{\1}", value)
+    value = re.sub(r":([A-Za-z_]\w*)", r"{\1}", value)
+    if value != "/" and value.endswith("/"):
+        value = value[:-1]
+    return value
+
+
+def match_route_contract(
+    contract: ApiContractArtifact | None,
+    *,
+    method: str | None,
+    path: str,
+) -> ApiRouteContract | None:
+    """Find best matching route contract for target method/path."""
+    if contract is None:
+        return None
+    target_method = (method or "").upper()
+    target_path = _normalize_contract_path(path)
+    exact: list[ApiRouteContract] = []
+    path_only: list[ApiRouteContract] = []
+    for route in contract.routes:
+        candidate_method = (route.method or "").upper()
+        candidate_path = _normalize_contract_path(route.path)
+        if candidate_path != target_path:
+            continue
+        path_only.append(route)
+        if target_method and candidate_method == target_method:
+            exact.append(route)
+    if exact:
+        return exact[0]
+    if path_only:
+        return path_only[0]
+    return None
 
 
 @dataclass(frozen=True)
@@ -654,7 +698,7 @@ def normalize_test_matrix(matrix: TestMatrix) -> TestMatrix:
                 derived_from_flow_id=test.derived_from_flow_id,
                 confidence=test.confidence,
                 notes=test.notes,
-                category=test.category or group.category,
+                category=group.category,
                 priority=test.priority,
                 purpose=test.purpose,
                 request=test.request,
@@ -683,6 +727,401 @@ def normalize_test_matrix(matrix: TestMatrix) -> TestMatrix:
         coverage=matrix.coverage,
         confidence=matrix.confidence,
     )
+
+
+def _example_for_schema_type(schema_type: str | None) -> Any:
+    lowered = (schema_type or "string").lower()
+    if lowered == "integer":
+        return 1
+    if lowered == "number":
+        return 1.25
+    if lowered == "boolean":
+        return True
+    if lowered == "array":
+        return []
+    if lowered == "object":
+        return {}
+    return "example"
+
+
+def _invalid_for_schema_type(schema_type: str | None) -> Any:
+    lowered = (schema_type or "string").lower()
+    if lowered in {"integer", "number"}:
+        return "not-a-number"
+    if lowered == "boolean":
+        return "not-a-bool"
+    if lowered == "array":
+        return "not-an-array"
+    if lowered == "object":
+        return "not-an-object"
+    return 12345
+
+
+def _build_request_from_contract(route_contract: ApiRouteContract, method: str, path: str) -> dict[str, Any]:
+    request_payload: dict[str, Any] = {
+        "method": method,
+        "path": path,
+        "headers": {},
+        "query": {},
+    }
+    for key, prop in route_contract.request.headers.items():
+        if prop.example is not None:
+            request_payload["headers"][key] = prop.example
+        else:
+            request_payload["headers"][key] = _example_for_schema_type(prop.type)
+    for key, prop in route_contract.request.query_params.items():
+        if prop.example is not None:
+            request_payload["query"][key] = prop.example
+        else:
+            request_payload["query"][key] = _example_for_schema_type(prop.type)
+    if route_contract.request.body is not None:
+        body: dict[str, Any] = {}
+        for key, prop in route_contract.request.body.properties.items():
+            if prop.example is not None:
+                body[key] = prop.example
+            else:
+                body[key] = _example_for_schema_type(prop.type)
+        request_payload["body"] = body
+    return request_payload
+
+
+def _collect_sink_labels(trace_result: TraceResult) -> list[str]:
+    labels: list[str] = []
+    for node in trace_result.nodes:
+        if node.type not in {"database", "external_api", "queue", "file_sink"}:
+            continue
+        labels.append(f"{node.type}:{node.name}")
+    return labels
+
+
+def _collect_related_step_labels(trace_result: TraceResult, limit: int = 4) -> list[str]:
+    labels: list[str] = []
+    for node in _selected_flow_nodes(trace_result):
+        if node.type == "internal_step" and node.name:
+            labels.append(node.name)
+        if len(labels) >= limit:
+            break
+    return labels
+
+
+def generate_contract_aware_test_matrix(
+    *,
+    trace_result: TraceResult,
+    base_matrix: TestMatrix,
+    route_contract: ApiRouteContract | None,
+    max_validation_scenarios: int = 5,
+    max_sink_scenarios: int = 4,
+) -> TestMatrix:
+    """Augment baseline matrix with contract-aware and sink-aware scenarios."""
+    if route_contract is None:
+        return normalize_test_matrix(base_matrix)
+
+    method = (trace_result.target.method or route_contract.method or "ANY").upper()
+    path = trace_result.target.path
+    route_token = _route_token(path)
+    method_token = method.lower()
+    sink_labels = _collect_sink_labels(trace_result)
+    related_steps = _collect_related_step_labels(trace_result)
+
+    by_category: dict[str, list[IntegrationTestSuggestion]] = {
+        group.category: list(group.tests) for group in base_matrix.groups
+    }
+
+    def add(category: str, suggestion: IntegrationTestSuggestion) -> None:
+        by_category.setdefault(category, [])
+        by_category[category].append(suggestion)
+
+    # Happy path scenario using contract examples/schema.
+    success_status = next(
+        (status for status in route_contract.responses.keys() if str(status).startswith("2")),
+        "200",
+    )
+    add(
+        "positive",
+        make_test_suggestion(
+            name=f"{method_token}_{route_token}_contract_happy_path",
+            route=path,
+            method=method,
+            summary=f"verifies {method} {path} succeeds with contract-valid request",
+            category="positive",
+            priority="high" if method in WRITE_METHODS or method == "DELETE" else "medium",
+            purpose="contract happy path",
+            request=_build_request_from_contract(route_contract, method, path),
+            expected={
+                "status": int(success_status) if str(success_status).isdigit() else success_status,
+                "behavior": "request succeeds",
+                "response_schema_ref": f"responses.{success_status}",
+            },
+            contract_refs=[f"responses.{success_status}"],
+            related_steps=related_steps,
+            related_sinks=sink_labels,
+        ),
+    )
+
+    # Request-body validation scenarios.
+    validation_count = 0
+    body = route_contract.request.body
+    if body is not None and body.properties:
+        for field in body.required[:max_validation_scenarios]:
+            add(
+                "validation",
+                make_test_suggestion(
+                    name=f"{method_token}_{route_token}_missing_required_{field}",
+                    route=path,
+                    method=method,
+                    summary=f"rejects missing required field `{field}`",
+                    category="validation",
+                    priority="high",
+                    purpose="required field validation",
+                    request={"method": method, "path": path, "body": {k: _example_for_schema_type(v.type) for k, v in body.properties.items() if k != field}},
+                    expected={"status": 400, "behavior": "validation error"},
+                    contract_refs=[f"request.body.{field}"],
+                    side_effects=["No database write should occur"] if any(s.startswith("database:") for s in sink_labels) else [],
+                    related_sinks=sink_labels,
+                ),
+            )
+            validation_count += 1
+            if validation_count >= max_validation_scenarios:
+                break
+        for field, prop in body.properties.items():
+            if validation_count >= max_validation_scenarios:
+                break
+            add(
+                "validation",
+                make_test_suggestion(
+                    name=f"{method_token}_{route_token}_invalid_type_{field}",
+                    route=path,
+                    method=method,
+                    summary=f"rejects invalid type for `{field}`",
+                    category="validation",
+                    priority="medium",
+                    purpose="schema type validation",
+                    request={"method": method, "path": path, "body": {field: _invalid_for_schema_type(prop.type)}},
+                    expected={"status": 400, "behavior": "type validation error"},
+                    contract_refs=[f"request.body.{field}"],
+                ),
+            )
+            validation_count += 1
+            if prop.format == "email" and validation_count < max_validation_scenarios:
+                add(
+                    "validation",
+                    make_test_suggestion(
+                        name=f"{method_token}_{route_token}_invalid_email_{field}",
+                        route=path,
+                        method=method,
+                        summary=f"rejects invalid email format for `{field}`",
+                        category="validation",
+                        priority="high",
+                        purpose="format validation",
+                        request={"method": method, "path": path, "body": {field: "not-an-email"}},
+                        expected={"status": 400, "behavior": "format validation error"},
+                        contract_refs=[f"request.body.{field}"],
+                    ),
+                )
+                validation_count += 1
+
+    # Path/query/header scenarios.
+    for key, prop in route_contract.request.path_params.items():
+        if prop.type in {"integer", "number"}:
+            add(
+                "validation",
+                make_test_suggestion(
+                    name=f"{method_token}_{route_token}_invalid_path_param_{key}",
+                    route=path,
+                    method=method,
+                    summary=f"rejects invalid path parameter `{key}`",
+                    category="validation",
+                    priority="medium",
+                    request={"method": method, "path": path, "path_params": {key: "not-a-number"}},
+                    expected={"status": 400, "behavior": "path parameter validation error"},
+                    contract_refs=[f"request.path_params.{key}"],
+                ),
+            )
+        if method == "GET" and key.lower().endswith("id"):
+            add(
+                "edge_case",
+                make_test_suggestion(
+                    name=f"{method_token}_{route_token}_not_found_for_missing_{key}",
+                    route=path,
+                    method=method,
+                    summary=f"returns not found for unknown `{key}`",
+                    category="edge_case",
+                    priority="medium",
+                    expected={"status": 404, "behavior": "resource not found"},
+                    contract_refs=[f"request.path_params.{key}"],
+                ),
+            )
+
+    for key, prop in route_contract.request.query_params.items():
+        if prop.required:
+            add(
+                "validation",
+                make_test_suggestion(
+                    name=f"{method_token}_{route_token}_missing_query_{key}",
+                    route=path,
+                    method=method,
+                    summary=f"rejects missing required query param `{key}`",
+                    category="validation",
+                    priority="medium",
+                    request={"method": method, "path": path, "query": {}},
+                    expected={"status": 400, "behavior": "query validation error"},
+                    contract_refs=[f"request.query.{key}"],
+                ),
+            )
+
+    auth_header = route_contract.request.headers.get("Authorization")
+    if auth_header is not None and (auth_header.required or True):
+        add(
+            "auth",
+            make_test_suggestion(
+                name=f"{method_token}_{route_token}_missing_authorization",
+                route=path,
+                method=method,
+                summary="rejects missing Authorization header",
+                category="auth",
+                priority="high",
+                request={"method": method, "path": path, "headers": {}},
+                expected={"status": 401, "behavior": "unauthorized"},
+                contract_refs=["request.headers.Authorization"],
+            ),
+        )
+        add(
+            "auth",
+            make_test_suggestion(
+                name=f"{method_token}_{route_token}_invalid_authorization",
+                route=path,
+                method=method,
+                summary="rejects invalid or expired token",
+                category="auth",
+                priority="high",
+                request={"method": method, "path": path, "headers": {"Authorization": "Bearer invalid-token"}},
+                expected={"status": 401, "behavior": "unauthorized"},
+                contract_refs=["request.headers.Authorization"],
+            ),
+        )
+
+    # Response schema validation scenario.
+    if success_status in route_contract.responses:
+        response_schema = route_contract.responses[success_status].body
+        sensitive = False
+        if response_schema is not None:
+            sensitive = any(
+                token in key.lower()
+                for key in response_schema.properties.keys()
+                for token in ("password", "token", "secret", "api_key", "password_hash")
+            )
+        add(
+            "security" if sensitive else "error_handling",
+            make_test_suggestion(
+                name=f"{method_token}_{route_token}_response_schema_validation",
+                route=path,
+                method=method,
+                summary="validates response body shape matches contract",
+                category="security" if sensitive else "error_handling",
+                priority="medium",
+                expected={
+                    "status": int(success_status) if str(success_status).isdigit() else success_status,
+                    "response_schema_ref": f"responses.{success_status}",
+                },
+                contract_refs=[f"responses.{success_status}"],
+                notes_text=(
+                    "Response must not expose sensitive internal fields."
+                    if sensitive
+                    else "Response should match documented schema."
+                ),
+            ),
+        )
+
+    # Sink-aware scenarios.
+    sink_added = 0
+    if any(s.startswith("database:") for s in sink_labels):
+        add(
+            "database",
+            make_test_suggestion(
+                name=f"{method_token}_{route_token}_database_failure_handled",
+                route=path,
+                method=method,
+                summary="handles database failure without partial write",
+                category="database",
+                priority="high",
+                requires_mocking=True,
+                expected={"status": 500, "behavior": "database error handled"},
+                related_sinks=[s for s in sink_labels if s.startswith("database:")],
+                side_effects=["rollback or no partial write"],
+            ),
+        )
+        sink_added += 1
+    if sink_added < max_sink_scenarios and any(s.startswith("external_api:") for s in sink_labels):
+        add(
+            "external_api",
+            make_test_suggestion(
+                name=f"{method_token}_{route_token}_downstream_timeout_handled",
+                route=path,
+                method=method,
+                summary="handles downstream timeout gracefully",
+                category="external_api",
+                priority="medium",
+                requires_mocking=True,
+                expected={"status": 502, "behavior": "downstream failure handled"},
+                related_sinks=[s for s in sink_labels if s.startswith("external_api:")],
+            ),
+        )
+        sink_added += 1
+    if sink_added < max_sink_scenarios and any(s.startswith("queue:") for s in sink_labels):
+        add(
+            "queue_event",
+            make_test_suggestion(
+                name=f"{method_token}_{route_token}_queue_publish_failure_handled",
+                route=path,
+                method=method,
+                summary="handles queue publish failure correctly",
+                category="queue_event",
+                priority="high",
+                requires_mocking=True,
+                expected={"status": 500, "behavior": "publish failure handled"},
+                related_sinks=[s for s in sink_labels if s.startswith("queue:")],
+            ),
+        )
+
+    # Deduplicate and cap by keeping first occurrence by name.
+    ordered_categories = [
+        "positive",
+        TEST_MATRIX_CATEGORY_HAPPY_PATH,
+        "validation",
+        TEST_MATRIX_CATEGORY_VALIDATION,
+        "auth",
+        "database",
+        "external_api",
+        "queue_event",
+        TEST_MATRIX_CATEGORY_SIDE_EFFECTS,
+        TEST_MATRIX_CATEGORY_STATE_CONSISTENCY,
+        TEST_MATRIX_CATEGORY_EDGE_CASES,
+        "error_handling",
+        "security",
+        "edge_case",
+        "data_shape",
+        "failure_modes",
+        "persistence",
+    ]
+    seen: set[str] = set()
+    groups: list[TestMatrixGroup] = []
+    for category in ordered_categories:
+        tests = by_category.get(category, [])
+        if not tests:
+            continue
+        unique: list[IntegrationTestSuggestion] = []
+        for test in tests:
+            key = f"{test.category or category}:{scenario_id_from_name(test.name)}"
+            if key in seen:
+                continue
+            seen.add(key)
+            unique.append(test)
+        if unique:
+            groups.append(TestMatrixGroup(category=category, tests=unique))
+
+    notes = list(base_matrix.notes)
+    notes.append("contract-aware scenarios added from inferred API contract and trace sinks")
+    return normalize_test_matrix(TestMatrix(groups=groups, notes=notes, coverage=base_matrix.coverage, confidence=base_matrix.confidence))
 
 
 def _build_fallback_matrix(
@@ -719,7 +1158,12 @@ def _build_fallback_matrix(
     ]
 
 
-def generate_test_matrix(trace_result: TraceResult, *, max_suggestions: int = 7) -> TestMatrix:
+def generate_test_matrix(
+    trace_result: TraceResult,
+    *,
+    max_suggestions: int = 7,
+    route_contract: ApiRouteContract | None = None,
+) -> TestMatrix:
     """Generate a deterministic category-grouped API test matrix from trace output."""
     route = trace_result.target.path
     method = (trace_result.target.method or "ANY").upper()
@@ -1313,7 +1757,12 @@ def generate_test_matrix(trace_result: TraceResult, *, max_suggestions: int = 7)
                 for note in body_notes:
                     if note not in suggestion.notes:
                         suggestion.notes.append(note)
-    return normalize_test_matrix(TestMatrix(groups=matrix_groups, notes=notes))
+    base = normalize_test_matrix(TestMatrix(groups=matrix_groups, notes=notes))
+    return generate_contract_aware_test_matrix(
+        trace_result=trace_result,
+        base_matrix=base,
+        route_contract=route_contract,
+    )
 
 
 def generate_test_suggestions(trace_result: TraceResult) -> list[IntegrationTestSuggestion]:
