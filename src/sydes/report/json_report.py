@@ -2,7 +2,7 @@
 
 import json
 
-from sydes.core.models import RoutesResult, TraceResult
+from sydes.core.models import ApiContractArtifact, RoutesResult, TraceResult
 from sydes.export.json_export import export_trace_result
 
 
@@ -15,3 +15,8 @@ def render_json(result: TraceResult) -> str:
 def render_routes_json(result: RoutesResult) -> str:
     """Serialize routes discovery output to pretty-printed JSON."""
     return result.model_dump_json(indent=2)
+
+
+def render_api_contract_json(contract: ApiContractArtifact) -> str:
+    """Serialize API contract artifact to pretty-printed JSON."""
+    return contract.model_dump_json(indent=2)

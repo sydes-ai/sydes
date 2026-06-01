@@ -8,7 +8,11 @@ from typing import Annotated, Literal
 
 import typer
 
-from sydes.cli.output_paths import resolve_output_file_path, write_output_text
+from sydes.cli.output_paths import (
+    resolve_output_file_path,
+    resolve_trace_output_target,
+    write_output_text,
+)
 from sydes.core.models import RoutesResult
 from sydes.discover.endpoints import discover_endpoints
 from sydes.discover.discovery_coverage import evaluate_discovery_coverage
@@ -32,6 +36,7 @@ from sydes.llm.client import (
     create_default_llm_client,
     validate_llm_available,
 )
+from sydes.generate.contracts import build_basic_api_contract_from_routes
 from sydes.report.json_report import render_routes_json
 from sydes.report.terminal import render_routes_terminal
 from sydes.store.workspace import compute_workspace_id, create_run_id, save_run_artifact
@@ -47,6 +52,21 @@ def _write_command_output(
     default_name = "routes.json" if output_format == "json" else "routes.txt"
     resolved = resolve_output_file_path(output, default_filename=default_name)
     write_output_text(resolved, content)
+
+
+def _write_routes_json_outputs(
+    output: Path,
+    routes_json: str,
+    result: RoutesResult,
+) -> None:
+    """Write routes JSON and api_contract.json for directory-style output targets."""
+    target = resolve_trace_output_target(output)
+    if target.kind == "file":
+        write_output_text(target.path, routes_json)
+        return
+    write_output_text(target.path / "routes.json", routes_json)
+    contract = build_basic_api_contract_from_routes(result)
+    write_output_text(target.path / "api_contract.json", contract.model_dump_json(indent=2))
 
 
 def _extract_repo_note_int(notes: list[str], repo_name: str, field: str) -> int:
@@ -223,7 +243,10 @@ def routes_command(
             typer.echo(rendered)
             if output is not None:
                 try:
-                    _write_command_output(output, rendered, output_format=output_format)
+                    if output_format == "json":
+                        _write_routes_json_outputs(output, rendered, result)
+                    else:
+                        _write_command_output(output, rendered, output_format=output_format)
                 except (OSError, ValueError) as exc:
                     typer.echo(str(exc))
                     raise typer.Exit(code=1) from exc
@@ -321,6 +344,22 @@ def routes_command(
         result.notes.append(f"Saved discovery artifact: {artifact_path}")
     except OSError as exc:
         result.notes.append(f"Could not save discovery artifact: {exc}")
+
+    try:
+        contract_artifact = build_basic_api_contract_from_routes(result)
+        contract_artifact_path = save_run_artifact(
+            workspace_id=workspace_id,
+            run_id=run_id,
+            artifact_name="api_contract",
+            payload={
+                "timestamp": datetime.now(tz=UTC).isoformat(),
+                "repo_inputs": [item.model_dump() for item in repos],
+                "contract": contract_artifact.model_dump(),
+            },
+        )
+        result.notes.append(f"Saved API contract artifact: {contract_artifact_path}")
+    except OSError as exc:
+        result.notes.append(f"Could not save API contract artifact: {exc}")
 
     repo_map_batch: dict | None = None
     try:
@@ -564,7 +603,10 @@ def routes_command(
     typer.echo(rendered)
     if output is not None:
         try:
-            _write_command_output(output, rendered, output_format=output_format)
+            if output_format == "json":
+                _write_routes_json_outputs(output, rendered, result)
+            else:
+                _write_command_output(output, rendered, output_format=output_format)
         except (OSError, ValueError) as exc:
             typer.echo(str(exc))
             raise typer.Exit(code=1) from exc

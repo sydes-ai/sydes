@@ -147,6 +147,7 @@ def test_routes_output_existing_directory_writes_routes_json(monkeypatch, tmp_pa
     assert result.exit_code == 0
     output_file = output_dir / "routes.json"
     assert output_file.exists()
+    assert (output_dir / "api_contract.json").exists()
     payload = json.loads(output_file.read_text(encoding="utf-8"))
     assert payload["version"] == "v1"
 
@@ -180,6 +181,7 @@ def test_routes_output_missing_directory_like_path_creates_dir(monkeypatch, tmp_
 
     assert result.exit_code == 0
     assert (output_dir / "routes.json").exists()
+    assert (output_dir / "api_contract.json").exists()
 
 
 def test_routes_output_explicit_json_file_writes_that_file(monkeypatch, tmp_path: Path) -> None:
@@ -211,6 +213,7 @@ def test_routes_output_explicit_json_file_writes_that_file(monkeypatch, tmp_path
 
     assert result.exit_code == 0
     assert output_file.exists()
+    assert not (tmp_path / "api_contract.json").exists()
 
 
 def test_routes_output_parent_file_fails_gracefully(monkeypatch, tmp_path: Path) -> None:

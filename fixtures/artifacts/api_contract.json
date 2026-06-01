@@ -1,0 +1,284 @@
+{
+  "version": "v1",
+  "routes": [
+    {
+      "method": "GET",
+      "path": "/items",
+      "repo": "sample",
+      "service": "api",
+      "handler": "get_items",
+      "file": "app/routes.py",
+      "request": {
+        "path_params": {},
+        "query_params": {},
+        "headers": {},
+        "body": null,
+        "examples": []
+      },
+      "responses": {
+        "200": {
+          "status": "200",
+          "description": "Returns list of items",
+          "body": {
+            "type": "array",
+            "required": [],
+            "properties": {},
+            "items": {
+              "type": "object",
+              "required": [
+                "id",
+                "name"
+              ],
+              "properties": {
+                "id": {
+                  "type": "integer",
+                  "required": true
+                },
+                "name": {
+                  "type": "string",
+                  "required": true
+                }
+              },
+              "items": null,
+              "description": null,
+              "example": null,
+              "additional_properties": false
+            },
+            "description": null,
+            "example": null,
+            "additional_properties": false
+          },
+          "examples": [],
+          "evidence": [],
+          "confidence": "medium"
+        }
+      },
+      "evidence": [],
+      "confidence": "medium",
+      "notes": []
+    },
+    {
+      "method": "GET",
+      "path": "/items/{item_id}",
+      "repo": "sample",
+      "service": "api",
+      "handler": "get_item",
+      "file": "app/routes.py",
+      "request": {
+        "path_params": {
+          "item_id": {
+            "type": "string",
+            "required": true
+          }
+        },
+        "query_params": {},
+        "headers": {},
+        "body": null,
+        "examples": []
+      },
+      "responses": {
+        "200": {
+          "status": "200",
+          "description": "Returns item details",
+          "body": {
+            "type": "object",
+            "required": [
+              "id",
+              "name"
+            ],
+            "properties": {
+              "id": {
+                "type": "integer",
+                "required": true
+              },
+              "name": {
+                "type": "string",
+                "required": true
+              },
+              "description": {
+                "type": "string",
+                "required": false,
+                "nullable": true
+              }
+            },
+            "items": null,
+            "description": null,
+            "example": null,
+            "additional_properties": false
+          },
+          "examples": [],
+          "evidence": [],
+          "confidence": "medium"
+        },
+        "404": {
+          "status": "404",
+          "description": "Item not found",
+          "body": {
+            "type": "object",
+            "required": [
+              "message"
+            ],
+            "properties": {
+              "message": {
+                "type": "string",
+                "required": true
+              }
+            },
+            "items": null,
+            "description": null,
+            "example": null,
+            "additional_properties": false
+          },
+          "examples": [],
+          "evidence": [],
+          "confidence": "low"
+        }
+      },
+      "evidence": [],
+      "confidence": "medium",
+      "notes": []
+    },
+    {
+      "method": "POST",
+      "path": "/items",
+      "repo": "sample",
+      "service": "api",
+      "handler": "create_item",
+      "file": "app/routes.py",
+      "request": {
+        "path_params": {},
+        "query_params": {},
+        "headers": {
+          "authorization": {
+            "type": "string",
+            "required": false,
+            "description": "Bearer token"
+          }
+        },
+        "body": {
+          "type": "object",
+          "required": [
+            "name",
+            "price"
+          ],
+          "properties": {
+            "name": {
+              "type": "string",
+              "required": true
+            },
+            "price": {
+              "type": "number",
+              "required": true
+            },
+            "description": {
+              "type": "string",
+              "required": false,
+              "nullable": true
+            }
+          },
+          "items": null,
+          "description": "Item payload",
+          "example": {
+            "name": "apple",
+            "price": 12.0
+          },
+          "additional_properties": false
+        },
+        "examples": [
+          {
+            "name": "apple",
+            "price": 12.0
+          }
+        ]
+      },
+      "responses": {
+        "201": {
+          "status": "201",
+          "description": "Created",
+          "body": {
+            "type": "object",
+            "required": [
+              "id",
+              "name",
+              "price"
+            ],
+            "properties": {
+              "id": {
+                "type": "integer",
+                "required": true
+              },
+              "name": {
+                "type": "string",
+                "required": true
+              },
+              "price": {
+                "type": "number",
+                "required": true
+              }
+            },
+            "items": null,
+            "description": null,
+            "example": null,
+            "additional_properties": false
+          },
+          "examples": [],
+          "evidence": [],
+          "confidence": "medium"
+        },
+        "400": {
+          "status": "400",
+          "description": "Validation error",
+          "body": {
+            "type": "object",
+            "required": [
+              "message"
+            ],
+            "properties": {
+              "message": {
+                "type": "string",
+                "required": true
+              }
+            },
+            "items": null,
+            "description": null,
+            "example": null,
+            "additional_properties": false
+          },
+          "examples": [],
+          "evidence": [],
+          "confidence": "low"
+        },
+        "401": {
+          "status": "401",
+          "description": "Unauthorized",
+          "body": {
+            "type": "object",
+            "required": [
+              "message"
+            ],
+            "properties": {
+              "message": {
+                "type": "string",
+                "required": true
+              }
+            },
+            "items": null,
+            "description": null,
+            "example": null,
+            "additional_properties": false
+          },
+          "examples": [],
+          "evidence": [],
+          "confidence": "low"
+        }
+      },
+      "evidence": [],
+      "confidence": "medium",
+      "notes": []
+    }
+  ],
+  "notes": [
+    "Example API contract fixture for C1 schema validation."
+  ],
+  "confidence": 0.75
+}

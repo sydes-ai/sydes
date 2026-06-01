@@ -381,6 +381,88 @@ class RoutesResult(BaseModel):
     confidence_summary: ConfidenceSummary | None = None
 
 
+class ApiContractEvidence(BaseModel):
+    """Grounding metadata for API contract fields."""
+
+    kind: str
+    file: str | None = None
+    symbol: str | None = None
+    line: int | None = None
+    source: str | None = None
+    confidence: str | None = None
+    notes: list[str] = Field(default_factory=list)
+
+
+class ApiSchemaProperty(BaseModel):
+    """Single contract schema property."""
+
+    type: str | None = None
+    format: str | None = None
+    required: bool | None = None
+    description: str | None = None
+    example: Any | None = None
+    enum: list[Any] | None = None
+    nullable: bool | None = None
+
+
+class ApiSchema(BaseModel):
+    """Request/response schema shape."""
+
+    type: str
+    required: list[str] = Field(default_factory=list)
+    properties: dict[str, ApiSchemaProperty] = Field(default_factory=dict)
+    items: "ApiSchema | None" = None
+    description: str | None = None
+    example: Any | None = None
+    additional_properties: bool | None = None
+
+
+class ApiRequestContract(BaseModel):
+    """Request-side contract details for a route."""
+
+    path_params: dict[str, ApiSchemaProperty] = Field(default_factory=dict)
+    query_params: dict[str, ApiSchemaProperty] = Field(default_factory=dict)
+    headers: dict[str, ApiSchemaProperty] = Field(default_factory=dict)
+    body: ApiSchema | None = None
+    examples: list[dict[str, Any]] = Field(default_factory=list)
+
+
+class ApiResponseContract(BaseModel):
+    """Response-side contract details for a route/status."""
+
+    status: int | str
+    description: str | None = None
+    body: ApiSchema | None = None
+    examples: list[dict[str, Any]] = Field(default_factory=list)
+    evidence: list[ApiContractEvidence] = Field(default_factory=list)
+    confidence: str | None = None
+
+
+class ApiRouteContract(BaseModel):
+    """Contract details for one API route candidate."""
+
+    method: str | None = None
+    path: str | None = None
+    repo: str | None = None
+    service: str | None = None
+    handler: str | None = None
+    file: str | None = None
+    request: ApiRequestContract = Field(default_factory=ApiRequestContract)
+    responses: dict[str, ApiResponseContract] = Field(default_factory=dict)
+    evidence: list[ApiContractEvidence] = Field(default_factory=list)
+    confidence: str | None = None
+    notes: list[str] = Field(default_factory=list)
+
+
+class ApiContractArtifact(BaseModel):
+    """Top-level API contract artifact."""
+
+    version: str = "v1"
+    routes: list[ApiRouteContract] = Field(default_factory=list)
+    notes: list[str] = Field(default_factory=list)
+    confidence: float | None = None
+
+
 class TraceSummary(BaseModel):
     """Top-level summary for the best-known traced flow."""
 
