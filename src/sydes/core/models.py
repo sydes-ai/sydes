@@ -251,6 +251,18 @@ class IntegrationTestSuggestion(BaseModel):
     derived_from_flow_id: str | None = None
     confidence: float | None = None
     notes: list[str] = Field(default_factory=list)
+    category: str | None = None
+    priority: str | None = None
+    purpose: str | None = None
+    request: dict[str, Any] | None = None
+    expected: dict[str, Any] | None = None
+    side_effects: list[str] = Field(default_factory=list)
+    related_steps: list[str] = Field(default_factory=list)
+    related_sinks: list[str] = Field(default_factory=list)
+    contract_refs: list[str] = Field(default_factory=list)
+    requires_mocking: bool | None = None
+    notes_text: str | None = None
+    evidence: list[dict[str, Any]] = Field(default_factory=list)
 
 
 class TestMatrixGroup(BaseModel):

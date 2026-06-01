@@ -1,0 +1,175 @@
+{
+  "groups": [
+    {
+      "category": "positive",
+      "title": "Happy Path",
+      "tests": [
+        {
+          "name": "post_items_creates_item",
+          "route": "/items",
+          "method": "POST",
+          "summary": "Creates an item with valid payload",
+          "category": "positive",
+          "priority": "high",
+          "request": {
+            "method": "POST",
+            "path": "/items",
+            "headers": {
+              "Authorization": "Bearer {{authToken}}"
+            },
+            "body": {
+              "name": "Widget",
+              "price": 9.99
+            }
+          },
+          "expected": {
+            "status": 201,
+            "behavior": "item is created",
+            "response_schema_ref": "responses.201"
+          },
+          "side_effects": [
+            "database insert into items"
+          ],
+          "related_steps": [
+            "insert item",
+            "return created item"
+          ],
+          "related_sinks": [
+            "database:items"
+          ],
+          "contract_refs": [
+            "request.body.name",
+            "request.body.price",
+            "responses.201"
+          ],
+          "requires_mocking": false,
+          "evidence": [
+            {
+              "kind": "trace_step",
+              "label": "insert item"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "category": "validation",
+      "tests": [
+        {
+          "name": "post_items_rejects_missing_name",
+          "route": "/items",
+          "method": "POST",
+          "summary": "Rejects payload missing required name",
+          "category": "validation",
+          "priority": "high",
+          "request": {
+            "method": "POST",
+            "path": "/items",
+            "body": {
+              "price": 9.99
+            }
+          },
+          "expected": {
+            "status": 400,
+            "behavior": "validation error",
+            "response_schema_ref": "responses.400"
+          },
+          "contract_refs": [
+            "request.body.name"
+          ]
+        },
+        {
+          "name": "post_items_rejects_invalid_price_type",
+          "route": "/items",
+          "method": "POST",
+          "summary": "Rejects non-numeric price",
+          "category": "validation",
+          "priority": "medium",
+          "request": {
+            "method": "POST",
+            "path": "/items",
+            "body": {
+              "name": "Widget",
+              "price": "not-a-number"
+            }
+          },
+          "expected": {
+            "status": 400,
+            "behavior": "type validation error"
+          }
+        }
+      ]
+    },
+    {
+      "category": "auth",
+      "tests": [
+        {
+          "name": "post_items_requires_authorization",
+          "route": "/items",
+          "method": "POST",
+          "summary": "Rejects missing Authorization header",
+          "category": "auth",
+          "priority": "high",
+          "request": {
+            "method": "POST",
+            "path": "/items",
+            "headers": {}
+          },
+          "expected": {
+            "status": 401,
+            "behavior": "unauthorized"
+          }
+        }
+      ]
+    },
+    {
+      "category": "database",
+      "tests": [
+        {
+          "name": "post_items_database_insert_failure",
+          "route": "/items",
+          "method": "POST",
+          "summary": "Handles insert failure without partial write",
+          "category": "database",
+          "priority": "high",
+          "requires_mocking": true,
+          "side_effects": [
+            "no partial write",
+            "transaction rollback"
+          ],
+          "expected": {
+            "status": 500,
+            "behavior": "internal error handled"
+          }
+        }
+      ]
+    },
+    {
+      "category": "security",
+      "tests": [
+        {
+          "name": "post_items_response_schema_validation",
+          "route": "/items",
+          "method": "POST",
+          "summary": "Ensures response schema does not leak internals",
+          "category": "security",
+          "priority": "medium",
+          "expected": {
+            "status": 201,
+            "response_schema_ref": "responses.201"
+          },
+          "contract_refs": [
+            "responses.201"
+          ],
+          "notes_text": "Response should not expose internal debug fields."
+        }
+      ]
+    }
+  ],
+  "notes": [
+    "Fixture for Test Matrix v2 schema",
+    "Used for extension and contract-aware generation development"
+  ],
+  "coverage": 0.72,
+  "confidence": 0.72
+}

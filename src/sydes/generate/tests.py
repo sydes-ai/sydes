@@ -560,7 +560,7 @@ def _build_matrix_suggestion(
                 required=body_required,
             )
         )
-    return IntegrationTestSuggestion(
+    return make_test_suggestion(
         name=name,
         route=route,
         method=method,
@@ -570,6 +570,118 @@ def _build_matrix_suggestion(
         derived_from_flow_id=flow_id,
         confidence=confidence,
         notes=suggestion_notes,
+    )
+
+
+def scenario_id_from_name(name: str) -> str:
+    """Build a stable scenario id from a suggestion name."""
+    token = re.sub(r"[^a-z0-9]+", "_", name.lower()).strip("_")
+    return token or "scenario"
+
+
+def make_test_suggestion(
+    *,
+    name: str,
+    route: str,
+    method: str | None = None,
+    summary: str | None = None,
+    inputs: list[TestInputHint] | None = None,
+    expectations: list[TestExpectation] | None = None,
+    derived_from_flow_id: str | None = None,
+    confidence: float | None = None,
+    notes: list[str] | None = None,
+    category: str | None = None,
+    priority: str | None = None,
+    purpose: str | None = None,
+    request: dict[str, Any] | None = None,
+    expected: dict[str, Any] | None = None,
+    side_effects: list[str] | None = None,
+    related_steps: list[str] | None = None,
+    related_sinks: list[str] | None = None,
+    contract_refs: list[str] | None = None,
+    requires_mocking: bool | None = None,
+    notes_text: str | None = None,
+    evidence: list[dict[str, Any]] | None = None,
+) -> IntegrationTestSuggestion:
+    """Create a v2-capable suggestion while preserving old required fields."""
+    normalized_category = category or ("positive" if (method or "").upper() in {"GET", "POST", "PUT", "PATCH", "DELETE"} else "edge_case")
+    normalized_priority = priority or "medium"
+    request_payload = request or {
+        "method": (method or "ANY").upper(),
+        "path": route,
+    }
+    expected_payload = expected or {}
+    expected_payload.setdefault("status", None)
+    expected_payload.setdefault("behavior", summary)
+
+    return IntegrationTestSuggestion(
+        name=name,
+        route=route,
+        method=method,
+        summary=summary,
+        inputs=list(inputs or []),
+        expectations=list(expectations or []),
+        derived_from_flow_id=derived_from_flow_id,
+        confidence=confidence,
+        notes=list(notes or []),
+        category=normalized_category,
+        priority=normalized_priority,
+        purpose=purpose,
+        request=request_payload,
+        expected=expected_payload,
+        side_effects=list(side_effects or []),
+        related_steps=list(related_steps or []),
+        related_sinks=list(related_sinks or []),
+        contract_refs=list(contract_refs or []),
+        requires_mocking=requires_mocking,
+        notes_text=notes_text,
+        evidence=list(evidence or []),
+    )
+
+
+def normalize_test_matrix(matrix: TestMatrix) -> TestMatrix:
+    """Ensure matrix suggestions include safe v2 defaults without changing grouping."""
+    normalized_groups: list[TestMatrixGroup] = []
+    for group in matrix.groups:
+        normalized_tests = [
+            make_test_suggestion(
+                name=test.name,
+                route=test.route,
+                method=test.method,
+                summary=test.summary,
+                inputs=test.inputs,
+                expectations=test.expectations,
+                derived_from_flow_id=test.derived_from_flow_id,
+                confidence=test.confidence,
+                notes=test.notes,
+                category=test.category or group.category,
+                priority=test.priority,
+                purpose=test.purpose,
+                request=test.request,
+                expected=test.expected,
+                side_effects=test.side_effects,
+                related_steps=test.related_steps,
+                related_sinks=test.related_sinks,
+                contract_refs=test.contract_refs,
+                requires_mocking=test.requires_mocking,
+                notes_text=test.notes_text,
+                evidence=test.evidence,
+            )
+            for test in group.tests
+        ]
+        normalized_groups.append(
+            TestMatrixGroup(
+                category=group.category,
+                title=group.title,
+                tests=normalized_tests,
+                notes=group.notes,
+            )
+        )
+    return TestMatrix(
+        groups=normalized_groups,
+        notes=matrix.notes,
+        coverage=matrix.coverage,
+        confidence=matrix.confidence,
     )
 
 
@@ -1201,7 +1313,7 @@ def generate_test_matrix(trace_result: TraceResult, *, max_suggestions: int = 7)
                 for note in body_notes:
                     if note not in suggestion.notes:
                         suggestion.notes.append(note)
-    return TestMatrix(groups=matrix_groups, notes=notes)
+    return normalize_test_matrix(TestMatrix(groups=matrix_groups, notes=notes))
 
 
 def generate_test_suggestions(trace_result: TraceResult) -> list[IntegrationTestSuggestion]:

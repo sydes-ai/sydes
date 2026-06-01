@@ -36,7 +36,7 @@ from sydes.llm.client import (
     create_default_llm_client,
     validate_llm_available,
 )
-from sydes.generate.contracts import build_basic_api_contract_from_routes
+from sydes.generate.contracts import build_api_contract_from_routes
 from sydes.report.json_report import render_routes_json
 from sydes.report.terminal import render_routes_terminal
 from sydes.store.workspace import compute_workspace_id, create_run_id, save_run_artifact
@@ -58,6 +58,7 @@ def _write_routes_json_outputs(
     output: Path,
     routes_json: str,
     result: RoutesResult,
+    repo_roots: dict[str, str],
 ) -> None:
     """Write routes JSON and api_contract.json for directory-style output targets."""
     target = resolve_trace_output_target(output)
@@ -65,7 +66,7 @@ def _write_routes_json_outputs(
         write_output_text(target.path, routes_json)
         return
     write_output_text(target.path / "routes.json", routes_json)
-    contract = build_basic_api_contract_from_routes(result)
+    contract = build_api_contract_from_routes(result, repo_roots=repo_roots)
     write_output_text(target.path / "api_contract.json", contract.model_dump_json(indent=2))
 
 
@@ -182,6 +183,7 @@ def routes_command(
 
     workspace_id = compute_workspace_id(repos)
     run_id = create_run_id()
+    repo_roots = {repo_item.name: repo_item.root for repo_item in repos}
 
     if no_cache:
         cache_status = None
@@ -244,7 +246,7 @@ def routes_command(
             if output is not None:
                 try:
                     if output_format == "json":
-                        _write_routes_json_outputs(output, rendered, result)
+                        _write_routes_json_outputs(output, rendered, result, repo_roots)
                     else:
                         _write_command_output(output, rendered, output_format=output_format)
                 except (OSError, ValueError) as exc:
@@ -346,7 +348,7 @@ def routes_command(
         result.notes.append(f"Could not save discovery artifact: {exc}")
 
     try:
-        contract_artifact = build_basic_api_contract_from_routes(result)
+        contract_artifact = build_api_contract_from_routes(result, repo_roots=repo_roots)
         contract_artifact_path = save_run_artifact(
             workspace_id=workspace_id,
             run_id=run_id,
@@ -604,7 +606,7 @@ def routes_command(
     if output is not None:
         try:
             if output_format == "json":
-                _write_routes_json_outputs(output, rendered, result)
+                _write_routes_json_outputs(output, rendered, result, repo_roots)
             else:
                 _write_command_output(output, rendered, output_format=output_format)
         except (OSError, ValueError) as exc:
