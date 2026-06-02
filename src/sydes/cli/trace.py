@@ -47,6 +47,7 @@ from sydes.report.json_report import render_json
 from sydes.report.terminal import render_terminal
 from sydes.store.workspace import compute_workspace_id, create_run_id, save_run_artifact
 from sydes.generate.contracts import build_api_contract_from_routes
+from sydes.generate.contract_llm_refinement import refine_api_contract_with_evidence_packet
 from sydes.generate.evidence_packet import build_evidence_packet_for_route
 from sydes.generate.tests import generate_test_matrix, generate_test_suggestions, match_route_contract
 from sydes.trace.cross_repo import (
@@ -547,7 +548,9 @@ def trace_command(
     layered_contract_payload: dict | None = None
     api_contract_payload: dict | None = None
     api_contract_model = None
+    route_contract_model = None
     evidence_packet_payload: dict | None = None
+    llm_contract_refinement_payload: dict | None = None
     artifact_index: dict[str, str] = {}
 
     if matched_endpoint is not None:
@@ -557,9 +560,15 @@ def trace_command(
                 repo_roots={item.name: item.root for item in result.repos},
             )
             api_contract_model = contract_result
+            route_contract_model = match_route_contract(
+                contract_result,
+                method=result.target.method,
+                path=result.target.path,
+            )
             api_contract_payload = contract_result.model_dump()
         except Exception:  # noqa: BLE001
             api_contract_model = None
+            route_contract_model = None
             api_contract_payload = None
 
     try:
@@ -821,6 +830,64 @@ def trace_command(
                 test_matrix=result.test_matrix,
                 repo_roots={item.name: item.root for item in result.repos},
             )
+            should_refine_contract = (
+                trace_llm_policy == "always"
+                or (
+                    trace_llm_policy == "auto"
+                    and model is not None
+                    and bool(packet.source_windows)
+                )
+            )
+            if should_refine_contract:
+                refinement = refine_api_contract_with_evidence_packet(
+                    evidence_packet=packet,
+                    current_contract=route_contract_model,
+                    model_spec=model,
+                )
+                llm_contract_refinement_payload = {
+                    "timestamp": datetime.now(tz=UTC).isoformat(),
+                    "target": result.target.model_dump(),
+                    "ok": refinement.ok,
+                    "raw_output": refinement.raw_output,
+                    "parsed_output": refinement.parsed_output,
+                    "warnings": refinement.warnings,
+                    "error": refinement.error,
+                }
+                if refinement.ok and refinement.refined_contract is not None:
+                    result.notes.append("LLM contract refinement applied from evidence packet.")
+                    if api_contract_model is not None:
+                        replaced = False
+                        for idx, route_item in enumerate(api_contract_model.routes):
+                            if (
+                                (route_item.method or "").upper()
+                                == (result.target.method or "").upper()
+                                and route_item.path == result.target.path
+                            ):
+                                api_contract_model.routes[idx] = refinement.refined_contract
+                                replaced = True
+                                break
+                        if not replaced:
+                            api_contract_model.routes.append(refinement.refined_contract)
+                        api_contract_payload = api_contract_model.model_dump()
+                    else:
+                        api_contract_payload = {
+                            "version": "v1",
+                            "routes": [refinement.refined_contract.model_dump(mode="json")],
+                            "notes": ["Refined from graph-grounded evidence packet."],
+                            "confidence": None,
+                        }
+                    packet.current_contract = refinement.refined_contract.model_dump(
+                        mode="json",
+                        exclude_none=True,
+                    )
+                elif refinement.error:
+                    result.diagnostics.append(
+                        f"llm_contract_refinement_failed={refinement.error}"
+                    )
+                    if trace_llm_policy == "always":
+                        result.notes.append(
+                            f"LLM contract refinement failed: {refinement.error}"
+                        )
             evidence_packet_payload = packet.model_dump(mode="json", exclude_none=True)
         except Exception as exc:  # noqa: BLE001
             result.notes.append(f"Could not build evidence packet: {exc}")
@@ -877,6 +944,17 @@ def trace_command(
             )
             result.notes.append(f"Saved evidence packet artifact: {evidence_packet_artifact_path}")
             artifact_index["evidence_packet"] = str(evidence_packet_artifact_path)
+        if llm_contract_refinement_payload is not None:
+            llm_contract_refinement_artifact_path = save_run_artifact(
+                workspace_id=workspace_id,
+                run_id=run_id,
+                artifact_name="llm_contract_refinement",
+                payload=llm_contract_refinement_payload,
+            )
+            result.notes.append(
+                f"Saved LLM contract refinement artifact: {llm_contract_refinement_artifact_path}"
+            )
+            artifact_index["llm_contract_refinement"] = str(llm_contract_refinement_artifact_path)
         if resolved_handlers_payload is not None:
             resolved_handlers_artifact_path = save_run_artifact(
                 workspace_id=workspace_id,
