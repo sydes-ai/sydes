@@ -475,6 +475,90 @@ class ApiContractArtifact(BaseModel):
     confidence: float | None = None
 
 
+class EvidenceEndpoint(BaseModel):
+    """Endpoint identity for graph-grounded evidence packets."""
+
+    method: str
+    path: str
+    repo: str | None = None
+    handler: str | None = None
+    file: str | None = None
+
+
+class EvidenceSourceWindow(BaseModel):
+    """Bounded source excerpt used as grounded extraction context."""
+
+    repo: str | None = None
+    file: str
+    symbol: str | None = None
+    start_line: int | None = None
+    end_line: int | None = None
+    code: str
+    truncated: bool = False
+
+
+class EvidenceTraceNode(BaseModel):
+    """Compact trace node for evidence packet context."""
+
+    id: str
+    type: str | None = None
+    name: str | None = None
+    kind: str | None = None
+    repo: str | None = None
+    file: str | None = None
+    symbol: str | None = None
+    snippet: str | None = None
+    confidence: float | None = None
+    status: str | None = None
+
+
+class EvidenceTraceEdge(BaseModel):
+    """Compact trace edge for evidence packet context."""
+
+    id: str | None = None
+    source: str
+    target: str
+    type: str | None = None
+    snippet: str | None = None
+    confidence: float | None = None
+
+
+class EvidenceSink(BaseModel):
+    """Compact side-effect or boundary candidate for evidence packet context."""
+
+    name: str
+    kind: str | None = None
+    repo: str | None = None
+    file: str | None = None
+    symbol: str | None = None
+    snippet: str | None = None
+    confidence: float | None = None
+
+
+class EvidencePacketLimits(BaseModel):
+    """Limits applied while building an evidence packet."""
+
+    max_source_chars: int = 8000
+    max_nodes: int = 40
+    max_edges: int = 60
+    max_test_scenarios: int = 12
+
+
+class EvidencePacket(BaseModel):
+    """Graph-grounded compact evidence packet for later contract/test extraction."""
+
+    version: str = "v1"
+    endpoint: EvidenceEndpoint
+    source_windows: list[EvidenceSourceWindow] = Field(default_factory=list)
+    trace_nodes: list[EvidenceTraceNode] = Field(default_factory=list)
+    trace_edges: list[EvidenceTraceEdge] = Field(default_factory=list)
+    sinks: list[EvidenceSink] = Field(default_factory=list)
+    current_contract: dict[str, Any] | None = None
+    current_test_matrix_summary: dict[str, Any] | None = None
+    notes: list[str] = Field(default_factory=list)
+    limits: EvidencePacketLimits | None = None
+
+
 class TraceSummary(BaseModel):
     """Top-level summary for the best-known traced flow."""
 

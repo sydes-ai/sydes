@@ -47,6 +47,7 @@ from sydes.report.json_report import render_json
 from sydes.report.terminal import render_terminal
 from sydes.store.workspace import compute_workspace_id, create_run_id, save_run_artifact
 from sydes.generate.contracts import build_api_contract_from_routes
+from sydes.generate.evidence_packet import build_evidence_packet_for_route
 from sydes.generate.tests import generate_test_matrix, generate_test_suggestions, match_route_contract
 from sydes.trace.cross_repo import (
     build_call_source_lookup_id,
@@ -341,6 +342,7 @@ def _write_trace_json_outputs(
     trace_llm_summary: dict | None = None,
     layered_trace_contract: dict | None = None,
     api_contract: dict | None = None,
+    evidence_packet: dict | None = None,
 ) -> None:
     """Write trace JSON output to either a single file or an artifact directory."""
     target = resolve_trace_output_target(output)
@@ -409,6 +411,11 @@ def _write_trace_json_outputs(
         _write_output(
             target.path / "api_contract.json",
             json.dumps(api_contract, indent=2),
+        )
+    if evidence_packet is not None:
+        _write_output(
+            target.path / "evidence_packet.json",
+            json.dumps(evidence_packet, indent=2),
         )
 
 
@@ -539,6 +546,8 @@ def trace_command(
     trace_llm_summary_payload: dict | None = None
     layered_contract_payload: dict | None = None
     api_contract_payload: dict | None = None
+    api_contract_model = None
+    evidence_packet_payload: dict | None = None
     artifact_index: dict[str, str] = {}
 
     if matched_endpoint is not None:
@@ -547,8 +556,10 @@ def trace_command(
                 RoutesResult(repos=result.repos, routes=[matched_endpoint]),
                 repo_roots={item.name: item.root for item in result.repos},
             )
+            api_contract_model = contract_result
             api_contract_payload = contract_result.model_dump()
         except Exception:  # noqa: BLE001
+            api_contract_model = None
             api_contract_payload = None
 
     try:
@@ -803,6 +814,17 @@ def trace_command(
                             )
                             result.flows.insert(0, layered_flow)
                             result.summary.key_flow_id = layered_flow.id
+        try:
+            packet = build_evidence_packet_for_route(
+                trace_result=result,
+                api_contract=api_contract_model,
+                test_matrix=result.test_matrix,
+                repo_roots={item.name: item.root for item in result.repos},
+            )
+            evidence_packet_payload = packet.model_dump(mode="json", exclude_none=True)
+        except Exception as exc:  # noqa: BLE001
+            result.notes.append(f"Could not build evidence packet: {exc}")
+            evidence_packet_payload = None
         handler_symbol_artifact_path = save_run_artifact(
             workspace_id=workspace_id,
             run_id=run_id,
@@ -846,6 +868,15 @@ def trace_command(
             )
             result.notes.append(f"Saved API contract artifact: {api_contract_artifact_path}")
             artifact_index["api_contract"] = str(api_contract_artifact_path)
+        if evidence_packet_payload is not None:
+            evidence_packet_artifact_path = save_run_artifact(
+                workspace_id=workspace_id,
+                run_id=run_id,
+                artifact_name="evidence_packet",
+                payload=evidence_packet_payload,
+            )
+            result.notes.append(f"Saved evidence packet artifact: {evidence_packet_artifact_path}")
+            artifact_index["evidence_packet"] = str(evidence_packet_artifact_path)
         if resolved_handlers_payload is not None:
             resolved_handlers_artifact_path = save_run_artifact(
                 workspace_id=workspace_id,
@@ -971,6 +1002,7 @@ def trace_command(
                     trace_llm_summary=trace_llm_summary_payload,
                     layered_trace_contract=layered_contract_payload,
                     api_contract=api_contract_payload,
+                    evidence_packet=evidence_packet_payload,
                 )
             else:
                 resolved = resolve_output_file_path(output, default_filename="trace.txt")
