@@ -687,8 +687,19 @@ def normalize_test_matrix(matrix: TestMatrix) -> TestMatrix:
     """Ensure matrix suggestions include safe v2 defaults without changing grouping."""
     normalized_groups: list[TestMatrixGroup] = []
     for group in matrix.groups:
-        normalized_tests = [
-            make_test_suggestion(
+        normalized_tests = []
+        for test in group.tests:
+            effective_category = test.category or group.category
+            if (
+                test.category == "positive"
+                and _canonical_test_category(group.category) != "positive"
+                and not test.contract_refs
+                and not test.related_sinks
+                and not test.side_effects
+            ):
+                effective_category = group.category
+            normalized_tests.append(
+                make_test_suggestion(
                 name=test.name,
                 route=test.route,
                 method=test.method,
@@ -698,7 +709,7 @@ def normalize_test_matrix(matrix: TestMatrix) -> TestMatrix:
                 derived_from_flow_id=test.derived_from_flow_id,
                 confidence=test.confidence,
                 notes=test.notes,
-                category=group.category,
+                category=effective_category,
                 priority=test.priority,
                 purpose=test.purpose,
                 request=test.request,
@@ -711,8 +722,7 @@ def normalize_test_matrix(matrix: TestMatrix) -> TestMatrix:
                 notes_text=test.notes_text,
                 evidence=test.evidence,
             )
-            for test in group.tests
-        ]
+            )
         normalized_groups.append(
             TestMatrixGroup(
                 category=group.category,
@@ -727,6 +737,479 @@ def normalize_test_matrix(matrix: TestMatrix) -> TestMatrix:
         coverage=matrix.coverage,
         confidence=matrix.confidence,
     )
+
+CATEGORY_ALIASES = {
+    TEST_MATRIX_CATEGORY_HAPPY_PATH: "positive",
+    "happy_path": "positive",
+    "data_shape": "response_schema",
+    "authn": "auth",
+    "authorization": "authorization",
+    "validation_error": "validation",
+    TEST_MATRIX_CATEGORY_VALIDATION: "validation",
+    TEST_MATRIX_CATEGORY_SIDE_EFFECTS: "side_effect",
+    "side_effects": "side_effect",
+    TEST_MATRIX_CATEGORY_STATE_CONSISTENCY: "business_rule",
+    "state_consistency": "business_rule",
+    TEST_MATRIX_CATEGORY_EDGE_CASES: "edge_case",
+    "edge_cases": "edge_case",
+    "failure_modes": "error_handling",
+    "persistence": "database",
+    "downstream_failure": "external_api",
+    "cross_service_contract": "response_schema",
+}
+
+ACCEPTED_TEST_MATRIX_CATEGORIES = {
+    "positive",
+    "validation",
+    "auth",
+    "authorization",
+    "business_rule",
+    "database",
+    "cache",
+    "external_api",
+    "queue_event",
+    "error_handling",
+    "security",
+    "edge_case",
+    "response_schema",
+    "side_effect",
+}
+
+CATEGORY_ORDER = [
+    "positive",
+    "validation",
+    "auth",
+    "authorization",
+    "business_rule",
+    "database",
+    "cache",
+    "external_api",
+    "queue_event",
+    "error_handling",
+    "security",
+    "response_schema",
+    "side_effect",
+    "edge_case",
+]
+
+GENERIC_CATEGORY = "edge_case"
+
+
+def _canonical_test_category(category: str | None) -> str:
+    raw = (category or GENERIC_CATEGORY).strip().lower()
+    canonical = CATEGORY_ALIASES.get(raw, raw)
+    return canonical if canonical in ACCEPTED_TEST_MATRIX_CATEGORIES else GENERIC_CATEGORY
+
+
+def _status_key(value: Any) -> str:
+    if value is None:
+        return ""
+    return str(value)
+
+
+def _status_value(status: str | int | None) -> int | str | None:
+    if status is None:
+        return None
+    text = str(status)
+    return int(text) if text.isdigit() else status
+
+
+def _available_response_statuses(route_contract: ApiRouteContract | None) -> set[str]:
+    if route_contract is None:
+        return set()
+    return {str(key) for key in route_contract.responses.keys()}
+
+
+def _preferred_success_status(method: str | None, route_contract: ApiRouteContract | None) -> str:
+    statuses = _available_response_statuses(route_contract)
+    method_upper = (method or route_contract.method if route_contract else method or "GET").upper()
+    if method_upper == "POST":
+        return "201" if "201" in statuses else "200"
+    if method_upper == "GET":
+        return "200"
+    if method_upper in {"PUT", "PATCH"}:
+        return "200" if "200" in statuses else "204"
+    if method_upper == "DELETE":
+        return "204" if "204" in statuses else "200"
+    return next((status for status in statuses if status.startswith("2")), "200")
+
+
+def _contract_route_from_input(
+    api_contract: ApiRouteContract | ApiContractArtifact | None,
+    *,
+    method: str | None,
+    path: str,
+) -> ApiRouteContract | None:
+    if api_contract is None:
+        return None
+    if isinstance(api_contract, ApiRouteContract):
+        return api_contract
+    if isinstance(api_contract, ApiContractArtifact):
+        return match_route_contract(api_contract, method=method, path=path)
+    return None
+
+
+def _route_method_path_from_matrix(matrix: TestMatrix) -> tuple[str | None, str]:
+    for group in matrix.groups:
+        for test in group.tests:
+            method = test.method or (test.request or {}).get("method")
+            path = test.route or (test.request or {}).get("path") or "/"
+            return (str(method).upper() if method else None, str(path))
+    return None, "/"
+
+
+def _request_body_example_without_field(route_contract: ApiRouteContract, missing_field: str) -> dict[str, Any]:
+    body = route_contract.request.body
+    if body is None:
+        return {}
+    payload: dict[str, Any] = {}
+    for key, prop in body.properties.items():
+        if key == missing_field:
+            continue
+        payload[key] = prop.example if prop.example is not None else _example_for_schema_type(prop.type)
+    return payload
+
+
+def _has_body_ref(test: IntegrationTestSuggestion, field: str, *tokens: str) -> bool:
+    refs = {str(ref) for ref in test.contract_refs}
+    if f"request.body.{field}" not in refs:
+        return False
+    blob = f"{test.name} {test.summary or ''} {test.purpose or ''}".lower()
+    return any(token in blob for token in tokens)
+
+
+def _has_malformed_json_scenario(tests: list[IntegrationTestSuggestion]) -> bool:
+    return any("malformed" in f"{test.name} {test.summary or ''}".lower() and "json" in f"{test.name} {test.summary or ''}".lower() for test in tests)
+
+
+def _has_response_schema_scenario(tests: list[IntegrationTestSuggestion], status: str) -> bool:
+    ref = f"responses.{status}"
+    return any(ref in {str(item) for item in test.contract_refs} and (test.expected or {}).get("response_schema_ref") == ref for test in tests)
+
+
+def _scenario_quality_score(test: IntegrationTestSuggestion) -> int:
+    score = 0
+    request = test.request or {}
+    expected = test.expected or {}
+    category = _canonical_test_category(test.category)
+    if request.get("method") and request.get("path"):
+        score += 5
+    if expected.get("status") is not None:
+        score += 5
+    else:
+        score -= 5
+    if test.contract_refs:
+        score += 4
+    if test.related_steps or test.related_sinks:
+        score += 3
+    if test.purpose:
+        score += 3
+    if test.side_effects:
+        score += 2
+    if test.evidence:
+        score += 2
+    if category not in {"edge_case"}:
+        score += 2
+    name_blob = f"{test.name} {test.summary or ''}".lower()
+    if "invalid payload" in name_blob or "invalid_payload" in name_blob:
+        score -= 4
+    if "missing required field" in name_blob or "missing_required_field" in name_blob:
+        score -= 4
+    method = str(request.get("method") or test.method or "").upper()
+    if category == "validation" and method in WRITE_METHODS and not (request.get("body") or request.get("raw_body")):
+        score -= 3
+    return score
+
+
+def _scenario_intent_key(test: IntegrationTestSuggestion) -> tuple[str, str, str, str, tuple[str, ...], str]:
+    category = _canonical_test_category(test.category)
+    request = test.request or {}
+    expected = test.expected or {}
+    method = str(request.get("method") or test.method or "").upper()
+    path = _normalize_contract_path(str(request.get("path") or test.route or ""))
+    status = _status_key(expected.get("status"))
+    refs = tuple(sorted(str(ref) for ref in test.contract_refs))
+    name = scenario_id_from_name(test.name)
+    name = re.sub(r"^(get|post|put|patch|delete|any)_", "", name)
+    name = re.sub(r"_(contract_)?happy_path$", "_happy_path", name)
+    return category, method, path, status, refs, name
+
+
+def _generic_suppression_reason(test: IntegrationTestSuggestion, *, field_missing: bool, field_invalid: bool, response_schema: bool, contract_happy: bool) -> str | None:
+    blob = f"{test.name} {test.summary or ''} {test.purpose or ''}".lower()
+    category = _canonical_test_category(test.category)
+    has_body_field_ref = any(str(ref).startswith("request.body.") for ref in test.contract_refs)
+    if field_missing and not has_body_field_ref and ("missing_required_field" in blob or "missing required field" in blob):
+        return "suppressed generic missing-required-field scenario"
+    if field_invalid and not has_body_field_ref and ("invalid_payload" in blob or "invalid payload" in blob):
+        return "suppressed generic invalid-payload scenario"
+    if response_schema and category == "response_schema" and not test.contract_refs:
+        return "suppressed generic response-shape scenario"
+    if contract_happy and category == "positive" and not test.related_sinks and not test.side_effects:
+        if any(token in blob for token in ("creates_resource", "returns_success", "happy_path", "updates_resource", "deletes_resource")):
+            if "contract" in blob:
+                return None
+            return "suppressed generic happy-path scenario"
+    return None
+
+
+def _scenario_cap(method: str | None, path: str) -> int:
+    lowered_path = (path or "").lower()
+    if any(token in lowered_path for token in ("/health", "/ready", "/live", "/ping", "/status")):
+        return 2
+    method_upper = (method or "GET").upper()
+    if method_upper == "GET":
+        return 8
+    if method_upper in {"POST", "PUT", "PATCH", "DELETE"}:
+        return 12
+    return 8
+
+
+def _is_field_validation(test: IntegrationTestSuggestion) -> bool:
+    return _canonical_test_category(test.category) == "validation" and any(str(ref).startswith("request.body.") for ref in test.contract_refs)
+
+
+def _is_sink_scenario(test: IntegrationTestSuggestion) -> bool:
+    return bool(test.related_sinks or test.side_effects) or _canonical_test_category(test.category) in {"database", "cache", "external_api", "queue_event", "side_effect"}
+
+
+def _cap_scenarios(tests: list[IntegrationTestSuggestion], *, method: str | None, path: str) -> list[IntegrationTestSuggestion]:
+    cap = _scenario_cap(method, path)
+    if len(tests) <= cap:
+        return tests
+    indexed = list(enumerate(tests))
+    required_indices: set[int] = set()
+    for predicate in (
+        lambda t: _canonical_test_category(t.category) == "positive",
+        _is_field_validation,
+        lambda t: _canonical_test_category(t.category) == "response_schema",
+        _is_sink_scenario,
+    ):
+        match = next((idx for idx, test in indexed if predicate(test)), None)
+        if match is not None:
+            required_indices.add(match)
+    ordered_by_quality = sorted(indexed, key=lambda item: (_scenario_quality_score(item[1]), -item[0]), reverse=True)
+    selected = set(required_indices)
+    for idx, _test in ordered_by_quality:
+        if len(selected) >= cap:
+            break
+        selected.add(idx)
+    return [test for idx, test in indexed if idx in selected]
+
+
+def clean_test_matrix(
+    matrix: TestMatrix,
+    api_contract: ApiRouteContract | ApiContractArtifact | None = None,
+    trace_result: TraceResult | None = None,
+) -> TestMatrix:
+    """Apply deterministic quality cleanup, dedupe, and contract-aware gap filling."""
+    try:
+        normalized = normalize_test_matrix(matrix)
+        method, path = _route_method_path_from_matrix(normalized)
+        if trace_result is not None:
+            method = trace_result.target.method or method
+            path = trace_result.target.path or path
+        route_contract = _contract_route_from_input(api_contract, method=method, path=path)
+        if route_contract is not None:
+            method = (method or route_contract.method or "GET").upper()
+            if not path or path == "/":
+                path = route_contract.path or "/"
+        sink_labels = _collect_sink_labels(trace_result) if trace_result is not None else []
+        related_steps = _collect_related_step_labels(trace_result) if trace_result is not None else []
+
+        tests: list[IntegrationTestSuggestion] = []
+        for group in normalized.groups:
+            canonical_group_category = _canonical_test_category(group.category)
+            for test in group.tests:
+                canonical = _canonical_test_category(test.category or canonical_group_category)
+                request = dict(test.request or {})
+                request.setdefault("method", (test.method or method or "ANY").upper())
+                request.setdefault("path", test.route or path or "/")
+                expected = dict(test.expected or {})
+                expected.setdefault("status", None)
+                test.category = canonical
+                test.request = request
+                test.expected = expected
+                if test.method is None and request.get("method"):
+                    test.method = str(request.get("method"))
+                tests.append(test)
+
+        if route_contract is not None:
+            success_status = _preferred_success_status(method, route_contract)
+            success_ref = f"responses.{success_status}"
+            for test in tests:
+                if _canonical_test_category(test.category) != "positive":
+                    continue
+                expected = dict(test.expected or {})
+                expected["status"] = _status_value(success_status)
+                if success_status in route_contract.responses:
+                    expected.setdefault("response_schema_ref", success_ref)
+                    if success_ref not in test.contract_refs:
+                        test.contract_refs.append(success_ref)
+                test.expected = expected
+
+            body = route_contract.request.body
+            if body is not None and body.type == "object":
+                body_shape = {
+                    key: (prop.type or "unknown")
+                    for key, prop in body.properties.items()
+                } or {"type": "object"}
+                body_required = bool(body.required)
+                added = 0
+                for field in body.required:
+                    if added >= 3:
+                        break
+                    if any(_has_body_ref(test, field, "missing") for test in tests):
+                        continue
+                    expected_status = 400 if "400" in route_contract.responses else None
+                    tests.append(
+                        make_test_suggestion(
+                            name=f"{(method or 'ANY').lower()}_{_route_token(path)}_missing_{field}",
+                            route=path,
+                            method=method,
+                            summary=f"rejects request missing required body field `{field}`",
+                            category="validation",
+                            priority="high",
+                            purpose="required field validation",
+                            request={
+                                "method": method,
+                                "path": path,
+                                "body": _request_body_example_without_field(route_contract, field),
+                            },
+                            expected={"status": expected_status, "behavior": "validation error"},
+                            contract_refs=[f"request.body.{field}"],
+                            side_effects=["No database write should occur"] if any(s.startswith("database:") for s in sink_labels) else [],
+                            related_sinks=sink_labels,
+                        )
+                    )
+                    added += 1
+                if (method or "").upper() in WRITE_METHODS and not _has_malformed_json_scenario(tests):
+                    tests.append(
+                        make_test_suggestion(
+                            name=f"{(method or 'ANY').lower()}_{_route_token(path)}_malformed_json",
+                            route=path,
+                            method=method,
+                            summary="rejects malformed JSON request body",
+                            category="validation",
+                            priority="medium",
+                            purpose="malformed JSON validation",
+                            request={"method": method, "path": path, "raw_body": "{malformed-json"},
+                            expected={"status": 400 if "400" in route_contract.responses else None, "behavior": "validation error"},
+                            contract_refs=["request.body"],
+                        )
+                    )
+                for test in tests:
+                    request_method = str((test.request or {}).get("method") or test.method or method or "").upper()
+                    if request_method not in WRITE_METHODS:
+                        continue
+                    if any(item.kind == "request_body" for item in test.inputs):
+                        continue
+                    if not ((test.request or {}).get("body") or (test.request or {}).get("raw_body") or _canonical_test_category(test.category) in {"positive", "validation"}):
+                        continue
+                    test.inputs.append(
+                        TestInputHint(
+                            kind="request_body",
+                            value_hint=body_shape,
+                            required=body_required,
+                        )
+                    )
+            success_response = route_contract.responses.get(success_status)
+            if success_response is not None and success_response.body is not None and success_response.body.properties:
+                if not _has_response_schema_scenario(tests, success_status):
+                    tests.append(
+                        make_test_suggestion(
+                            name=f"{(method or 'ANY').lower()}_{_route_token(path)}_response_schema_validation",
+                            route=path,
+                            method=method,
+                            summary="validates response body shape matches contract",
+                            category="response_schema",
+                            priority="medium",
+                            purpose="response schema validation",
+                            expected={
+                                "status": _status_value(success_status),
+                                "response_schema_ref": f"responses.{success_status}",
+                            },
+                            contract_refs=[f"responses.{success_status}"],
+                            related_steps=related_steps,
+                        )
+                    )
+
+        field_missing_exists = any(
+            _canonical_test_category(test.category) == "validation"
+            and any(str(ref).startswith("request.body.") for ref in test.contract_refs)
+            and "missing" in f"{test.name} {test.summary or ''}".lower()
+            for test in tests
+        )
+        field_invalid_exists = any(
+            _canonical_test_category(test.category) == "validation"
+            and any(str(ref).startswith("request.body.") for ref in test.contract_refs)
+            and any(token in f"{test.name} {test.summary or ''}".lower() for token in ("invalid", "type", "email", "enum"))
+            for test in tests
+        )
+        response_schema_exists = any(
+            any(str(ref).startswith("responses.") for ref in test.contract_refs)
+            and (test.expected or {}).get("response_schema_ref")
+            for test in tests
+        )
+        contract_happy_exists = any(
+            _canonical_test_category(test.category) == "positive"
+            and any(str(ref).startswith("responses.") for ref in test.contract_refs)
+            and "contract" in f"{test.name} {test.summary or ''} {test.purpose or ''}".lower()
+            for test in tests
+        )
+
+        filtered: list[IntegrationTestSuggestion] = []
+        for test in tests:
+            reason = _generic_suppression_reason(
+                test,
+                field_missing=field_missing_exists,
+                field_invalid=field_invalid_exists,
+                response_schema=response_schema_exists,
+                contract_happy=contract_happy_exists,
+            )
+            if reason:
+                continue
+            filtered.append(test)
+
+        best_by_key: dict[tuple[str, str, str, str, tuple[str, ...], str], tuple[int, int, IntegrationTestSuggestion]] = {}
+        best_by_name: dict[str, tuple[int, int, IntegrationTestSuggestion]] = {}
+        for idx, test in enumerate(filtered):
+            score = _scenario_quality_score(test)
+            intent_key = _scenario_intent_key(test)
+            name_key = scenario_id_from_name(test.name)
+            existing = best_by_key.get(intent_key)
+            if existing is None or score > existing[1]:
+                best_by_key[intent_key] = (idx, score, test)
+            existing_name = best_by_name.get(name_key)
+            if existing_name is None or score > existing_name[1]:
+                best_by_name[name_key] = (idx, score, test)
+        selected_by_id: dict[int, IntegrationTestSuggestion] = {}
+        allowed_ids = {id(item[2]) for item in best_by_key.values()} & {id(item[2]) for item in best_by_name.values()}
+        for idx, _score, test in sorted(best_by_key.values(), key=lambda item: item[0]):
+            if id(test) in allowed_ids:
+                selected_by_id[idx] = test
+        deduped = [selected_by_id[idx] for idx in sorted(selected_by_id)]
+        deduped = _cap_scenarios(deduped, method=method, path=path)
+
+        grouped: dict[str, list[IntegrationTestSuggestion]] = {category: [] for category in CATEGORY_ORDER}
+        for test in deduped:
+            grouped.setdefault(_canonical_test_category(test.category), []).append(test)
+        groups = [
+            TestMatrixGroup(category=category, tests=items)
+            for category in CATEGORY_ORDER
+            for items in [grouped.get(category, [])]
+            if items
+        ]
+        notes = list(normalized.notes)
+        if route_contract is not None and "test matrix cleaned with deterministic contract-aware quality filters" not in notes:
+            notes.append("test matrix cleaned with deterministic contract-aware quality filters")
+        return TestMatrix(groups=groups, notes=notes, coverage=matrix.coverage, confidence=matrix.confidence)
+    except Exception as exc:  # noqa: BLE001
+        fallback = matrix.model_copy(deep=True)
+        note = f"test matrix cleanup skipped: {exc}"
+        if note not in fallback.notes:
+            fallback.notes.append(note)
+        return fallback
 
 
 def _example_for_schema_type(schema_type: str | None) -> Any:
@@ -1121,7 +1604,11 @@ def generate_contract_aware_test_matrix(
 
     notes = list(base_matrix.notes)
     notes.append("contract-aware scenarios added from inferred API contract and trace sinks")
-    return normalize_test_matrix(TestMatrix(groups=groups, notes=notes, coverage=base_matrix.coverage, confidence=base_matrix.confidence))
+    return clean_test_matrix(
+        TestMatrix(groups=groups, notes=notes, coverage=base_matrix.coverage, confidence=base_matrix.confidence),
+        api_contract=route_contract,
+        trace_result=trace_result,
+    )
 
 
 def _build_fallback_matrix(

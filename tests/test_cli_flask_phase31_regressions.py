@@ -163,7 +163,8 @@ def test_flask_trace_post_items_has_grounded_steps_and_request_body_matrix(tmp_p
         for group in matrix_groups
         for test_case in group.get("tests", [])
     }
-    assert "post_items_rejects_invalid_payload" in names
+    assert "post_items_invalid_type_name" in names or "post_items_invalid_type_price" in names
+    assert "post_items_rejects_invalid_payload" not in names
 
 
 def test_flask_trace_get_item_includes_lookup_and_error_path(tmp_path: Path, monkeypatch) -> None:

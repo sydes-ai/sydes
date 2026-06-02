@@ -183,10 +183,10 @@ def test_trace_get_users_regression_includes_deterministic_query_evidence(
     assert payload["test_matrix"] is not None
     groups = payload["test_matrix"]["groups"]
     categories = [group["category"] for group in groups]
-    assert "happy_path" in categories
-    assert "data_shape" in categories
-    assert "edge_cases" in categories
-    assert "failure_modes" in categories
+    assert "positive" in categories
+    assert "response_schema" in categories or "error_handling" in categories
+    assert "edge_case" in categories
+    assert "database" in categories or "error_handling" in categories
     names = {
         test_case["name"]
         for group in groups

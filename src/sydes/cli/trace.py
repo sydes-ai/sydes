@@ -49,7 +49,7 @@ from sydes.store.workspace import compute_workspace_id, create_run_id, save_run_
 from sydes.generate.contracts import build_api_contract_from_routes
 from sydes.generate.contract_llm_refinement import refine_api_contract_with_evidence_packet
 from sydes.generate.evidence_packet import build_evidence_packet_for_route
-from sydes.generate.tests import generate_test_matrix, generate_test_suggestions, match_route_contract
+from sydes.generate.tests import clean_test_matrix, generate_test_matrix, generate_test_suggestions, match_route_contract
 from sydes.trace.cross_repo import (
     build_call_source_lookup_id,
     detect_cross_repo_call_candidates,
@@ -855,6 +855,7 @@ def trace_command(
                 }
                 if refinement.ok and refinement.refined_contract is not None:
                     result.notes.append("LLM contract refinement applied from evidence packet.")
+                    route_contract_model = refinement.refined_contract
                     if api_contract_model is not None:
                         replaced = False
                         for idx, route_item in enumerate(api_contract_model.routes):
@@ -888,6 +889,19 @@ def trace_command(
                         result.notes.append(
                             f"LLM contract refinement failed: {refinement.error}"
                         )
+            if result.test_matrix is not None:
+                cleaned_matrix = clean_test_matrix(
+                    result.test_matrix,
+                    api_contract=route_contract_model or api_contract_model,
+                    trace_result=result,
+                )
+                result.test_matrix = cleaned_matrix
+                matrix_coverage = compute_test_matrix_coverage(result, result.test_matrix)
+                if matrix_coverage is not None:
+                    result.summary.test_matrix_coverage = matrix_coverage
+                    result.summary.test_matrix_confidence = matrix_coverage
+                    result.test_matrix.coverage = matrix_coverage
+                    result.test_matrix.confidence = matrix_coverage
             evidence_packet_payload = packet.model_dump(mode="json", exclude_none=True)
         except Exception as exc:  # noqa: BLE001
             result.notes.append(f"Could not build evidence packet: {exc}")
@@ -913,6 +927,7 @@ def trace_command(
             f"handler_symbol_index_imports={summary.get('imports', 0)}, "
             f"handler_symbol_index_exports={summary.get('exports', 0)}."
         )
+        artifact_payload["result"] = result.model_dump()
         trace_artifact_path = save_run_artifact(
             workspace_id=workspace_id,
             run_id=run_id,

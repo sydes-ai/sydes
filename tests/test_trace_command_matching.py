@@ -204,9 +204,9 @@ def test_trace_command_renders_flow_steps_sinks_and_graph_artifact(
     assert "Sinks:" in result.stdout
     assert "database: write orders_db" in result.stdout
     assert "Test Matrix:" in result.stdout
-    assert "Happy Path:" in result.stdout
-    assert "post_checkout_creates_resource" in result.stdout
-    assert "verifies POST /checkout creates a new checkout and returns success" in result.stdout
+    assert "Positive:" in result.stdout
+    assert "post_checkout_contract_happy_path" in result.stdout
+    assert "verifies POST /checkout succeeds with contract-valid request" in result.stdout
     assert result.stdout.index("Sinks:") < result.stdout.index("Test Matrix:")
     flow_section = result.stdout.split("Flow:", 1)[1].split("Sinks:", 1)[0]
     assert "sink:" not in flow_section
