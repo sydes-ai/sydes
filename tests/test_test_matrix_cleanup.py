@@ -7,17 +7,17 @@ from sydes.core.models import (
     ApiSchema,
     ApiSchemaProperty,
     IntegrationTestSuggestion,
-    TestMatrix,
-    TestMatrixGroup,
+    TestMatrix as SydesTestMatrix,
+    TestMatrixGroup as SydesTestMatrixGroup,
 )
 from sydes.generate.tests import clean_test_matrix, make_test_suggestion
 
 
-def _names(matrix: TestMatrix) -> list[str]:
+def _names(matrix: SydesTestMatrix) -> list[str]:
     return [test.name for group in matrix.groups for test in group.tests]
 
 
-def _tests(matrix: TestMatrix) -> list[IntegrationTestSuggestion]:
+def _tests(matrix: SydesTestMatrix) -> list[IntegrationTestSuggestion]:
     return [test for group in matrix.groups for test in group.tests]
 
 
@@ -63,10 +63,10 @@ def _scenario(name: str, category: str, *, refs: list[str] | None = None, status
 
 
 def test_happy_path_and_positive_groups_merge_into_positive() -> None:
-    matrix = TestMatrix(
+    matrix = SydesTestMatrix(
         groups=[
-            TestMatrixGroup(category="happy_path", tests=[_scenario("post_items_returns_success", "happy_path")]),
-            TestMatrixGroup(category="positive", tests=[_scenario("post_items_contract_happy_path", "positive", refs=["responses.201"], status=201)]),
+            SydesTestMatrixGroup(category="happy_path", tests=[_scenario("post_items_returns_success", "happy_path")]),
+            SydesTestMatrixGroup(category="positive", tests=[_scenario("post_items_contract_happy_path", "positive", refs=["responses.201"], status=201)]),
         ]
     )
 
@@ -77,9 +77,9 @@ def test_happy_path_and_positive_groups_merge_into_positive() -> None:
 
 
 def test_duplicate_weak_generic_happy_path_removed_when_contract_happy_exists() -> None:
-    matrix = TestMatrix(
+    matrix = SydesTestMatrix(
         groups=[
-            TestMatrixGroup(
+            SydesTestMatrixGroup(
                 category="positive",
                 tests=[
                     _scenario("post_items_creates_resource", "positive", status=200),
@@ -96,9 +96,9 @@ def test_duplicate_weak_generic_happy_path_removed_when_contract_happy_exists() 
 
 
 def test_generic_missing_required_field_removed_when_field_specific_exists() -> None:
-    matrix = TestMatrix(
+    matrix = SydesTestMatrix(
         groups=[
-            TestMatrixGroup(
+            SydesTestMatrixGroup(
                 category="validation",
                 tests=[
                     _scenario("post_items_rejects_missing_required_field", "validation", status=400),
@@ -115,9 +115,9 @@ def test_generic_missing_required_field_removed_when_field_specific_exists() -> 
 
 
 def test_generic_invalid_payload_removed_when_field_specific_exists() -> None:
-    matrix = TestMatrix(
+    matrix = SydesTestMatrix(
         groups=[
-            TestMatrixGroup(
+            SydesTestMatrixGroup(
                 category="validation",
                 tests=[
                     _scenario("post_items_rejects_invalid_payload", "validation", status=400),
@@ -134,7 +134,7 @@ def test_generic_invalid_payload_removed_when_field_specific_exists() -> None:
 
 
 def test_positive_status_fixed_from_200_to_201_for_post_contract() -> None:
-    matrix = TestMatrix(groups=[TestMatrixGroup(category="positive", tests=[_scenario("post_items_contract_happy_path", "positive", refs=["responses.200"], status=200)])])
+    matrix = SydesTestMatrix(groups=[SydesTestMatrixGroup(category="positive", tests=[_scenario("post_items_contract_happy_path", "positive", refs=["responses.200"], status=200)])])
 
     cleaned = clean_test_matrix(matrix, api_contract=_contract())
     happy = next(test for test in _tests(cleaned) if test.name == "post_items_contract_happy_path")
@@ -146,7 +146,7 @@ def test_positive_status_fixed_from_200_to_201_for_post_contract() -> None:
 
 
 def test_required_field_scenarios_added_from_contract() -> None:
-    matrix = TestMatrix(groups=[])
+    matrix = SydesTestMatrix(groups=[])
 
     cleaned = clean_test_matrix(matrix, api_contract=_contract())
 
@@ -155,7 +155,7 @@ def test_required_field_scenarios_added_from_contract() -> None:
 
 
 def test_malformed_json_scenario_added_for_object_body() -> None:
-    matrix = TestMatrix(groups=[])
+    matrix = SydesTestMatrix(groups=[])
 
     cleaned = clean_test_matrix(matrix, api_contract=_contract())
 
@@ -163,7 +163,7 @@ def test_malformed_json_scenario_added_for_object_body() -> None:
 
 
 def test_response_schema_scenario_added_from_success_response() -> None:
-    matrix = TestMatrix(groups=[])
+    matrix = SydesTestMatrix(groups=[])
 
     cleaned = clean_test_matrix(matrix, api_contract=_contract())
     scenario = next(test for test in _tests(cleaned) if test.name == "post_items_response_schema_validation")
@@ -195,7 +195,7 @@ def test_final_scenario_cap_preserves_core_categories() -> None:
             ),
         ]
     )
-    matrix = TestMatrix(groups=[TestMatrixGroup(category="edge_case", tests=many)])
+    matrix = SydesTestMatrix(groups=[SydesTestMatrixGroup(category="edge_case", tests=many)])
 
     cleaned = clean_test_matrix(matrix, api_contract=_contract())
 
@@ -206,7 +206,7 @@ def test_final_scenario_cap_preserves_core_categories() -> None:
 
 def test_cleanup_tolerates_old_style_suggestions() -> None:
     old_style = IntegrationTestSuggestion(name="get_status_happy_path", route="/status", method="GET")
-    matrix = TestMatrix(groups=[TestMatrixGroup(category="happy_path", tests=[old_style])])
+    matrix = SydesTestMatrix(groups=[SydesTestMatrixGroup(category="happy_path", tests=[old_style])])
 
     cleaned = clean_test_matrix(matrix)
 

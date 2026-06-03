@@ -15,8 +15,8 @@ from sydes.core.models import (
     EvidenceSink,
     EvidenceSourceWindow,
     EvidenceTraceNode,
-    TestMatrix,
-    TestMatrixGroup,
+    TestMatrix as SydesTestMatrix,
+    TestMatrixGroup as SydesTestMatrixGroup,
 )
 from sydes.generate.test_llm_generation import (
     build_test_matrix_generation_prompt,
@@ -141,10 +141,10 @@ def _contract() -> ApiRouteContract:
     )
 
 
-def _current_matrix() -> TestMatrix:
-    return TestMatrix(
+def _current_matrix() -> SydesTestMatrix:
+    return SydesTestMatrix(
         groups=[
-            TestMatrixGroup(
+            SydesTestMatrixGroup(
                 category="validation",
                 tests=[
                     make_test_suggestion(
@@ -338,7 +338,7 @@ def test_final_matrix_stays_clean_and_contract_enriched() -> None:
     result = generate_test_matrix_with_evidence_packet(
         evidence_packet=_packet(),
         api_contract=_contract(),
-        current_test_matrix=TestMatrix(groups=[]),
+        current_test_matrix=SydesTestMatrix(groups=[]),
         llm_client=_FakeClient(json.dumps(payload)),
     )
 
@@ -379,7 +379,7 @@ def test_no_contract_keeps_valid_grounded_positive_scenario() -> None:
     result = generate_test_matrix_with_evidence_packet(
         evidence_packet=_packet(),
         api_contract=None,
-        current_test_matrix=TestMatrix(groups=[]),
+        current_test_matrix=SydesTestMatrix(groups=[]),
         llm_client=_FakeClient(json.dumps(payload)),
     )
 

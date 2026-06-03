@@ -1042,8 +1042,12 @@ def clean_test_matrix(
                     continue
                 expected = dict(test.expected or {})
                 expected["status"] = _status_value(success_status)
+                test.contract_refs = [
+                    ref for ref in test.contract_refs
+                    if not str(ref).startswith("responses.")
+                ]
                 if success_status in route_contract.responses:
-                    expected.setdefault("response_schema_ref", success_ref)
+                    expected["response_schema_ref"] = success_ref
                     if success_ref not in test.contract_refs:
                         test.contract_refs.append(success_ref)
                 test.expected = expected

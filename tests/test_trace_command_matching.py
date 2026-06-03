@@ -20,7 +20,9 @@ from sydes.core.models import (
     SinkCandidate,
     TraceStep,
 )
-from sydes.generate.test_llm_generation import TestMatrixGenerationResult
+from sydes.generate.test_llm_generation import (
+    TestMatrixGenerationResult as _TestMatrixGenerationResult,
+)
 
 runner = CliRunner()
 
@@ -245,7 +247,7 @@ def test_trace_command_preserves_deterministic_matrix_when_llm_test_generation_f
     monkeypatch.setattr(
         trace_module,
         "generate_test_matrix_with_evidence_packet",
-        lambda **_kwargs: TestMatrixGenerationResult(
+        lambda **_kwargs: _TestMatrixGenerationResult(
             ok=False,
             test_matrix=None,
             raw_output="{not-json",

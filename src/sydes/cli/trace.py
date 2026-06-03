@@ -345,6 +345,7 @@ def _write_trace_json_outputs(
     layered_trace_contract: dict | None = None,
     api_contract: dict | None = None,
     evidence_packet: dict | None = None,
+    llm_contract_refinement: dict | None = None,
     llm_test_generation: dict | None = None,
 ) -> None:
     """Write trace JSON output to either a single file or an artifact directory."""
@@ -419,6 +420,11 @@ def _write_trace_json_outputs(
         _write_output(
             target.path / "evidence_packet.json",
             json.dumps(evidence_packet, indent=2),
+        )
+    if llm_contract_refinement is not None:
+        _write_output(
+            target.path / "llm_contract_refinement.json",
+            json.dumps(llm_contract_refinement, indent=2),
         )
     if llm_test_generation is not None:
         _write_output(
@@ -1159,6 +1165,7 @@ def trace_command(
                     layered_trace_contract=layered_contract_payload,
                     api_contract=api_contract_payload,
                     evidence_packet=evidence_packet_payload,
+                    llm_contract_refinement=llm_contract_refinement_payload,
                     llm_test_generation=llm_test_generation_payload,
                 )
             else:
