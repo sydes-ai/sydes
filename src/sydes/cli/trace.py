@@ -49,6 +49,7 @@ from sydes.store.workspace import compute_workspace_id, create_run_id, save_run_
 from sydes.generate.contracts import build_api_contract_from_routes
 from sydes.generate.contract_llm_refinement import refine_api_contract_with_evidence_packet
 from sydes.generate.evidence_packet import build_evidence_packet_for_route
+from sydes.generate.test_llm_generation import generate_test_matrix_with_evidence_packet
 from sydes.generate.tests import clean_test_matrix, generate_test_matrix, generate_test_suggestions, match_route_contract
 from sydes.trace.cross_repo import (
     build_call_source_lookup_id,
@@ -344,6 +345,7 @@ def _write_trace_json_outputs(
     layered_trace_contract: dict | None = None,
     api_contract: dict | None = None,
     evidence_packet: dict | None = None,
+    llm_test_generation: dict | None = None,
 ) -> None:
     """Write trace JSON output to either a single file or an artifact directory."""
     target = resolve_trace_output_target(output)
@@ -417,6 +419,11 @@ def _write_trace_json_outputs(
         _write_output(
             target.path / "evidence_packet.json",
             json.dumps(evidence_packet, indent=2),
+        )
+    if llm_test_generation is not None:
+        _write_output(
+            target.path / "llm_test_generation.json",
+            json.dumps(llm_test_generation, indent=2),
         )
 
 
@@ -551,6 +558,7 @@ def trace_command(
     route_contract_model = None
     evidence_packet_payload: dict | None = None
     llm_contract_refinement_payload: dict | None = None
+    llm_test_generation_payload: dict | None = None
     artifact_index: dict[str, str] = {}
 
     if matched_endpoint is not None:
@@ -889,6 +897,50 @@ def trace_command(
                         result.notes.append(
                             f"LLM contract refinement failed: {refinement.error}"
                         )
+            should_generate_tests = (
+                trace_llm_policy == "always"
+                or (
+                    trace_llm_policy == "auto"
+                    and model is not None
+                    and bool(packet.source_windows)
+                )
+            )
+            if should_generate_tests and result.test_matrix is not None:
+                generation = generate_test_matrix_with_evidence_packet(
+                    evidence_packet=packet,
+                    api_contract=route_contract_model,
+                    current_test_matrix=result.test_matrix,
+                    model_spec=model,
+                )
+                accepted_scenarios = (
+                    sum(len(group.tests) for group in generation.test_matrix.groups)
+                    if generation.test_matrix is not None
+                    else 0
+                )
+                llm_test_generation_payload = {
+                    "timestamp": datetime.now(tz=UTC).isoformat(),
+                    "target": result.target.model_dump(),
+                    "ok": generation.ok,
+                    "raw_output": generation.raw_output,
+                    "parsed_output": generation.parsed_output,
+                    "warnings": generation.warnings,
+                    "error": generation.error,
+                    "accepted_scenarios": accepted_scenarios,
+                    "model": model,
+                    "policy": trace_llm_policy,
+                }
+                if generation.ok and generation.test_matrix is not None:
+                    result.test_matrix = generation.test_matrix
+                    result.notes.append("LLM test generation applied from evidence packet.")
+                elif generation.error:
+                    result.diagnostics.append(f"llm_test_generation_failed={generation.error}")
+                    if trace_llm_policy == "always":
+                        result.notes.append(f"LLM test generation failed: {generation.error}")
+                for warning in generation.warnings:
+                    if trace_llm_policy == "always":
+                        result.notes.append(f"LLM test generation warning: {warning}")
+                    else:
+                        result.diagnostics.append(f"llm_test_generation_warning={warning}")
             if result.test_matrix is not None:
                 cleaned_matrix = clean_test_matrix(
                     result.test_matrix,
@@ -970,6 +1022,17 @@ def trace_command(
                 f"Saved LLM contract refinement artifact: {llm_contract_refinement_artifact_path}"
             )
             artifact_index["llm_contract_refinement"] = str(llm_contract_refinement_artifact_path)
+        if llm_test_generation_payload is not None:
+            llm_test_generation_artifact_path = save_run_artifact(
+                workspace_id=workspace_id,
+                run_id=run_id,
+                artifact_name="llm_test_generation",
+                payload=llm_test_generation_payload,
+            )
+            result.notes.append(
+                f"Saved LLM test generation artifact: {llm_test_generation_artifact_path}"
+            )
+            artifact_index["llm_test_generation"] = str(llm_test_generation_artifact_path)
         if resolved_handlers_payload is not None:
             resolved_handlers_artifact_path = save_run_artifact(
                 workspace_id=workspace_id,
@@ -1096,6 +1159,7 @@ def trace_command(
                     layered_trace_contract=layered_contract_payload,
                     api_contract=api_contract_payload,
                     evidence_packet=evidence_packet_payload,
+                    llm_test_generation=llm_test_generation_payload,
                 )
             else:
                 resolved = resolve_output_file_path(output, default_filename="trace.txt")

@@ -20,6 +20,7 @@ from sydes.core.models import (
     SinkCandidate,
     TraceStep,
 )
+from sydes.generate.test_llm_generation import TestMatrixGenerationResult
 
 runner = CliRunner()
 
@@ -213,6 +214,79 @@ def test_trace_command_renders_flow_steps_sinks_and_graph_artifact(
     assert "trace_result" in saved_names
     assert "flow_expansion" in saved_names
     assert "trace_graph" in saved_names
+
+
+def test_trace_command_preserves_deterministic_matrix_when_llm_test_generation_fails(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """Trace should keep deterministic matrix when G2 test generation fails."""
+    repo_root = tmp_path / "api"
+    repo_root.mkdir()
+    (repo_root / "src").mkdir()
+    (repo_root / "src" / "routes.py").write_text("def checkout_primary():\n    return {'ok': True}\n")
+
+    def _fake_discovery(repos: list[RepoRef], *, model_spec: str | None = None, strict_llm: bool = False) -> RoutesResult:
+        return RoutesResult(
+            repos=repos,
+            routes=[
+                EndpointCandidate(
+                    method="POST",
+                    path="/checkout",
+                    handler="checkout_primary",
+                    file="src/routes.py",
+                    repo="api",
+                    service="orders",
+                    confidence=0.9,
+                )
+            ],
+        )
+
+    monkeypatch.setattr(trace_module, "discover_endpoints", _fake_discovery)
+    monkeypatch.setattr(
+        trace_module,
+        "generate_test_matrix_with_evidence_packet",
+        lambda **_kwargs: TestMatrixGenerationResult(
+            ok=False,
+            test_matrix=None,
+            raw_output="{not-json",
+            warnings=["bad json"],
+            error="invalid_json",
+        ),
+    )
+    monkeypatch.setattr(trace_module, "compute_workspace_id", lambda repos: "ws-test")
+    monkeypatch.setattr(trace_module, "create_run_id", lambda: "run-test")
+    monkeypatch.setattr(
+        trace_module,
+        "save_run_artifact",
+        lambda **kwargs: Path(f"/tmp/{kwargs['artifact_name']}.json"),
+    )
+
+    result = runner.invoke(
+        app,
+        [
+            "trace",
+            "/checkout",
+            "--method",
+            "POST",
+            "--repo",
+            f"api={repo_root}",
+            "--trace-llm-policy",
+            "always",
+            "--allow-partial",
+            "--format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    names = {
+        test_case["name"]
+        for group in payload.get("test_matrix", {}).get("groups", [])
+        for test_case in group.get("tests", [])
+    }
+    assert "post_checkout_contract_happy_path" in names
+    assert any("invalid_json" in item for item in payload.get("diagnostics", []))
 
 
 def test_trace_terminal_lightly_normalizes_step_labels(tmp_path: Path, monkeypatch) -> None:
