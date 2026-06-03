@@ -290,6 +290,10 @@ def test_trace_output_existing_directory_writes_trace_artifacts(monkeypatch, tmp
     assert (output_dir / "trace_graph.json").exists()
     assert (output_dir / "test_matrix.json").exists()
     assert (output_dir / "flow_expansion.json").exists()
+    trace_payload = json.loads((output_dir / "trace_result.json").read_text(encoding="utf-8"))
+    matrix_payload = json.loads((output_dir / "test_matrix.json").read_text(encoding="utf-8"))
+    assert trace_payload["test_matrix"]["groups"] == matrix_payload["groups"]
+    assert len(trace_payload["test_matrix"]["groups"]) == len(matrix_payload["groups"])
 
 
 def test_trace_output_missing_directory_like_path_creates_dir(monkeypatch, tmp_path: Path) -> None:

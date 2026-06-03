@@ -5,7 +5,12 @@ from sydes.core.models import (
     TestMatrix as SydesTestMatrix,
     TestMatrixGroup as SydesTestMatrixGroup,
 )
-from sydes.generate.tests import make_test_suggestion, normalize_test_matrix, scenario_id_from_name
+from sydes.generate.tests import (
+    make_test_suggestion,
+    normalize_contract_ref,
+    normalize_test_matrix,
+    scenario_id_from_name,
+)
 
 
 def test_old_style_integration_test_suggestion_still_constructs() -> None:
@@ -89,3 +94,10 @@ def test_normalize_test_matrix_backfills_category_from_group() -> None:
 def test_scenario_id_from_name_is_stable() -> None:
     assert scenario_id_from_name("POST /items creates item") == "post_items_creates_item"
     assert scenario_id_from_name("POST /items creates item") == scenario_id_from_name("POST /items creates item")
+
+
+def test_normalize_contract_ref_fixes_response_aliases_only() -> None:
+    assert normalize_contract_ref("response.201.body") == "responses.201.body"
+    assert normalize_contract_ref("response.400.body.error") == "responses.400.body.error"
+    assert normalize_contract_ref("responses.201") == "responses.201"
+    assert normalize_contract_ref("request.body.name") == "request.body.name"

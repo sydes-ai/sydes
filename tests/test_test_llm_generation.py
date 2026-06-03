@@ -352,6 +352,52 @@ def test_final_matrix_stays_clean_and_contract_enriched() -> None:
     assert happy.expected["response_schema_ref"] == "responses.201"
 
 
+def test_llm_generated_response_alias_refs_are_normalized_after_cleanup() -> None:
+    payload = {
+        "groups": [
+            {
+                "category": "positive",
+                "tests": [
+                    {
+                        "name": "post_items_contract_happy_path",
+                        "route": "/items",
+                        "method": "POST",
+                        "summary": "Happy path create.",
+                        "category": "positive",
+                        "purpose": "Create item.",
+                        "request": {"method": "POST", "path": "/items", "body": {"name": "ok", "price": 1}},
+                        "expected": {"status": 200, "response_schema_ref": "response.201.body"},
+                        "contract_refs": ["response.201.body", "request.body.name"],
+                        "related_steps": ["read JSON request body"],
+                        "related_sinks": ["items.append(item)"],
+                        "evidence": [{"kind": "trace_node", "source": "evidence_packet"}],
+                    }
+                ],
+            }
+        ]
+    }
+
+    result = generate_test_matrix_with_evidence_packet(
+        evidence_packet=_packet(),
+        api_contract=_contract(),
+        current_test_matrix=SydesTestMatrix(groups=[]),
+        llm_client=_FakeClient(json.dumps(payload)),
+    )
+
+    assert result.ok is True
+    assert result.test_matrix is not None
+    happy = next(
+        test
+        for group in result.test_matrix.groups
+        for test in group.tests
+        if test.name == "post_items_contract_happy_path"
+    )
+    assert happy.expected is not None
+    assert happy.expected["response_schema_ref"] == "responses.201"
+    assert "responses.201" in happy.contract_refs
+    assert "responses.201.body" not in happy.contract_refs
+
+
 def test_no_contract_keeps_valid_grounded_positive_scenario() -> None:
     payload = {
         "groups": [

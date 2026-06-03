@@ -52,6 +52,30 @@ REQUEST_BODY_SIGNAL_TOKENS = (
 )
 
 
+def normalize_contract_ref(ref: str) -> str:
+    """Normalize known contract-ref aliases without touching unrelated refs."""
+    value = str(ref).strip()
+    if not value:
+        return value
+    if value.startswith("responses."):
+        return value
+    if value.startswith("response."):
+        return "responses." + value[len("response.") :]
+    return value
+
+
+def _normalize_response_schema_ref(ref: str | None) -> str | None:
+    """Normalize response schema refs to the `responses.<status>` convention."""
+    if ref is None:
+        return None
+    normalized = normalize_contract_ref(ref)
+    if normalized.startswith("responses."):
+        parts = normalized.split(".")
+        if len(parts) >= 2:
+            return ".".join(parts[:2])
+    return normalized
+
+
 def _normalize_contract_path(path: str | None) -> str:
     if not path:
         return ""
@@ -657,6 +681,10 @@ def make_test_suggestion(
     expected_payload = expected or {}
     expected_payload.setdefault("status", None)
     expected_payload.setdefault("behavior", summary)
+    if "response_schema_ref" in expected_payload:
+        expected_payload["response_schema_ref"] = _normalize_response_schema_ref(
+            expected_payload.get("response_schema_ref")
+        )
 
     return IntegrationTestSuggestion(
         name=name,
@@ -676,7 +704,10 @@ def make_test_suggestion(
         side_effects=list(side_effects or []),
         related_steps=list(related_steps or []),
         related_sinks=list(related_sinks or []),
-        contract_refs=list(contract_refs or []),
+        contract_refs=[
+            normalize_contract_ref(ref)
+            for ref in list(contract_refs or [])
+        ],
         requires_mocking=requires_mocking,
         notes_text=notes_text,
         evidence=list(evidence or []),
@@ -1027,9 +1058,17 @@ def clean_test_matrix(
                 request.setdefault("path", test.route or path or "/")
                 expected = dict(test.expected or {})
                 expected.setdefault("status", None)
+                if "response_schema_ref" in expected:
+                    expected["response_schema_ref"] = _normalize_response_schema_ref(
+                        expected.get("response_schema_ref")
+                    )
                 test.category = canonical
                 test.request = request
                 test.expected = expected
+                test.contract_refs = [
+                    normalize_contract_ref(ref)
+                    for ref in test.contract_refs
+                ]
                 if test.method is None and request.get("method"):
                     test.method = str(request.get("method"))
                 tests.append(test)

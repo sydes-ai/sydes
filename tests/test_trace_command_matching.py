@@ -214,6 +214,7 @@ def test_trace_command_renders_flow_steps_sinks_and_graph_artifact(
     flow_section = result.stdout.split("Flow:", 1)[1].split("Sinks:", 1)[0]
     assert "sink:" not in flow_section
     assert "trace_result" in saved_names
+    assert "test_matrix" in saved_names
     assert "flow_expansion" in saved_names
     assert "trace_graph" in saved_names
 

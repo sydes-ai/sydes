@@ -994,6 +994,20 @@ def trace_command(
         )
         result.notes.append(f"Saved trace artifact: {trace_artifact_path}")
         artifact_index["trace_result"] = str(trace_artifact_path)
+        if result.test_matrix is not None:
+            try:
+                test_matrix_artifact_path = save_run_artifact(
+                    workspace_id=workspace_id,
+                    run_id=run_id,
+                    artifact_name="test_matrix",
+                    payload=result.test_matrix.model_dump(mode="json"),
+                )
+                result.notes.append(
+                    f"Saved test matrix artifact: {test_matrix_artifact_path}"
+                )
+                artifact_index["test_matrix"] = str(test_matrix_artifact_path)
+            except OSError as exc:
+                result.notes.append(f"Could not save test matrix artifact: {exc}")
         if api_contract_payload is not None:
             api_contract_artifact_path = save_run_artifact(
                 workspace_id=workspace_id,
