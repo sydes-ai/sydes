@@ -657,3 +657,343 @@ def build_basic_api_contract_from_routes(routes_result: RoutesResult) -> ApiCont
 def render_api_contract_json(contract: ApiContractArtifact) -> str:
     """Serialize API contract artifact as pretty JSON."""
     return contract.model_dump_json(indent=2)
+
+
+_REQ_BODY_FIELD_PATTERN = re.compile(r"\breq\.body\.([A-Za-z_]\w*)")
+_REQ_USER_CONTEXT_PATTERN = re.compile(r"\breq\.user(?:\?\.|\.)([A-Za-z_]\w*)")
+_RES_STATUS_PATTERN = re.compile(r"\bres\.status\(\s*(\d{3})\s*\)\s*\.(?:send|json)\s*\(")
+_SERVER_RESPONSE_PATTERN = re.compile(r"\bnew\s+ServerResponse\s*\(")
+_SQL_RETURNING_PATTERN = re.compile(r"\breturning\s+([A-Za-z_][\w]*(?:\s*,\s*[A-Za-z_][\w]*)*)", re.IGNORECASE)
+_DB_WRITE_TABLE_PATTERN = re.compile(
+    r"\b(?:insert\s+into|update|delete\s+from)\s+([A-Za-z_][\w]*)",
+    re.IGNORECASE,
+)
+
+
+def enrich_api_contract_from_layered_trace(
+    api_contract: ApiContractArtifact | dict[str, Any],
+    *,
+    layered_trace_contract: dict[str, Any] | None = None,
+    handler_body_slices: dict[str, Any] | None = None,
+    trace_result: dict[str, Any] | None = None,
+) -> ApiContractArtifact | dict[str, Any]:
+    """Additive contract enrichment using deterministic layered trace evidence."""
+
+    contract_model = (
+        api_contract.model_copy(deep=True)
+        if isinstance(api_contract, ApiContractArtifact)
+        else ApiContractArtifact.model_validate(api_contract)
+    )
+    route_contract = _match_contract_route_for_enrichment(
+        contract_model,
+        layered_trace_contract=layered_trace_contract,
+        trace_result=trace_result,
+    )
+    if route_contract is None:
+        return contract_model if isinstance(api_contract, ApiContractArtifact) else contract_model.model_dump(mode="json")
+
+    texts = _collect_enrichment_texts(
+        layered_trace_contract=layered_trace_contract,
+        handler_body_slices=handler_body_slices,
+        trace_result=trace_result,
+    )
+
+    body_fields = sorted({match.group(1) for text in texts for match in _REQ_BODY_FIELD_PATTERN.finditer(text)})
+    explicit_statuses = sorted({match.group(1) for text in texts for match in _RES_STATUS_PATTERN.finditer(text)})
+    user_context_fields = sorted({match.group(1) for text in texts for match in _REQ_USER_CONTEXT_PATTERN.finditer(text)})
+    returning_fields = _extract_returning_fields(texts)
+    db_tables = sorted({match.group(1) for text in texts for match in _DB_WRITE_TABLE_PATTERN.finditer(text)})
+    has_server_response = any(_SERVER_RESPONSE_PATTERN.search(text) for text in texts)
+
+    enriched_body = False
+    if body_fields:
+        if route_contract.request.body is None:
+            route_contract.request.body = ApiSchema(
+                type="object",
+                required=[],
+                properties={},
+                additional_properties=True,
+                description="Inferred request body schema from layered trace evidence.",
+            )
+        elif (
+            route_contract.request.body.description
+            and "Unknown request body shape (basic skeleton)." in route_contract.request.body.description
+        ):
+            route_contract.request.body.description = "Inferred request body schema from layered trace evidence."
+        for field in body_fields:
+            existing = route_contract.request.body.properties.get(field)
+            if existing is None:
+                inferred_type, inferred_format, example = _guess_property_type(field)
+                route_contract.request.body.properties[field] = ApiSchemaProperty(
+                    type=inferred_type or "unknown",
+                    format=inferred_format,
+                    required=False,
+                    example=example,
+                    description="Inferred from req.body usage in layered trace evidence.",
+                )
+            elif existing.type is None:
+                existing.type = "unknown"
+            if existing is not None and not existing.description:
+                existing.description = "Inferred from req.body usage in layered trace evidence."
+        route_contract.evidence.append(
+            ApiContractEvidence(
+                kind="express_request_body_usage",
+                file=route_contract.file,
+                symbol=route_contract.handler,
+                source="layered_trace_contract",
+                confidence="medium",
+                notes=[f"Request body fields inferred from req.body usage: {', '.join(body_fields)}."],
+            )
+        )
+        enriched_body = True
+
+    if user_context_fields:
+        route_contract.evidence.append(
+            ApiContractEvidence(
+                kind="auth_context_usage",
+                file=route_contract.file,
+                symbol=route_contract.handler,
+                source="layered_trace_contract",
+                confidence="medium",
+                notes=[
+                    "Handler reads authenticated user context from "
+                    + ", ".join(f"req.user?.{field}" for field in user_context_fields)
+                    + "."
+                ],
+            )
+        )
+        route_contract.notes.append(
+            "Handler reads authenticated user context from "
+            + ", ".join(f"req.user?.{field}" for field in user_context_fields)
+            + "."
+        )
+
+    if explicit_statuses:
+        explicit_response_map: dict[str, ApiResponseContract] = {}
+        for status in explicit_statuses:
+            existing = route_contract.responses.get(status)
+            if existing is None:
+                existing = ApiResponseContract(
+                    status=status,
+                    body=_unknown_response_schema(),
+                    confidence="high",
+                )
+            existing.status = status
+            existing.description = existing.description or f"Response inferred from explicit res.status({status}) call."
+            existing.confidence = "high"
+            existing.evidence.append(
+                ApiContractEvidence(
+                    kind="express_response_status",
+                    file=route_contract.file,
+                    symbol=route_contract.handler,
+                    source="layered_trace_contract",
+                    confidence="high",
+                    notes=[f"Explicit response status inferred from res.status({status})."],
+                )
+            )
+            explicit_response_map[status] = existing
+        route_contract.responses = explicit_response_map
+
+    primary_response = _preferred_response_for_enrichment(route_contract, explicit_statuses)
+    if primary_response is not None:
+        if primary_response.body is None:
+            primary_response.body = _unknown_response_schema()
+        if has_server_response:
+            primary_response.body.description = "ServerResponse wrapper containing returned handler data."
+            primary_response.evidence.append(
+                ApiContractEvidence(
+                    kind="express_response_wrapper",
+                    file=route_contract.file,
+                    symbol=route_contract.handler,
+                    source="layered_trace_contract",
+                    confidence="medium",
+                    notes=["Response body inferred from new ServerResponse(...)."],
+                )
+            )
+        if returning_fields:
+            for field in returning_fields:
+                if field not in primary_response.body.properties:
+                    inferred_type, inferred_format, example = _guess_property_type(field)
+                    primary_response.body.properties[field] = ApiSchemaProperty(
+                        type=inferred_type or "unknown",
+                        format=inferred_format,
+                        required=False,
+                        example=example,
+                        description="Inferred from SQL RETURNING clause in handler evidence.",
+                    )
+            primary_response.evidence.append(
+                ApiContractEvidence(
+                    kind="sql_returning_inference",
+                    file=route_contract.file,
+                    symbol=route_contract.handler,
+                    source="handler_body_slices",
+                    confidence="medium",
+                    notes=[f"Response properties inferred from SQL RETURNING clause: {', '.join(returning_fields)}."],
+                )
+            )
+
+    if db_tables:
+        route_contract.evidence.append(
+            ApiContractEvidence(
+                kind="database_write",
+                file=route_contract.file,
+                symbol=route_contract.handler,
+                source="layered_trace_contract",
+                confidence="high",
+                notes=[f"Handler writes to {', '.join(db_tables)}."],
+            )
+        )
+        route_contract.notes.append(f"Handler writes to {', '.join(db_tables)}.")
+
+    if enriched_body:
+        route_contract.notes = [
+            note
+            for note in route_contract.notes
+            if note != "No concrete request contract fields inferred from handler source; using scaffold defaults."
+        ]
+    if explicit_statuses or has_server_response:
+        route_contract.notes = [
+            note
+            for note in route_contract.notes
+            if note != "Could not parse handler source for response inference; using scaffold defaults."
+        ]
+
+    route_contract.notes = _dedupe_contract_strings(route_contract.notes)
+    route_contract.evidence = _dedupe_contract_evidence(route_contract.evidence)
+    route_contract.confidence = _upgrade_contract_confidence(route_contract.confidence, body_fields, explicit_statuses, has_server_response)
+
+    return contract_model if isinstance(api_contract, ApiContractArtifact) else contract_model.model_dump(mode="json")
+
+
+def _match_contract_route_for_enrichment(
+    contract: ApiContractArtifact,
+    *,
+    layered_trace_contract: dict[str, Any] | None,
+    trace_result: dict[str, Any] | None,
+) -> ApiRouteContract | None:
+    target_method = None
+    target_path = None
+    if isinstance(layered_trace_contract, dict):
+        target = layered_trace_contract.get("target")
+        if isinstance(target, dict):
+            target_method = target.get("method")
+            target_path = target.get("path")
+    if (not target_method or not target_path) and isinstance(trace_result, dict):
+        target = trace_result.get("target")
+        if isinstance(target, dict):
+            target_method = target_method or target.get("method")
+            target_path = target_path or target.get("path")
+    normalized_method = str(target_method or "").upper()
+    normalized_path = str(target_path or "")
+    for route in contract.routes:
+        if normalized_method and (route.method or "").upper() != normalized_method:
+            continue
+        if normalized_path and (route.path or "") != normalized_path:
+            continue
+        return route
+    return contract.routes[0] if len(contract.routes) == 1 else None
+
+
+def _collect_enrichment_texts(
+    *,
+    layered_trace_contract: dict[str, Any] | None,
+    handler_body_slices: dict[str, Any] | None,
+    trace_result: dict[str, Any] | None,
+) -> list[str]:
+    texts: list[str] = []
+    if isinstance(handler_body_slices, dict):
+        for slice_item in handler_body_slices.get("slices", []):
+            if not isinstance(slice_item, dict):
+                continue
+            for stmt in slice_item.get("statements", []):
+                if isinstance(stmt, dict) and isinstance(stmt.get("text"), str):
+                    texts.append(stmt["text"])
+    if isinstance(layered_trace_contract, dict):
+        flow = layered_trace_contract.get("flow")
+        if isinstance(flow, dict):
+            for step in flow.get("steps", []):
+                if not isinstance(step, dict):
+                    continue
+                if isinstance(step.get("detail"), str):
+                    texts.append(step["detail"])
+                for evidence in step.get("evidence", []):
+                    if isinstance(evidence, dict) and isinstance(evidence.get("snippet"), str):
+                        texts.append(evidence["snippet"])
+        for sink in layered_trace_contract.get("sinks", []):
+            if isinstance(sink, dict):
+                if isinstance(sink.get("name"), str):
+                    texts.append(sink["name"])
+                for evidence in sink.get("evidence", []):
+                    if isinstance(evidence, dict) and isinstance(evidence.get("snippet"), str):
+                        texts.append(evidence["snippet"])
+    if isinstance(trace_result, dict):
+        for node in trace_result.get("nodes", []):
+            if not isinstance(node, dict):
+                continue
+            metadata = node.get("metadata")
+            if isinstance(metadata, dict):
+                for key in ("detail", "snippet", "expression"):
+                    value = metadata.get(key)
+                    if isinstance(value, str):
+                        texts.append(value)
+    return texts
+
+
+def _extract_returning_fields(texts: list[str]) -> list[str]:
+    fields: list[str] = []
+    for text in texts:
+        for match in _SQL_RETURNING_PATTERN.finditer(text):
+            raw_fields = match.group(1).split(",")
+            for raw in raw_fields:
+                field = raw.strip().strip("`\"'")
+                if field and re.fullmatch(r"[A-Za-z_]\w*", field):
+                    fields.append(field)
+    return sorted(set(fields))
+
+
+def _preferred_response_for_enrichment(
+    route_contract: ApiRouteContract,
+    explicit_statuses: list[str],
+) -> ApiResponseContract | None:
+    if explicit_statuses:
+        return route_contract.responses.get(explicit_statuses[0])
+    if route_contract.responses:
+        first_key = sorted(route_contract.responses.keys())[0]
+        return route_contract.responses[first_key]
+    return None
+
+
+def _dedupe_contract_strings(values: list[str]) -> list[str]:
+    seen: set[str] = set()
+    out: list[str] = []
+    for value in values:
+        if value in seen:
+            continue
+        seen.add(value)
+        out.append(value)
+    return out
+
+
+def _dedupe_contract_evidence(values: list[ApiContractEvidence]) -> list[ApiContractEvidence]:
+    seen: set[tuple[str, str | None, str | None, str | None, tuple[str, ...]]] = set()
+    out: list[ApiContractEvidence] = []
+    for item in values:
+        key = (item.kind, item.file, item.symbol, item.source, tuple(item.notes))
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(item)
+    return out
+
+
+def _upgrade_contract_confidence(
+    current: str | None,
+    body_fields: list[str],
+    explicit_statuses: list[str],
+    has_server_response: bool,
+) -> str:
+    if current == "high":
+        return current
+    if explicit_statuses and (body_fields or has_server_response):
+        return "medium"
+    return current or "low"

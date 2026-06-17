@@ -11,6 +11,7 @@ from typer.testing import CliRunner
 from sydes.cli.main import app
 from sydes.core.models import (
     ConfidenceSummary,
+    EndpointCandidate,
     Flow,
     FlowExpansionResult,
     FlowStep,
@@ -332,6 +333,140 @@ def test_trace_output_missing_directory_like_path_creates_dir(monkeypatch, tmp_p
     assert result.exit_code == 0
     assert (output_dir / "trace_result.json").exists()
     assert (output_dir / "trace_graph.json").exists()
+
+
+def test_trace_output_directory_writes_enriched_api_contract_for_express(
+    monkeypatch, tmp_path: Path
+) -> None:
+    repo_root = tmp_path / "worklenz"
+    repo_root.mkdir()
+    route_file = repo_root / "worklenz-backend" / "src" / "routes" / "apis" / "home-page-api-router.ts"
+    route_file.parent.mkdir(parents=True)
+    route_file.write_text("homePageApiRouter.post('/personal-task', handler)\n", encoding="utf-8")
+    controller_file = repo_root / "worklenz-backend" / "src" / "controllers" / "home-page-controller.ts"
+    controller_file.parent.mkdir(parents=True)
+    controller_file.write_text("export class HomePageController {}\n", encoding="utf-8")
+    output_dir = tmp_path / "trace-output-contract"
+    output_dir.mkdir()
+
+    fake_result = _fake_trace_result("worklenz", repo_root)
+    fake_result.target.path = "/api/v1/home/personal-task"
+    fake_result.target.method = "POST"
+    fake_result.repos = [RepoRef(name="worklenz", root=str(repo_root))]
+    matched_endpoint = EndpointCandidate(
+        method="POST",
+        path="/api/v1/home/personal-task",
+        handler="HomePageController.createPersonalTask",
+        file="worklenz-backend/src/routes/apis/home-page-api-router.ts",
+        repo="worklenz",
+        confidence=0.9,
+    )
+
+    monkeypatch.setattr(
+        "sydes.cli.trace._build_trace_result",
+        lambda **_kwargs: (fake_result, FlowExpansionResult(steps=[], sinks=[], notes=[], confidence=0.6), matched_endpoint),
+    )
+    monkeypatch.setattr(
+        "sydes.cli.trace.save_run_artifact",
+        lambda **_kwargs: tmp_path / "artifact.json",
+    )
+    monkeypatch.setattr(
+        "sydes.cli.trace.build_handler_symbol_index_batch",
+        lambda repos: {"repos": [{"repo": "worklenz", "files": []}], "summary": {}},
+    )
+    monkeypatch.setattr(
+        "sydes.cli.trace.resolve_handler_reference",
+        lambda endpoint, repo_index: {
+            "primary_handler": {
+                "normalized_handler": "HomePageController.createPersonalTask",
+                "symbol": {
+                    "file": "worklenz-backend/src/controllers/home-page-controller.ts",
+                    "line": 10,
+                    "start_line": 10,
+                    "end_line": 20,
+                    "language": "typescript",
+                },
+            },
+            "prehandlers": [],
+            "unresolved_handlers": [],
+        },
+    )
+    monkeypatch.setattr(
+        "sydes.cli.trace.slice_resolved_handler_body",
+        lambda **_kwargs: {
+            "handler": "HomePageController.createPersonalTask",
+            "file": "worklenz-backend/src/controllers/home-page-controller.ts",
+            "statements": [
+                {"index": 1, "text": "const result = await db.query(q, [req.body.name, req.body.color_code, req.user?.id]);"},
+                {"index": 2, "text": "const q = `INSERT INTO personal_todo_list (name, color_code, user_id, index) VALUES ($1, $2, $3, 1) RETURNING id, name`;"},
+                {"index": 3, "text": "return res.status(200).send(new ServerResponse(true, data));"},
+            ],
+            "summary": {"statement_count": 3, "signals": ["request_body_read", "possible_db_call", "response_return"]},
+        },
+    )
+    monkeypatch.setattr(
+        "sydes.cli.trace.build_layered_trace_expansion",
+        lambda **_kwargs: {"layers": [], "summary": {"functions_followed": 0, "steps_added": 0}, "skipped_calls": []},
+    )
+    monkeypatch.setattr(
+        "sydes.cli.trace.run_trace_llm_summarizer",
+        lambda **_kwargs: {"skipped": True, "warnings": [], "result": {}},
+    )
+    monkeypatch.setattr(
+        "sydes.cli.trace.build_layered_trace_contract",
+        lambda **_kwargs: {
+            "target": {"method": "POST", "path": "/api/v1/home/personal-task"},
+            "flow": {
+                "steps": [
+                    {"kind": "request_input", "detail": "req.body.name"},
+                    {"kind": "request_input", "detail": "req.body.color_code"},
+                    {"kind": "database_write", "detail": "INSERT INTO personal_todo_list"},
+                    {"kind": "response", "detail": "return res.status(200).send(new ServerResponse(true, data));"},
+                ]
+            },
+            "layers": [],
+            "sinks": [
+                {
+                    "kind": "database",
+                    "name": "INSERT personal_todo_list",
+                    "evidence": [{"snippet": "INSERT INTO personal_todo_list ... RETURNING id, name"}],
+                }
+            ],
+            "resolved_handlers": [],
+            "budgets": {"max_depth": 2},
+            "diagnostics": [],
+            "summary": "Handles request input, performs database operations, and returns response.",
+            "artifacts": {},
+        },
+    )
+
+    result = runner.invoke(
+        app,
+        [
+            "trace",
+            "/api/v1/home/personal-task",
+            "--method",
+            "POST",
+            "--repo",
+            f"worklenz={repo_root}",
+            "--format",
+            "json",
+            "--output",
+            str(output_dir),
+        ],
+    )
+
+    assert result.exit_code == 0
+    contract_payload = json.loads((output_dir / "api_contract.json").read_text(encoding="utf-8"))
+    route = contract_payload["routes"][0]
+    assert route["path"] == "/api/v1/home/personal-task"
+    assert "name" in route["request"]["body"]["properties"]
+    assert "color_code" in route["request"]["body"]["properties"]
+    assert "200" in route["responses"]
+    assert "201" not in route["responses"]
+    assert "ServerResponse wrapper" in route["responses"]["200"]["body"]["description"]
+    assert any("req.user?.id" in note for note in route["notes"])
+    assert any("personal_todo_list" in note for note in route["notes"])
 
 
 def test_trace_output_explicit_json_file_preserves_single_file_output(monkeypatch, tmp_path: Path) -> None:

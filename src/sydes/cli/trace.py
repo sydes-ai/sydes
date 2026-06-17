@@ -46,7 +46,10 @@ from sydes.llm.client import LLMClientError, validate_llm_available
 from sydes.report.json_report import render_json
 from sydes.report.terminal import render_terminal
 from sydes.store.workspace import compute_workspace_id, create_run_id, save_run_artifact
-from sydes.generate.contracts import build_api_contract_from_routes
+from sydes.generate.contracts import (
+    build_api_contract_from_routes,
+    enrich_api_contract_from_layered_trace,
+)
 from sydes.generate.contract_llm_refinement import refine_api_contract_with_evidence_packet
 from sydes.generate.evidence_packet import build_evidence_packet_for_route
 from sydes.generate.test_llm_generation import generate_test_matrix_with_evidence_packet
@@ -769,6 +772,22 @@ def trace_command(
                     result.diagnostics = layered_contract_payload.get("diagnostics", [])
                     if isinstance(layered_contract_payload.get("summary"), str) and layered_contract_payload.get("summary"):
                         result.summary.text = layered_contract_payload.get("summary")
+
+                    if api_contract_model is not None:
+                        enriched_contract = enrich_api_contract_from_layered_trace(
+                            api_contract_model,
+                            layered_trace_contract=layered_contract_payload,
+                            handler_body_slices=handler_body_slices_payload,
+                            trace_result=result.model_dump(mode="json"),
+                        )
+                        if isinstance(enriched_contract, type(api_contract_model)):
+                            api_contract_model = enriched_contract
+                            route_contract_model = match_route_contract(
+                                api_contract_model,
+                                method=result.target.method,
+                                path=result.target.path,
+                            )
+                            api_contract_payload = api_contract_model.model_dump(mode="json")
 
                     # Add layered steps to graph in source order for UI-friendly trace graph.
                     steps = (result.flow or {}).get("steps", []) if isinstance(result.flow, dict) else []
