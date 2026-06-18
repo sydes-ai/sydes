@@ -20,8 +20,8 @@ def _express_contract() -> dict:
                     "body": {
                         "type": "object",
                         "properties": {
-                            "name": {"type": "unknown"},
-                            "color_code": {"type": "unknown"},
+                            "name": {"type": "string"},
+                            "color_code": {"type": "string"},
                         },
                         "required": [],
                         "description": "Inferred request body schema from layered trace evidence.",
@@ -152,6 +152,7 @@ def test_contract_view_merges_rich_express_contract() -> None:
                 }
             ],
             "sinks": [{"kind": "database", "name": "INSERT personal_todo_list"}],
+            "repos": [{"name": "worklenz", "root": "/tmp/worklenz"}],
         },
         layered_trace_contract=_layered_trace_contract(),
         handler_body_slices={
@@ -173,14 +174,27 @@ def test_contract_view_merges_rich_express_contract() -> None:
     assert payload["route"]["handler"] == "HomePageController.createPersonalTask"
     assert payload["route"]["handler_file"] == "worklenz-backend/src/controllers/home-page-controller.ts"
     assert {field["name"] for field in payload["request"]["body_fields"]} >= {"name", "color_code"}
+    name_field = next(field for field in payload["request"]["body_fields"] if field["name"] == "name")
+    color_field = next(field for field in payload["request"]["body_fields"] if field["name"] == "color_code")
+    assert name_field["type"] == "string"
+    assert color_field["type"] == "string"
+    assert name_field["evidence"]
+    assert any("req.body.name" in (item.get("snippet") or "") for item in name_field["evidence"])
     assert any(item["source_expr"] == "req.user?.id" for item in payload["context"])
+    auth_context = next(item for item in payload["context"] if item["source_expr"] == "req.user?.id")
+    assert auth_context["evidence"]
     assert any(item["status"] == "200" for item in payload["responses"])
     response_200 = next(item for item in payload["responses"] if item["status"] == "200")
     assert {field["name"] for field in response_200["fields"]} >= {"id", "name"}
+    assert response_200["evidence"]
+    assert any(item["file"] == "worklenz-backend/src/controllers/home-page-controller.ts" for item in response_200["evidence"])
+    assert any("res.status(200).send" in (item.get("snippet") or "") for item in response_200["evidence"])
     assert any(item["target"] == "personal_todo_list" for item in payload["side_effects"])
     assert "layered_trace_contract" in payload["quality"]["used_artifacts"]
     assert "api_contract" in payload["quality"]["used_artifacts"]
     assert all(item["status"] != "201" for item in payload["responses"])
+    assert payload["artifact_metadata"]["repo_inputs"] == [{"name": "worklenz", "root": "/tmp/worklenz"}]
+    assert payload["artifact_metadata"]["target_route"] == {"method": "POST", "path": "/api/v1/home/personal-task"}
 
 
 def test_contract_view_scaffold_only_fallback() -> None:
@@ -257,3 +271,17 @@ def test_contract_view_deterministic_status_beats_llm() -> None:
     )
     assert any(item["status"] == "200" for item in payload["responses"])
     assert all(item["status"] != "201" for item in payload["responses"])
+
+
+def test_contract_view_upgrades_unknown_body_field_type_from_body_shape() -> None:
+    contract = _express_contract()
+    contract["routes"][0]["request"]["body"]["properties"]["name"]["type"] = "string"
+    contract["routes"][0]["request"]["body"]["properties"]["color_code"]["type"] = "string"
+    payload = build_contract_view(
+        api_contract=contract,
+        layered_trace_contract=_layered_trace_contract(),
+    )
+    name_field = next(field for field in payload["request"]["body_fields"] if field["name"] == "name")
+    color_field = next(field for field in payload["request"]["body_fields"] if field["name"] == "color_code")
+    assert name_field["type"] == "string"
+    assert color_field["type"] == "string"

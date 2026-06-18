@@ -51,6 +51,10 @@ def build_contract_view(
         "llm_accepted": False,
         "llm_rejected": False,
     }
+    artifact_metadata = {
+        "repo_inputs": _artifact_repo_inputs(trace_result),
+        "target_route": _artifact_target_route(trace_result, layered_trace_contract),
+    }
 
     route = _merge_route(
         api_contract=api_contract,
@@ -192,6 +196,16 @@ def build_contract_view(
         ],
         developer=developer,
     )
+    request["body_fields"] = _merge_fields(
+        request["body_fields"],
+        _schema_properties_to_fields(
+            (((request.get("body_shape") or {}).get("properties")) or {}),
+            origin="api_contract",
+            grounding="inferred",
+            description_fallback="Inferred from API contract body shape.",
+        ),
+        developer=developer,
+    )
 
     for field in sorted({match.group(1) for text in texts for match in _REQ_USER_CONTEXT_PATTERN.finditer(text)}):
         context.append(
@@ -206,6 +220,32 @@ def build_contract_view(
                 "evidence": [],
             }
         )
+
+    _attach_field_evidence(
+        request["body_fields"],
+        evidence_rollup,
+        lambda field: [f"req.body.{field['name']}"],
+    )
+    _attach_field_evidence(
+        request["query_params"],
+        evidence_rollup,
+        lambda field: [f"req.query.{field['name']}"],
+    )
+    _attach_field_evidence(
+        request["path_params"],
+        evidence_rollup,
+        lambda field: [f"req.params.{field['name']}"],
+    )
+    _attach_field_evidence(
+        request["headers"],
+        evidence_rollup,
+        lambda field: [field["name"]],
+    )
+    _attach_field_evidence(
+        context,
+        evidence_rollup,
+        lambda item: [str(item.get("source_expr") or "")],
+    )
 
     response_map: dict[str, dict[str, Any]] = {}
     for status, response in (((route_contract or {}).get("responses") or {}).items()):
@@ -295,6 +335,11 @@ def build_contract_view(
             response_item["unknowns"].append("response content type not inferred")
         if response_item.get("wrapper") and not response_item["fields"]:
             response_item["unknowns"].append("response wrapper detected but exact wrapper schema unresolved")
+        deterministic_response_evidence = _preferred_response_evidence(evidence_rollup)
+        if deterministic_response_evidence:
+            response_item["evidence"] = deterministic_response_evidence
+            response_item["origin"] = _merge_origin(response_item.get("origin"), "layered_trace_contract")
+            response_item["grounding"] = "grounded"
 
     if llm_contract and not response_map:
         for status, response in (((llm_contract.get("responses") or {})).items()):
@@ -367,6 +412,7 @@ def build_contract_view(
         "unknowns": unknowns,
         "quality": quality,
         "developer": developer,
+        "artifact_metadata": artifact_metadata,
     }
 
 
@@ -514,10 +560,13 @@ def _merge_fields(
             continue
         if (current.get("type") in {None, "unknown"}) and item.get("type") not in {None, "unknown"}:
             current["type"] = item.get("type")
+            developer["normalization_notes"].append(f"Upgraded field `{name}` type from merged schema properties.")
         if current.get("source_expr") is None and item.get("source_expr") is not None:
             current["source_expr"] = item.get("source_expr")
         if current.get("description") is None and item.get("description") is not None:
             current["description"] = item.get("description")
+        if current.get("confidence") in {None, "low"} and item.get("confidence") not in {None, "low"}:
+            current["confidence"] = item.get("confidence")
         if current.get("origin") != item.get("origin"):
             current["origin"] = _merge_origin(current.get("origin"), item.get("origin"))
     return [merged[name] for name in sorted(merged)]
@@ -730,6 +779,54 @@ def _response_evidence(response: dict[str, Any]) -> list[dict[str, Any]]:
             }
         )
     return out
+
+
+def _attach_field_evidence(
+    fields: list[dict[str, Any]],
+    evidence_rollup: list[dict[str, Any]],
+    source_exprs: Any,
+) -> None:
+    for field in fields:
+        wanted = [item for item in source_exprs(field) if isinstance(item, str) and item]
+        attached = []
+        for evidence in evidence_rollup:
+            snippet = str(evidence.get("snippet") or "")
+            if any(expr in snippet for expr in wanted):
+                attached.append(dict(evidence))
+        field["evidence"] = _dedupe_evidence(attached)
+
+
+def _preferred_response_evidence(evidence_rollup: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    preferred: list[dict[str, Any]] = []
+    for evidence in evidence_rollup:
+        snippet = str(evidence.get("snippet") or "")
+        file_name = str(evidence.get("file") or "")
+        if "res.status" in snippet and file_name.endswith((".ts", ".tsx", ".js", ".jsx")):
+            preferred.append(dict(evidence))
+    return _dedupe_evidence(preferred)
+
+
+def _artifact_repo_inputs(trace_result: dict | None) -> list[dict[str, Any]]:
+    if not isinstance(trace_result, dict):
+        return []
+    repos = trace_result.get("repos")
+    if not isinstance(repos, list):
+        return []
+    out: list[dict[str, Any]] = []
+    for repo in repos:
+        if isinstance(repo, dict):
+            out.append({"name": repo.get("name"), "root": repo.get("root")})
+    return out
+
+
+def _artifact_target_route(trace_result: dict | None, layered_trace_contract: dict | None) -> dict[str, Any] | None:
+    if isinstance(trace_result, dict) and isinstance(trace_result.get("target"), dict):
+        target = trace_result["target"]
+        return {"method": target.get("method"), "path": target.get("path")}
+    if isinstance(layered_trace_contract, dict) and isinstance(layered_trace_contract.get("target"), dict):
+        target = layered_trace_contract["target"]
+        return {"method": target.get("method"), "path": target.get("path")}
+    return None
 
 
 def _grounding_from_response(response: dict[str, Any]) -> str:
