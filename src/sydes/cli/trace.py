@@ -52,6 +52,7 @@ from sydes.generate.contracts import (
 )
 from sydes.generate.contract_llm_refinement import refine_api_contract_with_evidence_packet
 from sydes.generate.evidence_packet import build_evidence_packet_for_route
+from sydes.generate.contract_view import build_contract_view
 from sydes.generate.test_llm_generation import generate_test_matrix_with_evidence_packet
 from sydes.generate.tests import clean_test_matrix, generate_test_matrix, generate_test_suggestions, match_route_contract
 from sydes.trace.cross_repo import (
@@ -347,6 +348,7 @@ def _write_trace_json_outputs(
     trace_llm_summary: dict | None = None,
     layered_trace_contract: dict | None = None,
     api_contract: dict | None = None,
+    contract_view: dict | None = None,
     evidence_packet: dict | None = None,
     llm_contract_refinement: dict | None = None,
     llm_test_generation: dict | None = None,
@@ -418,6 +420,11 @@ def _write_trace_json_outputs(
         _write_output(
             target.path / "api_contract.json",
             json.dumps(api_contract, indent=2),
+        )
+    if contract_view is not None:
+        _write_output(
+            target.path / "contract_view.json",
+            json.dumps(contract_view, indent=2),
         )
     if evidence_packet is not None:
         _write_output(
@@ -568,6 +575,7 @@ def trace_command(
     evidence_packet_payload: dict | None = None
     llm_contract_refinement_payload: dict | None = None
     llm_test_generation_payload: dict | None = None
+    contract_view_payload: dict | None = None
     artifact_index: dict[str, str] = {}
 
     if matched_endpoint is not None:
@@ -1165,6 +1173,24 @@ def trace_command(
             )
             result.notes.append(f"Saved graph artifact: {graph_artifact_path}")
             artifact_index["trace_graph"] = str(graph_artifact_path)
+        contract_view_payload = build_contract_view(
+            api_contract=api_contract_payload,
+            trace_result=result.model_dump(mode="json"),
+            layered_trace_contract=layered_contract_payload,
+            layered_trace_expansion=layered_trace_expansion_payload,
+            handler_body_slices=handler_body_slices_payload,
+            flow_expansion=flow_expansion.model_dump(mode="json") if flow_expansion is not None else None,
+            trace_graph=graph_artifact_payload.get("graph") if result.nodes or result.edges or result.flows else None,
+            llm_contract_refinement=llm_contract_refinement_payload,
+        )
+        contract_view_artifact_path = save_run_artifact(
+            workspace_id=workspace_id,
+            run_id=run_id,
+            artifact_name="contract_view",
+            payload=contract_view_payload,
+        )
+        result.notes.append(f"Saved contract view artifact: {contract_view_artifact_path}")
+        artifact_index["contract_view"] = str(contract_view_artifact_path)
         if artifact_index:
             result.artifacts = artifact_index
             if layered_contract_payload is not None:
@@ -1197,6 +1223,7 @@ def trace_command(
                     trace_llm_summary=trace_llm_summary_payload,
                     layered_trace_contract=layered_contract_payload,
                     api_contract=api_contract_payload,
+                    contract_view=contract_view_payload,
                     evidence_packet=evidence_packet_payload,
                     llm_contract_refinement=llm_contract_refinement_payload,
                     llm_test_generation=llm_test_generation_payload,

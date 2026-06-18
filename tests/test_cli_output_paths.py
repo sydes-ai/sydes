@@ -291,6 +291,7 @@ def test_trace_output_existing_directory_writes_trace_artifacts(monkeypatch, tmp
     assert (output_dir / "trace_graph.json").exists()
     assert (output_dir / "test_matrix.json").exists()
     assert (output_dir / "flow_expansion.json").exists()
+    assert (output_dir / "contract_view.json").exists()
     trace_payload = json.loads((output_dir / "trace_result.json").read_text(encoding="utf-8"))
     matrix_payload = json.loads((output_dir / "test_matrix.json").read_text(encoding="utf-8"))
     assert trace_payload["test_matrix"]["groups"] == matrix_payload["groups"]
@@ -458,6 +459,7 @@ def test_trace_output_directory_writes_enriched_api_contract_for_express(
 
     assert result.exit_code == 0
     contract_payload = json.loads((output_dir / "api_contract.json").read_text(encoding="utf-8"))
+    contract_view_payload = json.loads((output_dir / "contract_view.json").read_text(encoding="utf-8"))
     route = contract_payload["routes"][0]
     assert route["path"] == "/api/v1/home/personal-task"
     assert "name" in route["request"]["body"]["properties"]
@@ -467,6 +469,8 @@ def test_trace_output_directory_writes_enriched_api_contract_for_express(
     assert "ServerResponse wrapper" in route["responses"]["200"]["body"]["description"]
     assert any("req.user?.id" in note for note in route["notes"])
     assert any("personal_todo_list" in note for note in route["notes"])
+    assert contract_view_payload["route"]["path"] == "/api/v1/home/personal-task"
+    assert {field["name"] for field in contract_view_payload["request"]["body_fields"]} >= {"name", "color_code"}
 
 
 def test_trace_output_explicit_json_file_preserves_single_file_output(monkeypatch, tmp_path: Path) -> None:
