@@ -17,6 +17,7 @@ _RES_STATUS_PATTERN = re.compile(r"\bres\.status\(\s*(\d{3})\s*\)\s*\.(?:send|js
 _SERVER_RESPONSE_PATTERN = re.compile(r"\bnew\s+(ServerResponse)\s*\(")
 _DB_WRITE_TABLE_PATTERN = re.compile(r"\b(insert\s+into|update|delete\s+from)\s+([A-Za-z_][\w]*)", re.IGNORECASE)
 _DB_READ_TABLE_PATTERN = re.compile(r"\bselect\b.*?\bfrom\s+([A-Za-z_][\w]*)", re.IGNORECASE)
+_NORMALIZED_DB_WRITE_PATTERN = re.compile(r"\b(insert|update|delete)\s+([A-Za-z_][\w]*)", re.IGNORECASE)
 _SQL_RETURNING_PATTERN = re.compile(r"\breturning\s+([A-Za-z_][\w]*(?:\s*,\s*[A-Za-z_][\w]*)*)", re.IGNORECASE)
 
 
@@ -700,6 +701,9 @@ def _classify_side_effect(text: str) -> tuple[str | None, str | None, str]:
     if match:
         operation = match.group(1).split()[0].upper()
         return operation, match.group(2), "database_write"
+    match = _NORMALIZED_DB_WRITE_PATTERN.search(text)
+    if match:
+        return match.group(1).upper(), match.group(2), "database_write"
     match = _DB_READ_TABLE_PATTERN.search(text)
     if match:
         return "SELECT", match.group(1), "database_read"
