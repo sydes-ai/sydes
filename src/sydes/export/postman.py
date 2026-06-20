@@ -163,8 +163,9 @@ def _postman_item_for_scenario(
     headers = request_payload.get("headers") if isinstance(request_payload.get("headers"), dict) else {}
     query = request_payload.get("query") if isinstance(request_payload.get("query"), dict) else {}
     body = request_payload.get("body") if isinstance(request_payload, dict) else None
+    raw_body = request_payload.get("raw_body") if isinstance(request_payload, dict) else None
 
-    has_body = method in {"POST", "PUT", "PATCH", "DELETE"} and body is not None
+    has_body = method in {"POST", "PUT", "PATCH", "DELETE"} and (body is not None or raw_body is not None)
     needs_auth = _scenario_needs_auth(scenario, headers)
     header_items = build_postman_headers(headers, has_body=has_body, needs_auth=needs_auth)
 
@@ -178,7 +179,7 @@ def _postman_item_for_scenario(
     if method in {"POST", "PUT", "PATCH", "DELETE"}:
         request_obj["body"] = {
             "mode": "raw",
-            "raw": json_body_to_raw(body if body is not None else {}),
+            "raw": str(raw_body) if raw_body is not None else json_body_to_raw(body if body is not None else {}),
             "options": {"raw": {"language": "json"}},
         }
 

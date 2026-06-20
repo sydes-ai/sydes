@@ -767,6 +767,7 @@ def normalize_test_matrix(matrix: TestMatrix) -> TestMatrix:
         notes=matrix.notes,
         coverage=matrix.coverage,
         confidence=matrix.confidence,
+        endpoint=matrix.endpoint,
     )
 
 CATEGORY_ALIASES = {
@@ -881,6 +882,11 @@ def _contract_route_from_input(
 
 
 def _route_method_path_from_matrix(matrix: TestMatrix) -> tuple[str | None, str]:
+    if matrix.endpoint:
+        method = matrix.endpoint.get("method")
+        path = matrix.endpoint.get("path")
+        if path:
+            return (str(method).upper() if method else None, str(path))
     for group in matrix.groups:
         for test in group.tests:
             method = test.method or (test.request or {}).get("method")
@@ -899,6 +905,25 @@ def _request_body_example_without_field(route_contract: ApiRouteContract, missin
             continue
         payload[key] = prop.example if prop.example is not None else _example_for_schema_type(prop.type)
     return payload
+
+
+def _request_body_value_hint(
+    test: IntegrationTestSuggestion,
+    *,
+    route_contract: ApiRouteContract | None,
+    body_shape: dict[str, Any] | None,
+) -> Any:
+    request = test.request or {}
+    if request.get("raw_body") is not None:
+        return body_shape
+    body = request.get("body")
+    if isinstance(body, dict) and body:
+        return body
+    if _canonical_test_category(test.category) == "positive" and route_contract is not None:
+        materialized = _request_body_example(route_contract)
+        if materialized:
+            return materialized
+    return body_shape
 
 
 def _has_body_ref(test: IntegrationTestSuggestion, field: str, *tokens: str) -> bool:
@@ -1076,11 +1101,27 @@ def clean_test_matrix(
         if route_contract is not None:
             success_status = _preferred_success_status(method, route_contract)
             success_ref = f"responses.{success_status}"
+            body = route_contract.request.body
             for test in tests:
                 if _canonical_test_category(test.category) != "positive":
                     continue
                 expected = dict(test.expected or {})
                 expected["status"] = _status_value(success_status)
+                request = dict(test.request or {})
+                request.setdefault("method", (test.method or method or "ANY").upper())
+                request.setdefault("path", test.route or path or "/")
+                if (
+                    body is not None
+                    and request.get("raw_body") is None
+                    and (
+                        "body" not in request
+                        or (isinstance(request.get("body"), dict) and not request.get("body"))
+                    )
+                ):
+                    materialized_body = _request_body_example(route_contract)
+                    if materialized_body:
+                        request["body"] = materialized_body
+                test.request = request
                 test.contract_refs = [
                     ref for ref in test.contract_refs
                     if not str(ref).startswith("responses.")
@@ -1091,7 +1132,6 @@ def clean_test_matrix(
                         test.contract_refs.append(success_ref)
                 test.expected = expected
 
-            body = route_contract.request.body
             if body is not None and body.type == "object":
                 body_shape = {
                     key: (prop.type or "unknown")
@@ -1152,7 +1192,11 @@ def clean_test_matrix(
                     test.inputs.append(
                         TestInputHint(
                             kind="request_body",
-                            value_hint=body_shape,
+                            value_hint=_request_body_value_hint(
+                                test,
+                                route_contract=route_contract,
+                                body_shape=body_shape,
+                            ),
                             required=body_required,
                         )
                     )
@@ -1246,7 +1290,13 @@ def clean_test_matrix(
         notes = list(normalized.notes)
         if route_contract is not None and "test matrix cleaned with deterministic contract-aware quality filters" not in notes:
             notes.append("test matrix cleaned with deterministic contract-aware quality filters")
-        return TestMatrix(groups=groups, notes=notes, coverage=matrix.coverage, confidence=matrix.confidence)
+        return TestMatrix(
+            groups=groups,
+            notes=notes,
+            coverage=matrix.coverage,
+            confidence=matrix.confidence,
+            endpoint=normalized.endpoint,
+        )
     except Exception as exc:  # noqa: BLE001
         fallback = matrix.model_copy(deep=True)
         note = f"test matrix cleanup skipped: {exc}"
@@ -1301,14 +1351,21 @@ def _build_request_from_contract(route_contract: ApiRouteContract, method: str, 
         else:
             request_payload["query"][key] = _example_for_schema_type(prop.type)
     if route_contract.request.body is not None:
-        body: dict[str, Any] = {}
-        for key, prop in route_contract.request.body.properties.items():
-            if prop.example is not None:
-                body[key] = prop.example
-            else:
-                body[key] = _example_for_schema_type(prop.type)
-        request_payload["body"] = body
+        request_payload["body"] = _request_body_example(route_contract)
     return request_payload
+
+
+def _request_body_example(route_contract: ApiRouteContract) -> dict[str, Any]:
+    body = route_contract.request.body
+    if body is None:
+        return {}
+    payload: dict[str, Any] = {}
+    for key, prop in body.properties.items():
+        if prop.example is not None:
+            payload[key] = prop.example
+        else:
+            payload[key] = _example_for_schema_type(prop.type)
+    return payload
 
 
 def _collect_sink_labels(trace_result: TraceResult) -> list[str]:
@@ -1340,7 +1397,13 @@ def generate_contract_aware_test_matrix(
 ) -> TestMatrix:
     """Augment baseline matrix with contract-aware and sink-aware scenarios."""
     if route_contract is None:
-        return normalize_test_matrix(base_matrix)
+        normalized = normalize_test_matrix(base_matrix)
+        if normalized.endpoint is None:
+            normalized.endpoint = {
+                "method": trace_result.target.method or "ANY",
+                "path": trace_result.target.path or "/",
+            }
+        return normalized
 
     method = (trace_result.target.method or route_contract.method or "ANY").upper()
     path = trace_result.target.path
@@ -1648,7 +1711,13 @@ def generate_contract_aware_test_matrix(
     notes = list(base_matrix.notes)
     notes.append("contract-aware scenarios added from inferred API contract and trace sinks")
     return clean_test_matrix(
-        TestMatrix(groups=groups, notes=notes, coverage=base_matrix.coverage, confidence=base_matrix.confidence),
+        TestMatrix(
+            groups=groups,
+            notes=notes,
+            coverage=base_matrix.coverage,
+            confidence=base_matrix.confidence,
+            endpoint=base_matrix.endpoint,
+        ),
         api_contract=route_contract,
         trace_result=trace_result,
     )
@@ -2287,7 +2356,13 @@ def generate_test_matrix(
                 for note in body_notes:
                     if note not in suggestion.notes:
                         suggestion.notes.append(note)
-    base = normalize_test_matrix(TestMatrix(groups=matrix_groups, notes=notes))
+    base = normalize_test_matrix(
+        TestMatrix(
+            groups=matrix_groups,
+            notes=notes,
+            endpoint={"method": method, "path": route},
+        )
+    )
     return generate_contract_aware_test_matrix(
         trace_result=trace_result,
         base_matrix=base,

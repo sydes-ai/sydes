@@ -281,6 +281,7 @@ class TestMatrix(BaseModel):
     notes: list[str] = Field(default_factory=list)
     coverage: float | None = None
     confidence: float | None = None
+    endpoint: dict[str, Any] | None = None
 
 
 class Unknown(BaseModel):

@@ -124,3 +124,59 @@ def test_render_postman_collection_json_is_pretty_json() -> None:
     assert rendered.startswith("{\n")
     payload = json.loads(rendered)
     assert payload["info"]["schema"] == POSTMAN_SCHEMA_URL
+
+
+def test_postman_export_uses_materialized_contract_body() -> None:
+    matrix = SydesTestMatrix.model_validate(
+        {
+            "groups": [
+                {
+                    "category": "positive",
+                    "tests": [
+                        {
+                            "name": "put_clients_contract_happy_path",
+                            "route": "/api/v1/clients/{id}",
+                            "method": "PUT",
+                            "request": {
+                                "method": "PUT",
+                                "path": "/api/v1/clients/{id}",
+                                "body": {"name": "example"},
+                            },
+                        }
+                    ],
+                }
+            ]
+        }
+    )
+
+    collection = format_postman_collection(matrix, route_method="PUT", route_path="/api/v1/clients/{id}")
+    request = collection["item"][0]["item"][0]["request"]
+    assert json.loads(request["body"]["raw"]) == {"name": "example"}
+
+
+def test_postman_export_preserves_malformed_raw_body() -> None:
+    matrix = SydesTestMatrix.model_validate(
+        {
+            "groups": [
+                {
+                    "category": "validation",
+                    "tests": [
+                        {
+                            "name": "put_clients_malformed_json",
+                            "route": "/api/v1/clients/{id}",
+                            "method": "PUT",
+                            "request": {
+                                "method": "PUT",
+                                "path": "/api/v1/clients/{id}",
+                                "raw_body": "{malformed-json",
+                            },
+                        }
+                    ],
+                }
+            ]
+        }
+    )
+
+    collection = format_postman_collection(matrix, route_method="PUT", route_path="/api/v1/clients/{id}")
+    request = collection["item"][0]["item"][0]["request"]
+    assert request["body"]["raw"] == "{malformed-json"

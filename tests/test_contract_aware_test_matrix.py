@@ -58,6 +58,35 @@ def test_contract_required_field_generates_missing_field_validation() -> None:
     assert "request.body.name" in missing.contract_refs
 
 
+def test_contract_happy_path_materializes_request_body_from_contract() -> None:
+    trace = TraceResult(
+        target=TargetSpec(path="/api/v1/clients/{id}", method="PUT"),
+        summary=TraceSummary(confidence=0.8),
+    )
+    contract = ApiRouteContract(
+        method="PUT",
+        path="/api/v1/clients/{id}",
+        request=ApiRequestContract(
+            body=ApiSchema(
+                type="object",
+                required=[],
+                properties={"name": ApiSchemaProperty(type="string", example="example")},
+            )
+        ),
+        responses={"200": ApiResponseContract(status="200", body=ApiSchema(type="object", properties={}, required=[]))},
+    )
+
+    matrix = generate_test_matrix(trace, route_contract=contract)
+    happy = _find_test(matrix, "put_api_v1_clients_id_contract_happy_path")
+    assert happy.request is not None
+    assert happy.request["method"] == "PUT"
+    assert happy.request["path"] == "/api/v1/clients/{id}"
+    assert happy.request["body"] == {"name": "example"}
+    body_hint = next(item.value_hint for item in happy.inputs if item.kind == "request_body")
+    assert body_hint == {"name": "example"}
+    assert matrix.endpoint == {"method": "PUT", "path": "/api/v1/clients/{id}"}
+
+
 def test_contract_email_generates_invalid_email_scenario() -> None:
     trace = TraceResult(target=TargetSpec(path="/items", method="POST"), summary=TraceSummary(confidence=0.8))
     contract = ApiRouteContract(
