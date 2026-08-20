@@ -110,6 +110,44 @@ Cross-Repo Links:
 ```
 This shows that a request to `/goodreads/books` in service2 calls `/db/books` in service1.
 
+## Change verification
+
+Analyze what a backend change actually touches, against a base branch:
+
+```bash
+sydes verify-change --base main
+```
+
+By default the current directory is the changed repo; pass `--repo name=path` to point elsewhere, and repeat it to let Sydes resolve calls that cross a service boundary:
+
+```bash
+sydes verify-change --base main \
+  --repo service2=~/repos/service2 \
+  --repo service1=~/repos/service1
+```
+
+Sydes reports:
+
+- the changed files and the **symbols** the diff hunks actually land in
+- **affected system flows** — the routes and event consumers that reach those symbols, and the databases, outbound clients, and events they reach in turn, each edge carrying the source line it was inferred from
+- **existing verification** — tests located in the repository that exercise the affected routes or reference the changed symbols (located statically; Sydes does not run them)
+- **verification gaps** — system behaviors the change may alter with no located evidence
+- **runtime requirements** — what would have to be running to exercise the flow (Sydes does not provision, mock, or contact anything)
+- **cross-repo impact** — outbound boundaries, resolved to a sibling repo when one is configured
+
+Useful flags:
+
+```bash
+sydes verify-change --base main --json result.json   # structured artifact for CI/PR tooling
+sydes verify-change --base main --no-code-review     # skip the LLM code-findings pass
+sydes verify-change --base main --llm-policy never   # deterministic analysis only, no model calls
+sydes verify-change --base main --verbose            # per-edge evidence and diagnostics
+```
+
+The command runs non-interactively and reads no terminal state, so it works unchanged inside GitHub Actions. `--json` writes the same `ChangeVerificationResult` model the terminal renderer consumes; a run is also saved as a `change_verification` artifact under `~/.sydes/`.
+
+Uncommitted work is included by default so a change can be analyzed before it is committed; pass `--no-working-tree` for committed changes only.
+
 ## What Sydes outputs
 
 - API route → flow reconstruction (what actually happens inside a request)
@@ -178,6 +216,9 @@ Cross-platform binaries should be built on the target OS/architecture (or via CI
 - Framework-specific behavior is not guaranteed in V1.
 - Cross-repo linking currently works for detectable internal API-call patterns and remains shallow.
 - OSS export format is Sydes-native JSON for now; GraphML is not exported yet.
+- `verify-change` attributes changes to symbols for Python and JavaScript/TypeScript only; other languages fall back to the enclosing route declaration region.
+- `verify-change` locates existing tests statically and never executes them, so a `verified` status means "evidence found", not "passing".
+- `verify-change` reports runtime requirements but never provisions, mocks, or contacts them.
 
 ## Roadmap
 

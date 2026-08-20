@@ -7,6 +7,7 @@ import typer
 from sydes.cli.export import export_command
 from sydes.cli.routes import routes_command
 from sydes.cli.trace import trace_command
+from sydes.cli.verify_change import verify_change_command
 
 app = typer.Typer(help="Sydes CLI")
 
@@ -51,6 +52,7 @@ def _main(
 app.command(name="trace")(trace_command)
 app.command(name="routes")(routes_command)
 app.command(name="export")(export_command)
+app.command(name="verify-change")(verify_change_command)
 
 if __name__ == "__main__":
     app()

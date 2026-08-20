@@ -188,7 +188,15 @@ def _extract_spring_routes(repo: str, relative_path: str, text: str) -> list[End
     endpoints: list[EndpointCandidate] = []
     pending_annotations: list[str] = []
     class_prefix = ""
-    method_re = re.compile(r"^\s*(?:public|private|protected)\s+[^\(]*\s+(?P<name>[A-Za-z_]\w*)\s*\(")
+    # Access modifiers are optional: package-private handlers are legal Java and
+    # common in single-file Spring samples. A return type is still required, so
+    # statements such as `return foo(` do not look like declarations.
+    method_re = re.compile(
+        r"^\s*(?:(?:public|private|protected|static|final|abstract|synchronized|default)\s+)*"
+        r"(?P<type>[A-Za-z_][\w.]*(?:\s*<[^>]*>)?(?:\s*\[\s*\])?)\s+"
+        r"(?P<name>[A-Za-z_]\w*)\s*\("
+    )
+    statement_keywords = {"return", "new", "if", "while", "for", "switch", "catch", "throw", "else", "assert"}
 
     for line in lines:
         stripped = line.strip()
@@ -207,6 +215,8 @@ def _extract_spring_routes(repo: str, relative_path: str, text: str) -> list[End
             continue
 
         method_match = method_re.match(stripped)
+        if method_match and method_match.group("type") in statement_keywords:
+            method_match = None
         if pending_annotations and method_match:
             handler = method_match.group("name")
             handler_signature = stripped
