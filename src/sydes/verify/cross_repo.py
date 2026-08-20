@@ -14,8 +14,8 @@ import re
 from sydes.core.models import EvidenceRef
 from sydes.trace.cross_repo import normalize_api_path
 from sydes.verify.models import (
-    VERIFICATION_UNKNOWN,
-    VERIFICATION_VERIFIED,
+    LINK_RESOLVED,
+    LINK_UNRESOLVED,
     AffectedFlow,
     CrossRepoImpact,
 )
@@ -56,7 +56,7 @@ def detect_cross_repo_impacts(
 
             target_repo: str | None = None
             target_label = label
-            status = VERIFICATION_UNKNOWN
+            status = LINK_UNRESOLVED
             reason = "outbound boundary reached by the affected flow; owning repository not configured"
 
             if normalized:
@@ -65,7 +65,7 @@ def detect_cross_repo_impacts(
                         continue
                     target_repo = repo
                     target_label = f"{repo}::{route_label}"
-                    status = VERIFICATION_VERIFIED
+                    status = LINK_RESOLVED
                     reason = f"outbound call path matches route `{route_label}` in repo `{repo}`"
                     break
 
@@ -99,7 +99,7 @@ def detect_cross_repo_impacts(
                 target_repo=node.repo,
                 target_label=node.name,
                 kind="event_consumer",
-                status=VERIFICATION_VERIFIED,
+                status=LINK_RESOLVED,
                 reason="consumer subscribed to an event published by the affected flow",
                 related_flow_ids=[flow.id],
                 evidence=[EvidenceRef(file=node.file or "", symbol=node.name, label="event_consumer")],

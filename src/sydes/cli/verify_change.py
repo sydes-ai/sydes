@@ -57,9 +57,17 @@ def verify_change_command(
         bool,
         typer.Option("--no-working-tree", help="Ignore uncommitted changes; diff committed work only."),
     ] = False,
+    no_run_tests: Annotated[
+        bool,
+        typer.Option("--no-run-tests", help="Map existing tests but do not execute them."),
+    ] = False,
+    test_timeout: Annotated[
+        float,
+        typer.Option("--test-timeout", help="Per-test process timeout in seconds."),
+    ] = 120.0,
     verbose: Annotated[bool, typer.Option("--verbose")] = False,
 ) -> None:
-    """Analyze a code change: affected flows, existing verification, gaps, runtime needs."""
+    """Analyze a change, run the tests that verify it, and report the evidence."""
     try:
         repos = parse_repo_specs(repo or [])
     except ValueError as exc:
@@ -74,6 +82,8 @@ def verify_change_command(
         code_review=not no_code_review,
         llm_policy=llm_policy,
         model_spec=model,
+        run_tests=not no_run_tests,
+        test_timeout_seconds=test_timeout,
     )
 
     try:

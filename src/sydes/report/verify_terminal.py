@@ -9,19 +9,30 @@ GitHub summary can be produced by taking the section headers alone.
 from __future__ import annotations
 
 from sydes.verify.models import (
+    LINK_RESOLVED,
     VERIFICATION_FAILED,
+    VERIFICATION_PASSED,
     VERIFICATION_UNKNOWN,
     VERIFICATION_UNVERIFIED,
-    VERIFICATION_VERIFIED,
     AffectedFlow,
     ChangeVerificationResult,
+    VerificationItem,
 )
 
 _STATUS_MARK = {
-    VERIFICATION_VERIFIED: "✓",
+    VERIFICATION_PASSED: "✓",
     VERIFICATION_FAILED: "✗",
     VERIFICATION_UNVERIFIED: "?",
-    VERIFICATION_UNKNOWN: "-",
+    VERIFICATION_UNKNOWN: "?",
+    LINK_RESOLVED: "✓",
+    "unresolved": "-",
+}
+
+_STATUS_LABEL = {
+    VERIFICATION_PASSED: "PASS",
+    VERIFICATION_FAILED: "FAIL",
+    VERIFICATION_UNVERIFIED: "UNVERIFIED",
+    VERIFICATION_UNKNOWN: "UNKNOWN",
 }
 
 _KIND_LABEL = {
@@ -124,6 +135,65 @@ def _render_flow(flow: AffectedFlow, lines: list[str], *, verbose: bool) -> None
     lines.append("")
 
 
+def _duration(execution) -> str:
+    """Format an execution duration for the terminal."""
+    if execution.duration_ms is None:
+        return ""
+    return f"{execution.duration_ms / 1000:.1f}s"
+
+
+def _render_behavior(item: VerificationItem, lines: list[str], *, verbose: bool) -> None:
+    """Render one affected behavior and the executed evidence behind its state."""
+    mark = _STATUS_MARK.get(item.status, "?")
+    lines.append(f"{mark} {item.name}")
+
+    if not item.tests:
+        lines.append(f"  {_STATUS_LABEL.get(item.status, item.status.upper())}")
+        lines.append(f"  {item.reason or 'No applicable existing verification found'}")
+        lines.append("")
+        return
+
+    executions = {execution.test_id: execution for execution in item.executions}
+    for test in item.tests:
+        execution = executions.get(test.id)
+        if execution is None:
+            lines.append(f"  UNKNOWN  {test.name}")
+            lines.append(f"           {test.file}" + (f":{test.line}" if test.line else ""))
+            continue
+
+        label = _STATUS_LABEL.get(execution.status, execution.status.upper())
+        detail = _duration(execution)
+        if execution.status == VERIFICATION_PASSED:
+            lines.append(f"  {label}  {test.name}")
+            if detail:
+                lines.append(f"        {detail}")
+        elif execution.status == VERIFICATION_FAILED:
+            lines.append(f"  {label}  {test.name}")
+            location = f"{test.file}:{test.line}" if test.line else (test.file or "")
+            lines.append(f"        {location}" + (f"   {detail}" if detail else ""))
+            if execution.failure_summary:
+                lines.append("")
+                lines.append(f"        {execution.failure_summary}")
+        else:
+            lines.append(f"  {label}  {test.name}")
+            if execution.reason:
+                lines.append(f"        {execution.reason}")
+            if execution.blocking_runtime_dependency_ids:
+                names = ", ".join(
+                    entry.split(":")[-1] for entry in execution.blocking_runtime_dependency_ids
+                )
+                lines.append(f"        Runtime dependency: {names}")
+
+        if execution.command:
+            lines.append(f"        $ {execution.command_text}")
+        if execution.granularity != "case":
+            lines.append(f"        granularity: {execution.granularity}")
+        if verbose and execution.stdout_excerpt:
+            for output_line in execution.stdout_excerpt.splitlines()[-12:]:
+                lines.append(f"        | {output_line}")
+    lines.append("")
+
+
 def render_verify_change_terminal(
     result: ChangeVerificationResult,
     *,
@@ -151,8 +221,16 @@ def render_verify_change_terminal(
     lines.append(f"Changed files:         {counts.changed_files}")
     lines.append(f"Changed symbols:       {counts.changed_symbols}")
     lines.append(f"Affected flows:        {counts.affected_flows}")
+    lines.append("")
+    lines.append(f"Affected behaviors:    {counts.affected_behaviors}")
+    lines.append(f"  Passed:              {counts.behaviors_passed}")
+    lines.append(f"  Failed:              {counts.behaviors_failed}")
+    lines.append(f"  Unverified:          {counts.behaviors_unverified}")
+    lines.append(f"  Unknown:             {counts.behaviors_unknown}")
+    lines.append("")
+    lines.append(f"Mapped tests:          {counts.mapped_tests}")
+    lines.append(f"Tests executed:        {counts.tests_executed}")
     lines.append(f"Code findings:         {counts.code_findings}")
-    lines.append(f"Existing verification: {counts.existing_verification}")
     lines.append(f"Verification gaps:     {counts.verification_gaps}")
     lines.append(f"Runtime dependencies:  {counts.runtime_dependencies}")
     if result.summary.risk_reasons:
@@ -206,28 +284,11 @@ def render_verify_change_terminal(
     for flow in result.affected_flows:
         _render_flow(flow, lines, verbose=verbose)
 
-    _section(lines, "EXISTING VERIFICATION")
-    lines.append("  (located statically; Sydes did not execute any tests)")
-    lines.append("")
+    _section(lines, "VERIFICATION")
     if not result.verification:
-        lines.append("  No verification evidence located.")
+        lines.append("  No affected behavior to verify.")
     for item in result.verification:
-        mark = _STATUS_MARK.get(item.status, "-")
-        lines.append(f"  {mark} {item.name}")
-        if item.file:
-            lines.append(f"      {item.file}" + (f":{item.line}" if item.line else ""))
-        if item.covers:
-            lines.append("      Covers:")
-            for entry in item.covers:
-                lines.append(f"      - {entry}")
-        if item.status == VERIFICATION_UNVERIFIED:
-            lines.append("      No applicable verification found")
-        if verbose:
-            for evidence in item.evidence[:3]:
-                lines.append(
-                    f"      evidence: {evidence.label or 'ref'} {evidence.snippet or ''}".rstrip()
-                )
-        lines.append("")
+        _render_behavior(item, lines, verbose=verbose)
 
     _section(lines, "POTENTIAL VERIFICATION GAPS")
     if not result.verification_gaps:

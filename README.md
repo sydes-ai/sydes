@@ -130,10 +130,41 @@ Sydes reports:
 
 - the changed files and the **symbols** the diff hunks actually land in
 - **affected system flows** — the routes and event consumers that reach those symbols, and the databases, outbound clients, and events they reach in turn, each edge carrying the source line it was inferred from
-- **existing verification** — tests located in the repository that exercise the affected routes or reference the changed symbols (located statically; Sydes does not run them)
+- **verification** — for each affected behavior, the existing tests that cover it are **executed**, and the behavior is reported as `passed`, `failed`, `unverified`, or `unknown`
 - **verification gaps** — system behaviors the change may alter with no located evidence
 - **runtime requirements** — what would have to be running to exercise the flow (Sydes does not provision, mock, or contact anything)
 - **cross-repo impact** — outbound boundaries, resolved to a sibling repo when one is configured
+
+### Verification states
+
+| State | Meaning |
+| --- | --- |
+| `passed` | A mapped test was executed and succeeded. |
+| `failed` | A mapped test was executed and failed. |
+| `unverified` | No existing test was found that can verify this behavior. |
+| `unknown` | A test exists but could not be run or interpreted — missing dependency, absent runner, unsupported framework, collection error, or timeout. |
+
+A test being present is never reported as `passed`. Infrastructure problems are
+never reported as `failed`; they become `unknown` with a named blocker, linked
+to the runtime dependency behind them where one was discovered.
+
+The verdict follows directly:
+
+```text
+any behavior failed                       -> ACTION REQUIRED
+anything unverified or unknown            -> VERIFICATION INCOMPLETE
+every affected behavior passed            -> VERIFIED
+```
+
+Only tests already mapped to affected behavior are executed. Sydes targets a
+single case where it can (`pytest tests/test_app.py::test_add_item`), widens to
+the file when it cannot, and records which granularity it achieved. It runs no
+suite-wide command, installs nothing, and loads no `.env` file.
+
+Supported runners: pytest, unittest, jest, mocha, and `node --test` — each only
+when a repository file (`pyproject.toml`, `pytest.ini`, `setup.cfg`,
+`package.json`, …) proves it is configured. An unidentifiable setup is `unknown`,
+never a guessed command.
 
 Useful flags:
 
@@ -141,7 +172,9 @@ Useful flags:
 sydes verify-change --base main --json result.json   # structured artifact for CI/PR tooling
 sydes verify-change --base main --no-code-review     # skip the LLM code-findings pass
 sydes verify-change --base main --llm-policy never   # deterministic analysis only, no model calls
-sydes verify-change --base main --verbose            # per-edge evidence and diagnostics
+sydes verify-change --base main --verbose            # per-edge evidence, runner output, diagnostics
+sydes verify-change --base main --no-run-tests       # map tests but do not execute them
+sydes verify-change --base main --test-timeout 30    # per-test process timeout (default 120s)
 ```
 
 The command runs non-interactively and reads no terminal state, so it works unchanged inside GitHub Actions. `--json` writes the same `ChangeVerificationResult` model the terminal renderer consumes; a run is also saved as a `change_verification` artifact under `~/.sydes/`.
@@ -217,7 +250,8 @@ Cross-platform binaries should be built on the target OS/architecture (or via CI
 - Cross-repo linking currently works for detectable internal API-call patterns and remains shallow.
 - OSS export format is Sydes-native JSON for now; GraphML is not exported yet.
 - `verify-change` attributes changes to symbols for Python and JavaScript/TypeScript only; other languages fall back to the enclosing route declaration region.
-- `verify-change` locates existing tests statically and never executes them, so a `verified` status means "evidence found", not "passing".
+- `verify-change` executes only the tests it already mapped to affected behavior; it never runs the full suite, and a behavior with no mapped test stays `unverified`.
+- Test execution uses a repository virtualenv or `node_modules/.bin` when present and otherwise `python3`; it never installs dependencies, so an unprepared environment yields `unknown`.
 - `verify-change` reports runtime requirements but never provisions, mocks, or contacts them.
 
 ## Roadmap

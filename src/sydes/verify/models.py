@@ -19,18 +19,45 @@ CHANGE_MODIFIED = "modified"
 CHANGE_DELETED = "deleted"
 CHANGE_RENAMED = "renamed"
 
-# Verification evidence states. Deliberately coarse: no invented confidence.
-VERIFICATION_VERIFIED = "verified"
+# Behavior verification states. Deliberately coarse: no invented confidence.
+#
+# `passed`/`failed` require that a mapped test was actually executed. The mere
+# presence of a test is never `passed` — that distinction is the whole point of
+# this stage.
+VERIFICATION_PASSED = "passed"
 VERIFICATION_FAILED = "failed"
 VERIFICATION_UNVERIFIED = "unverified"
 VERIFICATION_UNKNOWN = "unknown"
+
+# Why an execution could not produce a pass/fail answer. Kept separate from
+# status so an infrastructure problem is never reported as a product failure.
+BLOCKER_TIMEOUT = "timeout"
+BLOCKER_MISSING_DEPENDENCY = "missing_dependency"
+BLOCKER_RUNNER_MISSING = "runner_missing"
+BLOCKER_FRAMEWORK_UNSUPPORTED = "framework_unsupported"
+BLOCKER_COLLECTION_ERROR = "collection_error"
+BLOCKER_NO_TESTS_COLLECTED = "no_tests_collected"
+BLOCKER_EXECUTION_DISABLED = "execution_disabled"
+BLOCKER_PROCESS_ERROR = "process_error"
+
+# Cross-repo link resolution states. Kept separate from the behavior
+# verification vocabulary: resolving a call target says nothing about whether
+# the behavior passes.
+LINK_RESOLVED = "resolved"
+LINK_UNRESOLVED = "unresolved"
+
+# How precisely the executed command targets the mapped test.
+GRANULARITY_CASE = "case"
+GRANULARITY_FILE = "file"
+GRANULARITY_SUITE = "suite"
 
 RISK_LOW = "LOW"
 RISK_MEDIUM = "MEDIUM"
 RISK_HIGH = "HIGH"
 
 VERDICT_OK = "OK"
-VERDICT_REVIEW = "REVIEW RECOMMENDED"
+VERDICT_VERIFIED = "VERIFIED"
+VERDICT_INCOMPLETE = "VERIFICATION INCOMPLETE"
 VERDICT_ACTION_REQUIRED = "ACTION REQUIRED"
 
 # Node kinds used in affected system flows.
@@ -116,7 +143,13 @@ class VerificationCounts(BaseModel):
     changed_symbols: int = 0
     affected_flows: int = 0
     code_findings: int = 0
-    existing_verification: int = 0
+    affected_behaviors: int = 0
+    behaviors_passed: int = 0
+    behaviors_failed: int = 0
+    behaviors_unverified: int = 0
+    behaviors_unknown: int = 0
+    mapped_tests: int = 0
+    tests_executed: int = 0
     verification_gaps: int = 0
     runtime_dependencies: int = 0
     cross_repo_impacts: int = 0
@@ -187,20 +220,73 @@ class AffectedFlow(BaseModel):
     notes: list[str] = Field(default_factory=list)
 
 
-class VerificationItem(BaseModel):
-    """Existing verification evidence mapped to affected behavior."""
+class MappedTest(BaseModel):
+    """An existing test that Sydes mapped to an affected behavior."""
 
     id: str
     name: str
-    kind: str = "test"
+    # The raw case identifier the runner needs, kept apart from the display
+    # name so a `Suite :: case` label is never pasted into a command.
+    case_name: str | None = None
+    repo: str | None = None
+    file: str | None = None
+    line: int | None = None
+    suite: str | None = None
+    covers: list[str] = Field(default_factory=list)
+    related_symbols: list[str] = Field(default_factory=list)
+    changed_in_diff: bool = False
+    evidence: list[EvidenceRef] = Field(default_factory=list)
+
+
+class TestExecution(BaseModel):
+    """Result of actually running one mapped test.
+
+    Retains the exact command, so a reported result can be reproduced by hand.
+    """
+
+    # Not a pytest test class, despite the name.
+    __test__ = False
+
+    test_id: str
+    framework: str
+    command: list[str] = Field(default_factory=list)
+    granularity: str = GRANULARITY_CASE
+    status: str = VERIFICATION_UNKNOWN
+    blocker: str | None = None
+    reason: str | None = None
+    exit_code: int | None = None
+    duration_ms: int | None = None
+    stdout_excerpt: str | None = None
+    stderr_excerpt: str | None = None
+    output_truncated: bool = False
+    failure_summary: str | None = None
+    missing_dependency: str | None = None
+    blocking_runtime_dependency_ids: list[str] = Field(default_factory=list)
+    evidence: SourceRef | None = None
+
+    @property
+    def command_text(self) -> str:
+        """The executed command as a copy-pasteable string."""
+        return " ".join(self.command)
+
+
+class VerificationItem(BaseModel):
+    """One affected behavior, its mapped tests, and their execution evidence."""
+
+    id: str
+    name: str
+    kind: str = "behavior"
     repo: str | None = None
     file: str | None = None
     line: int | None = None
     status: str = VERIFICATION_UNKNOWN
+    reason: str | None = None
     covers: list[str] = Field(default_factory=list)
     related_flow_ids: list[str] = Field(default_factory=list)
     related_symbols: list[str] = Field(default_factory=list)
     changed_in_diff: bool = False
+    tests: list[MappedTest] = Field(default_factory=list)
+    executions: list[TestExecution] = Field(default_factory=list)
     evidence: list[EvidenceRef] = Field(default_factory=list)
 
 
@@ -240,7 +326,7 @@ class CrossRepoImpact(BaseModel):
     target_repo: str | None = None
     target_label: str
     kind: str = "http_call"
-    status: str = VERIFICATION_UNKNOWN
+    status: str = LINK_UNRESOLVED
     reason: str | None = None
     related_flow_ids: list[str] = Field(default_factory=list)
     evidence: list[EvidenceRef] = Field(default_factory=list)
@@ -249,7 +335,7 @@ class CrossRepoImpact(BaseModel):
 class ChangeVerificationResult(BaseModel):
     """Top-level `verify-change` artifact."""
 
-    version: str = "v1"
+    version: str = "v2"
     kind: str = "sydes_change_verification"
     generated_at: str | None = None
     change: ChangeSet
@@ -257,6 +343,7 @@ class ChangeVerificationResult(BaseModel):
     code_findings: list[CodeFinding] = Field(default_factory=list)
     affected_flows: list[AffectedFlow] = Field(default_factory=list)
     verification: list[VerificationItem] = Field(default_factory=list)
+    test_executions: list[TestExecution] = Field(default_factory=list)
     verification_gaps: list[VerificationGap] = Field(default_factory=list)
     runtime_dependencies: list[RuntimeDependency] = Field(default_factory=list)
     cross_repo_impacts: list[CrossRepoImpact] = Field(default_factory=list)

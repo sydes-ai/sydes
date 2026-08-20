@@ -5,8 +5,9 @@ repository already has. This module indexes real test files, extracts the case
 names and the routes/symbols each case touches, and maps them onto affected
 flows.
 
-Sydes does not execute tests. A `verified` status here means "existing
-verification was located with direct evidence", never "this passed".
+This module only *locates and maps* tests. It never assigns a passing state:
+mapping produces `unverified` behaviors and their candidate tests, and the
+execution stage is what turns those into `passed`/`failed`/`unknown`.
 """
 
 from __future__ import annotations
@@ -17,10 +18,9 @@ import re
 
 from sydes.core.models import EvidenceRef
 from sydes.verify.models import (
-    VERIFICATION_UNKNOWN,
     VERIFICATION_UNVERIFIED,
-    VERIFICATION_VERIFIED,
     AffectedFlow,
+    MappedTest,
     VerificationItem,
 )
 from sydes.verify.repo_scan import RepoScan, ScannedFile
@@ -197,9 +197,13 @@ def map_existing_verification(
     changed_symbol_names: set[str],
     changed_files: set[str],
 ) -> list[VerificationItem]:
-    """Map located tests onto affected flows, emitting evidence-backed statuses."""
-    items: dict[str, VerificationItem] = {}
-    covered_flow_ids: set[str] = set()
+    """Build one verification item per affected behavior, with its mapped tests.
+
+    Every item starts `unverified`: a located test is a candidate for evidence,
+    not evidence itself. Execution decides the final state.
+    """
+    _ = symbol_index
+    items: list[VerificationItem] = []
 
     flow_symbol_names: dict[str, set[str]] = {}
     flow_routes: dict[str, list[tuple[str | None, str | None]]] = {}
@@ -215,10 +219,13 @@ def map_existing_verification(
         flow_symbol_names[flow.id] = names
         flow_routes[flow.id] = routes
 
-    for case in test_index.cases:
-        for flow in flows:
-            reasons: list[str] = []
-            evidence: list[EvidenceRef] = []
+    for flow in flows:
+        mapped: dict[str, MappedTest] = {}
+        evidence: list[EvidenceRef] = []
+        related_symbols: set[str] = set()
+
+        for case in test_index.cases:
+            reasons: list[EvidenceRef] = []
 
             for method, path in flow_routes.get(flow.id, []):
                 literal = _route_matches(case.route_paths, path)
@@ -226,8 +233,7 @@ def map_existing_verification(
                     continue
                 if method and method != "ANY" and case.methods and method not in case.methods:
                     continue
-                reasons.append(f"requests `{literal}`")
-                evidence.append(
+                reasons.append(
                     EvidenceRef(
                         file=case.file,
                         symbol=case.display_name,
@@ -237,13 +243,10 @@ def map_existing_verification(
                 )
                 break
 
-            direct_symbols = (flow_symbol_names.get(flow.id, set()) & case.identifiers) & (
-                changed_symbol_names or flow_symbol_names.get(flow.id, set())
-            )
             changed_hits = changed_symbol_names & case.identifiers
+            direct_symbols = flow_symbol_names.get(flow.id, set()) & case.identifiers
             if changed_hits:
-                reasons.append("references changed symbol " + ", ".join(sorted(changed_hits)[:3]))
-                evidence.append(
+                reasons.append(
                     EvidenceRef(
                         file=case.file,
                         symbol=case.display_name,
@@ -252,8 +255,7 @@ def map_existing_verification(
                     )
                 )
             elif direct_symbols:
-                reasons.append("references " + ", ".join(sorted(direct_symbols)[:3]))
-                evidence.append(
+                reasons.append(
                     EvidenceRef(
                         file=case.file,
                         symbol=case.display_name,
@@ -265,58 +267,47 @@ def map_existing_verification(
             if not reasons:
                 continue
 
-            covered_flow_ids.add(flow.id)
-            item_id = f"test:{case.file}:{case.name}"
-            existing = items.get(item_id)
-            if existing is None:
-                items[item_id] = VerificationItem(
-                    id=item_id,
-                    name=case.display_name,
-                    kind="test",
-                    repo=case.repo,
-                    file=case.file,
-                    line=case.line,
-                    status=VERIFICATION_VERIFIED,
-                    covers=[_humanize(case.name)],
-                    related_flow_ids=[flow.id],
-                    related_symbols=sorted(changed_hits)[:5],
-                    changed_in_diff=case.file in changed_files,
-                    evidence=evidence,
-                )
-            else:
-                if flow.id not in existing.related_flow_ids:
-                    existing.related_flow_ids.append(flow.id)
-                existing.evidence.extend(
-                    item for item in evidence if item not in existing.evidence
-                )
+            related_symbols.update(changed_hits)
+            evidence.extend(reasons)
+            test_id = f"{case.file}::{case.name}"
+            if test_id in mapped:
+                continue
+            mapped[test_id] = MappedTest(
+                id=test_id,
+                name=case.display_name,
+                case_name=case.name,
+                repo=case.repo,
+                file=case.file,
+                line=case.line,
+                suite=case.suite,
+                covers=[_humanize(case.name)],
+                related_symbols=sorted(changed_hits)[:5],
+                changed_in_diff=case.file in changed_files,
+                evidence=reasons,
+            )
 
-    for flow in flows:
-        if flow.id in covered_flow_ids:
-            continue
-        items[f"unverified:{flow.id}"] = VerificationItem(
-            id=f"unverified:{flow.id}",
-            name=flow.entry_label,
-            kind="flow",
-            repo=flow.repo,
-            status=VERIFICATION_UNVERIFIED,
-            covers=[],
-            related_flow_ids=[flow.id],
-            evidence=[],
+        items.append(
+            VerificationItem(
+                id=f"behavior:{flow.id}",
+                name=flow.entry_label,
+                kind="behavior",
+                repo=flow.repo,
+                status=VERIFICATION_UNVERIFIED,
+                reason=(
+                    None
+                    if mapped
+                    else (
+                        "No test files located in this repository"
+                        if not test_index.files
+                        else "No applicable existing verification found"
+                    )
+                ),
+                covers=sorted({entry for test in mapped.values() for entry in test.covers}),
+                related_flow_ids=[flow.id],
+                related_symbols=sorted(related_symbols)[:5],
+                tests=sorted(mapped.values(), key=lambda item: (item.file or "", item.line or 0)),
+                evidence=evidence,
+            )
         )
 
-    if not test_index.files:
-        items["unknown:no-tests"] = VerificationItem(
-            id="unknown:no-tests",
-            name="No test files located in this repository",
-            kind="repository",
-            repo=test_index.repo,
-            status=VERIFICATION_UNKNOWN,
-        )
-
-    order = {
-        VERIFICATION_VERIFIED: 0,
-        "failed": 1,
-        VERIFICATION_UNVERIFIED: 2,
-        VERIFICATION_UNKNOWN: 3,
-    }
-    return sorted(items.values(), key=lambda item: (order.get(item.status, 9), item.name))
+    return sorted(items, key=lambda item: item.name)

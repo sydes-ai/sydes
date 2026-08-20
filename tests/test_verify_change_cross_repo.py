@@ -101,7 +101,7 @@ def test_outbound_call_matches_a_sibling_repository_route(two_services) -> None:
     )
 
     assert [item.target_repo for item in impacts] == ["service1"]
-    assert impacts[0].status == "verified"
+    assert impacts[0].status == "resolved"
     assert impacts[0].target_label == "service1::GET /db/books"
 
 
@@ -117,7 +117,7 @@ def test_outbound_call_without_a_configured_repo_stays_unresolved(two_services) 
     )
 
     assert [item.target_repo for item in impacts] == [None]
-    assert impacts[0].status == "unknown"
+    assert impacts[0].status == "unresolved"
 
 
 def test_cross_repo_target_becomes_a_runtime_requirement(two_services) -> None:

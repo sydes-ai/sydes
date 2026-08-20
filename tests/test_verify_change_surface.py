@@ -149,7 +149,7 @@ def test_unrelated_symbols_do_not_enter_the_flow(python_service: Path) -> None:
 
 
 def test_existing_tests_map_to_the_affected_route(python_service: Path) -> None:
-    """A test issuing the affected request is located as existing verification."""
+    """A test issuing the affected request is mapped onto the affected behavior."""
     scan, index, _, flows = _analyze(python_service, {"RefundService.retry_refund"})
     verification = map_existing_verification(
         flows=flows,
@@ -159,9 +159,25 @@ def test_existing_tests_map_to_the_affected_route(python_service: Path) -> None:
         changed_files=set(),
     )
 
-    verified = [item for item in verification if item.status == "verified"]
-    assert [item.name for item in verified] == ["test_refund_endpoint"]
-    assert verified[0].evidence[0].label == "test_requests_route"
+    assert [item.name for item in verification] == ["POST /refund"]
+    behavior = verification[0]
+    assert [test.case_name for test in behavior.tests] == ["test_refund_endpoint"]
+    assert behavior.evidence[0].label == "test_requests_route"
+
+
+def test_mapping_never_reports_a_behavior_as_passed(python_service: Path) -> None:
+    """Locating a test is not evidence that it passes; execution decides that."""
+    scan, index, _, flows = _analyze(python_service, {"RefundService.retry_refund"})
+    verification = map_existing_verification(
+        flows=flows,
+        test_index=build_test_index(scan),
+        symbol_index=index,
+        changed_symbol_names={"retry_refund"},
+        changed_files=set(),
+    )
+
+    assert verification[0].tests
+    assert verification[0].status == "unverified"
 
 
 def test_flow_without_any_test_is_reported_unverified(python_service: Path) -> None:
