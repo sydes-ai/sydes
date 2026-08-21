@@ -223,9 +223,13 @@ def _to_candidate(symbol: dict) -> dict:
     return {
         "qualified_name": symbol.get("qualified_name") or symbol.get("name"),
         "kind": symbol.get("kind"),
+        # Carried through so downstream slicing knows how the body is delimited
+        # rather than assuming one language family.
+        "language": symbol.get("language"),
         "file": symbol.get("file"),
         "line": symbol.get("line"),
         "start_line": symbol.get("start_line"),
+        "body_start_line": symbol.get("body_start_line"),
         "end_line": symbol.get("end_line"),
         "static": symbol.get("static"),
         "async": symbol.get("async"),

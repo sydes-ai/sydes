@@ -20,7 +20,10 @@ from sydes.core.models import (
     TraceStep,
 )
 from sydes.ingest.inventory import build_repo_inventory
-from sydes.ingest.readers import read_text_file_for_flow_expansion
+from sydes.ingest.readers import (
+    read_complete_source_for_parsing,
+    read_text_file_for_flow_expansion,
+)
 from sydes.llm.client import (
     LLMClient,
     LLMClientError,
@@ -345,8 +348,15 @@ def _merge_steps(
 def _extract_python_handler_baseline(
     matched_endpoint: EndpointCandidate,
     context: FlowExpansionContext,
+    repo_root: str | None = None,
 ) -> tuple[list[TraceStep], list[SinkCandidate], list[str]]:
-    """Extract deterministic flow evidence from Python handler code in the anchor file."""
+    """Extract deterministic flow evidence from Python handler code in the anchor file.
+
+    Parsing reads the complete file: the bounded context read exists to size an
+    LLM prompt, and a file cut at a line boundary is generally not valid Python.
+    Every failure path emits a diagnostic so an extraction problem is never
+    indistinguishable from a handler that genuinely does nothing.
+    """
     notes: list[str] = []
     anchor = next(
         (
@@ -357,16 +367,42 @@ def _extract_python_handler_baseline(
         None,
     )
     if anchor is None or anchor.read is None or anchor.read.skipped or anchor.read.snippet is None:
+        notes.append(f"handler_body_unavailable: anchor file {context.anchor_file} could not be read.")
         return [], [], notes
 
     source = anchor.read.snippet.text
-    try:
-        tree = ast.parse(source)
-    except SyntaxError:
-        return [], [], notes
+    truncated = bool(anchor.read.snippet.truncated)
+    if repo_root is not None:
+        complete = read_complete_source_for_parsing(
+            repo=context.anchor_repo,
+            repo_root=repo_root,
+            relative_path=context.anchor_file,
+        )
+        if complete.snippet is not None and not complete.skipped:
+            source = complete.snippet.text
+            truncated = bool(complete.snippet.truncated)
+        else:
+            notes.append(
+                f"handler_body_unavailable: complete source for {context.anchor_file} "
+                f"could not be read ({complete.skip_reason or 'unknown reason'})."
+            )
+    elif truncated:
+        notes.append(
+            f"handler_body_unavailable: only a truncated read of {context.anchor_file} was available."
+        )
 
     handler_name = (matched_endpoint.handler or "").strip()
     if not handler_name:
+        notes.append("handler_body_unavailable: matched endpoint carries no handler symbol.")
+        return [], [], notes
+
+    try:
+        tree = ast.parse(source)
+    except SyntaxError as exc:
+        notes.append(
+            f"python_parse_failed: {context.anchor_file} line {exc.lineno}: {exc.msg}"
+            + (" (source was truncated by a read budget)" if truncated else "")
+        )
         return [], [], notes
 
     handler_node: ast.FunctionDef | ast.AsyncFunctionDef | None = None
@@ -375,6 +411,9 @@ def _extract_python_handler_baseline(
             handler_node = node
             break
     if handler_node is None:
+        notes.append(
+            f"handler_body_unavailable: handler '{handler_name}' was not found in {context.anchor_file}."
+        )
         return [], [], notes
 
     repo = matched_endpoint.repo
@@ -1232,6 +1271,7 @@ def run_flow_expansion(
     baseline_steps, baseline_sinks, baseline_notes = _extract_python_handler_baseline(
         matched_endpoint,
         context,
+        repo_root=_repo_root_map(repos).get(matched_endpoint.repo),
     )
     notes.extend(baseline_notes)
 

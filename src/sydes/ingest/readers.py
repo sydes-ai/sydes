@@ -20,6 +20,11 @@ FLOW_EXPANSION_MAX_FILE_SIZE_BYTES = 180_000
 FLOW_EXPANSION_MAX_READ_BYTES = 6_000
 FLOW_EXPANSION_MAX_READ_CHARS = 3_500
 FLOW_EXPANSION_MAX_READ_LINES = 90
+# Budget for reads that feed a parser rather than a prompt. Large enough that a
+# real source file arrives intact; still bounded so a pathological file cannot
+# be loaded without limit.
+PARSE_MAX_FILE_SIZE_BYTES = 2_000_000
+PARSE_MAX_READ_LINES = 50_000
 DETERMINISTIC_ROUTE_MAX_FILE_SIZE_BYTES = 2_000_000
 DETERMINISTIC_ROUTE_MAX_READ_BYTES = 2_000_000
 DETERMINISTIC_ROUTE_MAX_READ_CHARS = 2_000_000
@@ -204,6 +209,31 @@ def read_ranked_candidate_files_for_discovery(
         max_read_bytes=DISCOVERY_MAX_READ_BYTES,
         max_read_chars=DISCOVERY_MAX_READ_CHARS,
         max_read_lines=DISCOVERY_MAX_READ_LINES,
+    )
+
+
+def read_complete_source_for_parsing(
+    repo: str,
+    repo_root: Path | str,
+    relative_path: str,
+    *,
+    max_file_size_bytes: int = PARSE_MAX_FILE_SIZE_BYTES,
+) -> CandidateFileRead:
+    """Read a file whole, for consumers that need a complete syntactic unit.
+
+    Deterministic parsers require valid source: a positionally truncated file is
+    not a smaller program, it is an invalid one. This read is therefore bounded
+    only by a file-size sanity limit, and is deliberately separate from the
+    smaller budgets used to build bounded evidence and prompt context.
+    """
+    return read_text_file_safely(
+        repo=repo,
+        repo_root=repo_root,
+        relative_path=relative_path,
+        max_file_size_bytes=max_file_size_bytes,
+        max_read_bytes=max_file_size_bytes,
+        max_read_chars=max_file_size_bytes,
+        max_read_lines=PARSE_MAX_READ_LINES,
     )
 
 

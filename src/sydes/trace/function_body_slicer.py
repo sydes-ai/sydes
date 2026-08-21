@@ -73,9 +73,47 @@ def _detect_signals(statement_text: str) -> list[str]:
         signals.append("sql_literal")
     if "await " in text:
         signals.append("await_call")
-    if any(token in text for token in ("db.query", ".query(", ".insert", ".update", ".delete", ".save", ".create", ".find")):
+    # Same existing category, widened with the session/unit-of-work idioms that
+    # express persistence in Python, alongside the ORM idioms already listed.
+    if any(
+        token in text
+        for token in (
+            "db.query",
+            ".query(",
+            ".insert",
+            ".update",
+            ".delete",
+            ".save",
+            ".create",
+            ".find",
+            ".add(",
+            ".commit(",
+            ".flush(",
+            ".refresh(",
+            ".execute(",
+        )
+    ):
         signals.append("possible_db_call")
-    if any(token in text for token in ("upload", "fetch(", "axios.", "request(", "s3", "queue", "publish", "sendemail")):
+    # Same existing category, widened with the Python equivalents of the client
+    # idioms already listed for brace languages. No new sink kind is introduced.
+    if any(
+        token in text
+        for token in (
+            "upload",
+            "fetch(",
+            "axios.",
+            "request(",
+            "s3",
+            "queue",
+            "publish",
+            "sendemail",
+            "requests.",
+            "httpx.",
+            "aiohttp",
+            "urlopen",
+            "urllib.request",
+        )
+    ):
         signals.append("possible_external_call")
     if any(token in text for token in ("res.status", "res.send", "res.json", "return ")):
         signals.append("response_return")
@@ -109,8 +147,17 @@ def _confidence_for(signals: list[str], text: str) -> float:
     return 0.5
 
 
-def split_statements(lines: list[str], body_start_line: int) -> list[dict]:
-    """Split function body into coarse ordered statements with line numbers."""
+def split_statements(
+    lines: list[str], body_start_line: int, *, language: str | None = None
+) -> list[dict]:
+    """Split function body into coarse ordered statements with line numbers.
+
+    Statement termination differs by language: brace languages end a statement
+    at `;`, while an indentation-delimited language ends one at a newline whose
+    brackets are balanced. Defaulting `language` to None preserves the original
+    brace-language behaviour exactly.
+    """
+    newline_terminated = (language or "").lower() == "python"
     statements: list[dict] = []
     buf: list[str] = []
     stmt_start = None
@@ -213,6 +260,11 @@ def split_statements(lines: list[str], body_start_line: int) -> list[dict]:
             elif ch == ";" and paren == 0 and bracket == 0 and brace == 0:
                 flush(line_no)
 
+        if newline_terminated and paren == 0 and bracket == 0 and brace == 0:
+            if not stripped.endswith("\\"):
+                flush(line_no)
+            continue
+
         if (
             paren == 0
             and bracket == 0
@@ -262,8 +314,21 @@ def slice_resolved_handler_body(
     if end_line is None or end_line <= start_line:
         return None
 
-    body_lines = lines[start_line:end_line - 1]
-    statements = split_statements(body_lines, start_line + 1)
+    # A brace-delimited language reports the closing brace as `end_line`, which
+    # is not part of the body; an indentation-delimited one reports the last
+    # body line itself. Slice accordingly so neither loses a statement.
+    normalized_language = (language or "").lower()
+    body_end = end_line if normalized_language == "python" else end_line - 1
+    # An adapter that knows where the body starts (because it parsed the file)
+    # is authoritative; otherwise assume the line after the declaration.
+    declared_body_start = symbol.get("body_start_line")
+    body_start = (
+        declared_body_start
+        if isinstance(declared_body_start, int) and start_line < declared_body_start <= end_line
+        else start_line + 1
+    )
+    body_lines = lines[body_start - 1 : body_end]
+    statements = split_statements(body_lines, body_start, language=normalized_language)
     if not statements:
         return None
 

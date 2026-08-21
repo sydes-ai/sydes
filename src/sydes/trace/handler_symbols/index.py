@@ -13,6 +13,7 @@ from sydes.ingest.file_roles import (
 )
 from sydes.trace.handler_symbols.common import HandlerSymbolExtractor
 from sydes.trace.handler_symbols.js_ts import JsTsHandlerSymbolExtractor
+from sydes.trace.handler_symbols.python import PythonHandlerSymbolExtractor
 
 _MAX_FILE_SIZE = 2_000_000
 
@@ -49,8 +50,8 @@ def _should_include(relative_path: str, preferred_dirs: set[str]) -> bool:
 
 
 def _extractor_registry() -> list[HandlerSymbolExtractor]:
-    # Future adapters can be added here (python/java/go/csharp/ruby/php/kotlin).
-    return [JsTsHandlerSymbolExtractor()]
+    # Future adapters can be added here (java/go/csharp/ruby/php/kotlin).
+    return [JsTsHandlerSymbolExtractor(), PythonHandlerSymbolExtractor()]
 
 
 def _extractor_by_extension() -> dict[str, HandlerSymbolExtractor]:
@@ -93,7 +94,11 @@ def build_handler_symbol_index(repo: RepoRef) -> dict:
             role = classify_candidate_file_role(rel)
             if role != FILE_ROLE_SOURCE_ROUTE_CANDIDATE:
                 continue
-            if not _should_include(rel, preferred_dirs):
+            # Repository-root modules are always indexed: entrypoints and shared
+            # data-access modules commonly live there, and they are frequent
+            # call targets from handlers in route directories.
+            at_repo_root = str(Path(rel).parent) == "."
+            if not at_repo_root and not _should_include(rel, preferred_dirs):
                 continue
             try:
                 if path.stat().st_size > _MAX_FILE_SIZE:

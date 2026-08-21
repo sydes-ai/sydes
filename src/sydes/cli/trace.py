@@ -676,7 +676,7 @@ def trace_command(
                         repo_root=repo_root_path,
                         handler_name=handler_item.get("normalized_handler") or handler_item.get("handler_hint") or "handler",
                         symbol=symbol,
-                        language=str(symbol.get("language") or "typescript"),
+                        language=str(symbol.get("language") or "unknown"),
                     )
                     if slice_payload is not None:
                         slices.append(slice_payload)
