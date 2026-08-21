@@ -111,13 +111,13 @@ def test_verify_change_writes_json_artifact(service_repo: Path, tmp_path: Path) 
         "summary",
         "code_findings",
         "affected_flows",
-        "verification",
-        "verification_gaps",
+        "analysis_status",
+        "test_executions",
         "runtime_dependencies",
         "cross_repo_impacts",
     }
     parsed = ChangeVerificationResult.model_validate(payload)
-    assert parsed.affected_flows[0].entry_label == "POST /refund"
+    assert parsed.affected_flows[0].entry_label.endswith("/refund")
     assert parsed.summary.counts.changed_symbols == 1
 
 
@@ -130,7 +130,7 @@ def test_verify_change_handles_no_changes(service_repo: Path) -> None:
 
     assert result.exit_code == 0, result.output
     assert "No changes against main." in result.output
-    assert "Verdict: OK" in result.output
+    assert "Verdict:  OK" in result.output
 
 
 def test_verify_change_reports_git_errors_cleanly(service_repo: Path) -> None:
@@ -158,23 +158,18 @@ def test_verify_change_rejects_non_repository(tmp_path: Path) -> None:
     assert "Not a git repository" in result.output
 
 
-def test_no_code_review_skips_the_findings_pass(service_repo: Path, monkeypatch) -> None:
-    """`--no-code-review` records the skip and never calls a model."""
-    _apply_service_change(service_repo)
+def test_code_findings_are_opt_in_and_advisory(service_repo: Path, monkeypatch) -> None:
+    """Findings do not run by default and never enter the verdict."""
 
     def _fail(*_args, **_kwargs):
-        raise AssertionError("code findings pass should not run")
+        raise AssertionError("code findings pass should not run by default")
 
-    monkeypatch.setattr("sydes.verify.analyzer.generate_code_findings", _fail)
-    monkeypatch.setattr(
-        "sydes.verify.analyzer.generate_verification_gaps",
-        lambda **_kwargs: ([], []),
-    )
+    monkeypatch.setattr("sydes.verify.llm_findings.generate_code_findings", _fail)
 
     result = runner.invoke(
         app,
-        ["verify-change", "--base", "main", "--no-code-review", "--repo", f"svc={service_repo}"],
+        ["verify-change", "--base", "main", "--llm-policy", "never", "--repo", f"svc={service_repo}"],
     )
 
     assert result.exit_code == 0, result.output
-    assert "code_findings=skipped" in result.output
+    assert "CODE FINDINGS" not in result.output

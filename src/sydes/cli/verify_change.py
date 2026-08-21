@@ -33,9 +33,12 @@ def verify_change_command(
         Path | None,
         typer.Option("--json", help="Write the verification result artifact to this path."),
     ] = None,
-    no_code_review: Annotated[
+    code_review: Annotated[
         bool,
-        typer.Option("--no-code-review", help="Skip the LLM code-findings pass."),
+        typer.Option(
+            "--code-review",
+            help="Run the advisory LLM code-findings pass (off by default; never affects the verdict).",
+        ),
     ] = False,
     llm_policy: Annotated[
         Literal["auto", "never"],
@@ -79,7 +82,7 @@ def verify_change_command(
     options = VerifyChangeOptions(
         base=base,
         include_working_tree=not no_working_tree,
-        code_review=not no_code_review,
+        code_review=code_review,
         llm_policy=llm_policy,
         model_spec=model,
         run_tests=not no_run_tests,

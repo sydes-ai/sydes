@@ -1,37 +1,60 @@
 """Orchestration for `sydes verify-change`.
 
-Pipeline:
+This module owns change attribution and verification semantics. It owns no
+system understanding: routes, handlers, call paths, sinks, contracts, and test
+matrices all come from the shared Sydes discovery and trace stack, called here
+in a different order (many routes reached from a diff, rather than one route
+named on the command line).
 
-    git diff -> changed files/symbols
-              -> Sydes structural intelligence (symbols, calls, routes, events)
-              -> affected system flows
-              -> mapped existing tests
-              -> test execution
-              -> behavior verification state
-              -> verification gaps
-              -> runtime requirements
-
-The analyzer produces a `ChangeVerificationResult` and nothing else. It depends
-on no terminal state, so it runs identically in CI.
+    git diff                    verify/git_change
+      -> changed symbols        shared handler symbol index
+      -> reverse reachability   local index over shared symbols
+      -> routes                 discover_endpoints
+      -> route target           resolve_trace_target
+      -> handler + call path    resolve_handler_reference / slice / call follower
+      -> steps + sinks          build_layered_trace_contract
+      -> contract + matrix      build_api_contract_from_routes / generate_test_matrix
+      -> obligations            verify/obligations
+      -> mapped tests           verify/test_mapping
+      -> executions             verify/test_execution
+      -> verdict                conservative aggregation, here
 """
 
 from __future__ import annotations
 
+from collections import defaultdict
+import re
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
-from sydes.core.models import RepoRef
-from sydes.llm.client import LLMClient, LLMClientError
-from sydes.verify.cross_repo import detect_cross_repo_impacts
-from sydes.verify.events import detect_event_signals
-from sydes.verify.git_change import read_unified_diff, resolve_change_set
-from sydes.verify.llm_findings import (
-    build_change_context,
-    generate_code_findings,
-    generate_verification_gaps,
+from sydes.core.graph import build_graph_from_inferred_flow
+from sydes.core.models import (
+    ApiRouteContract,
+    EndpointCandidate,
+    RepoRef,
+    TargetSpec,
+    TraceResult,
+    TraceSummary,
 )
+from sydes.discover.endpoints import discover_endpoints
+from sydes.discover.target_match import resolve_trace_target
+from sydes.generate.contracts import build_api_contract_from_routes
+from sydes.generate.tests import generate_test_matrix, match_route_contract
+from sydes.llm.client import LLMClient
+from sydes.trace.call_follower import CallFollowBudgets, build_layered_trace_expansion
+from sydes.trace.expand import prepare_flow_expansion_context, run_flow_expansion
+from sydes.trace.function_body_slicer import slice_resolved_handler_body
+from sydes.trace.handler_resolver import resolve_handler_reference
+from sydes.trace.handler_symbol_index import build_handler_symbol_index_batch
+from sydes.trace.layered_contract import build_layered_trace_contract
+from sydes.trace.sinks import normalize_sink_candidates
+from sydes.verify.git_change import resolve_change_set
 from sydes.verify.models import (
+    ANALYSIS_COMPLETE,
+    ANALYSIS_PARTIAL,
+    ANALYSIS_UNKNOWN,
     BLOCKER_EXECUTION_DISABLED,
     BLOCKER_MISSING_DEPENDENCY,
     CHANGE_ADDED,
@@ -47,20 +70,35 @@ from sydes.verify.models import (
     VERIFICATION_PASSED,
     VERIFICATION_UNKNOWN,
     VERIFICATION_UNVERIFIED,
+    AffectedFlow,
     ChangedSymbol,
     ChangeSummary,
     ChangeVerificationResult,
     RuntimeDependency,
+    SourceRef,
     TestExecution,
     VerificationCounts,
-    VerificationItem,
+    VerificationObligation,
 )
-from sydes.verify.repo_scan import scan_repository
+from sydes.verify.obligations import derive_obligations
 from sydes.verify.runtime import infer_runtime_dependencies
-from sydes.verify.surface import FlowBuilder, build_system_surface
+from sydes.verify.source_files import load_repo_files
 from sydes.verify.test_execution import ExecutionSettings, execute_mapped_tests
-from sydes.verify.symbol_index import build_symbol_index
-from sydes.verify.test_index import build_test_index, map_existing_verification
+from sydes.verify.test_index import build_test_index
+from sydes.verify.test_mapping import map_tests_to_obligation
+
+MAX_FLOWS = 12
+
+# Shared-trace diagnostics that mean "analysis was incomplete", not "nothing
+# downstream exists". Treating these as absence is the mistake this guards.
+_PARTIAL_ANALYSIS_MARKERS = (
+    "python_parse_failed",
+    "handler_body_unavailable",
+    "unresolved_call",
+    "composition is unresolved",
+    "could not be resolved",
+    "truncated",
+)
 
 
 @dataclass(slots=True)
@@ -69,82 +107,481 @@ class VerifyChangeOptions:
 
     base: str = "main"
     include_working_tree: bool = True
-    code_review: bool = True
+    code_review: bool = False
     llm_policy: str = "auto"
     model_spec: str | None = None
     llm_client: LLMClient | None = None
-    max_scan_files: int = 8_000
     run_tests: bool = True
     test_timeout_seconds: float = 120.0
     diagnostics: list[str] = field(default_factory=list)
 
 
-def _attribute_symbols(change, index) -> list[ChangedSymbol]:
-    """Attribute diff hunks to indexed symbols, avoiding whole-file blast radius."""
+# --------------------------------------------------------------------------
+# Change attribution — the verifier's own job
+# --------------------------------------------------------------------------
+
+
+def _symbols_by_file(handler_index: dict) -> dict[str, list[dict]]:
+    """Index shared handler-symbol records by file."""
+    by_file: dict[str, list[dict]] = defaultdict(list)
+    for repo_index in handler_index.get("repos", []) or []:
+        for file_item in repo_index.get("files", []) or []:
+            by_file[file_item.get("path", "")].extend(file_item.get("symbols", []) or [])
+    return by_file
+
+
+def attribute_changed_symbols(change, handler_index: dict) -> list[ChangedSymbol]:
+    """Attribute diff hunks to symbols from the shared handler-symbol index."""
+    by_file = _symbols_by_file(handler_index)
     changed: dict[str, ChangedSymbol] = {}
 
     for changed_file in change.files:
         if changed_file.change_type == CHANGE_DELETED or changed_file.binary:
             continue
-
-        file_symbols = index.symbols_in_file(changed_file.path)
-        if not file_symbols:
+        candidates = by_file.get(changed_file.path, [])
+        if not candidates:
             continue
 
-        if changed_file.change_type == CHANGE_ADDED:
-            targets = [(symbol, symbol.end_line - symbol.start_line + 1) for symbol in file_symbols]
-        else:
-            hits: dict[str, int] = {}
-            for hunk in changed_file.hunks:
-                for line in range(hunk.start_line, hunk.end_line + 1):
-                    symbol = index.symbol_at(changed_file.path, line)
-                    if symbol is None:
-                        continue
-                    hits[symbol.id] = hits.get(symbol.id, 0) + 1
-            targets = [
-                (index.symbols[symbol_id], count)
-                for symbol_id, count in hits.items()
-                if symbol_id in index.symbols
-            ]
+        def _overlaps(symbol: dict) -> int:
+            start = symbol.get("start_line")
+            end = symbol.get("end_line") or start
+            if not isinstance(start, int) or not isinstance(end, int):
+                return 0
+            if changed_file.change_type == CHANGE_ADDED:
+                return end - start + 1
+            return sum(
+                1
+                for hunk in changed_file.hunks
+                for line in range(hunk.start_line, hunk.end_line + 1)
+                if start <= line <= end
+            )
 
-        for symbol, changed_lines in targets:
-            if symbol.kind == "class" and any(
-                other.class_name == symbol.name for other, _ in targets
-            ):
-                # Prefer the specific method over its enclosing class.
+        hits = [(symbol, _overlaps(symbol)) for symbol in candidates]
+        hits = [(symbol, count) for symbol, count in hits if count > 0]
+        method_parents = {
+            symbol.get("parent") for symbol, _ in hits if symbol.get("kind") == "class_method"
+        }
+
+        for symbol, count in hits:
+            # Prefer the specific method over its enclosing class.
+            if symbol.get("kind") == "class" and symbol.get("name") in method_parents:
                 continue
-            record = changed.get(symbol.id)
+            name = str(symbol.get("name") or "")
+            qualified = str(symbol.get("qualified_name") or name)
+            identifier = f"{changed_file.repo}:{changed_file.path}:{qualified}"
+            record = changed.get(identifier)
             if record is None:
-                changed[symbol.id] = ChangedSymbol(
-                    id=symbol.id,
-                    repo=symbol.repo,
-                    file=symbol.file,
-                    name=symbol.name,
-                    qualified_name=symbol.qualified_name,
-                    kind=symbol.kind,
-                    language=symbol.language,
-                    start_line=symbol.start_line,
-                    end_line=symbol.end_line,
+                changed[identifier] = ChangedSymbol(
+                    id=identifier,
+                    repo=changed_file.repo,
+                    file=changed_file.path,
+                    name=name,
+                    qualified_name=qualified,
+                    kind=str(symbol.get("kind") or "function"),
+                    language=str(symbol.get("language") or ""),
+                    start_line=symbol.get("start_line"),
+                    end_line=symbol.get("end_line"),
                     change_type=changed_file.change_type,
-                    changed_lines=changed_lines,
-                    decorators=list(symbol.decorators),
+                    changed_lines=count,
+                    decorators=[str(item) for item in symbol.get("decorators", []) or []],
                 )
             else:
-                record.changed_lines += changed_lines
-            changed_file.symbols.append(symbol.id)
+                record.changed_lines += count
+            changed_file.symbols.append(identifier)
 
-    return sorted(changed.values(), key=lambda item: (item.file, item.start_line))
+    return sorted(changed.values(), key=lambda item: (item.file, item.start_line or 0))
+
+
+def build_reverse_reach_index(handler_index: dict) -> dict[str, set[str]]:
+    """Map a symbol name to the files that import or call it.
+
+    The shared stack follows calls forward from a known handler. Selecting which
+    routes a diff can reach needs the opposite direction, so this small index is
+    built over the shared symbol records rather than a second parse.
+    """
+    reachers: dict[str, set[str]] = defaultdict(set)
+    for repo_index in handler_index.get("repos", []) or []:
+        for file_item in repo_index.get("files", []) or []:
+            path = file_item.get("path", "")
+            for entry in file_item.get("imports", []) or []:
+                resolved = entry.get("resolved_file")
+                if resolved:
+                    reachers[resolved].add(path)
+                imported = entry.get("imported")
+                if isinstance(imported, str):
+                    reachers[imported].add(path)
+    return reachers
+
+
+def _candidate_route_files(
+    change, changed_symbols: list[ChangedSymbol], reachers: dict[str, set[str]]
+) -> set[str]:
+    """Files that may declare a route reaching the change, via reverse closure."""
+    frontier = {item.path for item in change.files}
+    seen: set[str] = set()
+    for _ in range(4):
+        added: set[str] = set()
+        for path in frontier:
+            for reacher in reachers.get(path, set()):
+                if reacher not in seen:
+                    added.add(reacher)
+        seen |= frontier
+        if not added:
+            break
+        frontier = added
+    seen |= frontier
+    seen |= {item.file for item in changed_symbols}
+    return seen
+
+
+# --------------------------------------------------------------------------
+# Shared-stack trace of one route
+# --------------------------------------------------------------------------
+
+
+def _analysis_status_from(notes: list[str]) -> tuple[str, list[str]]:
+    """Classify how complete the shared analysis was, from its own diagnostics."""
+    hits = [
+        note
+        for note in notes
+        if any(marker in note.lower() for marker in _PARTIAL_ANALYSIS_MARKERS)
+    ]
+    if not hits:
+        return ANALYSIS_COMPLETE, []
+    return ANALYSIS_PARTIAL, hits[:6]
+
+
+def _files_of(handler_index: dict, repo: str, path: str) -> list[dict]:
+    """Return the shared index record for one file, if it was indexed."""
+    for repo_index in handler_index.get("repos", []) or []:
+        if repo_index.get("repo") != repo:
+            continue
+        return [
+            item for item in repo_index.get("files", []) or [] if item.get("path") == path
+        ]
+    return []
+
+
+def _trace_route(
+    *,
+    endpoint: EndpointCandidate,
+    repos: list[RepoRef],
+    handler_index: dict,
+    options: VerifyChangeOptions,
+) -> tuple[dict, list[str]]:
+    """Run the shared trace machinery for one endpoint."""
+    notes: list[str] = []
+    repo_index = next(
+        (
+            item
+            for item in handler_index.get("repos", []) or []
+            if item.get("repo") == endpoint.repo
+        ),
+        {},
+    )
+    resolution = resolve_handler_reference(endpoint, repo_index)
+    primary = resolution.get("primary_handler") or {}
+    symbol = primary.get("symbol")
+
+    repo_root = next(
+        (Path(item.root) for item in repos if item.name == endpoint.repo), None
+    )
+    primary_slice = None
+    layered_expansion = None
+    if symbol is not None and repo_root is not None:
+        primary_slice = slice_resolved_handler_body(
+            repo_root=repo_root,
+            handler_name=primary.get("normalized_handler") or endpoint.handler or "handler",
+            symbol=symbol,
+            language=str(symbol.get("language") or "unknown"),
+        )
+        if primary_slice is None:
+            notes.append(
+                f"handler_body_unavailable: no body slice for {endpoint.handler} in {symbol.get('file')}"
+            )
+        else:
+            layered_expansion = build_layered_trace_expansion(
+                repo_root=repo_root,
+                matched_endpoint=endpoint.model_dump(),
+                resolution=resolution,
+                primary_slice=primary_slice,
+                repo_index=repo_index,
+                budgets=CallFollowBudgets(),
+            )
+            known_symbols = {
+                str(symbol.get("name") or "")
+                for file_item in repo_index.get("files", []) or []
+                for symbol in file_item.get("symbols", []) or []
+            }
+            for item in layered_expansion.get("unresolved_calls", []) or []:
+                call = str(item.get("call") or "")
+                leaf = call.rsplit(".", 1)[-1]
+                # A name the repository never defines was never resolvable —
+                # that is an attribute on a local, not incomplete analysis.
+                if leaf not in known_symbols:
+                    continue
+                notes.append(f"unresolved_call: {call} ({item.get('reason')})")
+    elif symbol is None:
+        notes.append(
+            f"handler_body_unavailable: handler '{endpoint.handler}' not resolved to a symbol"
+        )
+
+    contract = build_layered_trace_contract(
+        matched_endpoint=endpoint.model_dump(),
+        primary_slice=primary_slice,
+        resolved_handlers={"resolution": resolution},
+        layered_trace_expansion=layered_expansion,
+        llm_summary=None,
+        budgets=None,
+    )
+
+    # Deterministic flow expansion supplies sinks in the shared taxonomy.
+    expansion_context = prepare_flow_expansion_context(
+        matched_endpoint=endpoint, repos=repos, max_related_files=0
+    )
+    notes.extend(
+        note
+        for note in expansion_context.notes
+        if any(marker in note.lower() for marker in _PARTIAL_ANALYSIS_MARKERS)
+    )
+    flow_expansion = None
+    if options.llm_policy != "never":
+        try:
+            flow_expansion = run_flow_expansion(
+                endpoint,
+                repos,
+                llm_client=options.llm_client,
+                model_spec=options.model_spec,
+                strict_llm=False,
+            )
+            flow_expansion.sinks = normalize_sink_candidates(flow_expansion.sinks)
+            notes.extend(
+                note
+                for note in flow_expansion.notes
+                if any(marker in note.lower() for marker in _PARTIAL_ANALYSIS_MARKERS)
+            )
+        except Exception as exc:  # noqa: BLE001 - expansion must not abort verification
+            notes.append(f"flow_expansion_unavailable: {exc}")
+
+    return (
+        {
+            "resolution": resolution,
+            "layered_contract": contract,
+            "layered_expansion": layered_expansion,
+            "flow_expansion": flow_expansion,
+            "handler_symbol": symbol,
+            "primary_slice": primary_slice,
+        },
+        notes,
+    )
+
+
+def _trace_result_for_matrix(
+    endpoint: EndpointCandidate, repos: list[RepoRef], traced: dict
+) -> TraceResult:
+    """Assemble the TraceResult shape `generate_test_matrix` consumes.
+
+    A thin adapter over shared outputs — the graph is built by the shared
+    `build_graph_from_inferred_flow`, not by anything local.
+    """
+    flow_expansion = traced.get("flow_expansion")
+    nodes: list[Any] = []
+    edges: list[Any] = []
+    flows: list[Any] = []
+    if flow_expansion is not None:
+        nodes, edges, flows = build_graph_from_inferred_flow(endpoint, flow_expansion)
+
+    contract = traced.get("layered_contract") or {}
+    return TraceResult(
+        target=TargetSpec(path=endpoint.path or "/", method=endpoint.method),
+        repos=repos,
+        nodes=nodes,
+        edges=edges,
+        flows=flows,
+        matched_endpoint=endpoint,
+        sinks=list(contract.get("sinks", []) or []),
+        layers=list(contract.get("layers", []) or []),
+        summary=TraceSummary(key_flow_id=flows[0].id if flows else None),
+    )
+
+
+# --------------------------------------------------------------------------
+# Verdict semantics
+# --------------------------------------------------------------------------
+
+
+def resolve_obligation_status(
+    obligation: VerificationObligation, executions_by_test: dict[str, TestExecution]
+) -> None:
+    """Set an obligation's status strictly from the tests mapped to *it*."""
+    if not obligation.mapped_tests:
+        obligation.status = VERIFICATION_UNVERIFIED
+        obligation.reason = (
+            f"{len(obligation.supporting_tests)} test(s) exercise this flow but none assert "
+            "this behavior"
+            if obligation.supporting_tests
+            else "No existing test was found that verifies this behavior"
+        )
+        return
+
+    obligation.executions = [
+        executions_by_test[test.id]
+        for test in obligation.mapped_tests
+        if test.id in executions_by_test
+    ]
+    if not obligation.executions:
+        obligation.status = VERIFICATION_UNKNOWN
+        obligation.reason = (
+            f"{len(obligation.mapped_tests)} mapped test(s) were not executed "
+            "(execution budget reached)"
+        )
+        return
+
+    statuses = {item.status for item in obligation.executions}
+    if VERIFICATION_FAILED in statuses:
+        failed = next(i for i in obligation.executions if i.status == VERIFICATION_FAILED)
+        obligation.status = VERIFICATION_FAILED
+        obligation.reason = failed.failure_summary or "A test verifying this behavior failed"
+        return
+    if VERIFICATION_UNKNOWN in statuses:
+        blocked = next(i for i in obligation.executions if i.status == VERIFICATION_UNKNOWN)
+        obligation.status = VERIFICATION_UNKNOWN
+        obligation.reason = blocked.reason or "A test verifying this behavior could not be executed"
+        return
+    obligation.status = VERIFICATION_PASSED
+    obligation.reason = None
+
+
+def resolve_flow_status(flow: AffectedFlow) -> None:
+    """Derive a flow's status from its obligations, conservatively.
+
+    Worst-status-wins, so an unverified obligation can never be masked by a
+    passing one elsewhere in the same flow.
+    """
+    required = [item for item in flow.obligations if item.required]
+    if not required:
+        flow.status = VERIFICATION_UNVERIFIED
+        flow.reason = "No verification obligation could be derived for this flow"
+        return
+    statuses = {item.status for item in required}
+    if VERIFICATION_FAILED in statuses:
+        flow.status = VERIFICATION_FAILED
+    elif VERIFICATION_UNKNOWN in statuses:
+        flow.status = VERIFICATION_UNKNOWN
+    elif VERIFICATION_UNVERIFIED in statuses:
+        flow.status = VERIFICATION_UNVERIFIED
+    else:
+        flow.status = VERIFICATION_PASSED
+    unresolved = [item for item in required if item.status != VERIFICATION_PASSED]
+    flow.reason = (
+        f"{len(unresolved)} of {len(required)} obligation(s) not demonstrated"
+        if unresolved
+        else None
+    )
+
+
+def _compute_summary(result: ChangeVerificationResult) -> ChangeSummary:
+    """Derive risk and verdict from obligation outcomes only."""
+    change = result.change
+    obligations = [item for flow in result.affected_flows for item in flow.obligations]
+    required = [item for item in obligations if item.required]
+
+    def _count(state: str) -> int:
+        return sum(1 for item in required if item.status == state)
+
+    executed = [
+        item
+        for item in result.test_executions
+        if item.status in {VERIFICATION_PASSED, VERIFICATION_FAILED}
+    ]
+    counts = VerificationCounts(
+        changed_files=len(change.files),
+        changed_source_files=sum(
+            1 for item in change.files if item.role == "source_route_candidate"
+        ),
+        changed_test_files=sum(
+            1 for item in change.files if item.role == "test_usage_candidate"
+        ),
+        changed_symbols=len(change.symbols),
+        affected_flows=len(result.affected_flows),
+        flows_partially_analyzed=sum(
+            1 for flow in result.affected_flows if flow.analysis_status != ANALYSIS_COMPLETE
+        ),
+        code_findings=len(result.code_findings),
+        obligations=len(required),
+        obligations_introduced_by_change=sum(
+            1 for item in required if item.introduced_by_change
+        ),
+        obligations_passed=_count(VERIFICATION_PASSED),
+        obligations_failed=_count(VERIFICATION_FAILED),
+        obligations_unverified=_count(VERIFICATION_UNVERIFIED),
+        obligations_unknown=_count(VERIFICATION_UNKNOWN),
+        mapped_tests=sum(len(item.mapped_tests) for item in required),
+        tests_executed=len(executed),
+        verification_gaps=len(result.verification_gaps),
+        runtime_dependencies=len(result.runtime_dependencies),
+        cross_repo_impacts=len(result.cross_repo_impacts),
+    )
+
+    reasons: list[str] = []
+    if counts.obligations_failed:
+        reasons.append(f"{counts.obligations_failed} obligation(s) failed an executed test")
+    if counts.obligations_unknown:
+        reasons.append(f"{counts.obligations_unknown} obligation(s) could not be executed")
+    if counts.obligations_unverified:
+        reasons.append(f"{counts.obligations_unverified} obligation(s) have no verifying test")
+    if counts.flows_partially_analyzed:
+        reasons.append(
+            f"{counts.flows_partially_analyzed} flow(s) only partially analyzed — "
+            "absence of downstream effects is not established"
+        )
+
+    # Conservative aggregation. An unresolved obligation always prevents
+    # VERIFIED; passing regression tests elsewhere cannot mask it.
+    if counts.obligations_failed:
+        verdict, risk = VERDICT_ACTION_REQUIRED, RISK_HIGH
+    elif counts.obligations_unknown or counts.obligations_unverified:
+        verdict = VERDICT_INCOMPLETE
+        risk = RISK_HIGH if counts.obligations_introduced_by_change else RISK_MEDIUM
+    elif counts.obligations:
+        verdict, risk = VERDICT_VERIFIED, RISK_LOW
+    elif change.files:
+        verdict, risk = VERDICT_INCOMPLETE, RISK_MEDIUM
+        reasons.append("change could not be tied to any verifiable behavior")
+    else:
+        verdict, risk = VERDICT_OK, RISK_LOW
+
+    if result.analysis_status != ANALYSIS_COMPLETE and verdict == VERDICT_VERIFIED:
+        verdict = VERDICT_INCOMPLETE
+        reasons.append("analysis was incomplete, so VERIFIED cannot be claimed")
+
+    if not change.files:
+        headline = f"No changes found against `{change.base}`."
+    elif not result.affected_flows:
+        headline = (
+            f"{counts.changed_symbols} changed symbol(s); no route flow resolved to them."
+        )
+    else:
+        headline = (
+            f"{counts.obligations} obligation(s) across {counts.affected_flows} flow(s): "
+            f"{counts.obligations_passed} passed, {counts.obligations_failed} failed, "
+            f"{counts.obligations_unverified} unverified, {counts.obligations_unknown} unknown"
+        )
+
+    return ChangeSummary(
+        risk=risk, verdict=verdict, headline=headline, counts=counts, risk_reasons=reasons
+    )
+
+
+# --------------------------------------------------------------------------
+# Pipeline
+# --------------------------------------------------------------------------
 
 
 def _link_runtime_blockers(
     execution: TestExecution, dependencies: list[RuntimeDependency]
 ) -> None:
-    """Point an environment-blocked execution at the runtime dependency behind it.
-
-    V1 already discovered what this repository needs to be running; when a test
-    cannot execute for environment reasons, naming that dependency is the useful
-    half of the answer.
-    """
+    """Point an environment-blocked execution at the dependency behind it."""
     if execution.blocker != BLOCKER_MISSING_DEPENDENCY:
         return
     haystack = " ".join(
@@ -164,199 +601,8 @@ def _link_runtime_blockers(
             execution.blocking_runtime_dependency_ids.append(dependency.id)
 
 
-def _resolve_behavior_status(
-    item: VerificationItem, executions_by_test: dict[str, TestExecution]
-) -> None:
-    """Set a behavior's state from the executions of its mapped tests.
-
-    Precedence is failed > passed > unknown > unverified: a real failure always
-    wins, and a genuine passing execution is not downgraded because a *second*
-    mapped test could not be run.
-    """
-    if not item.tests:
-        item.status = VERIFICATION_UNVERIFIED
-        item.reason = item.reason or "No applicable existing verification found"
-        return
-
-    item.executions = [
-        executions_by_test[test.id] for test in item.tests if test.id in executions_by_test
-    ]
-    if not item.executions:
-        item.status = VERIFICATION_UNKNOWN
-        item.reason = item.reason or "Mapped tests were not executed"
-        return
-
-    statuses = {execution.status for execution in item.executions}
-    if VERIFICATION_FAILED in statuses:
-        failed = next(e for e in item.executions if e.status == VERIFICATION_FAILED)
-        item.status = VERIFICATION_FAILED
-        item.reason = failed.failure_summary or "A mapped test failed"
-        return
-    if VERIFICATION_PASSED in statuses:
-        item.status = VERIFICATION_PASSED
-        blocked = [e for e in item.executions if e.status == VERIFICATION_UNKNOWN]
-        item.reason = (
-            f"{len(blocked)} further mapped test(s) could not be executed" if blocked else None
-        )
-        return
-    item.status = VERIFICATION_UNKNOWN
-    item.reason = next(
-        (e.reason for e in item.executions if e.reason),
-        "Mapped tests could not be executed or interpreted",
-    )
-
-
-def _run_test_execution(
-    result: ChangeVerificationResult,
-    options: VerifyChangeOptions,
-    scan,
-    repo_root: Path,
-) -> None:
-    """Execute the mapped tests and fold the evidence into each behavior."""
-    settings = ExecutionSettings(
-        enabled=options.run_tests,
-        timeout_seconds=options.test_timeout_seconds,
-    )
-    mapped = [test for item in result.verification for test in item.tests]
-
-    executions, notes = execute_mapped_tests(
-        tests=mapped,
-        scan=scan,
-        repo_root=repo_root,
-        settings=settings,
-    )
-    result.diagnostics.extend(notes)
-    result.test_executions = executions
-
-    if not options.run_tests:
-        result.notes.append("test_execution=skipped reason=--no-run-tests")
-
-    executions_by_test = {execution.test_id: execution for execution in executions}
-    for execution in executions:
-        _link_runtime_blockers(execution, result.runtime_dependencies)
-
-    for item in result.verification:
-        if not options.run_tests and item.tests:
-            item.status = VERIFICATION_UNKNOWN
-            item.reason = "Test execution was disabled (--no-run-tests)"
-            item.executions = [
-                TestExecution(
-                    test_id=test.id,
-                    framework="unknown",
-                    status=VERIFICATION_UNKNOWN,
-                    blocker=BLOCKER_EXECUTION_DISABLED,
-                    reason="Test execution was disabled (--no-run-tests)",
-                )
-                for test in item.tests
-            ]
-            continue
-        _resolve_behavior_status(item, executions_by_test)
-
-
-def _compute_summary(result: ChangeVerificationResult) -> ChangeSummary:
-    """Derive risk and verdict from executed evidence and concrete counts."""
-    change = result.change
-    source_files = [item for item in change.files if item.role == "source_route_candidate"]
-    test_files = [item for item in change.files if item.role == "test_usage_candidate"]
-
-    by_status = {
-        state: [item for item in result.verification if item.status == state]
-        for state in (
-            VERIFICATION_PASSED,
-            VERIFICATION_FAILED,
-            VERIFICATION_UNVERIFIED,
-            VERIFICATION_UNKNOWN,
-        )
-    }
-    executed = [
-        item
-        for item in result.test_executions
-        if item.status in {VERIFICATION_PASSED, VERIFICATION_FAILED}
-    ]
-
-    counts = VerificationCounts(
-        changed_files=len(change.files),
-        changed_source_files=len(source_files),
-        changed_test_files=len(test_files),
-        changed_symbols=len(change.symbols),
-        affected_flows=len(result.affected_flows),
-        code_findings=len(result.code_findings),
-        affected_behaviors=len(result.verification),
-        behaviors_passed=len(by_status[VERIFICATION_PASSED]),
-        behaviors_failed=len(by_status[VERIFICATION_FAILED]),
-        behaviors_unverified=len(by_status[VERIFICATION_UNVERIFIED]),
-        behaviors_unknown=len(by_status[VERIFICATION_UNKNOWN]),
-        mapped_tests=sum(len(item.tests) for item in result.verification),
-        tests_executed=len(executed),
-        verification_gaps=len(result.verification_gaps),
-        runtime_dependencies=len(result.runtime_dependencies),
-        cross_repo_impacts=len(result.cross_repo_impacts),
-    )
-
-    reasons: list[str] = []
-    severe_findings = [item for item in result.code_findings if item.severity in {"P0", "P1"}]
-    if counts.behaviors_failed:
-        reasons.append(f"{counts.behaviors_failed} behavior(s) failed an executed test")
-    if severe_findings:
-        reasons.append(f"{len(severe_findings)} P0/P1 code finding(s)")
-    if counts.behaviors_unverified:
-        reasons.append(f"{counts.behaviors_unverified} behavior(s) with no applicable test")
-    if counts.behaviors_unknown:
-        reasons.append(f"{counts.behaviors_unknown} behavior(s) whose tests could not be executed")
-    if result.verification_gaps:
-        reasons.append(f"{len(result.verification_gaps)} verification gap(s)")
-    if any(
-        node.kind in {"event", "consumer", "client"}
-        for flow in result.affected_flows
-        for node in flow.nodes
-    ):
-        reasons.append("change reaches an event or outbound service boundary")
-
-    # Verdict is decided by executed evidence, then by what could not be checked.
-    if counts.behaviors_failed or severe_findings:
-        verdict = VERDICT_ACTION_REQUIRED
-        risk = RISK_HIGH
-    elif counts.behaviors_unverified or counts.behaviors_unknown:
-        verdict = VERDICT_INCOMPLETE
-        risk = RISK_HIGH if len(result.verification_gaps) >= 2 else RISK_MEDIUM
-    elif counts.affected_behaviors:
-        verdict = VERDICT_VERIFIED
-        risk = RISK_LOW
-    elif change.files:
-        verdict = VERDICT_INCOMPLETE
-        risk = RISK_MEDIUM
-        reasons.append("change could not be tied to any affected behavior")
-    else:
-        verdict = VERDICT_OK
-        risk = RISK_LOW
-
-    if not change.files:
-        headline = f"No changes found against `{change.base}`."
-    elif not result.affected_flows:
-        headline = (
-            f"{counts.changed_symbols} changed symbol(s); no route or event flow resolved to them."
-        )
-    else:
-        headline = (
-            f"{counts.affected_behaviors} affected behavior(s): "
-            f"{counts.behaviors_passed} passed, {counts.behaviors_failed} failed, "
-            f"{counts.behaviors_unverified} unverified, {counts.behaviors_unknown} unknown "
-            f"({counts.tests_executed} test(s) executed)"
-        )
-
-    return ChangeSummary(
-        risk=risk,
-        verdict=verdict,
-        headline=headline,
-        counts=counts,
-        risk_reasons=reasons,
-    )
-
-
 def analyze_change(
-    *,
-    repos: list[RepoRef],
-    options: VerifyChangeOptions,
+    *, repos: list[RepoRef], options: VerifyChangeOptions
 ) -> ChangeVerificationResult:
     """Run the full change-verification pipeline for the primary repository."""
     if not repos:
@@ -364,6 +610,10 @@ def analyze_change(
 
     primary = repos[0]
     primary_root = Path(primary.root).expanduser().resolve()
+    normalized_repos = [
+        RepoRef(name=item.name, root=str(Path(item.root).expanduser().resolve()))
+        for item in repos
+    ]
 
     change = resolve_change_set(
         repo_name=primary.name,
@@ -371,151 +621,295 @@ def analyze_change(
         base=options.base,
         include_working_tree=options.include_working_tree,
     )
-    change.repos = [RepoRef(name=item.name, root=str(Path(item.root).expanduser().resolve())) for item in repos]
-
+    change.repos = normalized_repos
     result = ChangeVerificationResult(
-        generated_at=datetime.now(tz=UTC).isoformat(),
-        change=change,
+        generated_at=datetime.now(tz=UTC).isoformat(), change=change
     )
     result.diagnostics.extend(change.notes)
 
-    scan = scan_repository(primary.name, primary_root, max_files=options.max_scan_files)
-    result.diagnostics.extend(scan.notes)
-    result.diagnostics.append(f"{primary.name}: files_scanned={len(scan.files)}")
-
-    index = build_symbol_index(scan)
-    result.diagnostics.extend(f"{primary.name}: {note}" for note in index.notes)
-
-    change.symbols = _attribute_symbols(change, index)
-
-    events = detect_event_signals(scan)
-    result.diagnostics.append(f"{primary.name}: event_signals={len(events)}")
-
-    surface = build_system_surface(repo=primary, scan=scan, index=index, events=events)
-    result.diagnostics.extend(f"{primary.name}: {note}" for note in surface.notes)
-
-    changed_files = {item.path for item in change.files}
-    changed_hunks = {
-        item.path: [(hunk.start_line, hunk.end_line) for hunk in item.hunks]
-        for item in change.files
-    }
-    builder = FlowBuilder(index=index, surface=surface, scan=scan, events=events)
-    result.affected_flows = builder.build(
-        [item.id for item in change.symbols], changed_files, changed_hunks
+    # --- shared system understanding -------------------------------------
+    handler_index = build_handler_symbol_index_batch(normalized_repos)
+    result.diagnostics.append(
+        "handler_symbol_index: "
+        + ", ".join(f"{key}={value}" for key, value in sorted(handler_index.get("summary", {}).items()))
     )
 
-    test_index = build_test_index(scan)
-    result.diagnostics.extend(f"{primary.name}: {note}" for note in test_index.notes)
+    change.symbols = attribute_changed_symbols(change, handler_index)
+    indexed_files = {
+        file_item.get("path")
+        for repo_index in handler_index.get("repos", []) or []
+        for file_item in repo_index.get("files", []) or []
+    }
+    unattributed = [
+        item.path
+        for item in change.files
+        if item.role == "source_route_candidate"
+        and item.change_type != CHANGE_DELETED
+        and not item.binary
+        and not any(symbol.file == item.path for symbol in change.symbols)
+    ]
+    if unattributed:
+        result.analysis_status = ANALYSIS_PARTIAL
+        for path in unattributed[:6]:
+            reason = (
+                "file could not be parsed into symbols"
+                if path in indexed_files
+                else "file was not indexed by the shared symbol index"
+            )
+            result.analysis_notes.append(
+                f"Changed source file `{path}` yielded no symbols: {reason}. "
+                "Downstream effects of this file are not established."
+            )
+    reachers = build_reverse_reach_index(handler_index)
+    candidate_files = _candidate_route_files(change, change.symbols, reachers)
+    result.diagnostics.append(f"reverse_reach_candidate_files={len(candidate_files)}")
 
+    routes = discover_endpoints(
+        normalized_repos,
+        model_spec=options.model_spec,
+        llm_policy=options.llm_policy if options.llm_policy in {"auto", "always", "never"} else "auto",
+        strict_llm=False,
+    )
+    result.diagnostics.extend(
+        note for note in routes.notes if "coverage" in note or "routes" in note.lower()
+    )
+    if any("composition is unresolved" in note for note in routes.notes):
+        result.analysis_notes.append(
+            "Route composition is unresolved in this repository; some routes may be missing."
+        )
+        result.analysis_status = ANALYSIS_PARTIAL
+
+    selected = [
+        endpoint
+        for endpoint in routes.routes
+        if (endpoint.file or "") in candidate_files
+    ]
+    if not selected and change.symbols:
+        result.analysis_notes.append(
+            "No discovered route declaration reaches the changed symbols."
+        )
+
+    contract_artifact = build_api_contract_from_routes(
+        routes, repo_roots={item.name: item.root for item in normalized_repos}
+    )
+
+    changed_files = {item.path for item in change.files}
     changed_symbol_names = {item.name for item in change.symbols}
     changed_symbol_names |= {
         item.qualified_name for item in change.symbols if item.qualified_name
     }
-    result.verification = map_existing_verification(
-        flows=result.affected_flows,
-        test_index=test_index,
-        symbol_index=index,
-        changed_symbol_names=changed_symbol_names,
-        changed_files=changed_files,
-    )
 
-    surfaces = {primary.name: surface}
-    for sibling in repos[1:]:
-        sibling_root = Path(sibling.root).expanduser().resolve()
-        sibling_scan = scan_repository(sibling.name, sibling_root, max_files=options.max_scan_files)
-        sibling_index = build_symbol_index(sibling_scan)
-        sibling_events = detect_event_signals(sibling_scan)
-        surfaces[sibling.name] = build_system_surface(
-            repo=sibling, scan=sibling_scan, index=sibling_index, events=sibling_events
+    repo_files = load_repo_files(primary.name, primary_root)
+    test_index = build_test_index(repo_files)
+    result.diagnostics.extend(f"{primary.name}: {note}" for note in test_index.notes)
+
+    # --- one flow per reachable route ------------------------------------
+    changed_symbol_keys = {(item.file, item.name) for item in change.symbols}
+    changed_symbol_keys |= {
+        (item.file, item.qualified_name) for item in change.symbols if item.qualified_name
+    }
+    changed_hunks = {
+        item.path: [(hunk.start_line, hunk.end_line) for hunk in item.hunks]
+        for item in change.files
+    }
+
+    for endpoint in selected[:MAX_FLOWS * 3]:
+        if len(result.affected_flows) >= MAX_FLOWS:
+            break
+        match = resolve_trace_target(
+            routes.routes, path=endpoint.path or "/", method=endpoint.method
         )
-        result.diagnostics.append(
-            f"{sibling.name}: routes_discovered={len(surfaces[sibling.name].routes)}"
+        resolved_endpoint = match.selected or endpoint
+        traced, trace_notes = _trace_route(
+            endpoint=resolved_endpoint,
+            repos=normalized_repos,
+            handler_index=handler_index,
+            options=options,
+        )
+        contract = traced["layered_contract"]
+        analysis_status, analysis_notes = _analysis_status_from(trace_notes)
+
+        # A route sharing a file with the change is a candidate, not a hit. Keep
+        # the flow only when the change is actually on its path: its handler was
+        # changed, its declaration line was edited, or a followed call lands in a
+        # changed symbol.
+        handler_symbol = traced.get("handler_symbol") or {}
+        # A resolved handler exposes `qualified_name`; the index exposes `name`.
+        handler_names = {
+            str(handler_symbol.get("name") or ""),
+            str(handler_symbol.get("qualified_name") or ""),
+            str(handler_symbol.get("qualified_name") or "").rsplit(".", 1)[-1],
+        } - {""}
+        handler_file = str(handler_symbol.get("file") or "")
+        reached = any((handler_file, candidate) in changed_symbol_keys for candidate in handler_names)
+        if not reached:
+            expansion = traced.get("layered_expansion") or {}
+            for followed in expansion.get("followed_calls", []) or []:
+                if (str(followed.get("file") or ""), str(followed.get("resolved_to") or "")) in changed_symbol_keys:
+                    reached = True
+                    break
+        if not reached:
+            declaration_line = None
+            for evidence in resolved_endpoint.evidence:
+                if (evidence.label or "") == "route_declaration":
+                    declaration_line = None  # line not carried on the contract
+            spans = changed_hunks.get(resolved_endpoint.file or "", [])
+            handler_start = handler_symbol.get("start_line")
+            handler_end = handler_symbol.get("end_line") or handler_start
+            if isinstance(handler_start, int) and isinstance(handler_end, int):
+                reached = any(
+                    start <= handler_end and handler_start <= end for start, end in spans
+                )
+        # Last resort: the handler's own body names a changed symbol. The shared
+        # call follower could not prove the edge (a known limitation for calls
+        # through instance attributes), so the flow is kept and explicitly marked
+        # incomplete rather than silently dropped. An import alone is not enough:
+        # importing a changed module says nothing about *this* handler.
+        import_reached = False
+        if not reached:
+            body_text = " ".join(
+                str(statement.get("text") or "")
+                for statement in ((traced.get("primary_slice") or {}).get("statements") or [])
+            )
+            referenced = sorted(
+                name
+                for _file, name in changed_symbol_keys
+                if name and re.search(rf"\b{re.escape(name.rsplit('.', 1)[-1])}\s*\(", body_text)
+            )
+            import_reached = bool(referenced)
+            if import_reached:
+                analysis_status = ANALYSIS_PARTIAL
+                analysis_notes = [
+                    *analysis_notes,
+                    f"Handler body calls `{referenced[0]}`, but the call edge could not be "
+                    "resolved by the shared call follower; downstream effects are incomplete.",
+                ]
+        if not reached and not import_reached:
+            continue
+
+        flow = AffectedFlow(
+            id=f"flow:{(resolved_endpoint.method or 'ANY').upper()}:{resolved_endpoint.path}",
+            entry_label=f"{(resolved_endpoint.method or 'ANY').upper()} {resolved_endpoint.path}",
+            repo=resolved_endpoint.repo,
+            method=(resolved_endpoint.method or "ANY").upper(),
+            path=resolved_endpoint.path,
+            handler=resolved_endpoint.handler,
+            artifact_refs={
+                "route_file": resolved_endpoint.file or "",
+                "handler_file": str(handler_symbol.get("file") or ""),
+                "layered_trace_contract": contract.get("version", "v1"),
+            },
+            changed_nodes=[
+                SourceRef(
+                    repo=item.repo,
+                    file=item.file,
+                    symbol=item.qualified_name or item.name,
+                    line=item.start_line,
+                )
+                for item in change.symbols
+            ],
+            steps=list((contract.get("flow") or {}).get("steps", []) or []),
+            sinks=list(contract.get("sinks", []) or []),
+            analysis_status=analysis_status,
+            analysis_notes=analysis_notes,
         )
 
-    result.cross_repo_impacts = detect_cross_repo_impacts(
-        origin_repo=primary.name,
-        flows=result.affected_flows,
-        surfaces=surfaces,
-    )
-    if len(repos) == 1:
-        result.notes.append("cross_repo=single_repo_configured")
+        route_contract: ApiRouteContract | None = match_route_contract(
+            contract_artifact, method=flow.method, path=flow.path or "/"
+        )
+        matrix = None
+        try:
+            matrix = generate_test_matrix(
+                _trace_result_for_matrix(resolved_endpoint, normalized_repos, traced),
+                route_contract=route_contract,
+            )
+        except Exception as exc:  # noqa: BLE001 - matrix is one obligation source of several
+            flow.analysis_notes.append(f"test_matrix_unavailable: {exc}")
 
+        flow.obligations = derive_obligations(
+            flow=flow,
+            route_contract=route_contract,
+            test_matrix=matrix,
+            changed_symbols=change.symbols,
+        )
+        for obligation in flow.obligations:
+            evidence, supporting = map_tests_to_obligation(
+                obligation=obligation,
+                flow=flow,
+                test_index=test_index,
+                changed_symbol_names=changed_symbol_names,
+                changed_files=changed_files,
+            )
+            obligation.mapped_tests = evidence
+            obligation.supporting_tests = supporting
+
+        result.affected_flows.append(flow)
+
+    if any(flow.analysis_status != ANALYSIS_COMPLETE for flow in result.affected_flows):
+        result.analysis_status = ANALYSIS_PARTIAL
+    if selected and not result.affected_flows:
+        result.analysis_status = ANALYSIS_UNKNOWN
+
+    # --- runtime dependencies, then execution ----------------------------
     result.runtime_dependencies = infer_runtime_dependencies(
-        scan=scan,
-        flows=result.affected_flows,
-        changed_files=changed_files,
-        cross_repo_impacts=result.cross_repo_impacts,
+        files=repo_files, flows=result.affected_flows, changed_files=changed_files
     )
+    _run_test_execution(result, options, repo_files, primary_root)
 
-    # Execution runs after runtime inference so an environment blocker can be
-    # attributed to a dependency Sydes already discovered.
-    _run_test_execution(result, options, scan, primary_root)
-
-    _run_llm_stages(result, options, primary_root)
-
+    for flow in result.affected_flows:
+        resolve_flow_status(flow)
     result.summary = _compute_summary(result)
     return result
 
 
-def _run_llm_stages(
+def _run_test_execution(
     result: ChangeVerificationResult,
     options: VerifyChangeOptions,
+    repo_files,
     repo_root: Path,
 ) -> None:
-    """Run bounded LLM passes for code findings and verification gaps."""
-    if options.llm_policy == "never":
-        result.notes.append("llm=skipped reason=policy_never")
-        return
-    if not result.change.files:
-        result.notes.append("llm=skipped reason=no_changes")
-        return
-
-    diff_text = read_unified_diff(
-        repo_root=repo_root,
-        base_rev=result.change.merge_base or result.change.base,
-        paths=[item.path for item in result.change.files if not item.binary][:40] or None,
+    """Execute the tests mapped to obligations and fold results back in."""
+    settings = ExecutionSettings(
+        enabled=options.run_tests, timeout_seconds=options.test_timeout_seconds
     )
-    context = build_change_context(
-        change=result.change,
-        flows=result.affected_flows,
-        verification=result.verification,
-        diff_text=diff_text,
+    # Obligations the diff introduced are checked first, so a bounded execution
+    # budget can never starve the behavior under review.
+    ordered_obligations = sorted(
+        (
+            obligation
+            for flow in result.affected_flows
+            for obligation in flow.obligations
+        ),
+        key=lambda item: not item.introduced_by_change,
     )
-    # A behavior with an executed result is already answered; gaps are for the
-    # behaviors execution could not settle.
-    covered_flow_ids = {
-        flow_id
-        for item in result.verification
-        if item.status in {VERIFICATION_PASSED, VERIFICATION_FAILED}
-        for flow_id in item.related_flow_ids
-    }
+    mapped = [test for obligation in ordered_obligations for test in obligation.mapped_tests]
+    executions, notes = execute_mapped_tests(
+        tests=mapped, files=repo_files, repo_root=repo_root, settings=settings
+    )
+    result.diagnostics.extend(notes)
+    result.test_executions = executions
 
-    if options.code_review:
-        try:
-            findings, warnings = generate_code_findings(
-                context=context,
-                model_spec=options.model_spec,
-                llm_client=options.llm_client,
-            )
-            result.code_findings = findings
-            result.diagnostics.extend(f"code_findings: {item}" for item in warnings)
-        except LLMClientError as exc:
-            result.notes.append(f"code_findings=failed reason={exc}")
-    else:
-        result.notes.append("code_findings=skipped reason=--no-code-review")
+    for execution in executions:
+        _link_runtime_blockers(execution, result.runtime_dependencies)
 
-    if not result.affected_flows:
-        result.notes.append("verification_gaps=skipped reason=no_affected_flows")
-        return
-
-    try:
-        gaps, warnings = generate_verification_gaps(
-            context=context,
-            covered_flow_ids=covered_flow_ids,
-            model_spec=options.model_spec,
-            llm_client=options.llm_client,
-        )
-        result.verification_gaps = gaps
-        result.diagnostics.extend(f"verification_gaps: {item}" for item in warnings)
-    except LLMClientError as exc:
-        result.notes.append(f"verification_gaps=failed reason={exc}")
+    executions_by_test = {item.test_id: item for item in executions}
+    for flow in result.affected_flows:
+        for obligation in flow.obligations:
+            if not options.run_tests and obligation.mapped_tests:
+                obligation.status = VERIFICATION_UNKNOWN
+                obligation.reason = "Test execution was disabled (--no-run-tests)"
+                obligation.executions = [
+                    TestExecution(
+                        test_id=test.id,
+                        obligation_id=obligation.id,
+                        framework="unknown",
+                        status=VERIFICATION_UNKNOWN,
+                        blocker=BLOCKER_EXECUTION_DISABLED,
+                        reason="Test execution was disabled (--no-run-tests)",
+                    )
+                    for test in obligation.mapped_tests
+                ]
+                continue
+            resolve_obligation_status(obligation, executions_by_test)
+            for execution in obligation.executions:
+                execution.obligation_id = obligation.id

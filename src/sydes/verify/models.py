@@ -46,6 +46,38 @@ BLOCKER_PROCESS_ERROR = "process_error"
 LINK_RESOLVED = "resolved"
 LINK_UNRESOLVED = "unresolved"
 
+# Evidence tiers for test-to-obligation mapping. A mapping below Tier C is not
+# evidence at all and is never recorded as one.
+TIER_DIRECT_ROUTE = "A_direct_route_exercise"
+TIER_DIRECT_INVOCATION = "A_direct_invocation"
+TIER_ASSERTED_EFFECT = "B_asserted_effect"
+TIER_DECLARED = "C_declared"
+TIER_REJECTED = "rejected"
+
+# Obligation kinds, each backed by an existing artifact source.
+OBLIGATION_ROUTE_CONTRACT = "route_contract"
+OBLIGATION_VALIDATION = "validation"
+OBLIGATION_SIDE_EFFECT = "side_effect"
+OBLIGATION_STATE_CONSISTENCY = "state_consistency"
+OBLIGATION_EVENT_EMISSION = "event_emission"
+OBLIGATION_CROSS_REPO_CALL = "cross_repo_call"
+
+# Where an obligation came from. Deterministic origins are authoritative;
+# `llm_hypothesis` is supplementary and always labelled as such.
+ORIGIN_API_CONTRACT = "api_contract"
+ORIGIN_TEST_MATRIX = "test_matrix"
+ORIGIN_TRACE_SINK = "trace_sink"
+ORIGIN_TRACE_STEP = "trace_step"
+ORIGIN_CROSS_REPO_LINK = "cross_repo_link"
+ORIGIN_LLM_HYPOTHESIS = "llm_hypothesis"
+
+# How complete the shared analysis was for a flow. Kept separate from
+# verification status: not knowing about a downstream effect is not the same as
+# there being none.
+ANALYSIS_COMPLETE = "complete"
+ANALYSIS_PARTIAL = "partial"
+ANALYSIS_UNKNOWN = "unknown"
+
 # How precisely the executed command targets the mapped test.
 GRANULARITY_CASE = "case"
 GRANULARITY_FILE = "file"
@@ -142,12 +174,14 @@ class VerificationCounts(BaseModel):
     changed_test_files: int = 0
     changed_symbols: int = 0
     affected_flows: int = 0
+    flows_partially_analyzed: int = 0
     code_findings: int = 0
-    affected_behaviors: int = 0
-    behaviors_passed: int = 0
-    behaviors_failed: int = 0
-    behaviors_unverified: int = 0
-    behaviors_unknown: int = 0
+    obligations: int = 0
+    obligations_introduced_by_change: int = 0
+    obligations_passed: int = 0
+    obligations_failed: int = 0
+    obligations_unverified: int = 0
+    obligations_unknown: int = 0
     mapped_tests: int = 0
     tests_executed: int = 0
     verification_gaps: int = 0
@@ -181,59 +215,21 @@ class CodeFinding(BaseModel):
     evidence: list[EvidenceRef] = Field(default_factory=list)
 
 
-class FlowNode(BaseModel):
-    """Node on an affected system flow path."""
-
-    id: str
-    kind: str
-    name: str
-    repo: str | None = None
-    file: str | None = None
-    symbol: str | None = None
-    method: str | None = None
-    path: str | None = None
-    changed: bool = False
-    metadata: dict[str, Any] = Field(default_factory=dict)
-
-
-class FlowEdge(BaseModel):
-    """Directed relation between two flow nodes, with why-we-believe-it evidence."""
-
-    source: str
-    target: str
-    kind: str
-    reason: str | None = None
-    evidence: list[EvidenceRef] = Field(default_factory=list)
-
-
-class AffectedFlow(BaseModel):
-    """One backend behavior path touched by the change."""
-
-    id: str
-    entry_kind: str = NODE_ROUTE
-    entry_label: str
-    repo: str | None = None
-    nodes: list[FlowNode] = Field(default_factory=list)
-    edges: list[FlowEdge] = Field(default_factory=list)
-    changed_node_ids: list[str] = Field(default_factory=list)
-    reason: str | None = None
-    notes: list[str] = Field(default_factory=list)
-
-
 class MappedTest(BaseModel):
-    """An existing test that Sydes mapped to an affected behavior."""
+    """An existing test mapped to one obligation, with the reason it was chosen."""
 
     id: str
     name: str
-    # The raw case identifier the runner needs, kept apart from the display
-    # name so a `Suite :: case` label is never pasted into a command.
     case_name: str | None = None
     repo: str | None = None
     file: str | None = None
     line: int | None = None
     suite: str | None = None
-    covers: list[str] = Field(default_factory=list)
-    related_symbols: list[str] = Field(default_factory=list)
+    # Why Sydes believes this test verifies the obligation. Both are required:
+    # a mapping without an inspectable reason is not evidence.
+    match_rule: str = ""
+    evidence_tier: str = TIER_REJECTED
+    source_refs: list[str] = Field(default_factory=list)
     changed_in_diff: bool = False
     evidence: list[EvidenceRef] = Field(default_factory=list)
 
@@ -248,6 +244,7 @@ class TestExecution(BaseModel):
     __test__ = False
 
     test_id: str
+    obligation_id: str | None = None
     framework: str
     command: list[str] = Field(default_factory=list)
     granularity: str = GRANULARITY_CASE
@@ -270,24 +267,58 @@ class TestExecution(BaseModel):
         return " ".join(self.command)
 
 
-class VerificationItem(BaseModel):
-    """One affected behavior, its mapped tests, and their execution evidence."""
+class VerificationObligation(BaseModel):
+    """Something that must be demonstrated about an affected flow.
+
+    Distinct from the flow itself: a flow is system topology, an obligation is a
+    claim about that topology which evidence can confirm or refute.
+    """
 
     id: str
-    name: str
-    kind: str = "behavior"
-    repo: str | None = None
-    file: str | None = None
-    line: int | None = None
-    status: str = VERIFICATION_UNKNOWN
-    reason: str | None = None
-    covers: list[str] = Field(default_factory=list)
-    related_flow_ids: list[str] = Field(default_factory=list)
-    related_symbols: list[str] = Field(default_factory=list)
-    changed_in_diff: bool = False
-    tests: list[MappedTest] = Field(default_factory=list)
+    flow_id: str
+    kind: str
+    statement: str
+    origin: str
+    # References into the shared artifacts this obligation was derived from:
+    # contract refs, layered-trace step ids, sink ids, test-matrix entries.
+    source_refs: list[str] = Field(default_factory=list)
+    introduced_by_change: bool = False
+    required: bool = True
+    mapped_tests: list[MappedTest] = Field(default_factory=list)
     executions: list[TestExecution] = Field(default_factory=list)
+    supporting_tests: list[MappedTest] = Field(default_factory=list)
+    status: str = VERIFICATION_UNVERIFIED
+    reason: str | None = None
     evidence: list[EvidenceRef] = Field(default_factory=list)
+
+
+class AffectedFlow(BaseModel):
+    """One backend behavior path touched by the change.
+
+    Topology only. It carries references to the shared trace artifacts that
+    describe it rather than re-materializing them, and its status is derived
+    from its obligations, never asserted directly.
+    """
+
+    id: str
+    entry_kind: str = NODE_ROUTE
+    entry_label: str
+    repo: str | None = None
+    method: str | None = None
+    path: str | None = None
+    handler: str | None = None
+    # Pointers into the shared artifacts that are the source of truth.
+    artifact_refs: dict[str, str] = Field(default_factory=dict)
+    changed_nodes: list[SourceRef] = Field(default_factory=list)
+    # Concise materialized summary for reporting; the artifacts remain canonical.
+    steps: list[dict[str, Any]] = Field(default_factory=list)
+    sinks: list[dict[str, Any]] = Field(default_factory=list)
+    cross_repo_links: list[dict[str, Any]] = Field(default_factory=list)
+    analysis_status: str = ANALYSIS_COMPLETE
+    analysis_notes: list[str] = Field(default_factory=list)
+    obligations: list[VerificationObligation] = Field(default_factory=list)
+    reason: str | None = None
+    status: str = VERIFICATION_UNVERIFIED
 
 
 class VerificationGap(BaseModel):
@@ -335,14 +366,15 @@ class CrossRepoImpact(BaseModel):
 class ChangeVerificationResult(BaseModel):
     """Top-level `verify-change` artifact."""
 
-    version: str = "v2"
+    version: str = "v3"
     kind: str = "sydes_change_verification"
     generated_at: str | None = None
     change: ChangeSet
     summary: ChangeSummary = Field(default_factory=ChangeSummary)
     code_findings: list[CodeFinding] = Field(default_factory=list)
     affected_flows: list[AffectedFlow] = Field(default_factory=list)
-    verification: list[VerificationItem] = Field(default_factory=list)
+    analysis_status: str = ANALYSIS_COMPLETE
+    analysis_notes: list[str] = Field(default_factory=list)
     test_executions: list[TestExecution] = Field(default_factory=list)
     verification_gaps: list[VerificationGap] = Field(default_factory=list)
     runtime_dependencies: list[RuntimeDependency] = Field(default_factory=list)

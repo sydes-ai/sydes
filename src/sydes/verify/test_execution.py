@@ -44,7 +44,7 @@ from sydes.verify.models import (
     SourceRef,
     TestExecution,
 )
-from sydes.verify.repo_scan import RepoScan
+from sydes.verify.source_files import RepoFiles
 
 FRAMEWORK_PYTEST = "pytest"
 FRAMEWORK_UNITTEST = "unittest"
@@ -114,18 +114,18 @@ class ExecutionSettings:
     max_executions: int = MAX_EXECUTIONS
 
 
-def _read(scan: RepoScan, path: str) -> str | None:
+def _read(files: RepoFiles, path: str) -> str | None:
     """Return the text of a scanned file, if it was read."""
-    for scanned in scan.files:
+    for scanned in files.files:
         if scanned.path == path:
             return scanned.text
     return None
 
 
-def _manifest_dirs(scan: RepoScan, basenames: tuple[str, ...]) -> list[str]:
+def _manifest_dirs(files: RepoFiles, basenames: tuple[str, ...]) -> list[str]:
     """Directories holding one of the given manifest files, root-first."""
     found: list[str] = []
-    for scanned in scan.files:
+    for scanned in files.files:
         if Path(scanned.path).name in basenames:
             parent = str(Path(scanned.path).parent)
             if parent not in found:
@@ -165,17 +165,17 @@ def _node_binary(root: Path, working_dir: str, name: str) -> Path | None:
     return candidate if candidate.exists() else None
 
 
-def _detect_python(scan: RepoScan) -> list[FrameworkDetection]:
+def _detect_python(files: RepoFiles) -> list[FrameworkDetection]:
     """Detect a Python test runner from configuration files only."""
     detections: list[FrameworkDetection] = []
     manifest_names = ("pyproject.toml", "pytest.ini", "setup.cfg", "tox.ini", "requirements.txt")
 
-    for working_dir in _manifest_dirs(scan, manifest_names):
-        argv, from_venv = _repo_python(scan.root, working_dir)
+    for working_dir in _manifest_dirs(files, manifest_names):
+        argv, from_venv = _repo_python(files.root, working_dir)
         source: tuple[str, str] | None = None
         for name in ("pytest.ini", "tox.ini", "setup.cfg", "pyproject.toml"):
             path = _in_dir(working_dir, name)
-            text = _read(scan, path)
+            text = _read(files, path)
             if text is None:
                 continue
             if name == "pytest.ini":
@@ -189,7 +189,7 @@ def _detect_python(scan: RepoScan) -> list[FrameworkDetection]:
         if source is None:
             for name in ("requirements.txt", "requirements-dev.txt", "test-requirements.txt"):
                 path = _in_dir(working_dir, name)
-                text = _read(scan, path)
+                text = _read(files, path)
                 if text and _PYTEST_DEPENDENCY_RE.search(text):
                     source = (path, "pytest declared as a dependency")
                     break
@@ -211,7 +211,7 @@ def _detect_python(scan: RepoScan) -> list[FrameworkDetection]:
 
     unittest_files = [
         scanned
-        for scanned in scan.files
+        for scanned in files.files
         if scanned.is_test
         and scanned.extension in _PYTHON_EXTENSIONS
         and ("unittest.TestCase" in scanned.text or "import unittest" in scanned.text)
@@ -220,7 +220,7 @@ def _detect_python(scan: RepoScan) -> list[FrameworkDetection]:
         source_file = unittest_files[0]
         # unittest resolves dotted module paths from the directory it runs in,
         # so anchor it at the repository root.
-        argv, from_venv = _repo_python(scan.root)
+        argv, from_venv = _repo_python(files.root)
         why = "test module builds on unittest.TestCase"
         if not from_venv:
             why = f"{why}; no repo virtualenv found, using `python3`"
@@ -235,13 +235,13 @@ def _detect_python(scan: RepoScan) -> list[FrameworkDetection]:
     return detections
 
 
-def _detect_node(scan: RepoScan) -> list[FrameworkDetection]:
+def _detect_node(files: RepoFiles) -> list[FrameworkDetection]:
     """Detect a Node test runner from package.json and installed binaries."""
     detections: list[FrameworkDetection] = []
 
-    for working_dir in _manifest_dirs(scan, ("package.json",)):
+    for working_dir in _manifest_dirs(files, ("package.json",)):
         manifest_path = _in_dir(working_dir, "package.json")
-        package_text = _read(scan, manifest_path)
+        package_text = _read(files, manifest_path)
         if package_text is None:
             continue
         try:
@@ -262,7 +262,7 @@ def _detect_node(scan: RepoScan) -> list[FrameworkDetection]:
         for name in (FRAMEWORK_JEST, FRAMEWORK_MOCHA):
             if name not in dependencies and name not in test_script:
                 continue
-            binary = _node_binary(scan.root, working_dir, name)
+            binary = _node_binary(files.root, working_dir, name)
             detections.append(
                 FrameworkDetection(
                     framework=name,
@@ -300,9 +300,9 @@ def _detect_node(scan: RepoScan) -> list[FrameworkDetection]:
     return detections
 
 
-def detect_frameworks(scan: RepoScan) -> list[FrameworkDetection]:
+def detect_frameworks(files: RepoFiles) -> list[FrameworkDetection]:
     """Detect every test framework a repository demonstrably configures."""
-    return [*_detect_python(scan), *_detect_node(scan)]
+    return [*_detect_python(files), *_detect_node(files)]
 
 
 def _select_detection(
@@ -636,14 +636,14 @@ def execute_mapped_test(
 def execute_mapped_tests(
     *,
     tests: list[MappedTest],
-    scan: RepoScan,
+    files: RepoFiles,
     repo_root: Path,
     settings: ExecutionSettings,
 ) -> tuple[list[TestExecution], list[str]]:
     """Execute every mapped test once, bounded, reusing results across behaviors."""
     # Detect first, so the report can say what the repository is configured for
     # even when nothing was mapped and nothing will run.
-    detections = detect_frameworks(scan)
+    detections = detect_frameworks(files)
     notes: list[str] = [
         "test_frameworks_detected="
         + (",".join(sorted({item.framework for item in detections})) if detections else "none")

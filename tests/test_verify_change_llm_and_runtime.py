@@ -11,8 +11,8 @@ from sydes.verify.llm_findings import (
     generate_code_findings,
     generate_verification_gaps,
 )
-from sydes.verify.models import AffectedFlow, ChangedFile, ChangeSet, FlowNode
-from sydes.verify.repo_scan import scan_repository
+from sydes.verify.models import AffectedFlow, ChangedFile, ChangeSet
+from sydes.verify.source_files import load_repo_files
 from sydes.verify.runtime import infer_runtime_dependencies
 
 
@@ -36,9 +36,12 @@ def _context() -> dict:
     flow = AffectedFlow(
         id="flow:POST:/refund",
         entry_label="POST /refund",
-        nodes=[
-            FlowNode(id="route:POST /refund", kind="route", name="POST /refund"),
-            FlowNode(id="sym:retry", kind="service", name="RefundService.retryRefund", changed=True),
+        method="POST",
+        path="/refund",
+        handler="RefundService.retryRefund",
+        steps=[
+            {"id": "step:handler:1", "kind": "handler", "detail": "RefundService.retryRefund",
+             "file": "src/refund/service.py"}
         ],
     )
     return build_change_context(change=change, flows=[flow], verification=[], diff_text="diff --git ...")
@@ -77,7 +80,7 @@ def test_verification_gaps_require_a_known_graph_node() -> None:
     stub = _StubLLM(
         {
             "gaps": [
-                {"behavior": "refund.created is emitted exactly once", "related_node_ids": ["sym:retry"]},
+                {"behavior": "refund.created is emitted exactly once", "related_node_ids": ["step:handler:1"]},
                 {"behavior": "something invented", "related_node_ids": ["sym:nope"]},
                 {"behavior": "no anchor at all"},
             ]
@@ -95,8 +98,8 @@ def test_verification_gaps_reject_generic_suggestions() -> None:
     stub = _StubLLM(
         {
             "gaps": [
-                {"behavior": "Add more tests for the service", "related_node_ids": ["sym:retry"]},
-                {"behavior": "Handle edge cases in retry", "related_node_ids": ["sym:retry"]},
+                {"behavior": "Add more tests for the service", "related_node_ids": ["step:handler:1"]},
+                {"behavior": "Handle edge cases in retry", "related_node_ids": ["step:handler:1"]},
             ]
         }
     )
@@ -142,7 +145,7 @@ def test_runtime_dependencies_detected_from_env_compose_and_imports(tmp_path: Pa
     (root / "src" / "client.py").write_text("import psycopg\n", encoding="utf-8")
 
     dependencies = infer_runtime_dependencies(
-        scan=scan_repository("svc", root), flows=[], changed_files=set()
+        files=load_repo_files("svc", root), flows=[], changed_files=set()
     )
     names = {item.name for item in dependencies}
     kinds = {item.kind for item in dependencies}
@@ -162,7 +165,7 @@ def test_runtime_dependency_ignores_generic_app_urls(tmp_path: Path) -> None:
     (root / ".env").write_text("APP_URL=http://localhost:3000\nBASE_URL=http://localhost\n", encoding="utf-8")
 
     dependencies = infer_runtime_dependencies(
-        scan=scan_repository("svc", root), flows=[], changed_files=set()
+        files=load_repo_files("svc", root), flows=[], changed_files=set()
     )
 
     assert dependencies == []
@@ -175,7 +178,7 @@ def test_env_value_refines_generic_database_name(tmp_path: Path) -> None:
     (root / ".env.example").write_text("DB_CONNECTION=mysql\n", encoding="utf-8")
 
     dependencies = infer_runtime_dependencies(
-        scan=scan_repository("svc", root), flows=[], changed_files=set()
+        files=load_repo_files("svc", root), flows=[], changed_files=set()
     )
 
     assert [item.name for item in dependencies] == ["MySQL"]

@@ -29,7 +29,6 @@ from sydes.verify.models import (
     ChangeSet,
     CodeFinding,
     VerificationGap,
-    VerificationItem,
 )
 
 MAX_DIFF_CHARS = 14_000
@@ -76,7 +75,7 @@ def build_change_context(
     *,
     change: ChangeSet,
     flows: list[AffectedFlow],
-    verification: list[VerificationItem],
+    verification: list[Any],
     diff_text: str,
 ) -> dict[str, Any]:
     """Build the bounded context payload handed to the LLM."""
@@ -86,20 +85,16 @@ def build_change_context(
             {
                 "id": flow.id,
                 "entry": flow.entry_label,
+                "handler": flow.handler,
                 "entry_kind": flow.entry_kind,
                 "nodes": [
                     {
-                        "id": node.id,
-                        "kind": node.kind,
-                        "name": node.name,
-                        "file": node.file,
-                        "changed": node.changed,
+                        "id": str(step.get("id") or ""),
+                        "kind": str(step.get("kind") or ""),
+                        "name": str(step.get("detail") or step.get("name") or ""),
+                        "file": str(step.get("file") or ""),
                     }
-                    for node in flow.nodes[:MAX_NODES_PER_FLOW]
-                ],
-                "edges": [
-                    {"from": edge.source, "to": edge.target, "kind": edge.kind}
-                    for edge in flow.edges[: MAX_NODES_PER_FLOW * 2]
+                    for step in flow.steps[:MAX_NODES_PER_FLOW]
                 ],
             }
         )
@@ -132,11 +127,9 @@ def build_change_context(
         "affected_flows": flow_payload,
         "existing_verification": [
             {
-                "name": item.name,
-                "file": item.file,
-                "status": item.status,
-                "covers": item.covers,
-                "flows": item.related_flow_ids,
+                "statement": getattr(item, "statement", ""),
+                "kind": getattr(item, "kind", ""),
+                "status": getattr(item, "status", ""),
             }
             for item in verification[:25]
         ],

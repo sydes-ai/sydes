@@ -16,9 +16,8 @@ from pathlib import Path
 import re
 
 from sydes.core.models import EvidenceRef
-from sydes.verify.events import detect_technologies_from_imports
 from sydes.verify.models import AffectedFlow, CrossRepoImpact, RuntimeDependency
-from sydes.verify.repo_scan import RepoScan, ScannedFile
+from sydes.verify.source_files import RepoFiles, SourceFile
 
 KIND_DATABASE = "database"
 KIND_CACHE = "cache"
@@ -153,7 +152,7 @@ def _titleize_service(token: str) -> str:
     return " ".join(words) or token
 
 
-def _env_hits(scanned: ScannedFile) -> list[RuntimeHit]:
+def _env_hits(scanned: SourceFile) -> list[RuntimeHit]:
     """Detect dependencies from environment variable declarations."""
     hits: list[RuntimeHit] = []
     for line_no, line in enumerate(scanned.text.splitlines(), start=1):
@@ -209,7 +208,7 @@ def _env_hits(scanned: ScannedFile) -> list[RuntimeHit]:
     return hits
 
 
-def _compose_hits(scanned: ScannedFile) -> list[RuntimeHit]:
+def _compose_hits(scanned: SourceFile) -> list[RuntimeHit]:
     """Detect dependencies from container images in compose/k8s/helm/CI files."""
     hits: list[RuntimeHit] = []
     for line_no, line in enumerate(scanned.text.splitlines(), start=1):
@@ -235,7 +234,7 @@ def _compose_hits(scanned: ScannedFile) -> list[RuntimeHit]:
     return hits
 
 
-def _spring_hits(scanned: ScannedFile) -> list[RuntimeHit]:
+def _spring_hits(scanned: SourceFile) -> list[RuntimeHit]:
     """Detect dependencies from Spring-style application config."""
     hits: list[RuntimeHit] = []
     for line in scanned.text.splitlines():
@@ -256,7 +255,7 @@ def _spring_hits(scanned: ScannedFile) -> list[RuntimeHit]:
     return hits
 
 
-def _import_hits(scanned: ScannedFile) -> list[RuntimeHit]:
+def _import_hits(scanned: SourceFile) -> list[RuntimeHit]:
     """Detect dependencies from client library imports in source."""
     hits: list[RuntimeHit] = []
     for line_no, line in enumerate(scanned.text.splitlines(), start=1):
@@ -280,7 +279,7 @@ def _import_hits(scanned: ScannedFile) -> list[RuntimeHit]:
     return hits
 
 
-def _is_config_file(scanned: ScannedFile) -> bool:
+def _is_config_file(scanned: SourceFile) -> bool:
     """True for compose/k8s/helm/CI/application config files."""
     lowered = scanned.path.lower()
     name = Path(lowered).name
@@ -293,12 +292,12 @@ def _is_config_file(scanned: ScannedFile) -> bool:
     return name.startswith("values") and scanned.extension in {".yml", ".yaml"}
 
 
-def _is_env_file(scanned: ScannedFile) -> bool:
+def _is_env_file(scanned: SourceFile) -> bool:
     """True for `.env`-style files."""
     return Path(scanned.path).name.lower().startswith(".env")
 
 
-def _is_app_config(scanned: ScannedFile) -> bool:
+def _is_app_config(scanned: SourceFile) -> bool:
     """True for Spring-style application config files."""
     name = Path(scanned.path).name.lower()
     return name.startswith("application") and scanned.extension in {".yml", ".yaml", ".properties"}
@@ -306,7 +305,7 @@ def _is_app_config(scanned: ScannedFile) -> bool:
 
 def infer_runtime_dependencies(
     *,
-    scan: RepoScan,
+    files: RepoFiles,
     flows: list[AffectedFlow],
     changed_files: set[str],
     cross_repo_impacts: list[CrossRepoImpact] | None = None,
@@ -314,7 +313,7 @@ def infer_runtime_dependencies(
     """Infer runtime dependencies needed to exercise the affected flows."""
     hits: list[RuntimeHit] = []
 
-    for scanned in scan.files:
+    for scanned in files.files:
         if _is_env_file(scanned):
             hits.extend(_env_hits(scanned))
         elif _is_config_file(scanned):
@@ -325,72 +324,37 @@ def infer_runtime_dependencies(
         elif scanned.is_app_source:
             hits.extend(_import_hits(scanned))
 
-    for technology, sites in detect_technologies_from_imports(scan).items():
-        name, kind = _MESSAGING_NAMES.get(technology, (technology, KIND_QUEUE))
-        for file_path, line_no, snippet in sites[:5]:
-            hits.append(
-                RuntimeHit(
-                    name=name,
-                    kind=kind,
-                    evidence=EvidenceRef(file=file_path, label="messaging_client_import", snippet=snippet),
-                )
-            )
-
     flow_files: set[str] = set()
     flow_ids_by_kind: dict[str, set[str]] = {}
     external_hosts: dict[str, tuple[str, EvidenceRef]] = {}
+
+    # The affected flows describe themselves through the shared sink taxonomy,
+    # so runtime needs are read from those sinks rather than re-derived.
     for flow in flows:
-        for node in flow.nodes:
-            if node.file:
-                flow_files.add(node.file)
-            if node.kind in {"database", "repository"}:
+        for step in flow.steps:
+            if step.get("file"):
+                flow_files.add(str(step["file"]))
+        for sink in flow.sinks:
+            if sink.get("file"):
+                flow_files.add(str(sink["file"]))
+            kind_token = str(sink.get("kind") or "").lower()
+            name = str(sink.get("name") or "")
+            if kind_token == "database":
                 flow_ids_by_kind.setdefault(KIND_DATABASE, set()).add(flow.id)
-            if node.kind == "event" or node.kind == "consumer":
+            elif kind_token == "queue":
                 flow_ids_by_kind.setdefault(KIND_QUEUE, set()).add(flow.id)
-                technology = str(node.metadata.get("technology") or "")
-                if technology in _MESSAGING_NAMES:
-                    name, kind = _MESSAGING_NAMES[technology]
-                    hits.append(
-                        RuntimeHit(
-                            name=name,
-                            kind=kind,
-                            evidence=EvidenceRef(
-                                file=node.file or "",
-                                symbol=node.name,
-                                label="affected_flow_event",
-                                snippet=f"{node.kind}: {node.name}",
-                            ),
-                        )
-                    )
-            if node.kind == "client":
+            elif kind_token == "external_api":
                 flow_ids_by_kind.setdefault(KIND_HTTP_SERVICE, set()).add(flow.id)
-                url_match = _HTTP_URL.search(node.name)
+                url_match = _HTTP_URL.search(name)
                 if url_match:
-                    host = url_match.group("host")
-                    external_hosts[host] = (
+                    external_hosts[url_match.group("host")] = (
                         flow.id,
-                        EvidenceRef(file=node.file or "", symbol=node.name, label="affected_flow_http_call"),
+                        EvidenceRef(
+                            file=str(sink.get("file") or ""),
+                            symbol=name,
+                            label="affected_flow_external_call",
+                        ),
                     )
-
-    for host, (flow_id, evidence) in external_hosts.items():
-        hits.append(RuntimeHit(name=f"{host} (HTTP)", kind=KIND_HTTP_SERVICE, evidence=evidence))
-
-    # A service the affected flow calls over HTTP has to be running for the flow
-    # to be exercised, whether or not its URL appears in configuration.
-    for impact in cross_repo_impacts or []:
-        if impact.kind != "http_call":
-            continue
-        name = f"{impact.target_repo} service" if impact.target_repo else impact.target_label
-        hits.append(
-            RuntimeHit(
-                name=name,
-                kind=KIND_HTTP_SERVICE,
-                evidence=impact.evidence[0]
-                if impact.evidence
-                else EvidenceRef(file="", label="cross_repo_call", snippet=impact.target_label),
-            )
-        )
-        flow_ids_by_kind.setdefault(KIND_HTTP_SERVICE, set()).update(impact.related_flow_ids)
 
     grouped: dict[tuple[str, str], list[EvidenceRef]] = {}
     for hit in hits:
@@ -432,7 +396,7 @@ def infer_runtime_dependencies(
                 id=f"runtime:{kind}:{name}".replace(" ", "-").lower(),
                 name=name,
                 kind=kind,
-                repo=scan.repo,
+                repo=files.repo,
                 required_for_flow_ids=related,
                 detected_from=deduped[:6],
                 scope="affected_flow" if (touches_change or touches_flow or related) else "repository",
