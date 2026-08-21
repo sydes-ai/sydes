@@ -563,6 +563,45 @@ def _merge_evidence_prefer_quality(winner: EndpointCandidate, loser: EndpointCan
     return combined
 
 
+def _drop_uncomposed_duplicates(
+    endpoints: list[EndpointCandidate],
+) -> tuple[list[EndpointCandidate], list[str]]:
+    """Remove the un-prefixed twin of a declaration whose prefix was resolved.
+
+    A declaration is seen twice when composition succeeds: once as the adapter
+    read it, and once with the prefix its container contributed. Only the
+    composed path is a real route, so drop the shorter one it is a suffix of.
+    """
+    notes: list[str] = []
+    composed_by_file: dict[tuple[str, str, str], list[str]] = {}
+    for endpoint in endpoints:
+        if not str(endpoint.status or "").startswith("deterministic_composed"):
+            continue
+        key = (endpoint.repo or "", endpoint.file or "", (endpoint.method or "").upper())
+        composed_by_file.setdefault(key, []).append(endpoint.path or "")
+
+    kept: list[EndpointCandidate] = []
+    for endpoint in endpoints:
+        path = endpoint.path or ""
+        key = (endpoint.repo or "", endpoint.file or "", (endpoint.method or "").upper())
+        superseded = (
+            not str(endpoint.status or "").startswith("deterministic_composed")
+            and path
+            and any(
+                composed != path and composed.endswith(path) and len(composed) > len(path)
+                for composed in composed_by_file.get(key, [])
+            )
+        )
+        if superseded:
+            notes.append(
+                f"Dropped un-composed duplicate {endpoint.method} {path} from "
+                f"{endpoint.file}: a composed route already covers this declaration."
+            )
+            continue
+        kept.append(endpoint)
+    return kept, notes
+
+
 def merge_route_candidates(
     deterministic_routes: list[EndpointCandidate],
     llm_routes: list[EndpointCandidate],
@@ -571,7 +610,10 @@ def merge_route_candidates(
     by_identity: dict[tuple[str, str, str], EndpointCandidate] = {}
     notes: list[str] = []
 
-    for endpoint in deterministic_routes + llm_routes:
+    candidates, duplicate_notes = _drop_uncomposed_duplicates(deterministic_routes + llm_routes)
+    notes.extend(duplicate_notes)
+
+    for endpoint in candidates:
         identity = _route_identity_key(endpoint)
         if not identity[1] or not identity[2]:
             # Preserve legacy behavior for unresolved partial endpoints.

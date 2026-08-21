@@ -15,7 +15,7 @@ from sydes.cli.output_paths import (
 )
 from sydes.core.models import RoutesResult
 from sydes.discover.endpoints import discover_endpoints
-from sydes.discover.discovery_coverage import evaluate_discovery_coverage
+from sydes.discover.discovery_coverage import composition_is_unresolved, evaluate_discovery_coverage
 from sydes.discover.discovery_cache import (
     ARTIFACT_NAMES as CACHEABLE_ARTIFACT_NAMES,
     load_cache_bundle,
@@ -465,6 +465,10 @@ def routes_command(
         elif llm_policy == "always":
             should_run_planner = True
         elif coverage_label in {"weak", "unknown"}:
+            should_run_planner = True
+        elif composition_is_unresolved(coverage):
+            # Route paths may be incomplete even when extraction looked healthy;
+            # the planner exists to work out the composition Sydes could not.
             should_run_planner = True
         else:
             skip_reason = f"coverage_{coverage_label}"

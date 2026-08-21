@@ -3,6 +3,13 @@
 from __future__ import annotations
 
 
+# Ceiling applied when route containers exist but their composition is unknown.
+# Sits below the `strong` threshold so escalation remains available, and above
+# `weak` so a repository with otherwise good extraction is not misreported as
+# badly understood.
+_UNRESOLVED_COMPOSITION_SCORE_CAP = 0.7
+
+
 def _safe_int(value: object) -> int:
     if isinstance(value, bool):
         return int(value)
@@ -37,6 +44,21 @@ def evaluate_discovery_coverage(
     graph_composed_routes = _safe_int(graph_summary.get("composed_routes"))
     unresolved_mounts = _safe_int(graph_summary.get("unresolved_mounts"))
 
+    containers_with_declarations = _safe_int(graph_summary.get("containers_with_declarations"))
+    unresolved_containers = _safe_int(graph_summary.get("unresolved_containers"))
+    # The route graph reports this directly when it knows. Independently, any
+    # container beyond the root that no mount edge accounts for is a container
+    # whose position in the tree is unknown — so the two signals are OR-ed and
+    # a caller that omits the flag still cannot produce false confidence.
+    unaccounted_containers = max(0, graph_containers - graph_mount_edges - 1)
+    composition_unresolved = bool(graph_summary.get("composition_unresolved")) or (
+        graph_declarations > 0 and unaccounted_containers > 0
+    )
+    if unresolved_containers == 0 and composition_unresolved:
+        unresolved_containers = max(unresolved_containers, unaccounted_containers)
+    if containers_with_declarations == 0:
+        containers_with_declarations = graph_containers
+
     deterministic_routes = max(0, _safe_int(deterministic_route_count))
     truncated_files = max(0, _safe_int(deterministic_scan_truncated_files))
 
@@ -70,6 +92,13 @@ def evaluate_discovery_coverage(
     if truncated_files > 0:
         score -= min(0.25, 0.08 * truncated_files)
 
+    # Unresolved composition is an epistemic state, not a quality score: the
+    # routes recovered may each be individually correct while their paths are
+    # incomplete. Cap below `strong` so the fallback ladder stays eligible,
+    # instead of lowering scores everywhere.
+    if composition_unresolved:
+        score = min(score, _UNRESOLVED_COMPOSITION_SCORE_CAP)
+
     score = max(0.0, min(1.0, score))
 
     reasons: list[str] = []
@@ -79,6 +108,12 @@ def evaluate_discovery_coverage(
         reasons.append("route graph composition produced mounted routes")
     if unresolved_mounts > 0:
         reasons.append("some mount edges could not be resolved")
+    if composition_unresolved:
+        reasons.append(
+            "route composition is unresolved: "
+            f"{unresolved_containers} of {containers_with_declarations} route containers "
+            "have no resolvable mount or declared prefix, so route paths may be incomplete"
+        )
     if truncated_files > 0:
         reasons.append("deterministic scan encountered truncated files")
     if route_signal_volume > 0 and deterministic_routes <= max(3, route_signal_volume // 10):
@@ -109,13 +144,29 @@ def evaluate_discovery_coverage(
             "route_graph_composed_routes": graph_composed_routes,
             "final_deterministic_routes": deterministic_routes,
             "unresolved_mounts": unresolved_mounts,
+            "route_containers_with_declarations": containers_with_declarations,
+            "unresolved_route_containers": unresolved_containers,
+            "composition_unresolved": composition_unresolved,
             "deterministic_scan_truncated_files": truncated_files,
         },
         "reasons": reasons,
     }
 
 
+def composition_is_unresolved(coverage: dict) -> bool:
+    """Return True when route containers exist whose composition is unknown."""
+    signals = coverage.get("signals")
+    return bool(isinstance(signals, dict) and signals.get("composition_unresolved"))
+
+
 def auto_policy_should_skip_llm(coverage: dict) -> bool:
-    """Return True when llm-policy=auto should skip LLM discovery."""
+    """Return True when llm-policy=auto should skip LLM discovery.
+
+    Unresolved route composition always keeps escalation eligible: the routes
+    recovered may look plentiful while their paths are incomplete, which is
+    exactly the situation the routing-pattern planner exists to resolve.
+    """
+    if composition_is_unresolved(coverage):
+        return False
     label = str(coverage.get("label") or "unknown")
     return label in {"strong", "moderate"}

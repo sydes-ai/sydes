@@ -14,10 +14,17 @@ _EXTS = (".ts", ".tsx", ".js", ".jsx")
 
 @dataclass(frozen=True)
 class _Container:
+    """A route container: an object that owns declarations and can be mounted.
+
+    `own_prefix` is the prefix the container declares for itself at
+    construction. It composes with any prefix contributed by a parent mount.
+    """
+
     id: str
     symbol: str
     file: str
     kind: str
+    own_prefix: str = ""
 
 
 @dataclass(frozen=True)
@@ -54,9 +61,21 @@ def _normalize_basic_path(path: str) -> str:
     return p
 
 
-def _normalize_express_path(path: str) -> str:
-    normalized = re.sub(r":([A-Za-z_]\w*)", r"{\1}", path)
+def _normalize_path_parameters(path: str) -> str:
+    """Reduce every path-parameter syntax to one canonical `{name}` form.
+
+    Composition joins paths from several sources, so they must agree on how a
+    parameter is written before they can be compared or deduplicated.
+    """
+    # `<converter:name>` and `<name>` before `:name`, so the converter prefix is
+    # consumed rather than being read as a parameter of its own.
+    normalized = re.sub(r"<(?:[^:>]+:)?([^>]+)>", r"{\1}", path)
+    normalized = re.sub(r":([A-Za-z_]\w*)", r"{\1}", normalized)
     return _normalize_basic_path(normalized)
+
+
+def _normalize_express_path(path: str) -> str:
+    return _normalize_path_parameters(path)
 
 
 def _join_paths(prefix: str, leaf: str) -> str:
@@ -67,6 +86,17 @@ def _join_paths(prefix: str, leaf: str) -> str:
     if l == "/":
         return p
     return _normalize_basic_path(f"{p.rstrip('/')}/{l.lstrip('/')}")
+
+
+def _module_path_candidates(source: str) -> list[str]:
+    """Candidate files for a dotted module path resolved from the repo root."""
+    if "/" in source or source.startswith("."):
+        return []
+    parts = [part for part in source.split(".") if part]
+    if not parts:
+        return []
+    base = "/".join(parts)
+    return [f"{base}.py", f"{base}/__init__.py"]
 
 
 def _import_target_candidates(parent_file: str, source: str) -> list[str]:
@@ -80,6 +110,7 @@ def _import_target_candidates(parent_file: str, source: str) -> list[str]:
             candidates.append(raw + ext)
         for ext in _EXTS:
             candidates.append((Path(raw) / f"index{ext}").as_posix())
+    candidates.extend(_module_path_candidates(source))
     seen: set[str] = set()
     ordered: list[str] = []
     for item in candidates:
@@ -102,15 +133,29 @@ def _build_route_graph_for_repo(repo_payload: dict) -> dict:
 
     for file_item in files_payload:
         file_path = str(file_item.get("path") or "")
+        declared_containers = {
+            item.get("symbol"): item
+            for item in (file_item.get("containers") or [])
+            if isinstance(item, dict) and isinstance(item.get("symbol"), str)
+        }
         for symbol in file_item.get("router_symbols") or []:
             container_id = f"{file_path}::{symbol}"
-            container = _Container(id=container_id, symbol=symbol, file=file_path, kind="express_router")
+            declared = declared_containers.get(symbol) or {}
+            container = _Container(
+                id=container_id,
+                symbol=symbol,
+                file=file_path,
+                kind=str(declared.get("callee") or "router_instance"),
+                own_prefix=_normalize_basic_path(str(declared.get("prefix") or "")) if declared.get("prefix") else "",
+            )
             containers[container_id] = container
             containers_by_file_symbol[(file_path, symbol)] = container_id
 
         for export in file_item.get("exports") or []:
-            if export.get("kind") == "default" and isinstance(export.get("symbol"), str):
-                default_export_symbol_by_file[file_path] = export["symbol"]
+            # `default` and CommonJS `module.exports = x` are the same relation
+            # for mount resolution: the file's single exported container.
+            if export.get("kind") in {"default", "commonjs"} and isinstance(export.get("symbol"), str):
+                default_export_symbol_by_file.setdefault(file_path, export["symbol"])
 
         local_map: dict[str, list[str]] = {}
         for imp in file_item.get("imports") or []:
@@ -118,7 +163,13 @@ def _build_route_graph_for_repo(repo_payload: dict) -> dict:
             source = imp.get("source")
             if not isinstance(local, str) or not isinstance(source, str):
                 continue
-            local_map[local] = _import_target_candidates(file_path, source)
+            # One local name can have several plausible sources (a module and
+            # the package containing it). Accumulate rather than overwrite, so
+            # the more specific candidate is not lost.
+            existing = local_map.setdefault(local, [])
+            for candidate in _import_target_candidates(file_path, source):
+                if candidate not in existing:
+                    existing.append(candidate)
         imports_by_file[file_path] = local_map
 
     declarations: list[_Declaration] = []
@@ -132,16 +183,28 @@ def _build_route_graph_for_repo(repo_payload: dict) -> dict:
             direct = containers_by_file_symbol.get((file_path, symbol))
             if direct:
                 return direct
-            import_targets = imports_by_file.get(file_path, {}).get(symbol, [])
-            for target_file in import_targets:
-                exported_symbol = default_export_symbol_by_file.get(target_file)
-                if exported_symbol:
-                    cid = containers_by_file_symbol.get((target_file, exported_symbol))
+
+            # A dotted reference names the module and the container inside it
+            # (`students.router`); resolve the module part, then the attribute.
+            module_ref, _, attribute = symbol.rpartition(".")
+            lookup_names = [symbol]
+            if module_ref:
+                lookup_names.append(module_ref)
+
+            for lookup in lookup_names:
+                for target_file in imports_by_file.get(file_path, {}).get(lookup, []):
+                    if module_ref and lookup == module_ref:
+                        cid = containers_by_file_symbol.get((target_file, attribute))
+                        if cid:
+                            return cid
+                    exported_symbol = default_export_symbol_by_file.get(target_file)
+                    if exported_symbol:
+                        cid = containers_by_file_symbol.get((target_file, exported_symbol))
+                        if cid:
+                            return cid
+                    cid = containers_by_file_symbol.get((target_file, lookup))
                     if cid:
                         return cid
-                cid = containers_by_file_symbol.get((target_file, symbol))
-                if cid:
-                    return cid
             return None
 
         for call in file_item.get("route_calls") or []:
@@ -238,6 +301,13 @@ def _build_route_graph_for_repo(repo_payload: dict) -> dict:
     cache: dict[str, list[tuple[str, list[_Mount]]]] = {}
 
     def prefixes_for(container_id: str, seen: set[str] | None = None) -> list[tuple[str, list[_Mount]]]:
+        """Fully composed prefixes reaching this container, inclusive of its own.
+
+        A container's effective prefix is its ancestors' composed prefix, plus
+        the prefix contributed by the mount that binds it, plus any prefix the
+        container declared for itself. Every prefix source therefore lands in
+        one place, whichever construct supplied it.
+        """
         if container_id in cache:
             return cache[container_id]
         seen = seen or set()
@@ -246,9 +316,11 @@ def _build_route_graph_for_repo(repo_payload: dict) -> dict:
         seen = set(seen)
         seen.add(container_id)
 
+        own = containers[container_id].own_prefix if container_id in containers else ""
+
         parents = incoming.get(container_id, [])
         if not parents:
-            result = [("", [])]
+            result = [(_normalize_basic_path(own) if own else "", [])]
             cache[container_id] = result
             return result
 
@@ -259,6 +331,8 @@ def _build_route_graph_for_repo(repo_payload: dict) -> dict:
                 parent_prefixes = [("", [])]
             for prefix, chain in parent_prefixes:
                 combined = _join_paths(prefix or "/", edge.prefix)
+                if own:
+                    combined = _join_paths(combined or "/", own)
                 combos.append((combined, [*chain, edge]))
 
         dedup: dict[tuple[str, tuple[str, ...]], tuple[str, list[_Mount]]] = {}
@@ -368,6 +442,29 @@ def _build_route_graph_for_repo(repo_payload: dict) -> dict:
         for m in mounts
     ]
 
+    # Distinguish "this repository composes nothing" from "this repository
+    # composes something Sydes could not follow". A container whose routes are
+    # declared but whose position in the tree is unknown is the second case, and
+    # it must not be reported as full understanding.
+    containers_with_declarations = {dec.container_id for dec in declarations}
+    mount_parents = {m.parent_container_id for m in mounts}
+    resolved_children = {m.child_container_id for m in mounts if m.child_container_id}
+
+    def _composition_resolved(container_id: str) -> bool:
+        container = containers.get(container_id)
+        if container is not None and container.own_prefix:
+            return True
+        return container_id in resolved_children or container_id in mount_parents
+
+    unresolved_containers = sorted(
+        container_id
+        for container_id in containers_with_declarations
+        if not _composition_resolved(container_id)
+    )
+    # A single route-owning container is a flat application, not an unresolved
+    # tree: there is nothing for it to be mounted into.
+    composition_unresolved = len(containers_with_declarations) > 1 and bool(unresolved_containers)
+
     return {
         "repo": repo,
         "containers": container_rows,
@@ -376,12 +473,16 @@ def _build_route_graph_for_repo(repo_payload: dict) -> dict:
         "composed_routes": composed_fact_rows,
         "unresolved_imports": unresolved_imports,
         "unresolved_mounts": unresolved_mounts,
+        "unresolved_containers": unresolved_containers,
         "summary": {
             "containers": len(container_rows),
             "declarations": len(declaration_rows),
             "mount_edges": len(mount_rows),
             "composed_routes": len(composed_fact_rows),
             "unresolved_mounts": len(unresolved_mounts),
+            "containers_with_declarations": len(containers_with_declarations),
+            "unresolved_containers": len(unresolved_containers),
+            "composition_unresolved": composition_unresolved,
         },
         "_composed_endpoint_candidates": composed,
     }
@@ -401,6 +502,11 @@ def build_route_graph_facts_from_route_index_batch(route_index_batch: dict) -> d
         "mount_edges": sum(item["summary"]["mount_edges"] for item in repo_facts),
         "composed_routes": sum(item["summary"]["composed_routes"] for item in repo_facts),
         "unresolved_mounts": sum(item["summary"]["unresolved_mounts"] for item in repo_facts),
+        "containers_with_declarations": sum(
+            item["summary"]["containers_with_declarations"] for item in repo_facts
+        ),
+        "unresolved_containers": sum(item["summary"]["unresolved_containers"] for item in repo_facts),
+        "composition_unresolved": any(item["summary"]["composition_unresolved"] for item in repo_facts),
     }
 
     return {
@@ -414,6 +520,7 @@ def build_route_graph_facts_from_route_index_batch(route_index_batch: dict) -> d
                 "composed_routes": item["composed_routes"],
                 "unresolved_imports": item["unresolved_imports"],
                 "unresolved_mounts": item["unresolved_mounts"],
+                "unresolved_containers": item["unresolved_containers"],
                 "summary": item["summary"],
             }
             for item in repo_facts
