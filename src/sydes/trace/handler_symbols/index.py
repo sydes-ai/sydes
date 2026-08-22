@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from collections import Counter
 from pathlib import Path
 
@@ -82,7 +83,8 @@ def build_handler_symbol_index(repo: RepoRef) -> dict:
         }
     )
 
-    for dirpath, dirnames, filenames in root.walk():
+    for raw_dirpath, dirnames, filenames in os.walk(root):
+        dirpath = Path(raw_dirpath)
         dirnames[:] = [name for name in dirnames if name.lower() not in IGNORED_DIRS]
         for filename in filenames:
             path = dirpath / filename

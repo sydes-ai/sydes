@@ -183,6 +183,7 @@ class VerificationCounts(BaseModel):
     obligations_unverified: int = 0
     obligations_unknown: int = 0
     mapped_tests: int = 0
+    supporting_tests: int = 0
     tests_executed: int = 0
     verification_gaps: int = 0
     runtime_dependencies: int = 0
@@ -260,6 +261,38 @@ class TestExecution(BaseModel):
     missing_dependency: str | None = None
     blocking_runtime_dependency_ids: list[str] = Field(default_factory=list)
     evidence: SourceRef | None = None
+
+    @property
+    def command_text(self) -> str:
+        """The executed command as a copy-pasteable string."""
+        return " ".join(self.command)
+
+
+class CiSuiteRun(BaseModel):
+    """One execution of the repository's own test command.
+
+    This is the regression baseline: it says whether the repository is healthy
+    after the change, which is not the same as saying every changed behavior is
+    demonstrated. Obligation status is decided separately.
+    """
+
+    command: list[str] = Field(default_factory=list)
+    source: str = ""
+    working_dir: str = "."
+    framework: str = ""
+    status: str = VERIFICATION_UNKNOWN
+    blocker: str | None = None
+    reason: str | None = None
+    exit_code: int | None = None
+    duration_ms: int | None = None
+    tests_passed: int | None = None
+    tests_failed: int | None = None
+    summary_line: str | None = None
+    failed_test_ids: list[str] = Field(default_factory=list)
+    stdout_excerpt: str | None = None
+    stderr_excerpt: str | None = None
+    output_truncated: bool = False
+    evidence: list[EvidenceRef] = Field(default_factory=list)
 
     @property
     def command_text(self) -> str:
@@ -376,6 +409,7 @@ class ChangeVerificationResult(BaseModel):
     analysis_status: str = ANALYSIS_COMPLETE
     analysis_notes: list[str] = Field(default_factory=list)
     test_executions: list[TestExecution] = Field(default_factory=list)
+    ci_suite: CiSuiteRun | None = None
     verification_gaps: list[VerificationGap] = Field(default_factory=list)
     runtime_dependencies: list[RuntimeDependency] = Field(default_factory=list)
     cross_repo_impacts: list[CrossRepoImpact] = Field(default_factory=list)

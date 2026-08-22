@@ -357,12 +357,9 @@ def test_case_e_unexecutable_test_yields_unknown_with_a_blocker(
 
     assert unknown, [(item.status, item.statement) for item in _obligations(result)]
     assert result.summary.verdict == VERDICT_INCOMPLETE
-    assert any(
-        execution.blocker == "missing_dependency" for execution in result.test_executions
-    )
-    assert not any(
-        execution.status == VERIFICATION_FAILED for execution in result.test_executions
-    )
+    assert result.ci_suite is not None
+    assert result.ci_suite.blocker == "missing_dependency"
+    assert result.ci_suite.status != VERIFICATION_FAILED
 
 
 def test_no_run_tests_yields_unknown_not_verified(repo: Path, tmp_path: Path) -> None:
@@ -374,7 +371,7 @@ def test_no_run_tests_yields_unknown_not_verified(repo: Path, tmp_path: Path) ->
     result = _run(repo, tmp_path, "--no-run-tests")
 
     assert result.summary.verdict != VERDICT_VERIFIED
-    assert result.test_executions == []
+    assert result.ci_suite is None
 
 
 # --------------------------------------------------------------------------

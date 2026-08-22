@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 import hashlib
 import json
+import os
 from pathlib import Path
 from typing import Any
 
@@ -92,7 +93,8 @@ def collect_repo_file_snapshot(repos: list[RepoRef]) -> dict[str, dict[str, Any]
     snapshot: dict[str, dict[str, Any]] = {}
     for repo in repos:
         root = Path(repo.root).expanduser().resolve()
-        for dirpath, dirnames, filenames in root.walk():
+        for raw_dirpath, dirnames, filenames in os.walk(root):
+            dirpath = Path(raw_dirpath)
             dirnames[:] = [name for name in dirnames if name.lower() not in IGNORED_DIRS]
             for filename in filenames:
                 path = dirpath / filename

@@ -326,6 +326,15 @@ def derive_obligations(
         path == flow.artifact_refs.get("handler_file") for path, _start, _end in spans
     )
     for obligation in obligations:
+        if obligation.origin == ORIGIN_TEST_MATRIX:
+            # The test matrix was built to suggest broad coverage, not to state
+            # precisely what this change must demonstrate. Its generic entries
+            # ("rejects invalid payloads") match any unrelated 4xx test, so they
+            # are advisory suggestions here: never required, and never presented
+            # as change-critical.
+            obligation.required = False
+            obligation.introduced_by_change = False
+            continue
         if handler_changed and obligation.kind in {
             OBLIGATION_ROUTE_CONTRACT,
             OBLIGATION_VALIDATION,

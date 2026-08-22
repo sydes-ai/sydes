@@ -43,63 +43,112 @@ def _section(lines: list[str], title: str) -> None:
 def _render_obligation(
     obligation: VerificationObligation, lines: list[str], *, verbose: bool
 ) -> None:
-    """Render one obligation and the evidence behind its status."""
+    """Render one obligation compactly: claim, status, and its strongest evidence."""
     mark = _MARK.get(obligation.status, "?")
-    flag = "  [CHANGED BY THIS DIFF]" if obligation.introduced_by_change else ""
-    lines.append(f"  {mark} {_LABEL.get(obligation.status, obligation.status.upper())}  {obligation.statement}{flag}")
-    lines.append(f"        kind={obligation.kind}  origin={obligation.origin}")
+    label = _LABEL.get(obligation.status, obligation.status.upper())
+    lines.append(f"  {mark} {label}  {obligation.statement}")
 
-    executions = {item.test_id: item for item in obligation.executions}
-    for test in obligation.mapped_tests:
-        execution = executions.get(test.id)
-        detail = ""
-        if execution and execution.duration_ms is not None:
-            detail = f"  {execution.duration_ms / 1000:.1f}s"
-        state = _LABEL.get(execution.status, "UNKNOWN") if execution else "UNKNOWN"
-        lines.append(f"        {state}  {test.name}{detail}")
-        lines.append(f"              why: {test.match_rule}  [{test.evidence_tier}]")
-        if execution and execution.failure_summary:
-            lines.append(f"              {execution.failure_summary}")
-        if execution and execution.status == VERIFICATION_UNKNOWN and execution.reason:
-            lines.append(f"              {execution.reason}")
-            if execution.blocking_runtime_dependency_ids:
-                names = ", ".join(
-                    item.split(":")[-1] for item in execution.blocking_runtime_dependency_ids
-                )
-                lines.append(f"              runtime dependency: {names}")
-        if execution and execution.command:
-            lines.append(f"              $ {execution.command_text}")
-
-    if not obligation.mapped_tests:
+    # At most one line of evidence: the reader wants to know whether the claim
+    # is demonstrated, not to read the whole test inventory.
+    if obligation.mapped_tests:
+        primary = obligation.mapped_tests[0]
+        extra = len(obligation.mapped_tests) - 1
+        suffix = f" (+{extra} more)" if extra > 0 else ""
+        lines.append(f"        evidence: {primary.name}{suffix}")
+        lines.append(f"        why: {primary.match_rule}  [{primary.evidence_tier}]")
+    else:
         lines.append(f"        {obligation.reason or 'No verifying test located'}")
-        if obligation.supporting_tests:
-            lines.append(
-                f"        {len(obligation.supporting_tests)} test(s) exercise this flow "
-                "but do not assert this behavior:"
-            )
-            for test in obligation.supporting_tests[: 5 if verbose else 2]:
-                lines.append(f"              - {test.name}  ({test.match_rule})")
+    if obligation.status in {VERIFICATION_FAILED, VERIFICATION_UNKNOWN} and obligation.reason:
+        lines.append(f"        {obligation.reason}")
+    if obligation.supporting_tests:
+        lines.append(
+            f"        regression context: {len(obligation.supporting_tests)} test(s) "
+            "exercise this flow without asserting this behavior"
+        )
     if verbose and obligation.source_refs:
-        lines.append(f"        refs: {', '.join(obligation.source_refs[:4])}")
-    lines.append("")
+        lines.append(f"        refs: {', '.join(obligation.source_refs[:3])}")
 
 
 def _render_flow(flow: AffectedFlow, lines: list[str], *, verbose: bool) -> None:
-    """Render one affected flow, its topology summary, and its obligations."""
+    """Render one affected flow: change-critical obligations first, then the rest."""
     lines.append(f"{_MARK.get(flow.status, '?')} {flow.entry_label}   [{flow.status.upper()}]")
     if flow.handler:
-        lines.append(f"    handler: {flow.handler}  ({flow.artifact_refs.get('handler_file') or flow.artifact_refs.get('route_file')})")
+        location = flow.artifact_refs.get("handler_file") or flow.artifact_refs.get("route_file")
+        lines.append(f"    handler: {flow.handler}  ({location})")
     if flow.sinks:
-        for sink in flow.sinks[:6]:
-            name = sink.get("name") or sink.get("kind")
-            lines.append(f"    → {sink.get('kind')}: {name}")
+        summary = ", ".join(
+            f"{sink.get('kind')}: {sink.get('name')}" for sink in flow.sinks[:3]
+        )
+        more = f" (+{len(flow.sinks) - 3} more)" if len(flow.sinks) > 3 else ""
+        lines.append(f"    downstream: {summary}{more}")
     if flow.analysis_status != ANALYSIS_COMPLETE:
-        lines.append(f"    analysis: {flow.analysis_status.upper()} — downstream effects may be missing")
-        for note in flow.analysis_notes[: 4 if verbose else 2]:
+        lines.append(
+            f"    analysis: {flow.analysis_status.upper()} — downstream effects may be missing"
+        )
+        for note in flow.analysis_notes[: 3 if verbose else 1]:
             lines.append(f"      - {note}")
+
+    required = [item for item in flow.obligations if item.required]
+    advisory = [item for item in flow.obligations if not item.required]
+    critical = [item for item in required if item.introduced_by_change]
+    other = [item for item in required if not item.introduced_by_change]
+
+    if critical:
+        lines.append("")
+        lines.append("  CHANGE-CRITICAL")
+        for obligation in critical:
+            _render_obligation(obligation, lines, verbose=verbose)
+    if other:
+        unresolved = [item for item in other if item.status != VERIFICATION_PASSED]
+        passed = len(other) - len(unresolved)
+        lines.append("")
+        lines.append("  OTHER OBLIGATIONS ON THIS FLOW")
+        if passed:
+            lines.append(f"  ✓ PASS  {passed} further obligation(s) covered by existing tests")
+        for obligation in unresolved[: None if verbose else 4]:
+            _render_obligation(obligation, lines, verbose=verbose)
+        hidden = len(unresolved) - (4 if not verbose else len(unresolved))
+        if hidden > 0:
+            lines.append(f"        … {hidden} more unresolved (use --verbose)")
+    if advisory:
+        lines.append("")
+        lines.append("  ADDITIONAL TEST SUGGESTIONS")
+        lines.append(
+            f"  {len(advisory)} suggestion(s) from the existing Sydes test matrix "
+            "(advisory; excluded from the verdict)"
+        )
+        if verbose:
+            for obligation in advisory:
+                lines.append(f"    - {obligation.statement}")
     lines.append("")
-    for obligation in flow.obligations:
-        _render_obligation(obligation, lines, verbose=verbose)
+
+
+def _render_ci_suite(suite, lines: list[str], *, verbose: bool) -> None:
+    """Render the repository's own test run as the regression baseline."""
+    if suite is None:
+        lines.append("  Not executed.")
+        return
+    mark = _MARK.get(suite.status, "?")
+    counts = ""
+    if suite.tests_passed is not None:
+        counts = f"{suite.tests_passed} passed"
+        if suite.tests_failed:
+            counts += f", {suite.tests_failed} failed"
+    duration = f"  {suite.duration_ms / 1000:.1f}s" if suite.duration_ms is not None else ""
+    lines.append(f"  {mark} {_LABEL.get(suite.status, suite.status.upper())}  {counts}{duration}")
+    if suite.command:
+        lines.append(f"        $ {suite.command_text}")
+    if suite.source:
+        lines.append(f"        from {suite.source}")
+    if suite.reason:
+        lines.append(f"        {suite.reason}")
+    for node in suite.failed_test_ids[: 10 if verbose else 3]:
+        lines.append(f"        failed: {node}")
+    if suite.status == VERIFICATION_PASSED:
+        lines.append(
+            "        A passing suite is regression evidence; it does not demonstrate "
+            "the changed behavior."
+        )
 
 
 def render_verify_change_terminal(
@@ -123,20 +172,18 @@ def render_verify_change_terminal(
         lines.append("")
         lines.append(result.summary.headline)
     lines.append("")
-    lines.append(f"Changed files:        {counts.changed_files}")
-    lines.append(f"Changed symbols:      {counts.changed_symbols}")
-    lines.append(f"Affected flows:       {counts.affected_flows}")
-    lines.append("")
-    lines.append(f"Obligations:          {counts.obligations}")
-    lines.append(f"  Passed:             {counts.obligations_passed}")
-    lines.append(f"  Failed:             {counts.obligations_failed}")
-    lines.append(f"  Unverified:         {counts.obligations_unverified}")
-    lines.append(f"  Unknown:            {counts.obligations_unknown}")
-    lines.append(f"  Introduced by diff: {counts.obligations_introduced_by_change}")
-    lines.append("")
-    lines.append(f"Mapped tests:         {counts.mapped_tests}")
-    lines.append(f"Tests executed:       {counts.tests_executed}")
-    lines.append(f"Runtime dependencies: {counts.runtime_dependencies}")
+    lines.append(
+        f"Changed: {counts.changed_files} file(s), {counts.changed_symbols} symbol(s)"
+        f"   Flows: {counts.affected_flows}"
+    )
+    lines.append(
+        f"Obligations: {counts.obligations}"
+        f"   passed {counts.obligations_passed}"
+        f" · failed {counts.obligations_failed}"
+        f" · unverified {counts.obligations_unverified}"
+        f" · unknown {counts.obligations_unknown}"
+        f"   ({counts.obligations_introduced_by_change} introduced by this change)"
+    )
     if result.summary.risk_reasons:
         lines.append("")
         lines.append("Risk drivers:")
@@ -149,16 +196,17 @@ def render_verify_change_terminal(
     for changed_file in result.change.files:
         lines.append(
             f"  [{changed_file.change_type}] {changed_file.path}  "
-            f"(+{changed_file.added_lines}/-{changed_file.removed_lines}, {changed_file.role or 'unknown'})"
+            f"(+{changed_file.added_lines}/-{changed_file.removed_lines})"
         )
     for symbol in result.change.symbols:
         lines.append(
             f"    {symbol.qualified_name or symbol.name}  ({symbol.kind})  {symbol.file}:{symbol.start_line}"
         )
 
+    _section(lines, "CI REGRESSION SUITE")
+    _render_ci_suite(result.ci_suite, lines, verbose=verbose)
+
     _section(lines, "VERIFICATION")
-    lines.append("  (obligations are demonstrated by executing the tests mapped to them)")
-    lines.append("")
     if not result.affected_flows:
         lines.append("  No affected flow resolved from the shared trace stack.")
     for flow in result.affected_flows:

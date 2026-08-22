@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from collections import Counter
 from pathlib import Path
 
@@ -134,7 +135,8 @@ def build_repo_map(repo: RepoRef) -> dict:
     files_included = 0
     files_skipped = 0
 
-    for dirpath, dirnames, filenames in root.walk():
+    for raw_dirpath, dirnames, filenames in os.walk(root):
+        dirpath = Path(raw_dirpath)
         rel_dir = dirpath.relative_to(root).as_posix()
         total_dirs_seen += 1
 

@@ -74,6 +74,7 @@ from sydes.verify.models import (
     ChangedSymbol,
     ChangeSummary,
     ChangeVerificationResult,
+    CiSuiteRun,
     RuntimeDependency,
     SourceRef,
     TestExecution,
@@ -83,7 +84,7 @@ from sydes.verify.models import (
 from sydes.verify.obligations import derive_obligations
 from sydes.verify.runtime import infer_runtime_dependencies
 from sydes.verify.source_files import load_repo_files
-from sydes.verify.test_execution import ExecutionSettings, execute_mapped_tests
+from sydes.verify.test_execution import ExecutionSettings, run_ci_suite
 from sydes.verify.test_index import build_test_index
 from sydes.verify.test_mapping import map_tests_to_obligation
 
@@ -411,45 +412,62 @@ def _trace_result_for_matrix(
 
 
 def resolve_obligation_status(
-    obligation: VerificationObligation, executions_by_test: dict[str, TestExecution]
+    obligation: VerificationObligation, ci_suite: CiSuiteRun | None
 ) -> None:
-    """Set an obligation's status strictly from the tests mapped to *it*."""
+    """Set an obligation's status from the tests mapped to *it*.
+
+    The regression suite supplies the pass/fail signal, but only for tests that
+    were actually mapped to this obligation. A green suite says the repository
+    is healthy; it never turns an unmatched obligation into evidence.
+    """
     if not obligation.mapped_tests:
         obligation.status = VERIFICATION_UNVERIFIED
         obligation.reason = (
             f"{len(obligation.supporting_tests)} test(s) exercise this flow but none assert "
             "this behavior"
             if obligation.supporting_tests
-            else "No existing test was found that verifies this behavior"
+            else "No existing test asserts this behavior"
         )
         return
 
-    obligation.executions = [
-        executions_by_test[test.id]
+    if ci_suite is None:
+        obligation.status = VERIFICATION_UNKNOWN
+        obligation.reason = "The repository test suite was not executed"
+        return
+
+    if ci_suite.status == VERIFICATION_UNKNOWN:
+        obligation.status = VERIFICATION_UNKNOWN
+        obligation.reason = ci_suite.reason or "The repository test suite could not be executed"
+        return
+
+    failing = [
+        test
         for test in obligation.mapped_tests
-        if test.id in executions_by_test
+        if _test_is_in(test, ci_suite.failed_test_ids)
     ]
-    if not obligation.executions:
-        obligation.status = VERIFICATION_UNKNOWN
-        obligation.reason = (
-            f"{len(obligation.mapped_tests)} mapped test(s) were not executed "
-            "(execution budget reached)"
-        )
+    if failing:
+        obligation.status = VERIFICATION_FAILED
+        obligation.reason = f"`{failing[0].name}` failed in the repository test suite"
         return
 
-    statuses = {item.status for item in obligation.executions}
-    if VERIFICATION_FAILED in statuses:
-        failed = next(i for i in obligation.executions if i.status == VERIFICATION_FAILED)
-        obligation.status = VERIFICATION_FAILED
-        obligation.reason = failed.failure_summary or "A test verifying this behavior failed"
-        return
-    if VERIFICATION_UNKNOWN in statuses:
-        blocked = next(i for i in obligation.executions if i.status == VERIFICATION_UNKNOWN)
+    if ci_suite.status == VERIFICATION_FAILED and not ci_suite.failed_test_ids:
+        # The suite failed but named no tests, so this obligation's tests cannot
+        # be cleared or blamed.
         obligation.status = VERIFICATION_UNKNOWN
-        obligation.reason = blocked.reason or "A test verifying this behavior could not be executed"
+        obligation.reason = "The test suite failed without attributable test results"
         return
+
     obligation.status = VERIFICATION_PASSED
     obligation.reason = None
+
+
+def _test_is_in(test, failed_ids: list[str]) -> bool:
+    """True when a mapped test appears among the suite's failing test ids."""
+    case = test.case_name or test.name
+    for node in failed_ids:
+        if test.file and test.file in node and case and case in node:
+            return True
+    return False
 
 
 def resolve_flow_status(flow: AffectedFlow) -> None:
@@ -489,11 +507,12 @@ def _compute_summary(result: ChangeVerificationResult) -> ChangeSummary:
     def _count(state: str) -> int:
         return sum(1 for item in required if item.status == state)
 
-    executed = [
-        item
-        for item in result.test_executions
-        if item.status in {VERIFICATION_PASSED, VERIFICATION_FAILED}
-    ]
+    suite = result.ci_suite
+    executed = (
+        (suite.tests_passed or 0) + (suite.tests_failed or 0)
+        if suite is not None and suite.status != VERIFICATION_UNKNOWN
+        else 0
+    )
     counts = VerificationCounts(
         changed_files=len(change.files),
         changed_source_files=sum(
@@ -517,7 +536,8 @@ def _compute_summary(result: ChangeVerificationResult) -> ChangeSummary:
         obligations_unverified=_count(VERIFICATION_UNVERIFIED),
         obligations_unknown=_count(VERIFICATION_UNKNOWN),
         mapped_tests=sum(len(item.mapped_tests) for item in required),
-        tests_executed=len(executed),
+        supporting_tests=sum(len(item.supporting_tests) for item in required),
+        tests_executed=executed,
         verification_gaps=len(result.verification_gaps),
         runtime_dependencies=len(result.runtime_dependencies),
         cross_repo_impacts=len(result.cross_repo_impacts),
@@ -538,7 +558,16 @@ def _compute_summary(result: ChangeVerificationResult) -> ChangeSummary:
 
     # Conservative aggregation. An unresolved obligation always prevents
     # VERIFIED; passing regression tests elsewhere cannot mask it.
-    if counts.obligations_failed:
+    # A red regression suite is hard evidence of breakage and outranks every
+    # classification question: it stands even when the only failing obligations
+    # were advisory ones excluded from the required set.
+    suite_failed = suite is not None and suite.status == VERIFICATION_FAILED
+    if suite_failed:
+        reasons.append(
+            f"the repository test suite failed ({suite.tests_failed or 'some'} test(s))"
+        )
+
+    if counts.obligations_failed or suite_failed:
         verdict, risk = VERDICT_ACTION_REQUIRED, RISK_HIGH
     elif counts.obligations_unknown or counts.obligations_unverified:
         verdict = VERDICT_INCOMPLETE
@@ -578,16 +607,14 @@ def _compute_summary(result: ChangeVerificationResult) -> ChangeSummary:
 # --------------------------------------------------------------------------
 
 
-def _link_runtime_blockers(
-    execution: TestExecution, dependencies: list[RuntimeDependency]
-) -> None:
-    """Point an environment-blocked execution at the dependency behind it."""
+def _link_runtime_blockers(execution, dependencies: list[RuntimeDependency]) -> None:
+    """Point an environment-blocked run at the runtime dependency behind it."""
     if execution.blocker != BLOCKER_MISSING_DEPENDENCY:
         return
     haystack = " ".join(
         part
         for part in (
-            execution.missing_dependency,
+            getattr(execution, "missing_dependency", None),
             execution.reason,
             execution.stderr_excerpt,
             execution.stdout_excerpt,
@@ -598,7 +625,10 @@ def _link_runtime_blockers(
         tokens = {dependency.kind.replace("_", " ")}
         tokens.update(word for word in dependency.name.lower().split() if len(word) > 3)
         if any(token in haystack for token in tokens if token):
-            execution.blocking_runtime_dependency_ids.append(dependency.id)
+            execution.reason = (
+                f"{execution.reason or ''} (runtime dependency: {dependency.name})".strip()
+            )
+            return
 
 
 def analyze_change(
@@ -868,48 +898,26 @@ def _run_test_execution(
     repo_files,
     repo_root: Path,
 ) -> None:
-    """Execute the tests mapped to obligations and fold results back in."""
+    """Run the repository's own test suite once and resolve obligations from it."""
     settings = ExecutionSettings(
         enabled=options.run_tests, timeout_seconds=options.test_timeout_seconds
     )
-    # Obligations the diff introduced are checked first, so a bounded execution
-    # budget can never starve the behavior under review.
-    ordered_obligations = sorted(
-        (
-            obligation
-            for flow in result.affected_flows
-            for obligation in flow.obligations
-        ),
-        key=lambda item: not item.introduced_by_change,
-    )
-    mapped = [test for obligation in ordered_obligations for test in obligation.mapped_tests]
-    executions, notes = execute_mapped_tests(
-        tests=mapped, files=repo_files, repo_root=repo_root, settings=settings
+    ci_suite, notes = run_ci_suite(
+        files=repo_files, repo_root=repo_root, settings=settings
     )
     result.diagnostics.extend(notes)
-    result.test_executions = executions
+    result.ci_suite = ci_suite
 
-    for execution in executions:
-        _link_runtime_blockers(execution, result.runtime_dependencies)
+    if not options.run_tests:
+        result.notes.append("test_execution=skipped reason=--no-run-tests")
 
-    executions_by_test = {item.test_id: item for item in executions}
+    if ci_suite is not None and ci_suite.blocker == BLOCKER_MISSING_DEPENDENCY:
+        _link_runtime_blockers(ci_suite, result.runtime_dependencies)
+
     for flow in result.affected_flows:
         for obligation in flow.obligations:
             if not options.run_tests and obligation.mapped_tests:
                 obligation.status = VERIFICATION_UNKNOWN
                 obligation.reason = "Test execution was disabled (--no-run-tests)"
-                obligation.executions = [
-                    TestExecution(
-                        test_id=test.id,
-                        obligation_id=obligation.id,
-                        framework="unknown",
-                        status=VERIFICATION_UNKNOWN,
-                        blocker=BLOCKER_EXECUTION_DISABLED,
-                        reason="Test execution was disabled (--no-run-tests)",
-                    )
-                    for test in obligation.mapped_tests
-                ]
                 continue
-            resolve_obligation_status(obligation, executions_by_test)
-            for execution in obligation.executions:
-                execution.obligation_id = obligation.id
+            resolve_obligation_status(obligation, ci_suite)

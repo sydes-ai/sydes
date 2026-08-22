@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from collections.abc import Iterable
 from pathlib import Path
 
@@ -72,7 +73,8 @@ def build_repo_inventory(
     files: list[InventoryFile] = []
     total_size = 0
 
-    for dirpath, dirnames, filenames in root.walk():
+    for raw_dirpath, dirnames, filenames in os.walk(root):
+        dirpath = Path(raw_dirpath)
         dirnames[:] = [name for name in dirnames if name not in skip]
 
         for filename in filenames:

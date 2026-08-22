@@ -40,6 +40,7 @@ from sydes.verify.models import (
     VERIFICATION_FAILED,
     VERIFICATION_PASSED,
     VERIFICATION_UNKNOWN,
+    CiSuiteRun,
     MappedTest,
     SourceRef,
     TestExecution,
@@ -678,3 +679,229 @@ def execute_mapped_tests(
         )
     notes.append(f"tests_executed={len(executions)}")
     return executions, notes
+
+
+# --------------------------------------------------------------------------
+# Repository CI suite: one run of the project's own test command
+# --------------------------------------------------------------------------
+
+_WORKFLOW_RUN_RE = re.compile(r"^\s*(?:-\s*)?run:\s*(?P<command>.+?)\s*$")
+_TEST_COMMAND_RE = re.compile(r"\b(?:pytest|jest|mocha|vitest|npm\s+test|node\s+--test)\b")
+# Shell constructs Sydes will not interpret; such a line is skipped rather than
+# split naively into argv.
+_SHELL_METACHARACTERS = ("&&", "||", "|", ";", ">", "<", "$(", "`")
+
+
+def _workflow_test_command(files: RepoFiles) -> tuple[list[str], str] | None:
+    """Find a test command declared in a CI workflow, if one is unambiguous."""
+    for scanned in files.files:
+        if ".github/workflows/" not in scanned.path:
+            continue
+        for line in scanned.text.splitlines():
+            match = _WORKFLOW_RUN_RE.match(line)
+            if match is None:
+                continue
+            command = match.group("command").strip().strip("\"'")
+            if not _TEST_COMMAND_RE.search(command):
+                continue
+            if any(token in command for token in _SHELL_METACHARACTERS):
+                continue
+            return command.split(), scanned.path
+    return None
+
+
+def _package_test_script(files: RepoFiles) -> tuple[list[str], str] | None:
+    """Find a `npm test` script that actually runs a test runner."""
+    for working_dir in _manifest_dirs(files, ("package.json",)):
+        path = _in_dir(working_dir, "package.json")
+        text = _read(files, path)
+        if text is None:
+            continue
+        try:
+            package = json.loads(text)
+        except json.JSONDecodeError:
+            continue
+        scripts = package.get("scripts") if isinstance(package, dict) else None
+        script = str((scripts or {}).get("test") or "")
+        if not script or not _TEST_COMMAND_RE.search(script):
+            continue
+        return ["npm", "test", "--silent"], path
+    return None
+
+
+def resolve_ci_test_command(
+    files: RepoFiles, detections: list[FrameworkDetection]
+) -> tuple[list[str], str, FrameworkDetection] | None:
+    """Resolve the repository's own test command, preferring declared signals.
+
+    The workflow file is the strongest statement of "how this project runs its
+    tests". A bare runner name from it is re-pointed at the environment the
+    existing runner detection already resolved, so the repo's virtualenv or
+    `node_modules` binary is used rather than whatever is on PATH.
+    """
+    if not detections:
+        return None
+    available = [item for item in detections if item.runner_available]
+    if not available:
+        return None
+
+    declared = _workflow_test_command(files) or _package_test_script(files)
+    if declared is not None:
+        command, source = declared
+        head = command[0]
+        detection = next(
+            (item for item in available if item.framework == head),
+            available[0],
+        )
+        # `pytest -v` becomes `<repo python> -m pytest -v`; anything already
+        # naming an interpreter or npm is left as written.
+        if head in {FRAMEWORK_PYTEST, FRAMEWORK_JEST, FRAMEWORK_MOCHA}:
+            return [*detection.runner_argv, *command[1:]], source, detection
+        return command, source, detection
+
+    # No declared command: fall back to the detected runner's conventional form.
+    detection = available[0]
+    return list(detection.runner_argv), f"detected:{detection.framework}", detection
+
+
+_PYTEST_SUMMARY_RE = re.compile(
+    r"^=+\s*(?P<body>.*?\b\d+\s+(?:passed|failed|error).*?)\s*=+\s*$", re.MULTILINE
+)
+_PYTEST_COUNT_RE = re.compile(r"(?P<count>\d+)\s+(?P<state>passed|failed|errors?|skipped)")
+_PYTEST_FAILED_RE = re.compile(r"^(?:FAILED|ERROR)\s+(?P<node>\S+)", re.MULTILINE)
+_JEST_COUNT_RE = re.compile(r"Tests:\s+(?:(?P<failed>\d+)\s+failed,\s*)?(?:\d+\s+skipped,\s*)?(?P<passed>\d+)\s+passed")
+
+
+def _parse_suite_output(combined: str) -> tuple[int | None, int | None, str | None, list[str]]:
+    """Extract pass/fail counts and failing test ids from runner output."""
+    passed = failed = None
+    summary = None
+
+    match = _PYTEST_SUMMARY_RE.search(combined)
+    if match:
+        summary = match.group("body").strip()
+        for count_match in _PYTEST_COUNT_RE.finditer(summary):
+            value = int(count_match.group("count"))
+            state = count_match.group("state")
+            if state == "passed":
+                passed = value
+            elif state in {"failed", "error", "errors"}:
+                failed = (failed or 0) + value
+
+    jest_match = _JEST_COUNT_RE.search(combined)
+    if jest_match:
+        passed = int(jest_match.group("passed"))
+        failed = int(jest_match.group("failed") or 0)
+        summary = summary or jest_match.group(0)
+
+    failed_ids = [item.group("node") for item in _PYTEST_FAILED_RE.finditer(combined)]
+    return passed, failed, summary, failed_ids
+
+
+def run_ci_suite(
+    *, files: RepoFiles, repo_root: Path, settings: ExecutionSettings
+) -> tuple[CiSuiteRun | None, list[str]]:
+    """Run the repository's own test command once and interpret the result."""
+    detections = detect_frameworks(files)
+    notes: list[str] = [
+        "test_frameworks_detected="
+        + (",".join(sorted({item.framework for item in detections})) if detections else "none")
+    ]
+    if not settings.enabled:
+        return None, [*notes, "ci_suite=disabled"]
+
+    resolved = resolve_ci_test_command(files, detections)
+    if resolved is None:
+        unavailable = next(
+            (item for item in detections if not item.runner_available), None
+        )
+        blocker = BLOCKER_RUNNER_MISSING if unavailable else BLOCKER_FRAMEWORK_UNSUPPORTED
+        reason = (
+            unavailable.unavailable_reason
+            if unavailable and unavailable.unavailable_reason
+            else "No repository test command could be resolved"
+        )
+        notes.append(f"ci_suite=unresolved reason={reason}")
+        return (
+            CiSuiteRun(status=VERIFICATION_UNKNOWN, blocker=blocker, reason=reason),
+            notes,
+        )
+
+    command, source, detection = resolved
+    started = time.monotonic()
+    try:
+        completed = subprocess.run(  # noqa: S603 - argv list, never a shell string
+            command,
+            cwd=str(repo_root / detection.working_dir),
+            capture_output=True,
+            text=True,
+            timeout=settings.timeout_seconds,
+            check=False,
+        )
+    except subprocess.TimeoutExpired:
+        return (
+            CiSuiteRun(
+                command=command,
+                source=source,
+                working_dir=detection.working_dir,
+                framework=detection.framework,
+                status=VERIFICATION_UNKNOWN,
+                blocker=BLOCKER_TIMEOUT,
+                reason=f"Test suite exceeded the {settings.timeout_seconds:g}s timeout",
+            ),
+            [*notes, "ci_suite=timeout"],
+        )
+    except (FileNotFoundError, PermissionError, OSError) as exc:
+        return (
+            CiSuiteRun(
+                command=command,
+                source=source,
+                working_dir=detection.working_dir,
+                framework=detection.framework,
+                status=VERIFICATION_UNKNOWN,
+                blocker=BLOCKER_PROCESS_ERROR,
+                reason=f"Could not start the test suite: {exc}",
+            ),
+            [*notes, "ci_suite=process_error"],
+        )
+
+    duration_ms = int((time.monotonic() - started) * 1000)
+    combined = f"{completed.stdout or ''}\n{completed.stderr or ''}"
+    stdout, stdout_truncated = _excerpt(completed.stdout or "")
+    stderr, stderr_truncated = _excerpt(completed.stderr or "")
+    status, blocker, detail = _interpret_exit(detection.framework, completed.returncode, combined)
+    passed, failed, summary, failed_ids = _parse_suite_output(combined)
+
+    reason = None
+    if blocker == BLOCKER_MISSING_DEPENDENCY:
+        reason = (
+            f"Suite requires `{detail}`, which is not available in this environment"
+            if detail
+            else "Suite could not reach a required service"
+        )
+    elif blocker is not None:
+        reason = f"The runner exited with code {completed.returncode} without a usable result"
+
+    notes.append(f"ci_suite={status} exit={completed.returncode} source={source}")
+    return (
+        CiSuiteRun(
+            command=command,
+            source=source,
+            working_dir=detection.working_dir,
+            framework=detection.framework,
+            status=status,
+            blocker=blocker,
+            reason=reason,
+            exit_code=completed.returncode,
+            duration_ms=duration_ms,
+            tests_passed=passed,
+            tests_failed=failed,
+            summary_line=summary,
+            failed_test_ids=failed_ids,
+            stdout_excerpt=stdout or None,
+            stderr_excerpt=stderr or None,
+            output_truncated=stdout_truncated or stderr_truncated,
+            evidence=[EvidenceRef(file=source, label="ci_test_command", snippet=" ".join(command))],
+        ),
+        notes,
+    )

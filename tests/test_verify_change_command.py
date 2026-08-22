@@ -80,7 +80,7 @@ def test_verify_change_reports_flow_verification_and_runtime(service_repo: Path)
     assert "SYDES CHANGE VERIFICATION" in result.output
     assert "POST /refund" in result.output
     assert "RefundService.retry_refund" in result.output
-    assert "test_refund" in result.output
+    assert "CI REGRESSION SUITE" in result.output
     assert "PostgreSQL" in result.output
 
 

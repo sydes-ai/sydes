@@ -6,8 +6,9 @@ hierarchical discovery planning. It is not the final discovered route list.
 
 from __future__ import annotations
 
-from collections import Counter
 import re
+import os
+from collections import Counter
 from pathlib import Path
 
 from sydes.core.models import RepoRef
@@ -574,7 +575,8 @@ def build_route_index(repo: RepoRef, *, repo_map: dict | None = None) -> dict:
     mount_call_count = 0
     router_symbol_count = 0
 
-    for dirpath, dirnames, filenames in root.walk():
+    for raw_dirpath, dirnames, filenames in os.walk(root):
+        dirpath = Path(raw_dirpath)
         dirnames[:] = [name for name in dirnames if name.lower() not in IGNORED_DIRS]
         for filename in filenames:
             path = dirpath / filename
