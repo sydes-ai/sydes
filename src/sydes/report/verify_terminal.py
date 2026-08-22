@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from sydes.verify.models import (
     ANALYSIS_COMPLETE,
+    ORIGIN_TRACE_SINK,
     VERIFICATION_FAILED,
     VERIFICATION_PASSED,
     VERIFICATION_UNKNOWN,
@@ -75,12 +76,6 @@ def _render_flow(flow: AffectedFlow, lines: list[str], *, verbose: bool) -> None
     if flow.handler:
         location = flow.artifact_refs.get("handler_file") or flow.artifact_refs.get("route_file")
         lines.append(f"    handler: {flow.handler}  ({location})")
-    if flow.sinks:
-        summary = ", ".join(
-            f"{sink.get('kind')}: {sink.get('name')}" for sink in flow.sinks[:3]
-        )
-        more = f" (+{len(flow.sinks) - 3} more)" if len(flow.sinks) > 3 else ""
-        lines.append(f"    downstream: {summary}{more}")
     if flow.analysis_status != ANALYSIS_COMPLETE:
         lines.append(
             f"    analysis: {flow.analysis_status.upper()} — downstream effects may be missing"
@@ -90,6 +85,8 @@ def _render_flow(flow: AffectedFlow, lines: list[str], *, verbose: bool) -> None
 
     required = [item for item in flow.obligations if item.required]
     advisory = [item for item in flow.obligations if not item.required]
+    downstream = [item for item in advisory if item.origin == ORIGIN_TRACE_SINK]
+    advisory = [item for item in advisory if item.origin != ORIGIN_TRACE_SINK]
     critical = [item for item in required if item.introduced_by_change]
     other = [item for item in required if not item.introduced_by_change]
 
@@ -110,6 +107,27 @@ def _render_flow(flow: AffectedFlow, lines: list[str], *, verbose: bool) -> None
         hidden = len(unresolved) - (4 if not verbose else len(unresolved))
         if hidden > 0:
             lines.append(f"        … {hidden} more unresolved (use --verbose)")
+    if downstream:
+        # Blast-radius context: effects this flow reaches that the change does
+        # not modify. Shown because they matter to a reviewer, not verified.
+        by_ref = {
+            f"sink:{sink.get('id') or sink.get('name')}": sink for sink in flow.sinks
+        }
+        lines.append("")
+        lines.append("  RELATED DOWNSTREAM EFFECTS  (context; not required by this change)")
+        for obligation in downstream:
+            sink = next(
+                (by_ref[ref] for ref in obligation.source_refs if ref in by_ref), None
+            )
+            if sink is None:
+                lines.append(f"    • {obligation.statement}")
+                continue
+            kind = " ".join(
+                token for token in (sink.get("kind"), sink.get("operation")) if token
+            )
+            location = f"  ({sink.get('file')})" if sink.get("file") else ""
+            lines.append(f"    • {kind}: {sink.get('name')}{location}")
+
     if advisory:
         lines.append("")
         lines.append("  ADDITIONAL TEST SUGGESTIONS")

@@ -98,8 +98,21 @@ _PARTIAL_ANALYSIS_MARKERS = (
     "unresolved_call",
     "composition is unresolved",
     "could not be resolved",
-    "truncated",
 )
+
+# Limits on *optional context* reads. Checkpoint B separated the complete source
+# read that deterministic parsing needs from these bounded evidence reads, so a
+# truncated contextual read cannot hide a route, call, or sink that parsing
+# already resolved. Reported as a diagnostic; never a reason to say PARTIAL.
+_CONTEXTUAL_LIMIT_MARKERS = ("truncated",)
+
+_COLLECTED_TRACE_MARKERS = _PARTIAL_ANALYSIS_MARKERS + _CONTEXTUAL_LIMIT_MARKERS
+
+
+def _matches_marker(note: str, markers: tuple[str, ...]) -> bool:
+    """True when a shared-stack diagnostic carries one of these markers."""
+    lowered = note.lower()
+    return any(marker in lowered for marker in markers)
 
 
 @dataclass(slots=True)
@@ -242,14 +255,20 @@ def _candidate_route_files(
 
 def _analysis_status_from(notes: list[str]) -> tuple[str, list[str]]:
     """Classify how complete the shared analysis was, from its own diagnostics."""
-    hits = [
-        note
-        for note in notes
-        if any(marker in note.lower() for marker in _PARTIAL_ANALYSIS_MARKERS)
-    ]
+    hits = [note for note in notes if _matches_marker(note, _PARTIAL_ANALYSIS_MARKERS)]
     if not hits:
         return ANALYSIS_COMPLETE, []
     return ANALYSIS_PARTIAL, hits[:6]
+
+
+def _contextual_limit_notes(notes: list[str]) -> list[str]:
+    """Bounded-read limits worth recording, but not evidence of missing topology."""
+    return [
+        note
+        for note in notes
+        if _matches_marker(note, _CONTEXTUAL_LIMIT_MARKERS)
+        and not _matches_marker(note, _PARTIAL_ANALYSIS_MARKERS)
+    ]
 
 
 def _files_of(handler_index: dict, repo: str, path: str) -> list[dict]:
@@ -343,7 +362,7 @@ def _trace_route(
     notes.extend(
         note
         for note in expansion_context.notes
-        if any(marker in note.lower() for marker in _PARTIAL_ANALYSIS_MARKERS)
+        if _matches_marker(note, _COLLECTED_TRACE_MARKERS)
     )
     flow_expansion = None
     if options.llm_policy != "never":
@@ -359,7 +378,7 @@ def _trace_route(
             notes.extend(
                 note
                 for note in flow_expansion.notes
-                if any(marker in note.lower() for marker in _PARTIAL_ANALYSIS_MARKERS)
+                if _matches_marker(note, _COLLECTED_TRACE_MARKERS)
             )
         except Exception as exc:  # noqa: BLE001 - expansion must not abort verification
             notes.append(f"flow_expansion_unavailable: {exc}")
@@ -758,6 +777,9 @@ def analyze_change(
         )
         contract = traced["layered_contract"]
         analysis_status, analysis_notes = _analysis_status_from(trace_notes)
+        for note in _contextual_limit_notes(trace_notes):
+            if note not in result.diagnostics:
+                result.diagnostics.append(note)
 
         # A route sharing a file with the change is a candidate, not a hit. Keep
         # the flow only when the change is actually on its path: its handler was
@@ -861,6 +883,7 @@ def analyze_change(
             route_contract=route_contract,
             test_matrix=matrix,
             changed_symbols=change.symbols,
+            changed_files=changed_files,
         )
         for obligation in flow.obligations:
             evidence, supporting = map_tests_to_obligation(

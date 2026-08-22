@@ -77,6 +77,48 @@ def _touches_change(
     return any(path == file and start <= line <= end for path, start, end in spans)
 
 
+def _changed_symbol_keys(changed_symbols: list[Any]) -> set[tuple[str, str]]:
+    """`(file, symbol name)` pairs the diff changed, for path attribution."""
+    keys: set[tuple[str, str]] = set()
+    for symbol in changed_symbols:
+        for name in (symbol.name, symbol.qualified_name):
+            if name:
+                keys.add((symbol.file, str(name)))
+                keys.add((symbol.file, str(name).rsplit(".", 1)[-1]))
+    return keys
+
+
+def _sink_is_materially_affected(
+    sink: dict[str, Any],
+    spans: list[tuple[str, int, int]],
+    symbol_keys: set[tuple[str, str]],
+    changed_files: set[str],
+) -> bool:
+    """Whether the diff plausibly changes this sink or the path producing it.
+
+    A sink that merely sits downstream of the changed code is blast-radius
+    context, not something this change must demonstrate. Adding an early guard
+    in a handler does not modify the persistence path it precedes, so only a
+    diff that reaches the sink call, its producing symbol, or its file counts.
+    """
+    file = str(sink.get("file") or "")
+    if not file:
+        return False
+    if _touches_change(file, sink.get("line"), spans):
+        return True
+    # File *and* symbol must both match: a handler and the data-layer function
+    # it calls routinely share a name (`create_student` in router and crud).
+    symbol = str(sink.get("symbol") or "")
+    if symbol and (file, symbol) in symbol_keys:
+        return True
+    if file not in changed_files:
+        return False
+    # The diff touched the sink's own file. If symbol attribution succeeded
+    # there, the checks above already answered; if it produced nothing for that
+    # file, the sink cannot be ruled out, so prefer the safe reading.
+    return not any(path == file for path, _start, _end in spans)
+
+
 def _contract_obligations(
     flow: AffectedFlow, contract: ApiRouteContract | None, counter: list[int]
 ) -> list[VerificationObligation]:
@@ -156,7 +198,12 @@ def _matrix_obligations(
 
 
 def _trace_obligations(
-    flow: AffectedFlow, spans: list[tuple[str, int, int]], counter: list[int]
+    flow: AffectedFlow,
+    spans: list[tuple[str, int, int]],
+    counter: list[int],
+    *,
+    symbol_keys: set[tuple[str, str]],
+    changed_files: set[str],
 ) -> list[VerificationObligation]:
     """Obligations for observable downstream effects the trace actually found."""
     obligations: list[VerificationObligation] = []
@@ -174,6 +221,7 @@ def _trace_obligations(
         else:
             kind = OBLIGATION_STATE_CONSISTENCY if action in {"write", "publish"} else OBLIGATION_SIDE_EFFECT
             verb = action or "accessed"
+        material = _sink_is_materially_affected(sink, spans, symbol_keys, changed_files)
         counter[0] += 1
         obligations.append(
             VerificationObligation(
@@ -183,6 +231,13 @@ def _trace_obligations(
                 statement=f"{flow.entry_label} {verb} {name}",
                 origin=ORIGIN_TRACE_SINK,
                 source_refs=[f"sink:{sink.get('id') or name}"],
+                required=material,
+                reason=(
+                    None
+                    if material
+                    else "Downstream of the change; the diff does not modify this "
+                    "effect or the path producing it"
+                ),
                 introduced_by_change=_touches_change(
                     sink.get("file"), sink.get("line"), spans
                 ),
@@ -307,6 +362,7 @@ def derive_obligations(
     route_contract: ApiRouteContract | None,
     test_matrix: TestMatrix | None,
     changed_symbols: list[Any],
+    changed_files: set[str] | None = None,
 ) -> list[VerificationObligation]:
     """Derive every obligation for one affected flow from existing evidence."""
     counter = [0]
@@ -315,7 +371,13 @@ def derive_obligations(
     obligations = [
         *_contract_obligations(flow, route_contract, counter),
         *_matrix_obligations(flow, test_matrix, counter),
-        *_trace_obligations(flow, spans, counter),
+        *_trace_obligations(
+            flow,
+            spans,
+            counter,
+            symbol_keys=_changed_symbol_keys(changed_symbols),
+            changed_files=set(changed_files or ()),
+        ),
     ]
     obligations = _dedupe(obligations)
 

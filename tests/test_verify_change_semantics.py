@@ -15,8 +15,11 @@ import pytest
 from typer.testing import CliRunner
 
 from sydes.cli.main import app
+from sydes.verify.analyzer import _analysis_status_from, _contextual_limit_notes
 from sydes.verify.models import (
     ANALYSIS_COMPLETE,
+    ANALYSIS_PARTIAL,
+    ORIGIN_TRACE_SINK,
     OBLIGATION_VALIDATION,
     VERDICT_ACTION_REQUIRED,
     VERDICT_INCOMPLETE,
@@ -520,3 +523,140 @@ def test_code_findings_are_off_by_default(repo: Path, tmp_path: Path) -> None:
 
     assert result.code_findings == []
     assert result.summary.counts.code_findings == 0
+
+
+# --------------------------------------------------------------------------
+# Case H — sink material-impact classification
+# --------------------------------------------------------------------------
+
+
+def _sink_obligations(result: ChangeVerificationResult):
+    return [item for item in _obligations(result) if item.origin == ORIGIN_TRACE_SINK]
+
+
+def test_guard_only_change_leaves_downstream_sinks_contextual(
+    repo: Path, tmp_path: Path
+) -> None:
+    """An upstream guard does not modify the persistence path it precedes."""
+    _write_blank_name_test(repo, 400)
+    _git(repo, "add", "."), _git(repo, "commit", "-qm", "tests")
+    _apply_validation_change(repo)
+
+    result = _run(repo, tmp_path)
+    sinks = _sink_obligations(result)
+
+    assert sinks, "the flow must still surface its downstream database effects"
+    assert all(not item.required for item in sinks)
+    assert all(item.reason for item in sinks), "a demoted sink must say why"
+
+
+def test_satisfied_change_critical_obligations_can_reach_verified(
+    repo: Path, tmp_path: Path
+) -> None:
+    """Contextual sinks must not block a change whose own behavior is proven."""
+    # This flow's every required obligation must be demonstrable, so the stub
+    # client answers with the contract's declared success status.
+    _write(repo, "conftest.py", _CONFTEST.replace("_Response(200,", "_Response(201,"))
+    _write(
+        repo,
+        "tests/test_students.py",
+        "def test_create_student_succeeds(client):\n"
+        '    response = client.post("/students", json={"name": "Ada"})\n'
+        "    assert response.status_code == 201\n"
+        "\n"
+        "def test_blank_name_is_rejected(client):\n"
+        '    response = client.post("/students", json={"name": "   "})\n'
+        "    assert response.status_code == 400\n",
+    )
+    _git(repo, "add", "."), _git(repo, "commit", "-qm", "tests")
+    _apply_validation_change(repo)
+
+    result = _run(repo, tmp_path)
+    required = [item for item in _obligations(result) if item.required]
+
+    assert all(item.status == VERIFICATION_PASSED for item in required), [
+        (item.status, item.statement) for item in required
+    ]
+    assert result.analysis_status == ANALYSIS_COMPLETE
+    assert result.summary.verdict == VERDICT_VERIFIED
+
+
+def test_change_to_the_sink_symbol_keeps_its_obligation_required(
+    repo: Path, tmp_path: Path
+) -> None:
+    """Editing the function that produces a sink puts that sink in scope."""
+    _write(
+        repo,
+        "crud.py",
+        "from database import db\n\n\n" + _CRUD.replace(
+            "db.add(student)", "db.add(student)\n    db.flush()"
+        ),
+    )
+
+    result = _run(repo, tmp_path)
+    sinks = _sink_obligations(result)
+
+    assert sinks, "changing the data layer must still resolve its sinks"
+    assert all(item.required for item in sinks), [
+        (item.required, item.statement) for item in sinks
+    ]
+
+
+def test_unverified_required_sink_prevents_verified(repo: Path, tmp_path: Path) -> None:
+    """No test asserts the changed persistence effect, so VERIFIED is unavailable."""
+    _write(
+        repo,
+        "crud.py",
+        "from database import db\n\n\n" + _CRUD.replace(
+            "db.add(student)", "db.add(student)\n    db.flush()"
+        ),
+    )
+
+    result = _run(repo, tmp_path)
+    required_sinks = [item for item in _sink_obligations(result) if item.required]
+
+    assert any(item.status == VERIFICATION_UNVERIFIED for item in required_sinks)
+    assert result.summary.verdict != VERDICT_VERIFIED
+
+
+# --------------------------------------------------------------------------
+# Case I — what counts as incomplete analysis
+# --------------------------------------------------------------------------
+
+
+_TRUNCATION_NOTE = "1 contextual files were truncated by bounded read caps."
+
+
+def test_bounded_context_truncation_alone_keeps_analysis_complete() -> None:
+    """Optional context is truncated *after* deterministic parsing succeeded."""
+    status, notes = _analysis_status_from([_TRUNCATION_NOTE])
+
+    assert status == ANALYSIS_COMPLETE
+    assert notes == []
+    assert _contextual_limit_notes([_TRUNCATION_NOTE]) == [_TRUNCATION_NOTE]
+
+
+@pytest.mark.parametrize(
+    "note",
+    [
+        "python_parse_failed: unexpected EOF",
+        "unresolved_call: crud.create_student",
+        "route composition is unresolved",
+        "import of crud could not be resolved",
+    ],
+)
+def test_limitations_that_can_hide_topology_still_mark_analysis_partial(note: str) -> None:
+    """Anything that could conceal a route, call, or sink remains PARTIAL."""
+    status, notes = _analysis_status_from([note])
+
+    assert status == ANALYSIS_PARTIAL
+    assert notes == [note]
+    assert _contextual_limit_notes([note]) == []
+
+
+def test_truncation_does_not_mask_a_real_limitation() -> None:
+    """A genuine marker still wins when both kinds of note are present."""
+    status, notes = _analysis_status_from([_TRUNCATION_NOTE, "python_parse_failed: x"])
+
+    assert status == ANALYSIS_PARTIAL
+    assert notes == ["python_parse_failed: x"]
