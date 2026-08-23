@@ -11,6 +11,7 @@ from __future__ import annotations
 import os
 
 from sydes.code_intelligence.base import CodeIntelligence, CodeIntelligenceError
+from sydes.code_intelligence.cbm import CBM_BACKEND, CBMCodeIntelligence
 from sydes.code_intelligence.native import NATIVE_BACKEND, NativeCodeIntelligence
 
 #: Overrides the default backend. A future `cbm` backend registers alongside
@@ -19,7 +20,7 @@ BACKEND_ENV_VAR = "SYDES_CODE_INTELLIGENCE"
 
 DEFAULT_BACKEND = NATIVE_BACKEND
 
-_BACKENDS = {NATIVE_BACKEND: NativeCodeIntelligence}
+_BACKENDS = {NATIVE_BACKEND: NativeCodeIntelligence, CBM_BACKEND: CBMCodeIntelligence}
 
 
 def available_backends() -> list[str]:

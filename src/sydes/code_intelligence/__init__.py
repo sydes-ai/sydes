@@ -11,13 +11,16 @@ from sydes.code_intelligence.factory import (
     available_backends,
     get_code_intelligence,
 )
+from sydes.code_intelligence.cbm import CBM_BACKEND, CBMCodeIntelligence
 from sydes.code_intelligence.native import NATIVE_BACKEND, NativeCodeIntelligence
 
 __all__ = [
     "BACKEND_ENV_VAR",
     "DEFAULT_BACKEND",
+    "CBM_BACKEND",
     "NATIVE_BACKEND",
     "CodeIntelligence",
+    "CBMCodeIntelligence",
     "CodeIntelligenceError",
     "NativeCodeIntelligence",
     "StructuralFacts",

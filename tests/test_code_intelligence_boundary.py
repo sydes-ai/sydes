@@ -209,15 +209,16 @@ def test_trace_output_is_semantically_unchanged(repo: Path) -> None:
 
 
 def test_default_backend_is_native() -> None:
+    """Native remains the default until CBM is proven on real repositories."""
     assert get_code_intelligence().name == NATIVE_BACKEND
-    assert available_backends() == [NATIVE_BACKEND]
+    assert NATIVE_BACKEND in available_backends()
 
 
 def test_explicit_native_selection_works() -> None:
     assert get_code_intelligence(NATIVE_BACKEND).name == NATIVE_BACKEND
 
 
-@pytest.mark.parametrize("name", ["cbm", "codebase-memory", "typo"])
+@pytest.mark.parametrize("name", ["codebase-memory", "typo", "cbm-v2"])
 def test_unknown_backend_raises_instead_of_falling_back(name: str) -> None:
     """Not-yet-implemented is an error, never a quiet substitution."""
     with pytest.raises(CodeIntelligenceError) as excinfo:
@@ -232,7 +233,7 @@ def test_environment_override_is_honoured_and_validated(monkeypatch) -> None:
     monkeypatch.setenv(BACKEND_ENV_VAR, NATIVE_BACKEND)
     assert get_code_intelligence().name == NATIVE_BACKEND
 
-    monkeypatch.setenv(BACKEND_ENV_VAR, "cbm")
+    monkeypatch.setenv(BACKEND_ENV_VAR, "not-a-backend")
     with pytest.raises(CodeIntelligenceError):
         get_code_intelligence()
 
@@ -240,3 +241,34 @@ def test_environment_override_is_honoured_and_validated(monkeypatch) -> None:
 def test_native_backend_satisfies_the_protocol() -> None:
     """The adapter is substitutable, which is the whole point of the seam."""
     assert isinstance(NativeCodeIntelligence(), CodeIntelligence)
+
+
+# --------------------------------------------------------------------------
+# CBM backend registration
+# --------------------------------------------------------------------------
+
+
+def test_cbm_backend_is_registered_and_selectable() -> None:
+    """CBM is a real choice, not a placeholder."""
+    from sydes.code_intelligence import CBM_BACKEND
+
+    assert CBM_BACKEND in available_backends()
+
+
+def test_cbm_reports_a_missing_executable_instead_of_falling_back(monkeypatch) -> None:
+    """An absent engine is an error. Substituting native would hide it."""
+    from sydes.code_intelligence.cbm import CBM_EXECUTABLE_ENV_VAR
+
+    monkeypatch.setenv(CBM_EXECUTABLE_ENV_VAR, "/nonexistent/codebase-memory-mcp")
+    with pytest.raises(CodeIntelligenceError) as excinfo:
+        get_code_intelligence("cbm")
+
+    message = str(excinfo.value)
+    assert "not found" in message
+    assert "native" in message, "the error should name the explicit alternative"
+
+
+def test_selecting_cbm_does_not_change_the_native_backend(monkeypatch) -> None:
+    """Native stays available and unaffected as the reference backend."""
+    monkeypatch.setenv(BACKEND_ENV_VAR, "cbm")
+    assert get_code_intelligence(NATIVE_BACKEND).name == NATIVE_BACKEND
