@@ -49,7 +49,10 @@ FACTS_FILE = "facts.json"
 #: Bumped when an extractor's output shape changes, so stale facts are dropped
 #: rather than silently mixed with newly-shaped ones.
 ROUTE_INDEX_FACT_VERSION = "route_index/v1"
-SYMBOL_FACT_VERSION = "handler_symbols/v1"
+# v2: the JS/TS extractor gained multi-line import joining, destructured
+# require, anonymous default-export handlers, and type exports. Facts
+# cached by v1 predate those and must not be reused.
+SYMBOL_FACT_VERSION = "handler_symbols/v2"
 
 KIND_ROUTE_INDEX = "route_index"
 KIND_SYMBOLS = "symbols"

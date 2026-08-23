@@ -20,9 +20,53 @@ _IMPORT_NAMED_RE = re.compile(
 _IMPORT_DEFAULT_NAMED_RE = re.compile(
     r"^\s*import\s+(?P<default>[A-Za-z_]\w*)\s*,\s*\{(?P<named>[^}]+)\}\s*from\s*['\"](?P<source>[^'\"]+)['\"]"
 )
+#: `const { a, b } = require("x")` — the CommonJS counterpart of a named
+#: import. Only the plain-identifier form was modelled, so every destructured
+#: require bound nothing at all.
+_REQUIRE_DESTRUCTURED_RE = re.compile(
+    r"^\s*(?:const|let|var)\s+\{(?P<named>[^}]+)\}\s*=\s*require\(\s*['\"](?P<source>[^'\"]+)['\"]\s*\)"
+)
 _REQUIRE_DEFAULT_RE = re.compile(
     r"^\s*(?:const|let|var)\s+(?P<local>[A-Za-z_]\w*)\s*=\s*require\(\s*['\"](?P<source>[^'\"]+)['\"]\s*\)"
 )
+
+#: An import or require whose specifier list is still open at end of line.
+_OPEN_IMPORT_RE = re.compile(r"^\s*(?:import\s*\{|(?:const|let|var)\s+\{)[^}]*$")
+
+#: The joined statement is complete once the brace list closes into a module
+#: specifier — `} from "x"` for ESM or `} = require("x")` for CommonJS.
+_CLOSED_IMPORT_RE = re.compile(
+    r"\}\s*(?:from\s*['\"][^'\"]+['\"]|=\s*require\s*\(\s*['\"][^'\"]+['\"])"
+)
+
+
+def _join_open_import_statements(text: str) -> str:
+    """Collapse multi-line import/require statements onto one line.
+
+    Extraction is line-oriented, so a braced specifier list split across lines
+    matches nothing and the file silently contributes no imports. Consumed
+    lines are blanked rather than removed, so every symbol's line number still
+    refers to its position in the original file.
+    """
+    lines = text.splitlines()
+    index = 0
+    while index < len(lines):
+        if not _OPEN_IMPORT_RE.match(lines[index]):
+            index += 1
+            continue
+        joined = lines[index].rstrip()
+        cursor = index + 1
+        # Bounded: a specifier list longer than this is not a shape we model.
+        while cursor < len(lines) and cursor - index <= 40:
+            joined = f"{joined} {lines[cursor].strip()}".strip()
+            lines[cursor] = ""
+            cursor += 1
+            if _CLOSED_IMPORT_RE.search(joined):
+                break
+        lines[index] = joined
+        index = cursor
+    return "\n".join(lines)
+
 
 _EXPORT_DEFAULT_CLASS_RE = re.compile(r"^\s*export\s+default\s+class\s+(?P<name>[A-Za-z_]\w*)")
 _EXPORT_CLASS_RE = re.compile(r"^\s*export\s+class\s+(?P<name>[A-Za-z_]\w*)")
@@ -46,6 +90,21 @@ _CONST_ARROW_RE = re.compile(
 _CONST_FUNCTION_RE = re.compile(
     r"^\s*const\s+(?P<name>[A-Za-z_]\w*)\s*=\s*(?P<async>async\s+)?function\s*\((?P<params>[^\)]*)\)\s*\{"
 )
+#: `export default async (req, res) => {` and `module.exports = async (req, res) =>`.
+#: The handler has no name of its own; the module's default export *is* the
+#: symbol, and without it a discovered route has nothing to bind to.
+_ANON_DEFAULT_EXPORT_RE = re.compile(
+    r"^\s*(?:export\s+default|module\.exports\s*=)\s*"
+    r"(?P<async>async\s+)?"
+    r"(?:function\s*)?\(\s*(?P<params>[^)]*)\)\s*(?:=>)?\s*\{"
+)
+
+#: Type-only declarations. They carry no runtime behavior, but recording them
+#: separates "no runtime symbols by design" from "could not be parsed".
+_TYPE_EXPORT_RE = re.compile(
+    r"^\s*export\s+(?:declare\s+)?(?P<what>type|interface)\s+(?P<name>[A-Za-z_]\w*)"
+)
+
 _EXPORT_NAMED_RE = re.compile(r"^\s*export\s*\{(?P<named>[^}]+)\}\s*;?")
 _MODULE_EXPORT_RE = re.compile(r"^\s*module\.exports\s*=\s*(?P<symbol>[A-Za-z_]\w*)\s*;?")
 _EXPORTS_ASSIGN_RE = re.compile(
@@ -161,6 +220,17 @@ class JsTsHandlerSymbolExtractor:
                 imports.append(
                     _build_import(repo_root, relative_path, local, imported, source, "named")
                 )
+        require_destructured_match = _REQUIRE_DESTRUCTURED_RE.search(raw_line)
+        if require_destructured_match:
+            source = require_destructured_match.group("source")
+            for imported, local in _parse_named_items(
+                require_destructured_match.group("named")
+            ):
+                imports.append(
+                    _build_import(
+                        repo_root, relative_path, local, imported, source, "require_named"
+                    )
+                )
         require_match = _REQUIRE_DEFAULT_RE.search(raw_line)
         if require_match:
             source = require_match.group("source")
@@ -192,7 +262,7 @@ class JsTsHandlerSymbolExtractor:
         pending_method_start_line: int | None = None
         brace_depth = 0
 
-        for idx, raw_line in enumerate(text.splitlines(), start=1):
+        for idx, raw_line in enumerate(_join_open_import_statements(text).splitlines(), start=1):
             stripped = raw_line.strip()
             if not stripped:
                 open_braces, close_braces = _count_braces(raw_line)
@@ -237,6 +307,47 @@ class JsTsHandlerSymbolExtractor:
                 )
                 pending_class = class_name
                 pending_class_export_kind = class_export_kind
+
+            # An anonymous default export is checked before the named forms:
+            # `export default async (req, res) => {` has no name to match, and
+            # the module itself is the exported symbol.
+            anon_default_match = _ANON_DEFAULT_EXPORT_RE.search(raw_line)
+            if anon_default_match:
+                params = anon_default_match.group("params").strip()
+                symbols.append(
+                    {
+                        "name": "default",
+                        "kind": "function",
+                        "language": language,
+                        "file": relative_path,
+                        "line": idx,
+                        "start_line": idx,
+                        "end_line": None,
+                        "signature": f"default({params})",
+                        "async": bool(anon_default_match.group("async")),
+                        "exported": True,
+                        "export_kind": "default",
+                    }
+                )
+                # Reuse the brace-depth bookkeeping so the body span closes.
+                method_stack.append(
+                    {"symbol_index": len(symbols) - 1, "start_depth": brace_depth + 1}
+                )
+                exports.append({"kind": "default", "symbol": "default"})
+                open_braces, close_braces = _count_braces(raw_line)
+                brace_depth += open_braces - close_braces
+                continue
+
+            type_export_match = _TYPE_EXPORT_RE.search(raw_line)
+            if type_export_match:
+                # Recorded as an export, never as a callable symbol: a type
+                # alias has no runtime behavior to verify.
+                exports.append(
+                    {"kind": "type", "symbol": type_export_match.group("name")}
+                )
+                open_braces, close_braces = _count_braces(raw_line)
+                brace_depth += open_braces - close_braces
+                continue
 
             export_default_fn_match = _EXPORT_DEFAULT_FUNCTION_RE.search(raw_line)
             if export_default_fn_match:
