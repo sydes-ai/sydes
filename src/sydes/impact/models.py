@@ -23,6 +23,11 @@ RELATION_CALLS = "calls"
 RELATION_USAGE = "usage"
 RELATION_DECORATOR_REFERENCE = "decorator_reference"
 RELATION_SIGNATURE_REFERENCE = "signature_reference"
+#: A caller/callee edge the deterministic graph never reported, added only
+#: after source inspection confirmed it in text. Kept distinct from
+#: `RELATION_CALLS` so a reader can always tell a graph fact from a
+#: guide-directed source finding, no matter how far downstream it travels.
+RELATION_SOURCE_CONFIRMED = "source_confirmed"
 
 #: Which strategy proposed a path. Recorded so a surprising result can be
 #: attributed to the rule that produced it rather than to the system at large.
@@ -31,6 +36,11 @@ STRATEGY_CALL_REACHABILITY = "call_reachability"
 STRATEGY_USAGE_REACHABILITY = "usage_reachability"
 STRATEGY_DECORATOR_REFERENCE = "decorator_reference"
 STRATEGY_SIGNATURE_REFERENCE = "signature_reference"
+#: A path containing at least one `RELATION_SOURCE_CONFIRMED` hop. Recorded as
+#: its own strategy, never folded into `STRATEGY_CALL_REACHABILITY`, because a
+#: reader must be able to see that one hop of this path came from guided
+#: source inspection rather than the graph alone.
+STRATEGY_GUIDED_INVESTIGATION = "guided_investigation"
 
 #: An entrypoint's kind, as far as the facts support. `unknown` is a real
 #: answer: a decorated symbol that is plainly an entrypoint but whose framework
@@ -49,6 +59,65 @@ COMPLETENESS_UNRESOLVED = "unresolved"
 #: Separator for a synthetic identity key. Not a valid identifier character in
 #: any language Sydes or CBM parses, so it cannot collide with a real name.
 _KEY_SEP = "\u241f"
+
+
+#: How an `ImpactStep` came to exist. Every step defaults to `DETERMINISTIC`;
+#: only a step added after the guide loop's source inspection confirmed it
+#: carries `LLM_GUIDED_SOURCE_CONFIRMED`. This is provenance, not confidence \u2014
+#: a reader can trust a deterministic step outright and must check the source
+#: reference on a guided one.
+PROVENANCE_DETERMINISTIC = "deterministic"
+PROVENANCE_LLM_GUIDED_SOURCE_CONFIRMED = "llm_guided_source_confirmed"
+
+
+#: Guide invocation policy. `off` runs the M2 deterministic system exactly as
+#: before M3 existed; `auto` invokes the guide only on the structural triggers
+#: below; `always` is a development knob and still cannot override
+#: deterministic evidence \u2014 it only widens when the guide is asked.
+GUIDE_OFF = "off"
+GUIDE_AUTO = "auto"
+GUIDE_ALWAYS = "always"
+GUIDE_POLICIES = (GUIDE_OFF, GUIDE_AUTO, GUIDE_ALWAYS)
+
+#: Why a changed symbol's impact is not yet a complete path. These are the
+#: only conditions the guide loop treats as worth an LLM turn in `auto` mode \u2014
+#: a symbol that already resolved deterministically never reaches the guide.
+REASON_NO_ENTRYPOINT_REACHED = "no_entrypoint_reached"
+REASON_TRAVERSAL_TRUNCATED = "traversal_truncated"
+REASON_AMBIGUOUS_SYMBOL_IDENTITY = "ambiguous_symbol_identity"
+REASON_PARTIAL_PATH_DEAD_END = "partial_path_dead_end"
+REASON_MULTIPLE_UNRESOLVED_CANDIDATES = "multiple_unresolved_candidates"
+GUIDE_TRIGGER_REASONS = frozenset({
+    REASON_NO_ENTRYPOINT_REACHED, REASON_TRAVERSAL_TRUNCATED,
+    REASON_AMBIGUOUS_SYMBOL_IDENTITY, REASON_PARTIAL_PATH_DEAD_END,
+    REASON_MULTIPLE_UNRESOLVED_CANDIDATES,
+})
+
+#: The bounded action vocabulary. The guide chooses exactly one of these per
+#: turn; anything else is a malformed decision and fails closed. Every action
+#: executes through a capability Sydes or CBM already has \u2014 none of them let
+#: the model construct a query, only select among fixed ones.
+ACTION_TRACE_CALLERS = "trace_callers"
+ACTION_TRACE_USAGES = "trace_usages"
+ACTION_INSPECT_SYMBOL = "inspect_symbol"
+ACTION_INSPECT_ENCLOSING_FUNCTION = "inspect_enclosing_function"
+ACTION_INSPECT_SOURCE_SPAN = "inspect_source_span"
+ACTION_FIND_DECORATOR_REFERENCES = "find_decorator_references"
+ACTION_FIND_SIGNATURE_REFERENCES = "find_signature_references"
+ACTION_INSPECT_NEARBY_ENTRYPOINTS = "inspect_nearby_entrypoints"
+ACTION_STOP_UNRESOLVED = "stop_unresolved"
+INVESTIGATION_ACTIONS = frozenset({
+    ACTION_TRACE_CALLERS, ACTION_TRACE_USAGES, ACTION_INSPECT_SYMBOL,
+    ACTION_INSPECT_ENCLOSING_FUNCTION, ACTION_INSPECT_SOURCE_SPAN,
+    ACTION_FIND_DECORATOR_REFERENCES, ACTION_FIND_SIGNATURE_REFERENCES,
+    ACTION_INSPECT_NEARBY_ENTRYPOINTS, ACTION_STOP_UNRESOLVED,
+})
+#: Actions that require `target` to name a symbol the question already
+#: surfaced. Only `INSPECT_NEARBY_ENTRYPOINTS` and `STOP_UNRESOLVED` can act
+#: without one (the former discovers new candidates by file, not by name).
+ACTIONS_REQUIRING_TARGET = INVESTIGATION_ACTIONS - {
+    ACTION_INSPECT_NEARBY_ENTRYPOINTS, ACTION_STOP_UNRESOLVED,
+}
 
 
 @dataclass(frozen=True)
@@ -153,6 +222,12 @@ class ImpactStep:
     #: would silently hide a real edge — but a reader should not treat it as
     #: certainly the same symbol every time it recurs.
     identity_resolved: bool = True
+    #: `PROVENANCE_DETERMINISTIC` for every step the graph itself produced;
+    #: `PROVENANCE_LLM_GUIDED_SOURCE_CONFIRMED` only for a step whose edge was
+    #: missing from the graph and was instead confirmed by reading source.
+    #: The guide never sets this on its own say-so — only the investigation
+    #: executor does, after finding the reference in text.
+    provenance: str = PROVENANCE_DETERMINISTIC
 
     def describe(self) -> str:
         return f"{self.relation}:{self.qualified_name or self.symbol}"
@@ -189,6 +264,7 @@ class ImpactPath:
                     "relation": step.relation,
                     "evidence": step.evidence,
                     "identity_resolved": step.identity_resolved,
+                    "provenance": step.provenance,
                 }
                 for step in self.steps
             ],
@@ -254,10 +330,16 @@ class UnresolvedImpact:
     symbol: str
     reason: str
     detail: str = ""
+    #: True once the guide loop has looked at this symbol, regardless of
+    #: outcome. Distinguishes "the guide tried and found nothing" from "the
+    #: guide was never asked" — both remain unresolved, but only one of them
+    #: means the investigation budget was actually spent here.
+    guide_investigated: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         return {"repo": self.repo, "symbol": self.symbol,
-                "reason": self.reason, "detail": self.detail}
+                "reason": self.reason, "detail": self.detail,
+                "guide_investigated": self.guide_investigated}
 
 
 @dataclass
@@ -282,4 +364,107 @@ class ImpactResult:
             "unresolved": [item.to_dict() for item in self.unresolved],
             "metrics": dict(self.metrics),
             "notes": list(self.notes),
+        }
+
+
+# --------------------------------------------------------------------------
+# M3 — the LLM guide's investigation loop
+#
+# Everything below is data, not behaviour: `ImpactQuestion` is what the guide
+# is told, `InvestigationDecision` is what it may answer, and
+# `InvestigationEvidence` is what the deterministic executor found when it
+# carried that answer out. None of these types call an LLM, call CBM, or read
+# a file — they only shape what crosses those boundaries, so the boundary
+# itself stays inspectable and testable without a live model or a live graph.
+# --------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class ImpactQuestion:
+    """What the guide is told about one unresolved changed symbol.
+
+    Every field here is either a primitive or a tuple of strings: the guide
+    never receives a live graph handle, a file handle, or anything it could
+    use to go beyond the bounded action vocabulary. `partial_paths` and
+    `nearby_facts` are human-readable renderings of facts the deterministic
+    pass already collected — the guide is shown evidence, never asked to
+    invent it.
+    """
+
+    repo: str
+    changed_symbol: str
+    qualified_name: str
+    file: str
+    reason: str
+    partial_paths: tuple[str, ...] = ()
+    nearby_facts: tuple[str, ...] = ()
+    candidate_entrypoints: tuple[str, ...] = ()
+    source_context: str = ""
+    remaining_budget: int = 0
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "repo": self.repo,
+            "changed_symbol": self.changed_symbol,
+            "qualified_name": self.qualified_name,
+            "file": self.file,
+            "reason": self.reason,
+            "partial_paths": list(self.partial_paths),
+            "nearby_facts": list(self.nearby_facts),
+            "candidate_entrypoints": list(self.candidate_entrypoints),
+            "source_context": self.source_context,
+            "remaining_budget": self.remaining_budget,
+        }
+
+
+@dataclass(frozen=True)
+class InvestigationDecision:
+    """One guide turn's answer: exactly one action, on at most one target.
+
+    `target` must name a symbol or file the corresponding `ImpactQuestion`
+    already surfaced (in `partial_paths`, `nearby_facts`, or
+    `candidate_entrypoints`) or the changed symbol itself — the executor
+    rejects anything else rather than trust a name the guide introduced on
+    its own.
+    """
+
+    action: str
+    target: str = ""
+    rationale: str = ""
+    parameters: dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "action": self.action, "target": self.target,
+            "rationale": self.rationale, "parameters": dict(self.parameters),
+        }
+
+
+@dataclass(frozen=True)
+class InvestigationEvidence:
+    """What the executor found when it carried out one decision.
+
+    `found` is the only field the guide loop acts on: a decision that
+    produced no evidence leaves the changed symbol unresolved, no matter how
+    plausible its rationale was. `provenance` records where the evidence
+    came from (a graph re-query vs. a source read) so a step built from it
+    carries that same distinction forward.
+    """
+
+    action: str
+    target: str
+    found: bool
+    ambiguous: bool
+    detail: str
+    provenance: str
+    file: str = ""
+    line: int | None = None
+    matched_text: str = ""
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "action": self.action, "target": self.target, "found": self.found,
+            "ambiguous": self.ambiguous, "detail": self.detail,
+            "provenance": self.provenance, "file": self.file, "line": self.line,
+            "matched_text": self.matched_text,
         }

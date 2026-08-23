@@ -43,15 +43,18 @@ from sydes.code_intelligence import get_code_intelligence
 from sydes.code_intelligence.cbm import CBM_BACKEND
 from sydes.impact import (
     COMPLETENESS_COMPLETE,
+    GUIDE_OFF,
+    GuideBudget,
     ImpactInterpreter,
     ImpactResult,
+    LLMImpactGuide,
     reconcile_entrypoints,
 )
 from sydes.discover.target_match import resolve_trace_target
 from sydes.store.workspace import compute_workspace_id
 from sydes.generate.contracts import build_api_contract_from_routes
 from sydes.generate.tests import generate_test_matrix, match_route_contract
-from sydes.llm.client import LLMClient
+from sydes.llm.client import LLMClient, LLMClientError, create_default_llm_client
 from sydes.trace.call_follower import CallFollowBudgets, build_layered_trace_expansion
 from sydes.trace.expand import prepare_flow_expansion_context, run_flow_expansion
 from sydes.trace.function_body_slicer import slice_resolved_handler_body
@@ -135,6 +138,11 @@ class VerifyChangeOptions:
     llm_client: LLMClient | None = None
     run_tests: bool = True
     test_timeout_seconds: float = 120.0
+    #: M3 guide policy for unresolved impact: `off` (default), `auto`
+    #: (invoke only on the structural triggers `ImpactInterpreter` already
+    #: recognises), or `always`. Conservative default: no LLM call happens
+    #: for impact analysis unless this is explicitly set.
+    impact_guide: str = GUIDE_OFF
     diagnostics: list[str] = field(default_factory=list)
 
 
@@ -715,20 +723,49 @@ def _match_endpoint_candidate(
     return None
 
 
+def _build_impact_guide(options: VerifyChangeOptions) -> tuple[Any | None, list[str]]:
+    """Build the M3 guide from the same LLM configuration `--code-review`
+    already uses — no second provider system, no separate model flag.
+
+    Returns `(None, notes)` for `impact_guide=off` or when no client could be
+    built; the caller then runs `ImpactInterpreter` exactly as M2 did. A
+    provider failure here is reported, never silently escalated to a strict
+    error and never a reason to fall back to a guessed impact result.
+    """
+    if options.impact_guide == GUIDE_OFF:
+        return None, []
+    if options.llm_client is not None:
+        return LLMImpactGuide(options.llm_client), []
+    try:
+        client = create_default_llm_client(model_spec=options.model_spec)
+    except LLMClientError as exc:
+        return None, [f"impact_guide unavailable: {exc}"]
+    return LLMImpactGuide(client), []
+
+
 def _select_via_impact_interpreter(
     *,
     change: Any,
     routes: Any,
     structural: Any,
     repo_name: str,
-) -> tuple[list[EndpointCandidate], ImpactResult]:
+    options: VerifyChangeOptions,
+    repo_root: Path | None,
+) -> tuple[list[EndpointCandidate], ImpactResult, list[str]]:
     """Choose affected entrypoints through the impact interpreter.
 
     Returns the same `EndpointCandidate` shape the native path returns, so
     everything downstream of the caller is unaware anything changed.
     """
+    guide, guide_notes = _build_impact_guide(options)
     changed = _changed_symbols_for_impact(change)
-    impact_result = ImpactInterpreter().interpret(changed, structural, repo=repo_name)
+    interpreter = ImpactInterpreter(
+        guide=guide,
+        guide_policy=options.impact_guide,
+        guide_budget=GuideBudget(),
+        repo_root=repo_root,
+    )
+    impact_result = interpreter.interpret(changed, structural, repo=repo_name)
     reconciled = reconcile_entrypoints(impact_result.affected, structural.route_graph)
 
     selected: list[EndpointCandidate] = []
@@ -744,7 +781,7 @@ def _select_via_impact_interpreter(
             continue
         seen.add(dedupe_key)
         selected.append(candidate)
-    return selected, impact_result
+    return selected, impact_result, guide_notes
 
 
 def _impact_diagnostics(impact_result: ImpactResult) -> list[str]:
@@ -852,9 +889,11 @@ def analyze_change(
     # it never reaches this branch, and no fallback runs silently between
     # the two: the branch is decided once, by which backend answered.
     if structural.backend == CBM_BACKEND and structural.provides_call_graph:
-        selected, impact_result = _select_via_impact_interpreter(
+        selected, impact_result, guide_notes = _select_via_impact_interpreter(
             change=change, routes=routes, structural=structural, repo_name=primary.name,
+            options=options, repo_root=primary_root,
         )
+        result.diagnostics.extend(guide_notes)
         result.diagnostics.extend(_impact_diagnostics(impact_result))
         if impact_result.completeness != COMPLETENESS_COMPLETE:
             # A truncated traversal may hide a real entrypoint; the existing

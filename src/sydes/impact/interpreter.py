@@ -22,28 +22,49 @@ from __future__ import annotations
 
 from collections import deque
 from dataclasses import dataclass
+from pathlib import Path
 import re
 from typing import Any, Iterable
 
 from sydes.code_intelligence.base import StructuralFacts
+from sydes.impact.guide import GuideError, ImpactGuide
+from sydes.impact.investigate import InvestigationExecutor
 from sydes.impact.models import (
+    ACTION_INSPECT_ENCLOSING_FUNCTION,
+    ACTION_INSPECT_NEARBY_ENTRYPOINTS,
+    ACTION_INSPECT_SOURCE_SPAN,
+    ACTION_INSPECT_SYMBOL,
+    ACTION_STOP_UNRESOLVED,
     COMPLETENESS_COMPLETE,
     COMPLETENESS_TRUNCATED,
     ENTRYPOINT_DECORATED,
     ENTRYPOINT_HTTP,
     ENTRYPOINT_UNKNOWN,
+    GUIDE_AUTO,
+    GUIDE_OFF,
+    GUIDE_POLICIES,
+    PROVENANCE_DETERMINISTIC,
+    PROVENANCE_LLM_GUIDED_SOURCE_CONFIRMED,
+    REASON_AMBIGUOUS_SYMBOL_IDENTITY,
+    REASON_MULTIPLE_UNRESOLVED_CANDIDATES,
+    REASON_NO_ENTRYPOINT_REACHED,
+    REASON_PARTIAL_PATH_DEAD_END,
+    REASON_TRAVERSAL_TRUNCATED,
     RELATION_CALLS,
     RELATION_DECORATOR_REFERENCE,
     RELATION_DIRECT,
     RELATION_SIGNATURE_REFERENCE,
+    RELATION_SOURCE_CONFIRMED,
     RELATION_USAGE,
     STRATEGY_CALL_REACHABILITY,
     STRATEGY_DECORATOR_REFERENCE,
     STRATEGY_DIRECT_ENTRYPOINT,
+    STRATEGY_GUIDED_INVESTIGATION,
     STRATEGY_SIGNATURE_REFERENCE,
     STRATEGY_USAGE_REACHABILITY,
     AffectedEntrypoint,
     ImpactPath,
+    ImpactQuestion,
     ImpactResult,
     ImpactStep,
     SymbolIdentity,
@@ -78,15 +99,50 @@ class TraversalBudget:
     max_paths_per_entrypoint: int = 4
 
 
+@dataclass(frozen=True)
+class GuideBudget:
+    """Hard limits on the M3 guide loop, independent of traversal bounds.
+
+    A guide turn is an LLM call plus one deterministic query or source read —
+    orders of magnitude more expensive than a graph hop, so it gets its own,
+    much smaller budget. Both limits are turn counts, not wall-clock time:
+    a slow provider is a timeout/error, handled by `GuideError`, not a reason
+    to loosen these.
+    """
+
+    max_turns_per_symbol: int = 3
+    max_turns_total: int = 8
+
+
 class ImpactInterpreter:
     """Interprets structural facts as reachable entrypoints.
 
     Construction is cheap and stateless; all the facts arrive at `interpret`.
+
+    `guide`/`guide_policy` add the M3 investigation loop. With `guide_policy`
+    left at `GUIDE_OFF` (the default), nothing here changes: no guide is
+    consulted, no extra traversal runs, and `interpret`'s output is exactly
+    the M2 deterministic result. The loop only ever runs against symbols this
+    interpreter's own deterministic pass already marked unresolved, and only
+    ever adds evidence back into the same bounded traversal machinery — it
+    cannot classify a route as affected on its own say-so.
     """
 
-    def __init__(self, budget: TraversalBudget | None = None) -> None:
+    def __init__(
+        self,
+        budget: TraversalBudget | None = None,
+        *,
+        guide: ImpactGuide | None = None,
+        guide_policy: str = GUIDE_OFF,
+        guide_budget: GuideBudget | None = None,
+        repo_root: Path | None = None,
+    ) -> None:
         self.budget = budget or TraversalBudget()
         self._ambiguous_edges = 0
+        self._guide = guide
+        self._guide_policy = guide_policy if guide_policy in GUIDE_POLICIES else GUIDE_OFF
+        self._guide_budget = guide_budget or GuideBudget()
+        self._repo_root = repo_root
 
     # -- public API -------------------------------------------------------
 
@@ -109,6 +165,13 @@ class ImpactInterpreter:
         found: dict[str, AffectedEntrypoint] = {}
         truncated = False
         self._ambiguous_edges = 0
+        # One entry per symbol the deterministic pass left unresolved, kept
+        # only long enough to hand to the guide loop below. `dead_ends` is the
+        # trail of every node `_reachability` actually visited without
+        # reaching an entrypoint — the guide's only view into "how far did
+        # this get."
+        guide_candidates: list[tuple[dict[str, Any], str, SymbolIdentity,
+                                      list[tuple[SymbolIdentity, tuple[ImpactStep, ...]]]]] = []
 
         if not index.entrypoints:
             result.notes.append(
@@ -119,12 +182,13 @@ class ImpactInterpreter:
         for symbol in changed:
             name = str(symbol["name"])
             reached = False
+            dead_ends: list[tuple[SymbolIdentity, tuple[ImpactStep, ...]]] = []
 
             for path, target in self._direct(symbol, index):
                 self._record(found, target, name, path)
                 reached = True
 
-            for path, target, hit_limit in self._reachability(symbol, index):
+            for path, target, hit_limit in self._reachability(symbol, index, dead_ends=dead_ends):
                 truncated = truncated or hit_limit
                 if target is not None and path is not None:
                     self._record(found, target, name, path)
@@ -143,7 +207,7 @@ class ImpactInterpreter:
                     UnresolvedImpact(
                         repo=index.repo_of(symbol),
                         symbol=name,
-                        reason="no_entrypoint_reached",
+                        reason=REASON_NO_ENTRYPOINT_REACHED,
                         detail=(
                             "no route metadata, call path, usage reference, "
                             "decorator reference, or signature reference "
@@ -151,6 +215,12 @@ class ImpactInterpreter:
                         ),
                     )
                 )
+                if self._guide_policy != GUIDE_OFF and self._guide is not None:
+                    guide_candidates.append((symbol, name, index.identity_of(symbol), dead_ends))
+
+        guide_metrics = self._run_guide_loop(
+            guide_candidates, index, found, result, truncated_globally=truncated,
+        )
 
         # Deterministic ordering: identical facts must produce an identical
         # report, or two runs of the same analysis cannot be compared.
@@ -177,6 +247,7 @@ class ImpactInterpreter:
             "max_depth": self.budget.max_depth,
             "max_visited": self.budget.max_visited,
             "ambiguous_edges": self._ambiguous_edges,
+            **guide_metrics,
         }
         if truncated:
             result.notes.append(
@@ -191,6 +262,170 @@ class ImpactInterpreter:
                 "past them rather than guessing which symbol they were"
             )
         return result
+
+    # -- M3: the guide loop -------------------------------------------------
+
+    def _run_guide_loop(
+        self,
+        candidates: list[tuple[dict[str, Any], str, SymbolIdentity,
+                                list[tuple[SymbolIdentity, tuple[ImpactStep, ...]]]]],
+        index: _FactIndex,
+        found: dict[str, AffectedEntrypoint],
+        result: ImpactResult,
+        *,
+        truncated_globally: bool,
+    ) -> dict[str, Any]:
+        """Ask the guide about unresolved symbols, bounded on every axis.
+
+        Every resolution here goes back through `_reachability` — the exact
+        deterministic method M2 already trusted — rather than being
+        constructed by hand from a guide's say-so. The guide and its executor
+        only ever add one thing to the graph (a source-confirmed edge) or
+        widen one thing about the search (its depth, for one flagged symbol);
+        the entrypoint classification, path bookkeeping, and provenance
+        tagging are the same code as the fully deterministic path.
+        """
+        metrics: dict[str, Any] = {
+            "guide_triggered": False,
+            "guide_calls": 0,
+            "guide_actions": {},
+            "evidence_confirmed": 0,
+            "guide_no_progress": 0,
+            "guide_errors": 0,
+            "guide_budget_exhausted": False,
+            "unresolved_before": len(candidates),
+            "unresolved_after": len(candidates),
+        }
+        if not candidates or self._guide is None or self._guide_policy == GUIDE_OFF:
+            return metrics
+
+        unresolved_by_name = {item.symbol: item for item in result.unresolved}
+        total_budget = self._guide_budget.max_turns_total
+        resolved_count = 0
+
+        for symbol, name, start_identity, dead_ends in candidates:
+            if total_budget <= 0:
+                metrics["guide_budget_exhausted"] = True
+                break
+
+            reason = _classify_unresolved_reason(
+                dead_ends, start_identity, truncated_globally, index,
+            )
+            has_a_lead = bool(dead_ends) or truncated_globally or not start_identity.resolved
+            if self._guide_policy == GUIDE_AUTO and not has_a_lead:
+                # Nothing structural to investigate from: no dead end, no
+                # truncation, and the changed symbol's own identity resolved
+                # cleanly. A guide turn here would have nothing to look at.
+                continue
+
+            origin = dead_ends[-1][0] if dead_ends else start_identity
+            known: dict[str, SymbolIdentity] = {start_identity.short_name: start_identity}
+            for ident, _trail in dead_ends:
+                known.setdefault(ident.short_name, ident)
+            known.setdefault(origin.short_name, origin)
+
+            executor = InvestigationExecutor(index=index, facts=index.facts, repo_root=self._repo_root)
+            tried: set[tuple[str, str]] = set()
+            per_symbol_budget = self._guide_budget.max_turns_per_symbol
+            tried_summary: list[str] = []
+            metrics["guide_triggered"] = True
+            symbol_resolved = False
+
+            while per_symbol_budget > 0 and total_budget > 0 and not symbol_resolved:
+                question = _build_question(
+                    start_identity, reason, dead_ends, known, tried_summary,
+                    remaining=min(per_symbol_budget, total_budget),
+                    repo=index.repo_of(symbol),
+                )
+                try:
+                    decision = self._guide.investigate(question)
+                except GuideError:
+                    metrics["guide_errors"] += 1
+                    break
+                metrics["guide_calls"] += 1
+                per_symbol_budget -= 1
+                total_budget -= 1
+                actions = metrics["guide_actions"]
+                actions[decision.action] = actions.get(decision.action, 0) + 1
+
+                if decision.action == ACTION_STOP_UNRESOLVED:
+                    break
+                progress_key = (decision.action, decision.target)
+                if progress_key in tried:
+                    metrics["guide_no_progress"] += 1
+                    break
+                tried.add(progress_key)
+
+                evidence = executor.execute(decision, known=known, origin=origin)
+                tried_summary.append(
+                    f"{decision.action}({decision.target}) -> "
+                    f"{'found: ' + evidence.detail if evidence.found else 'nothing new'}"
+                )
+                if not evidence.found:
+                    continue
+                metrics["evidence_confirmed"] += 1
+
+                if decision.action in (
+                    ACTION_INSPECT_SYMBOL, ACTION_INSPECT_ENCLOSING_FUNCTION, ACTION_INSPECT_SOURCE_SPAN,
+                ):
+                    target_identity = known[decision.target]
+                    index.add_confirmed_edge(
+                        caller=target_identity, callee=origin, evidence=evidence.detail,
+                    )
+                elif decision.action == ACTION_INSPECT_NEARBY_ENTRYPOINTS:
+                    continue  # `known` was extended in place; ask again next turn
+                # TRACE_CALLERS/TRACE_USAGES/FIND_*_REFERENCES found=True means
+                # the graph already had this edge; only the bounded walk
+                # never reached it. Nothing to add — only to look at again,
+                # below, with more room.
+
+                fresh_dead_ends: list[tuple[SymbolIdentity, tuple[ImpactStep, ...]]] = []
+                newly_resolved = False
+                for path, entry, _hit_limit in self._reachability_extended(symbol, index, fresh_dead_ends):
+                    if entry is not None and path is not None:
+                        self._record(found, entry, name, path)
+                        newly_resolved = True
+                if newly_resolved:
+                    symbol_resolved = True
+                    break
+                dead_ends = fresh_dead_ends or dead_ends
+
+            item = unresolved_by_name.get(name)
+            if symbol_resolved:
+                resolved_count += 1
+                if item is not None and item in result.unresolved:
+                    result.unresolved.remove(item)
+            elif item is not None:
+                item.guide_investigated = True
+                if tried_summary:
+                    item.detail = item.detail + " | guide investigated: " + "; ".join(tried_summary[-2:])
+
+        metrics["unresolved_after"] = len(candidates) - resolved_count
+        return metrics
+
+    def _reachability_extended(
+        self, symbol: dict[str, Any], index: _FactIndex,
+        dead_ends: list[tuple[SymbolIdentity, tuple[ImpactStep, ...]]],
+    ) -> list[tuple[ImpactPath | None, dict[str, Any] | None, bool]]:
+        """Re-run `_reachability` with a bounded, temporary depth increase.
+
+        Used only after the guide loop adds or uncovers one more edge: the
+        graph may now connect the changed symbol to an entrypoint a few hops
+        further out than the default budget walks, and re-running with the
+        default budget would hit the exact same wall it hit the first time.
+        The increase is fixed and restored immediately after, never widened
+        further and never left in place for the rest of `interpret`.
+        """
+        original = self.budget
+        self.budget = TraversalBudget(
+            max_depth=original.max_depth + 4,
+            max_visited=original.max_visited,
+            max_paths_per_entrypoint=original.max_paths_per_entrypoint,
+        )
+        try:
+            return self._reachability(symbol, index, dead_ends=dead_ends)
+        finally:
+            self.budget = original
 
     # -- strategies -------------------------------------------------------
 
@@ -211,7 +446,8 @@ class ImpactInterpreter:
         return out
 
     def _reachability(
-        self, symbol: dict[str, Any], index: _FactIndex
+        self, symbol: dict[str, Any], index: _FactIndex,
+        *, dead_ends: list[tuple[SymbolIdentity, tuple[ImpactStep, ...]]] | None = None,
     ) -> list[tuple[ImpactPath | None, dict[str, Any] | None, bool]]:
         """CALL_REACHABILITY and USAGE_REACHABILITY.
 
@@ -230,6 +466,12 @@ class ImpactInterpreter:
 
         Only entrypoints terminate a path. Ordinary intermediate callers are
         recorded as steps, never reported as affected APIs in their own right.
+
+        `dead_ends`, when given, collects every `(identity, trail)` visited
+        without reaching an entrypoint. It costs nothing when the guide is
+        off (callers simply pass `None`) and is the only view the M3 guide
+        loop gets into "how far the deterministic walk actually got" for a
+        symbol it could not fully resolve.
         """
         start = index.identity_of(symbol)
         results: list[tuple[ImpactPath | None, dict[str, Any] | None, bool]] = []
@@ -243,6 +485,8 @@ class ImpactInterpreter:
                 hit_limit = True
                 break
             current, trail = queue.popleft()
+            if dead_ends is not None and trail:
+                dead_ends.append((current, trail))
             if len(trail) >= self.budget.max_depth:
                 # Reaching the depth bound is only a truncation if this node
                 # still had unexplored inbound edges.
@@ -267,15 +511,21 @@ class ImpactInterpreter:
                     relation=relation,
                     evidence=predecessor.get("evidence", ""),
                     identity_resolved=predecessor_identity.resolved,
+                    provenance=(
+                        PROVENANCE_LLM_GUIDED_SOURCE_CONFIRMED
+                        if relation == RELATION_SOURCE_CONFIRMED
+                        else PROVENANCE_DETERMINISTIC
+                    ),
                 )
                 extended = trail + (step,)
                 entry = index.entrypoint_for_identity(predecessor_identity)
                 if entry is not None:
-                    strategy = (
-                        STRATEGY_CALL_REACHABILITY
-                        if all(item.relation == RELATION_CALLS for item in extended)
-                        else STRATEGY_USAGE_REACHABILITY
-                    )
+                    if any(item.relation == RELATION_SOURCE_CONFIRMED for item in extended):
+                        strategy = STRATEGY_GUIDED_INVESTIGATION
+                    elif all(item.relation == RELATION_CALLS for item in extended):
+                        strategy = STRATEGY_CALL_REACHABILITY
+                    else:
+                        strategy = STRATEGY_USAGE_REACHABILITY
                     results.append((ImpactPath(extended, strategy), entry, False))
                     # An entrypoint terminates this path; anything reaching it
                     # from further out is a different, longer story.
@@ -473,6 +723,66 @@ def _signature_evidence(text: str, name: str) -> str:
     return signature[max(0, position - 40): position + 60]
 
 
+def _classify_unresolved_reason(
+    dead_ends: list[tuple[SymbolIdentity, tuple[ImpactStep, ...]]],
+    identity: SymbolIdentity,
+    truncated_globally: bool,
+    index: _FactIndex,
+) -> str:
+    """Which of the five guide-trigger reasons best describes this gap.
+
+    Order matters: truncation and identity ambiguity are checked first
+    because they point at a specific, fixable cause; a dead end with no
+    named cause falls through to the more generic reasons.
+    """
+    if truncated_globally:
+        return REASON_TRAVERSAL_TRUNCATED
+    if not identity.resolved:
+        return REASON_AMBIGUOUS_SYMBOL_IDENTITY
+    deepest = dead_ends[-1][0] if dead_ends else None
+    if deepest is not None and index.candidate_count_for(deepest) > 1:
+        return REASON_MULTIPLE_UNRESOLVED_CANDIDATES
+    if dead_ends:
+        return REASON_PARTIAL_PATH_DEAD_END
+    return REASON_NO_ENTRYPOINT_REACHED
+
+
+def _build_question(
+    start_identity: SymbolIdentity,
+    reason: str,
+    dead_ends: list[tuple[SymbolIdentity, tuple[ImpactStep, ...]]],
+    known: dict[str, SymbolIdentity],
+    tried_summary: list[str],
+    *,
+    remaining: int,
+    repo: str,
+) -> ImpactQuestion:
+    """Render what the deterministic pass already found as an `ImpactQuestion`.
+
+    Every field is a plain string or tuple built from facts already in
+    `dead_ends`/`known` — nothing here queries CBM or a file, so building a
+    question costs nothing beyond string formatting.
+    """
+    partial_paths = tuple(
+        " -> ".join(step.describe() for step in trail) or identity.label
+        for identity, trail in dead_ends[-5:]
+    )
+    nearby_facts = tuple(tried_summary[-5:])
+    candidate_entrypoints = tuple(sorted(known.keys()))
+    return ImpactQuestion(
+        repo=repo,
+        changed_symbol=start_identity.short_name,
+        qualified_name=start_identity.qualified_name,
+        file=start_identity.file,
+        reason=reason,
+        partial_paths=partial_paths,
+        nearby_facts=nearby_facts,
+        candidate_entrypoints=candidate_entrypoints,
+        source_context="",
+        remaining_budget=remaining,
+    )
+
+
 def _identity_of_entry(entry: dict[str, Any], default_repo: str | None) -> SymbolIdentity:
     """The identity of a fact-index entry (entrypoint, edge endpoint, ...)."""
     return SymbolIdentity.from_fields(
@@ -636,6 +946,32 @@ class _FactIndex:
         self, identity: SymbolIdentity
     ) -> list[tuple[str, SymbolIdentity, dict[str, Any]]]:
         return self._inbound.get(identity.key, [])
+
+    def add_confirmed_edge(
+        self, *, caller: SymbolIdentity, callee: SymbolIdentity, evidence: str,
+    ) -> None:
+        """Insert one inbound edge the graph never reported, as CBM would have.
+
+        The only mutation in this index, and only ever called by the M3
+        guide loop after source inspection — never the graph loader, never
+        the guide itself — has confirmed the reference in text. Tagged with
+        `RELATION_SOURCE_CONFIRMED` so every step built from it downstream
+        stays distinguishable from a graph-derived one.
+        """
+        self._inbound.setdefault(callee.key, []).append(
+            (RELATION_SOURCE_CONFIRMED, caller, {"evidence": evidence})
+        )
+
+    def candidate_count_for(self, identity: SymbolIdentity) -> int:
+        """How many same-file, same-name entrypoints an unresolved identity
+        could plausibly mean. Used only to label *why* a symbol is
+        unresolved for the guide — never to pick between them."""
+        if identity.resolved:
+            return 0
+        candidates = self._by_name.get(identity.short_name, [])
+        if identity.file:
+            candidates = [c for c in candidates if c.get("file") == identity.file]
+        return len(candidates)
 
     def entrypoints_named(self, name: str, file: str | None = None) -> list[dict[str, Any]]:
         """Entrypoints defined by this symbol name, narrowed by file if known."""

@@ -44,6 +44,18 @@ def verify_change_command(
         Literal["auto", "never"],
         typer.Option("--llm-policy", help="`never` runs deterministic analysis only."),
     ] = "auto",
+    impact_guide: Annotated[
+        Literal["off", "auto", "always"],
+        typer.Option(
+            "--impact-guide",
+            help=(
+                "M3 LLM investigation loop for unresolved impact (cbm backend only). "
+                "`off` (default): deterministic impact analysis only. "
+                "`auto`: consult the guide only on unresolved structural triggers. "
+                "`always`: consult it whenever any symbol is unresolved (dev/debug)."
+            ),
+        ),
+    ] = "off",
     model: Annotated[
         str | None,
         typer.Option(
@@ -87,6 +99,7 @@ def verify_change_command(
         model_spec=model,
         run_tests=not no_run_tests,
         test_timeout_seconds=test_timeout,
+        impact_guide=impact_guide,
     )
 
     try:

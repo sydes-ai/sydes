@@ -26,6 +26,7 @@ from sydes.cli.main import app
 from sydes.code_intelligence.cbm import CBM_BACKEND
 from sydes.code_intelligence.factory import get_code_intelligence
 from sydes.impact.models import COMPLETENESS_TRUNCATED, ImpactResult
+from sydes.llm.client import LLMResponse
 from sydes.verify.models import ANALYSIS_PARTIAL, VERDICT_VERIFIED, ChangeVerificationResult
 
 runner = CliRunner()
@@ -183,3 +184,81 @@ def test_truncated_impact_keeps_the_verdict_conservative(
     assert any("truncated" in note.lower() for note in result.analysis_notes)
     assert result.summary.verdict != VERDICT_VERIFIED
     assert result.affected_flows == []
+
+
+class _CountingFakeLLMClient:
+    """A fake `LLMClient` that always tells the guide to stop.
+
+    Used to prove `--impact-guide auto` does not perturb an already-resolved
+    deterministic case: if the guide were consulted it would still stop
+    immediately and change nothing, but the assertion here is on `calls`
+    itself — a fully deterministic path must not reach the guide at all.
+    """
+
+    def __init__(self) -> None:
+        self.calls = 0
+
+    def generate(self, request):  # noqa: ANN001 - matches LLMClient protocol
+        self.calls += 1
+        return LLMResponse(text='{"action": "stop_unresolved"}')
+
+
+def test_impact_guide_auto_does_not_fire_on_an_already_resolved_case(
+    repo: Path, tmp_path: Path, fake_cbm_backend: None, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Phase 9: a case the deterministic pass already resolves (decorator
+    reference to `handle`) must not spend a guide turn just because
+    `--impact-guide auto` is on."""
+    _write(repo, "service.py", _SERVICE_V2)
+    fake_client = _CountingFakeLLMClient()
+    monkeypatch.setattr(
+        "sydes.verify.analyzer.create_default_llm_client", lambda **kwargs: fake_client,
+    )
+
+    out = tmp_path / "result.json"
+    outcome = runner.invoke(
+        app,
+        [
+            "verify-change", "--base", "main", "--llm-policy", "never",
+            "--repo", f"app={repo}", "--json", str(out), "--impact-guide", "auto",
+        ],
+    )
+    assert outcome.exit_code == 0, outcome.output
+    import json
+    result = ChangeVerificationResult.model_validate(json.loads(out.read_text(encoding="utf-8")))
+
+    paths = {(flow.method, flow.path) for flow in result.affected_flows}
+    assert ("GET", "/x") in paths
+    assert fake_client.calls == 0
+    assert any(
+        "guide_triggered=False" in line for line in result.diagnostics
+    )
+
+
+def test_impact_guide_provider_unavailable_stays_conservative(
+    repo: Path, tmp_path: Path, fake_cbm_backend: None, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`--impact-guide auto` with no usable LLM provider must degrade to the
+    deterministic result, reported, never raised as a hard failure and never
+    silently promoted to a guessed VERIFIED."""
+    from sydes.llm.client import LLMClientError
+
+    def _boom(**kwargs):
+        raise LLMClientError("no provider configured")
+
+    monkeypatch.setattr("sydes.verify.analyzer.create_default_llm_client", _boom)
+    _write(repo, "service.py", _SERVICE_V2)
+
+    out = tmp_path / "result.json"
+    outcome = runner.invoke(
+        app,
+        [
+            "verify-change", "--base", "main", "--llm-policy", "never",
+            "--repo", f"app={repo}", "--json", str(out), "--impact-guide", "auto",
+        ],
+    )
+    assert outcome.exit_code == 0, outcome.output
+    import json
+    result = ChangeVerificationResult.model_validate(json.loads(out.read_text(encoding="utf-8")))
+    assert any("impact_guide unavailable" in note for note in result.diagnostics)
+    assert result.summary.verdict != VERDICT_VERIFIED
