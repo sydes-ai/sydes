@@ -57,8 +57,11 @@ def entrypoint(
     symbol: str, *, method: str | None = "GET", path: str | None = "/x",
     decorators: str = "", signature: str = "", file: str = "app/views.py",
 ) -> dict:
+    # Qualified name deliberately matches call_edge()/usage_edge()'s own
+    # convention (f"app.{name}") so a symbol acting as both a call-graph
+    # participant and a registered entrypoint resolves to one identity.
     return {
-        "repo": REPO, "qualified_name": f"app.views.{symbol}", "symbol": symbol,
+        "repo": REPO, "qualified_name": f"app.{symbol}", "symbol": symbol,
         "file": file, "line": 10, "route_method": method, "route_path": path,
         "decorators": decorators, "signature": signature,
     }
@@ -74,8 +77,11 @@ def facts(**kwargs) -> StructuralFacts:
     )
 
 
-def changed(*names: str) -> list[dict]:
-    return [{"name": name, "file": "app/svc.py", "repo": REPO} for name in names]
+def changed(*names: str, file: str = "app/svc.py") -> list[dict]:
+    # Real change attribution always reports the file a symbol actually lives
+    # in (it comes from the diff itself), so tests pin it explicitly whenever
+    # a fixture places the symbol somewhere other than the default module.
+    return [{"name": name, "file": file, "repo": REPO} for name in names]
 
 
 # --------------------------------------------------------------------------
@@ -201,7 +207,7 @@ def test_usage_then_decorator_recovers_a_composed_dependency() -> None:
     matching alone cannot see it; only usage-then-decorator reaches the route.
     """
     result = ImpactInterpreter().interpret(
-        changed("ReporterCheck"),
+        changed("ReporterCheck", file="app/perm.py"),
         facts(
             usage_edges=[usage_edge("EditPermission", "ReporterCheck")],
             # EditPermission is a dependency class, not an entrypoint of its
@@ -222,7 +228,7 @@ def test_usage_then_decorator_recovers_a_composed_dependency() -> None:
 def test_usage_reachability_is_labelled_distinctly_from_calls() -> None:
     """A usage hop is weaker evidence than a call and must be visible as such."""
     result = ImpactInterpreter().interpret(
-        changed("Helper"),
+        changed("Helper", file="app/perm.py"),
         facts(
             usage_edges=[usage_edge("handler", "Helper")],
             entrypoints=[entrypoint("handler", method="GET", path="/h")],

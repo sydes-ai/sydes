@@ -46,6 +46,97 @@ COMPLETENESS_TRUNCATED = "truncated"
 COMPLETENESS_UNRESOLVED = "unresolved"
 
 
+#: Separator for a synthetic identity key. Not a valid identifier character in
+#: any language Sydes or CBM parses, so it cannot collide with a real name.
+_KEY_SEP = "\u241f"
+
+
+@dataclass(frozen=True)
+class SymbolIdentity:
+    """What makes one symbol the same symbol, everywhere in impact analysis.
+
+    Bare short name is deliberately excluded from equality: two functions
+    named `update` in different modules are different symbols, and a graph
+    that cannot tell them apart cannot bound its own traversal — which is
+    exactly what happened before this type existed. Identity resolves in three
+    tiers, from most to least certain:
+
+      1. `qualified_name` present -> identity is (repo, qualified_name).
+         Stable, and what CBM supplies for essentially every call/usage edge.
+      2. `qualified_name` absent but a line number is known -> identity is
+         (repo, file, short_name, line). A file rarely defines the same name
+         twice at the same line, so this stays scoped without inventing a
+         qualifier CBM never reported.
+      3. Neither present -> identity is (repo, file, short_name), and it is
+         marked unresolved. Still scoped to one file — never to a bare name
+         across the whole repository — but two same-named, same-file, same-
+         line-less symbols would collide here, so `resolved` says so and
+         callers must not treat this identity as safe to fan out from.
+
+    `short_name` is kept only for display; it plays no part in equality.
+    """
+
+    repo: str
+    file: str
+    qualified_name: str = ""
+    short_name: str = ""
+    line: int | None = None
+
+    def __eq__(self, other: object) -> bool:
+        # Equality follows `key`, not field-by-field comparison: once a
+        # qualified name is known it alone determines identity, and `line` is
+        # provenance rather than a distinguishing property at that point.
+        if not isinstance(other, SymbolIdentity):
+            return NotImplemented
+        return self.key == other.key
+
+    def __hash__(self) -> int:
+        return hash(self.key)
+
+    @property
+    def resolved(self) -> bool:
+        """False only for the tier-3 fallback, where the key may be shared."""
+        return bool(self.qualified_name) or self.line is not None
+
+    @property
+    def key(self) -> str:
+        """A deterministic string key, safe to use as a dict/set member."""
+        if self.qualified_name:
+            return _KEY_SEP.join((self.repo, "qn", self.qualified_name))
+        if self.line is not None:
+            return _KEY_SEP.join(
+                (self.repo, "fl", self.file, self.short_name, str(self.line))
+            )
+        return _KEY_SEP.join((self.repo, "fn", self.file, self.short_name))
+
+    @property
+    def label(self) -> str:
+        """Human-readable form for evidence and diagnostics."""
+        return self.qualified_name or f"{self.file}:{self.short_name}"
+
+    @classmethod
+    def from_fields(
+        cls,
+        *,
+        repo: str,
+        file: str,
+        qualified_name: str | None = None,
+        short_name: str | None = None,
+        line: int | None = None,
+    ) -> "SymbolIdentity":
+        """Build an identity from whatever a fact or a caller happened to have.
+
+        `short_name` is derived from `qualified_name` when only that is given,
+        so a caller never has to duplicate the split-on-dot itself.
+        """
+        qualified = str(qualified_name or "").strip()
+        name = str(short_name or "").strip() or (
+            qualified.rsplit(".", 1)[-1] if qualified else ""
+        )
+        return cls(repo=str(repo), file=str(file), qualified_name=qualified,
+                   short_name=name, line=line)
+
+
 @dataclass(frozen=True)
 class ImpactStep:
     """One hop: the symbol reached, and the relationship that reached it."""
@@ -57,6 +148,11 @@ class ImpactStep:
     #: Free-text support for this hop — a decorator fragment, a signature
     #: substring — so the step can be checked without re-querying the graph.
     evidence: str = ""
+    #: False when this hop's identity came from the tier-3 fallback (no
+    #: qualified name, no line). The step is still reported — dropping it
+    #: would silently hide a real edge — but a reader should not treat it as
+    #: certainly the same symbol every time it recurs.
+    identity_resolved: bool = True
 
     def describe(self) -> str:
         return f"{self.relation}:{self.qualified_name or self.symbol}"
@@ -92,6 +188,7 @@ class ImpactPath:
                     "file": step.file,
                     "relation": step.relation,
                     "evidence": step.evidence,
+                    "identity_resolved": step.identity_resolved,
                 }
                 for step in self.steps
             ],

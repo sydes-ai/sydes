@@ -40,6 +40,13 @@ from sydes.core.models import (
 )
 from sydes.discover.endpoints import discover_endpoints
 from sydes.code_intelligence import get_code_intelligence
+from sydes.code_intelligence.cbm import CBM_BACKEND
+from sydes.impact import (
+    COMPLETENESS_COMPLETE,
+    ImpactInterpreter,
+    ImpactResult,
+    reconcile_entrypoints,
+)
 from sydes.discover.target_match import resolve_trace_target
 from sydes.store.workspace import compute_workspace_id
 from sydes.generate.contracts import build_api_contract_from_routes
@@ -658,6 +665,100 @@ def _link_runtime_blockers(execution, dependencies: list[RuntimeDependency]) -> 
             return
 
 
+# --------------------------------------------------------------------------
+# Impact-interpreter wiring (backend=cbm only)
+# --------------------------------------------------------------------------
+#
+# This section decides *which entrypoints* the diff reaches. It builds no
+# flow, obligation, or verdict of its own — it produces the same kind of
+# `EndpointCandidate` list the native reachability heuristic below already
+# produces, and hands it to the identical downstream pipeline
+# (`resolve_trace_target` -> `_trace_route` -> obligations -> evidence ->
+# verdict). Native backend behavior is untouched; this only replaces how the
+# candidate list is chosen when backend=cbm.
+
+
+def _changed_symbols_for_impact(change: Any) -> list[dict[str, Any]]:
+    """`ChangedSymbol` models, in the mapping shape `ImpactInterpreter` reads."""
+    return [
+        {
+            "name": item.name,
+            "file": item.file,
+            "repo": item.repo,
+            "qualified_name": item.qualified_name or "",
+            "start_line": item.start_line,
+        }
+        for item in change.symbols
+    ]
+
+
+def _match_endpoint_candidate(
+    entrypoint: Any, candidates: list[EndpointCandidate]
+) -> EndpointCandidate | None:
+    """The Sydes-discovered route matching one reconciled affected entrypoint.
+
+    Tried by route method+path first (the identity that matters to a
+    developer), then by handler symbol+file (the identity CBM and Sydes both
+    derived from the same source). Neither is invented here: both are facts
+    already present on the candidate list `discover_endpoints` produced.
+    """
+    if entrypoint.route_method and entrypoint.route_path:
+        for candidate in candidates:
+            if (
+                (candidate.method or "").upper() == entrypoint.route_method.upper()
+                and (candidate.path or "") == entrypoint.route_path
+            ):
+                return candidate
+    for candidate in candidates:
+        if candidate.file == entrypoint.file and candidate.handler == entrypoint.symbol:
+            return candidate
+    return None
+
+
+def _select_via_impact_interpreter(
+    *,
+    change: Any,
+    routes: Any,
+    structural: Any,
+    repo_name: str,
+) -> tuple[list[EndpointCandidate], ImpactResult]:
+    """Choose affected entrypoints through the impact interpreter.
+
+    Returns the same `EndpointCandidate` shape the native path returns, so
+    everything downstream of the caller is unaware anything changed.
+    """
+    changed = _changed_symbols_for_impact(change)
+    impact_result = ImpactInterpreter().interpret(changed, structural, repo=repo_name)
+    reconciled = reconcile_entrypoints(impact_result.affected, structural.route_graph)
+
+    selected: list[EndpointCandidate] = []
+    seen: set[str] = set()
+    for entrypoint in reconciled:
+        if entrypoint.kind != "http_route":
+            continue  # non-HTTP entrypoints have no EndpointCandidate to map to
+        candidate = _match_endpoint_candidate(entrypoint, routes.routes)
+        if candidate is None:
+            continue
+        dedupe_key = f"{candidate.method}:{candidate.path}:{candidate.file}"
+        if dedupe_key in seen:
+            continue
+        seen.add(dedupe_key)
+        selected.append(candidate)
+    return selected, impact_result
+
+
+def _impact_diagnostics(impact_result: ImpactResult) -> list[str]:
+    """Compact diagnostic lines summarising one impact-interpreter run."""
+    metrics = impact_result.metrics
+    lines = [
+        "impact_interpreter: "
+        + ", ".join(f"{key}={value}" for key, value in sorted(metrics.items())
+                     if key not in {"max_depth", "max_visited"}),
+    ]
+    lines.extend(f"impact_note: {note}" for note in impact_result.notes)
+    return lines
+
+
 def analyze_change(
     *, repos: list[RepoRef], options: VerifyChangeOptions
 ) -> ChangeVerificationResult:
@@ -744,11 +845,33 @@ def analyze_change(
         )
         result.analysis_status = ANALYSIS_PARTIAL
 
-    selected = [
-        endpoint
-        for endpoint in routes.routes
-        if (endpoint.file or "") in candidate_files
-    ]
+    # Which entrypoints the change reaches: the impact interpreter is the
+    # primary source when CBM supplied a call graph, since it resolves
+    # symbol identity exactly rather than through the native file-level
+    # reverse-reach heuristic below. Native backend behavior is unchanged —
+    # it never reaches this branch, and no fallback runs silently between
+    # the two: the branch is decided once, by which backend answered.
+    if structural.backend == CBM_BACKEND and structural.provides_call_graph:
+        selected, impact_result = _select_via_impact_interpreter(
+            change=change, routes=routes, structural=structural, repo_name=primary.name,
+        )
+        result.diagnostics.extend(_impact_diagnostics(impact_result))
+        if impact_result.completeness != COMPLETENESS_COMPLETE:
+            # A truncated traversal may hide a real entrypoint; the existing
+            # verdict logic already refuses VERIFIED whenever analysis_status
+            # is not complete, so this alone is enough to keep an incomplete
+            # impact result from ever reading as VERIFIED.
+            result.analysis_status = ANALYSIS_PARTIAL
+            result.analysis_notes.append(
+                "Impact analysis traversal was truncated by its bounds; some "
+                "reachable entrypoints may not be listed."
+            )
+    else:
+        selected = [
+            endpoint
+            for endpoint in routes.routes
+            if (endpoint.file or "") in candidate_files
+        ]
     if not selected and change.symbols:
         result.analysis_notes.append(
             "No discovered route declaration reaches the changed symbols."
@@ -773,6 +896,22 @@ def analyze_change(
     changed_symbol_keys |= {
         (item.file, item.qualified_name) for item in change.symbols if item.qualified_name
     }
+    if structural.backend == CBM_BACKEND and structural.provides_call_graph:
+        # The reachability check below (`reached = ...`) predates the impact
+        # interpreter and only trusts a handler that IS the changed symbol, a
+        # handler whose declaration line the diff touched, or a call the
+        # native follower resolved. A route reached through
+        # DECORATOR_REFERENCE or USAGE_REFERENCE satisfies none of those —
+        # the dependency was never called, only named in a decorator
+        # argument — so without this the impact interpreter's own findings
+        # would be silently discarded by a gate that cannot see its evidence.
+        # This does not relax the gate or duplicate it: it feeds the same
+        # (file, symbol) vocabulary the gate already checks, using paths the
+        # interpreter already proved rather than re-deriving reachability.
+        for entrypoint in impact_result.affected:
+            changed_symbol_keys.add((entrypoint.file, entrypoint.symbol))
+            if entrypoint.qualified_name:
+                changed_symbol_keys.add((entrypoint.file, entrypoint.qualified_name))
     changed_hunks = {
         item.path: [(hunk.start_line, hunk.end_line) for hunk in item.hunks]
         for item in change.files

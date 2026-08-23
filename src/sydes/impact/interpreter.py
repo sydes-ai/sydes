@@ -46,6 +46,7 @@ from sydes.impact.models import (
     ImpactPath,
     ImpactResult,
     ImpactStep,
+    SymbolIdentity,
     UnresolvedImpact,
 )
 
@@ -85,6 +86,7 @@ class ImpactInterpreter:
 
     def __init__(self, budget: TraversalBudget | None = None) -> None:
         self.budget = budget or TraversalBudget()
+        self._ambiguous_edges = 0
 
     # -- public API -------------------------------------------------------
 
@@ -106,6 +108,7 @@ class ImpactInterpreter:
         result = ImpactResult()
         found: dict[str, AffectedEntrypoint] = {}
         truncated = False
+        self._ambiguous_edges = 0
 
         if not index.entrypoints:
             result.notes.append(
@@ -173,12 +176,19 @@ class ImpactInterpreter:
             "usage_edges": len(facts.usage_edges),
             "max_depth": self.budget.max_depth,
             "max_visited": self.budget.max_visited,
+            "ambiguous_edges": self._ambiguous_edges,
         }
         if truncated:
             result.notes.append(
                 f"traversal hit a bound (depth {self.budget.max_depth}, "
                 f"{self.budget.max_visited} nodes); reachable entrypoints "
                 "beyond it are not listed"
+            )
+        if self._ambiguous_edges:
+            result.notes.append(
+                f"{self._ambiguous_edges} edge(s) referenced a symbol with no "
+                "qualified name and no line number; traversal did not continue "
+                "past them rather than guessing which symbol they were"
             )
         return result
 
@@ -210,14 +220,23 @@ class ImpactInterpreter:
         by a composing function which is *called* by a handler — and walking
         them separately would miss exactly those mixed paths.
 
+        The walk is keyed by `SymbolIdentity`, never by bare name: adjacency
+        that collapsed every symbol named `update` into one bucket is exactly
+        the defect this replaces. An identity that resolved only through the
+        tier-3 fallback (no qualified name, no line) is a leaf — traversal
+        does not continue past it, because a further inbound edge for "some
+        `update` in this file" cannot be trusted to belong to the same symbol
+        as the one just reached.
+
         Only entrypoints terminate a path. Ordinary intermediate callers are
         recorded as steps, never reported as affected APIs in their own right.
         """
-        start = str(symbol["name"])
+        start = index.identity_of(symbol)
         results: list[tuple[ImpactPath | None, dict[str, Any] | None, bool]] = []
-        visited: set[str] = {start}
-        queue: deque[tuple[str, tuple[ImpactStep, ...]]] = deque([(start, ())])
+        visited: set[str] = {start.key}
+        queue: deque[tuple[SymbolIdentity, tuple[ImpactStep, ...]]] = deque([(start, ())])
         hit_limit = False
+        ambiguous_hits = 0
 
         while queue:
             if len(visited) > self.budget.max_visited:
@@ -230,21 +249,27 @@ class ImpactInterpreter:
                 if index.inbound(current):
                     hit_limit = True
                 continue
+            if not current.resolved and trail:
+                # An ambiguous node contributed its own step already; walking
+                # further from it would extend a path built on a guess.
+                continue
 
-            for relation, predecessor in index.inbound(current):
-                name = predecessor["symbol"]
-                if name in visited:
+            for relation, predecessor_identity, predecessor in index.inbound(current):
+                if predecessor_identity.key in visited:
                     continue  # cycle guard
-                visited.add(name)
+                visited.add(predecessor_identity.key)
+                if not predecessor_identity.resolved:
+                    ambiguous_hits += 1
                 step = ImpactStep(
-                    symbol=name,
-                    qualified_name=predecessor.get("qualified_name", ""),
-                    file=predecessor.get("file", ""),
+                    symbol=predecessor_identity.short_name,
+                    qualified_name=predecessor_identity.qualified_name,
+                    file=predecessor_identity.file,
                     relation=relation,
                     evidence=predecessor.get("evidence", ""),
+                    identity_resolved=predecessor_identity.resolved,
                 )
                 extended = trail + (step,)
-                entry = index.entrypoint_for(name, predecessor.get("qualified_name"))
+                entry = index.entrypoint_for_identity(predecessor_identity)
                 if entry is not None:
                     strategy = (
                         STRATEGY_CALL_REACHABILITY
@@ -262,14 +287,16 @@ class ImpactInterpreter:
                 # changed symbol would miss every composed case, because the
                 # new symbol never appears in a decorator itself.
                 for referrer in index.entrypoints_referencing_any(
-                    _reference_names(name, predecessor)
+                    _reference_names(predecessor_identity)
                 ):
                     reference_step = ImpactStep(
                         symbol=referrer["symbol"],
                         qualified_name=referrer.get("qualified_name", ""),
                         file=referrer.get("file", ""),
                         relation=RELATION_DECORATOR_REFERENCE,
-                        evidence=_decorator_evidence(referrer.get("decorators", ""), name),
+                        evidence=_decorator_evidence(
+                            referrer.get("decorators", ""), predecessor_identity.short_name
+                        ),
                     )
                     results.append((
                         ImpactPath(extended + (reference_step,),
@@ -278,10 +305,15 @@ class ImpactInterpreter:
                         False,
                     ))
 
-                queue.append((name, extended))
+                queue.append((predecessor_identity, extended))
 
         if hit_limit:
             results.append((None, None, True))
+        if ambiguous_hits:
+            # Surfaced through the metrics/notes path in `interpret`, not as a
+            # fabricated result — an ambiguous hop is evidence of uncertainty,
+            # not evidence of an entrypoint.
+            self._ambiguous_edges += ambiguous_hits
         return results
 
     def _decorator_references(
@@ -289,22 +321,38 @@ class ImpactInterpreter:
     ) -> list[tuple[ImpactPath, dict[str, Any]]]:
         """DECORATOR_REFERENCE: the changed symbol is named in a decorator.
 
-        Generic by construction: it looks for the changed symbol's identifier
-        inside whatever decorator text the backend captured, without knowing
-        what any decorator means. A dependency declared in a decorator argument
-        never produces a call edge, so this is the only structural trace of it.
+        Generic by construction: it looks for candidate identifiers inside
+        whatever decorator text the backend captured, without knowing what any
+        decorator means. A dependency declared in a decorator argument never
+        produces a call edge, so this is the only structural trace of it.
+
+        A changed symbol that is a class method is attributed by its own
+        short name (`has_required_permissions`), but a decorator referencing
+        that dependency names the *class* (`SomePermission`), never the
+        method. `_reference_names` supplies both candidates from the same
+        qualified-name split the traversal-time lookup already uses, so a
+        diff hunk landing on a method still finds the class its decorator
+        argument would have named.
         """
-        name = str(symbol["name"])
-        if name in _UNINFORMATIVE or len(name) < 3:
-            return []
+        identity = index.identity_of(symbol)
+        seen: dict[str, dict[str, Any]] = {}
+        for name in _reference_names(identity):
+            for entry in index.entrypoints_referencing(name):
+                key = entry.get("qualified_name") or entry["symbol"]
+                seen.setdefault(key, entry)
         out = []
-        for entry in index.entrypoints_referencing(name):
+        for entry in seen.values():
+            matched = next(
+                (name for name in _reference_names(identity)
+                 if name in _IDENTIFIER_RE.findall(str(entry.get("decorators") or ""))),
+                identity.short_name,
+            )
             step = ImpactStep(
                 symbol=entry["symbol"],
                 qualified_name=entry.get("qualified_name", ""),
                 file=entry.get("file", ""),
                 relation=RELATION_DECORATOR_REFERENCE,
-                evidence=_decorator_evidence(entry.get("decorators", ""), name),
+                evidence=_decorator_evidence(entry.get("decorators", ""), matched),
             )
             out.append((ImpactPath((step,), STRATEGY_DECORATOR_REFERENCE), entry))
         return out
@@ -317,19 +365,31 @@ class ImpactInterpreter:
         Conservative on purpose. It fires only when the backend actually
         recorded a signature containing the changed identifier — no ORM
         semantics are inferred, because CBM exposes none and inventing them
-        would produce confident nonsense about persistence.
+        would produce confident nonsense about persistence. Candidate names
+        include the owning class alongside the symbol's own name, for the
+        same reason `_decorator_references` does: a type used in a handler
+        signature is named by class, and a changed method is attributed by
+        its own short name.
         """
-        name = str(symbol["name"])
-        if name in _UNINFORMATIVE or len(name) < 3:
-            return []
+        identity = index.identity_of(symbol)
+        seen: dict[str, dict[str, Any]] = {}
+        for name in _reference_names(identity):
+            for entry in index.entrypoints_with_signature_reference(name):
+                key = entry.get("qualified_name") or entry["symbol"]
+                seen.setdefault(key, entry)
         out = []
-        for entry in index.entrypoints_with_signature_reference(name):
+        for entry in seen.values():
+            matched = next(
+                (name for name in _reference_names(identity)
+                 if name in _IDENTIFIER_RE.findall(str(entry.get("signature") or ""))),
+                identity.short_name,
+            )
             step = ImpactStep(
                 symbol=entry["symbol"],
                 qualified_name=entry.get("qualified_name", ""),
                 file=entry.get("file", ""),
                 relation=RELATION_SIGNATURE_REFERENCE,
-                evidence=_signature_evidence(entry.get("signature", ""), name),
+                evidence=_signature_evidence(entry.get("signature", ""), matched),
             )
             out.append((ImpactPath((step,), STRATEGY_SIGNATURE_REFERENCE), entry))
         return out
@@ -377,17 +437,16 @@ def _classify(entry: dict[str, Any]) -> str:
     return ENTRYPOINT_UNKNOWN
 
 
-def _reference_names(symbol: str, node: dict[str, Any]) -> list[str]:
+def _reference_names(identity: SymbolIdentity) -> list[str]:
     """Names under which a reached symbol might be cited in a decorator.
 
     A dependency is usually declared by its class name while the symbol the
     graph reached is a method on that class, so the owning class is offered
     alongside the method's own name.
     """
-    names = [symbol]
-    qualified = str(node.get("qualified_name") or "")
-    parts = qualified.split(".")
-    if len(parts) >= 2 and parts[-2] and parts[-2] != symbol:
+    names = [identity.short_name]
+    parts = identity.qualified_name.split(".")
+    if len(parts) >= 2 and parts[-2] and parts[-2] != identity.short_name:
         names.append(parts[-2])
     return [name for name in names if name not in _UNINFORMATIVE and len(name) >= 3]
 
@@ -414,8 +473,26 @@ def _signature_evidence(text: str, name: str) -> str:
     return signature[max(0, position - 40): position + 60]
 
 
+def _identity_of_entry(entry: dict[str, Any], default_repo: str | None) -> SymbolIdentity:
+    """The identity of a fact-index entry (entrypoint, edge endpoint, ...)."""
+    return SymbolIdentity.from_fields(
+        repo=str(entry.get("repo") or default_repo or ""),
+        file=str(entry.get("file") or ""),
+        qualified_name=entry.get("qualified_name"),
+        short_name=entry.get("symbol"),
+        line=entry.get("line"),
+    )
+
+
 class _FactIndex:
-    """Lookup structures over one `StructuralFacts`, built once per interpret."""
+    """Lookup structures over one `StructuralFacts`, built once per interpret.
+
+    Every lookup here is keyed by `SymbolIdentity.key`, never by bare short
+    name. Short names remain available on entrypoint dicts purely for display
+    and for the decorator/signature text scans, which search identifier text
+    rather than adjacency and are unaffected by the name-collision defect this
+    index exists to fix.
+    """
 
     def __init__(self, facts: StructuralFacts, repo: str | None) -> None:
         self.facts = facts
@@ -425,48 +502,140 @@ class _FactIndex:
             if repo is None or entry.get("repo") == repo
         ]
 
+        # Bare-name lookup survives only for DIRECT_ENTRYPOINT, where the
+        # caller already narrows by file and a same-file collision is rare
+        # enough that falling back to "ambiguous, do not guess" is enough.
         self._by_name: dict[str, list[dict[str, Any]]] = {}
-        self._by_qualified: dict[str, dict[str, Any]] = {}
+        self._by_identity: dict[str, dict[str, Any]] = {}
         for entry in self.entrypoints:
             self._by_name.setdefault(entry["symbol"], []).append(entry)
-            qualified = entry.get("qualified_name")
-            if qualified:
-                self._by_qualified[qualified] = entry
+            self._by_identity[_identity_of_entry(entry, repo).key] = entry
 
-        # Inbound adjacency, keyed by callee/used symbol name, combining both
-        # relationship kinds so one traversal can alternate between them.
-        self._inbound: dict[str, list[tuple[str, dict[str, Any]]]] = {}
+        # (file, short_name) -> qualified_name, learned from every identity
+        # this index has seen. A changed symbol commonly arrives with no
+        # qualified name of its own — plain functions carry none in either
+        # Sydes' native attribution or CBM's own symbol translation — while
+        # CBM's edges almost always carry one for the same physical symbol.
+        # Without this table the two identities for one symbol would resolve
+        # to different tiers and simply never meet. This is exact lookup
+        # against facts already collected, not a guess: a (file, name) pair
+        # that maps to more than one qualified name is left unresolved rather
+        # than picked between.
+        self._known_qualified: dict[tuple[str, str], str | None] = {}
+
+        def _learn(file: str, name: str, qualified: str) -> None:
+            if not file or not name or not qualified:
+                return
+            fkey = (file, name)
+            existing = self._known_qualified.get(fkey, "")
+            if existing == "":
+                self._known_qualified[fkey] = qualified
+            elif existing is not None and existing != qualified:
+                self._known_qualified[fkey] = None  # genuinely ambiguous
+
+        for entry in self.entrypoints:
+            _learn(str(entry.get("file") or ""), str(entry.get("symbol") or ""),
+                   str(entry.get("qualified_name") or ""))
         for edge in facts.call_edges:
             if repo is not None and edge.get("repo") != repo:
                 continue
-            self._inbound.setdefault(str(edge.get("callee_symbol")), []).append(
-                (RELATION_CALLS, {
-                    "symbol": str(edge.get("caller_symbol")),
-                    "qualified_name": edge.get("caller_qualified_name", ""),
-                    "file": edge.get("caller_file", ""),
-                })
-            )
+            _learn(str(edge.get("caller_file") or ""), str(edge.get("caller_symbol") or ""),
+                   str(edge.get("caller_qualified_name") or ""))
+            _learn(str(edge.get("callee_file") or ""), str(edge.get("callee_symbol") or ""),
+                   str(edge.get("callee_qualified_name") or ""))
         for edge in facts.usage_edges:
             if repo is not None and edge.get("repo") != repo:
                 continue
-            self._inbound.setdefault(str(edge.get("used_symbol")), []).append(
-                (RELATION_USAGE, {
-                    "symbol": str(edge.get("user_symbol")),
-                    "qualified_name": edge.get("user_qualified_name", ""),
-                    "file": edge.get("user_file", ""),
-                })
+            _learn(str(edge.get("user_file") or ""), str(edge.get("user_symbol") or ""),
+                   str(edge.get("user_qualified_name") or ""))
+            _learn(str(edge.get("used_file") or ""), str(edge.get("used_symbol") or ""),
+                   str(edge.get("used_qualified_name") or ""))
+
+        # Inbound adjacency, keyed by the *identity* of the callee/used
+        # symbol, combining both relationship kinds so one traversal can
+        # alternate between them. This is the fix: the previous key was the
+        # bare symbol string, which merged every `update` in the repository
+        # into one adjacency bucket regardless of file or class.
+        self._inbound: dict[str, list[tuple[str, SymbolIdentity, dict[str, Any]]]] = {}
+        for edge in facts.call_edges:
+            if repo is not None and edge.get("repo") != repo:
+                continue
+            callee = SymbolIdentity.from_fields(
+                repo=str(repo or edge.get("repo") or ""),
+                file=str(edge.get("callee_file") or ""),
+                qualified_name=edge.get("callee_qualified_name"),
+                short_name=edge.get("callee_symbol"),
+                line=edge.get("callee_line"),
             )
+            caller = SymbolIdentity.from_fields(
+                repo=str(repo or edge.get("repo") or ""),
+                file=str(edge.get("caller_file") or ""),
+                qualified_name=edge.get("caller_qualified_name"),
+                short_name=edge.get("caller_symbol"),
+                line=edge.get("caller_line"),
+            )
+            self._inbound.setdefault(callee.key, []).append((RELATION_CALLS, caller, {}))
+        for edge in facts.usage_edges:
+            if repo is not None and edge.get("repo") != repo:
+                continue
+            used = SymbolIdentity.from_fields(
+                repo=str(repo or edge.get("repo") or ""),
+                file=str(edge.get("used_file") or ""),
+                qualified_name=edge.get("used_qualified_name"),
+                short_name=edge.get("used_symbol"),
+            )
+            user = SymbolIdentity.from_fields(
+                repo=str(repo or edge.get("repo") or ""),
+                file=str(edge.get("user_file") or ""),
+                qualified_name=edge.get("user_qualified_name"),
+                short_name=edge.get("user_symbol"),
+            )
+            self._inbound.setdefault(used.key, []).append((RELATION_USAGE, user, {}))
         # Stable adjacency order keeps traversal deterministic.
         for key, items in self._inbound.items():
             self._inbound[key] = sorted(
-                items, key=lambda pair: (pair[0], pair[1]["symbol"], pair[1]["qualified_name"])
+                items, key=lambda item: (item[0], item[1].key)
             )
 
     def repo_of(self, symbol: dict[str, Any]) -> str:
         return str(symbol.get("repo") or self._repo or "")
 
-    def inbound(self, symbol: str) -> list[tuple[str, dict[str, Any]]]:
-        return self._inbound.get(symbol, [])
+    def identity_of(self, symbol: dict[str, Any]) -> SymbolIdentity:
+        """The identity of a changed symbol.
+
+        A caller-supplied qualified name is trusted only when it is actually
+        qualified — Sydes' own change attribution falls back to the bare short
+        name when no real one is known (`qualified_name = name`), and a bare
+        name is exactly the collision this type exists to prevent: nothing in
+        CBM's facts uses an undotted string as a qualified name, so trusting
+        it verbatim would resolve to an identity that matches no edge at all.
+        A qualified name without a `.` is therefore treated as absent, and the
+        (file, short_name) pair is checked instead against every qualified
+        name this index has already observed for that exact pair — an exact
+        lookup against collected facts, not a guess — before falling back to
+        the line-scoped or file-scoped tiers.
+        """
+        file = str(symbol.get("file") or "")
+        name = str(symbol.get("name") or "")
+        qualified = str(symbol.get("qualified_name") or "")
+        if "." not in qualified:
+            qualified = ""
+        if not qualified:
+            learned = self._known_qualified.get((file, name))
+            if learned:
+                qualified = learned
+        return SymbolIdentity.from_fields(
+            repo=self.repo_of(symbol),
+            file=file,
+            qualified_name=qualified,
+            short_name=name,
+            line=symbol.get("start_line") or symbol.get("line"),
+        )
+
+    def inbound(
+        self, identity: SymbolIdentity
+    ) -> list[tuple[str, SymbolIdentity, dict[str, Any]]]:
+        return self._inbound.get(identity.key, [])
 
     def entrypoints_named(self, name: str, file: str | None = None) -> list[dict[str, Any]]:
         """Entrypoints defined by this symbol name, narrowed by file if known."""
@@ -477,11 +646,26 @@ class _FactIndex:
                 return narrowed
         return candidates
 
-    def entrypoint_for(self, name: str, qualified: str | None) -> dict[str, Any] | None:
-        if qualified and qualified in self._by_qualified:
-            return self._by_qualified[qualified]
-        candidates = self._by_name.get(name, [])
-        return candidates[0] if len(candidates) == 1 else None
+    def entrypoint_for_identity(self, identity: SymbolIdentity) -> dict[str, Any] | None:
+        """An entrypoint matching this exact identity, if one exists.
+
+        Falls back to a name match only when the identity itself did not
+        resolve, and even then only among entrypoints in the *same file* —
+        the file is always known even when the qualified name is not, and
+        dropping that scope would let two same-named entrypoints in unrelated
+        files both claim an unresolved hop. If more than one candidate
+        survives that narrowing, the hop stays unresolved rather than
+        guessing between them.
+        """
+        if identity.key in self._by_identity:
+            return self._by_identity[identity.key]
+        if not identity.resolved:
+            candidates = self._by_name.get(identity.short_name, [])
+            if identity.file:
+                candidates = [c for c in candidates if c.get("file") == identity.file]
+            if len(candidates) == 1:
+                return candidates[0]
+        return None
 
     def entrypoints_referencing(self, name: str) -> list[dict[str, Any]]:
         """Entrypoints whose captured decorator text names this identifier."""
