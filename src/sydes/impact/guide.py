@@ -22,6 +22,7 @@ import json
 from typing import Any, Protocol
 
 from sydes.impact.models import (
+    ACTIONS_REQUIRING_SOUGHT_SYMBOL,
     ACTIONS_REQUIRING_TARGET,
     ACTION_STOP_UNRESOLVED,
     INVESTIGATION_ACTIONS,
@@ -66,9 +67,10 @@ Ground rules:
 - Your only job is to choose the single most useful next investigation step for a human-auditable tool to carry out.
 - You must choose exactly one action from the allowed list below.
 - `target`, if given, must be one of the exact names or files listed in the question's partial paths, nearby facts, or candidate entrypoints. Do not invent a name that was not shown to you.
+- INSPECT_SYMBOL, INSPECT_ENCLOSING_FUNCTION, and INSPECT_SOURCE_SPAN each check a concrete relationship: "does `target`'s source actually reference `sought_symbol`?" You must also supply `sought_symbol` for these three actions, chosen from `candidate_origins` only — never from `target`'s own vocabulary and never invented. Pick whichever candidate origin is the actual unresolved relationship you are trying to confirm, not just the first one listed.
 - Do not assume how any framework, decorator, or library behaves unless the supplied evidence already shows it.
 - Prefer the cheapest, most direct structural check before a broader one. Choose STOP_UNRESOLVED if none of the actions seem likely to help, rather than guessing.
-- Respond with a single JSON object and nothing else: {"action": "<ACTION>", "target": "<name or empty>", "rationale": "<one sentence>"}
+- Respond with a single JSON object and nothing else: {"action": "<ACTION>", "target": "<name or empty>", "sought_symbol": "<name from candidate_origins, or empty if not applicable>", "rationale": "<one sentence>"}
 
 Allowed actions: TRACE_CALLERS, TRACE_USAGES, INSPECT_SYMBOL, INSPECT_ENCLOSING_FUNCTION, INSPECT_SOURCE_SPAN, FIND_DECORATOR_REFERENCES, FIND_SIGNATURE_REFERENCES, INSPECT_NEARBY_ENTRYPOINTS, STOP_UNRESOLVED."""
 
@@ -91,6 +93,9 @@ def build_guide_prompt(question: ImpactQuestion) -> str:
     if question.candidate_entrypoints:
         lines.append("candidate_entrypoints:")
         lines.extend(f"  - {item}" for item in question.candidate_entrypoints)
+    if question.candidate_origins:
+        lines.append("candidate_origins (legal sought_symbol values):")
+        lines.extend(f"  - {item}" for item in question.candidate_origins)
     if question.source_context:
         lines.append("bounded_source_context:")
         lines.append(question.source_context)
@@ -149,6 +154,11 @@ def parse_guide_decision(text: str) -> InvestigationDecision:
     if action in ACTIONS_REQUIRING_TARGET and not target:
         raise GuideError(f"action {action!r} requires a non-empty target")
 
+    raw_sought = payload.get("sought_symbol", "")
+    sought_symbol = raw_sought.strip() if isinstance(raw_sought, str) else ""
+    if action in ACTIONS_REQUIRING_SOUGHT_SYMBOL and not sought_symbol:
+        raise GuideError(f"action {action!r} requires a non-empty sought_symbol")
+
     raw_rationale = payload.get("rationale", "")
     rationale = raw_rationale.strip() if isinstance(raw_rationale, str) else ""
 
@@ -156,7 +166,8 @@ def parse_guide_decision(text: str) -> InvestigationDecision:
     parameters = raw_parameters if isinstance(raw_parameters, dict) else {}
 
     return InvestigationDecision(
-        action=action, target=target, rationale=rationale, parameters=parameters,
+        action=action, target=target, sought_symbol=sought_symbol,
+        rationale=rationale, parameters=parameters,
     )
 
 

@@ -118,6 +118,13 @@ INVESTIGATION_ACTIONS = frozenset({
 ACTIONS_REQUIRING_TARGET = INVESTIGATION_ACTIONS - {
     ACTION_INSPECT_NEARBY_ENTRYPOINTS, ACTION_STOP_UNRESOLVED,
 }
+#: Source-confirming actions answer a concrete relationship — "does `target`'s
+#: source reference `sought_symbol`?" — not just "inspect `target`". These are
+#: the only actions that require a `sought_symbol`, chosen from the
+#: `ImpactQuestion`'s `candidate_origins`, never picked by the loop itself.
+ACTIONS_REQUIRING_SOUGHT_SYMBOL = frozenset({
+    ACTION_INSPECT_SYMBOL, ACTION_INSPECT_ENCLOSING_FUNCTION, ACTION_INSPECT_SOURCE_SPAN,
+})
 
 
 @dataclass(frozen=True)
@@ -399,6 +406,11 @@ class ImpactQuestion:
     partial_paths: tuple[str, ...] = ()
     nearby_facts: tuple[str, ...] = ()
     candidate_entrypoints: tuple[str, ...] = ()
+    #: Names legal as `InvestigationDecision.sought_symbol` right now — the
+    #: meaningful (really-defined) nodes on the unresolved frontier, not
+    #: picked down to one in advance. A source-confirming action must name
+    #: its relationship target from this list, never from thin air.
+    candidate_origins: tuple[str, ...] = ()
     source_context: str = ""
     remaining_budget: int = 0
 
@@ -412,8 +424,39 @@ class ImpactQuestion:
             "partial_paths": list(self.partial_paths),
             "nearby_facts": list(self.nearby_facts),
             "candidate_entrypoints": list(self.candidate_entrypoints),
+            "candidate_origins": list(self.candidate_origins),
             "source_context": self.source_context,
             "remaining_budget": self.remaining_budget,
+        }
+
+
+@dataclass(frozen=True)
+class UnresolvedFrontier:
+    """What is known about one changed symbol's unresolved reach.
+
+    Exists so no part of the guide loop ever picks "the" origin by list
+    position (`dead_ends[-1]`, as M3's first cut did). `frontier_nodes` are
+    every dead-end node backed by a real definition, ordered deepest-first;
+    `pseudo_or_low_value_nodes` are dead ends this index could not find a
+    definition for (a module attribute, an import target, anything CBM
+    surfaced without a body) — kept for transparency, never offered as a
+    `sought_symbol`. `candidate_origins` is the guide-facing subset: which
+    names are legal to investigate a relationship against right now.
+    """
+
+    start_symbol: str
+    frontier_nodes: tuple[str, ...] = ()
+    partial_paths: tuple[str, ...] = ()
+    pseudo_or_low_value_nodes: tuple[str, ...] = ()
+    candidate_origins: tuple[str, ...] = ()
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "start_symbol": self.start_symbol,
+            "frontier_nodes": list(self.frontier_nodes),
+            "partial_paths": list(self.partial_paths),
+            "pseudo_or_low_value_nodes": list(self.pseudo_or_low_value_nodes),
+            "candidate_origins": list(self.candidate_origins),
         }
 
 
@@ -426,16 +469,24 @@ class InvestigationDecision:
     `candidate_entrypoints`) or the changed symbol itself — the executor
     rejects anything else rather than trust a name the guide introduced on
     its own.
+
+    `sought_symbol` is required only for the source-confirming actions
+    (`ACTIONS_REQUIRING_SOUGHT_SYMBOL`): it names the *other* half of the
+    relationship being checked — "does `target`'s source reference
+    `sought_symbol`?" — and must come from the question's
+    `candidate_origins`, not from `target`'s own vocabulary.
     """
 
     action: str
     target: str = ""
+    sought_symbol: str = ""
     rationale: str = ""
     parameters: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "action": self.action, "target": self.target,
+            "sought_symbol": self.sought_symbol,
             "rationale": self.rationale, "parameters": dict(self.parameters),
         }
 
@@ -448,7 +499,10 @@ class InvestigationEvidence:
     produced no evidence leaves the changed symbol unresolved, no matter how
     plausible its rationale was. `provenance` records where the evidence
     came from (a graph re-query vs. a source read) so a step built from it
-    carries that same distinction forward.
+    carries that same distinction forward. `line`/`matched_text` for a
+    source-confirming action always describe the exact line the sought
+    identifier was actually found on — never a containing block's start line
+    whose own excerpt doesn't contain the evidence.
     """
 
     action: str
@@ -457,6 +511,7 @@ class InvestigationEvidence:
     ambiguous: bool
     detail: str
     provenance: str
+    sought_symbol: str = ""
     file: str = ""
     line: int | None = None
     matched_text: str = ""
@@ -465,6 +520,7 @@ class InvestigationEvidence:
         return {
             "action": self.action, "target": self.target, "found": self.found,
             "ambiguous": self.ambiguous, "detail": self.detail,
-            "provenance": self.provenance, "file": self.file, "line": self.line,
+            "provenance": self.provenance, "sought_symbol": self.sought_symbol,
+            "file": self.file, "line": self.line,
             "matched_text": self.matched_text,
         }

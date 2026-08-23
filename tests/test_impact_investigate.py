@@ -3,9 +3,9 @@
 Every action is checked against a minimal fake graph index (satisfying the
 same shape `_FactIndex` exposes) plus, for source-inspection actions, a real
 tiny file on disk. The one rule under test throughout: a decision whose
-target was not already surfaced to the question is rejected before anything
-is queried, and a source claim is only "found" when the text is actually
-there.
+target (or sought_symbol) was not already surfaced to the question is
+rejected before anything is queried, and a source claim is only "found" when
+the text is actually there — pointing at the exact line it was found on.
 """
 
 from __future__ import annotations
@@ -75,8 +75,7 @@ def test_target_not_in_known_is_rejected_without_querying() -> None:
     index = FakeIndex()
     executor = InvestigationExecutor(index=index, facts=FakeFacts(), repo_root=None)
     decision = InvestigationDecision(action=ACTION_TRACE_CALLERS, target="nonexistent_symbol")
-    origin = identity("process_chat_response", "app/chat.py")
-    evidence = executor.execute(decision, known={"process_chat_response": origin}, origin=origin)
+    evidence = executor.execute(decision, known={}, origins={})
     assert evidence.found is False
     assert evidence.provenance == PROVENANCE_EXECUTOR_REJECTED
 
@@ -88,7 +87,7 @@ def test_trace_callers_finds_an_existing_inbound_call_edge() -> None:
     executor = InvestigationExecutor(index=index, facts=FakeFacts(), repo_root=None)
     decision = InvestigationDecision(action=ACTION_TRACE_CALLERS, target="process_chat_response")
     evidence = executor.execute(
-        decision, known={"process_chat_response": target}, origin=target,
+        decision, known={"process_chat_response": target}, origins={},
     )
     assert evidence.found is True
     assert "chat_completion" in evidence.detail
@@ -100,7 +99,7 @@ def test_trace_callers_reports_nothing_when_the_graph_has_no_edge() -> None:
     executor = InvestigationExecutor(index=index, facts=FakeFacts(), repo_root=None)
     decision = InvestigationDecision(action=ACTION_TRACE_CALLERS, target="process_chat_response")
     evidence = executor.execute(
-        decision, known={"process_chat_response": target}, origin=target,
+        decision, known={"process_chat_response": target}, origins={},
     )
     assert evidence.found is False
 
@@ -111,7 +110,7 @@ def test_trace_usages_only_matches_usage_relation_not_calls() -> None:
     index = FakeIndex(inbound={target.key: [(RELATION_CALLS, caller, {})]})
     executor = InvestigationExecutor(index=index, facts=FakeFacts(), repo_root=None)
     decision = InvestigationDecision(action=ACTION_TRACE_USAGES, target="Widget")
-    evidence = executor.execute(decision, known={"Widget": target}, origin=target)
+    evidence = executor.execute(decision, known={"Widget": target}, origins={})
     assert evidence.found is False  # only a CALLS edge exists, not USAGE
 
 
@@ -121,7 +120,7 @@ def test_find_decorator_references_uses_the_index_lookup() -> None:
     index = FakeIndex(decorator_refs={"SomePermission": [entry]})
     executor = InvestigationExecutor(index=index, facts=FakeFacts(), repo_root=None)
     decision = InvestigationDecision(action="find_decorator_references", target="SomePermission")
-    evidence = executor.execute(decision, known={"SomePermission": target}, origin=target)
+    evidence = executor.execute(decision, known={"SomePermission": target}, origins={})
     assert evidence.found is True
     assert "handle" in evidence.detail
 
@@ -134,7 +133,7 @@ def test_inspect_nearby_entrypoints_is_restricted_to_a_known_file() -> None:
     executor = InvestigationExecutor(index=index, facts=FakeFacts(), repo_root=None)
     known = {"process_chat_response": origin}
     decision = InvestigationDecision(action=ACTION_INSPECT_NEARBY_ENTRYPOINTS, target="app/chat.py")
-    evidence = executor.execute(decision, known=known, origin=origin)
+    evidence = executor.execute(decision, known=known, origins={})
     assert evidence.found is True
     assert "chat_completion" in known  # the executor grows `known` in place
 
@@ -144,17 +143,31 @@ def test_inspect_nearby_entrypoints_rejects_an_unknown_file() -> None:
     index = FakeIndex(entrypoints=[{"repo": REPO, "symbol": "x", "file": "app/other.py"}])
     executor = InvestigationExecutor(index=index, facts=FakeFacts(), repo_root=None)
     decision = InvestigationDecision(action=ACTION_INSPECT_NEARBY_ENTRYPOINTS, target="some/unrelated/file.py")
-    evidence = executor.execute(decision, known={"process_chat_response": origin}, origin=origin)
+    evidence = executor.execute(decision, known={"process_chat_response": origin}, origins={})
     assert evidence.found is False
     assert evidence.provenance == PROVENANCE_EXECUTOR_REJECTED
 
 
 def test_stop_unresolved_produces_no_finding() -> None:
-    origin = identity("x", "app/a.py")
     executor = InvestigationExecutor(index=FakeIndex(), facts=FakeFacts(), repo_root=None)
     decision = InvestigationDecision(action=ACTION_STOP_UNRESOLVED)
-    evidence = executor.execute(decision, known={}, origin=origin)
+    evidence = executor.execute(decision, known={}, origins={})
     assert evidence.found is False
+
+
+def test_sought_symbol_not_in_origins_is_rejected_without_querying() -> None:
+    """A source-confirming decision's `sought_symbol` must come from the
+    question's `candidate_origins`, not merely from `known` — a name that is
+    a legal `target` but was never offered as an origin must still fail."""
+    target = identity("chat_completion", "app/chat.py", line=1)
+    executor = InvestigationExecutor(index=FakeIndex(), facts=FakeFacts(), repo_root=None)
+    decision = InvestigationDecision(
+        action=ACTION_INSPECT_ENCLOSING_FUNCTION, target="chat_completion",
+        sought_symbol="process_chat_response",
+    )
+    evidence = executor.execute(decision, known={"chat_completion": target}, origins={})
+    assert evidence.found is False
+    assert evidence.provenance == PROVENANCE_EXECUTOR_REJECTED
 
 
 @pytest.fixture()
@@ -176,7 +189,7 @@ def repo_root(tmp_path: Path) -> Path:
 
 
 def test_source_inspection_confirms_a_real_reference(repo_root: Path) -> None:
-    origin = identity("process_chat_response", "app/chat.py")
+    sought = identity("process_chat_response", "app/chat.py")
     target = identity("chat_completion", "app/chat.py", line=1)
     index = FakeIndex()
     facts = FakeFacts({"app/chat.py": [
@@ -184,17 +197,25 @@ def test_source_inspection_confirms_a_real_reference(repo_root: Path) -> None:
          "end_line": 4, "language": "python"},
     ]})
     executor = InvestigationExecutor(index=index, facts=facts, repo_root=repo_root)
-    decision = InvestigationDecision(action=ACTION_INSPECT_ENCLOSING_FUNCTION, target="chat_completion")
+    decision = InvestigationDecision(
+        action=ACTION_INSPECT_ENCLOSING_FUNCTION, target="chat_completion",
+        sought_symbol="process_chat_response",
+    )
     evidence = executor.execute(
-        decision, known={"chat_completion": target, "process_chat_response": origin}, origin=origin,
+        decision,
+        known={"chat_completion": target, "process_chat_response": sought},
+        origins={"process_chat_response": sought},
     )
     assert evidence.found is True
     assert evidence.provenance == PROVENANCE_SOURCE_INSPECTION
+    assert evidence.sought_symbol == "process_chat_response"
     assert "process_chat_response" in evidence.matched_text
+    # The exact matched line, not merely a line within the sliced block.
+    assert evidence.line == 3
 
 
 def test_source_inspection_does_not_promote_an_unconfirmed_hypothesis(repo_root: Path) -> None:
-    origin = identity("process_chat_response", "app/chat.py")
+    sought = identity("process_chat_response", "app/chat.py")
     target = identity("unrelated", "app/other.py", line=1)
     index = FakeIndex()
     facts = FakeFacts({"app/other.py": [
@@ -202,20 +223,62 @@ def test_source_inspection_does_not_promote_an_unconfirmed_hypothesis(repo_root:
          "end_line": 2, "language": "python"},
     ]})
     executor = InvestigationExecutor(index=index, facts=facts, repo_root=repo_root)
-    decision = InvestigationDecision(action=ACTION_INSPECT_ENCLOSING_FUNCTION, target="unrelated")
+    decision = InvestigationDecision(
+        action=ACTION_INSPECT_ENCLOSING_FUNCTION, target="unrelated",
+        sought_symbol="process_chat_response",
+    )
     evidence = executor.execute(
-        decision, known={"unrelated": target, "process_chat_response": origin}, origin=origin,
+        decision,
+        known={"unrelated": target, "process_chat_response": sought},
+        origins={"process_chat_response": sought},
     )
     assert evidence.found is False
     assert evidence.provenance == PROVENANCE_SOURCE_INSPECTION
 
 
 def test_source_inspection_without_a_repo_root_does_not_fabricate_a_finding() -> None:
-    origin = identity("process_chat_response", "app/chat.py")
+    sought = identity("process_chat_response", "app/chat.py")
     target = identity("chat_completion", "app/chat.py", line=1)
     executor = InvestigationExecutor(index=FakeIndex(), facts=FakeFacts(), repo_root=None)
-    decision = InvestigationDecision(action=ACTION_INSPECT_ENCLOSING_FUNCTION, target="chat_completion")
+    decision = InvestigationDecision(
+        action=ACTION_INSPECT_ENCLOSING_FUNCTION, target="chat_completion",
+        sought_symbol="process_chat_response",
+    )
     evidence = executor.execute(
-        decision, known={"chat_completion": target, "process_chat_response": origin}, origin=origin,
+        decision,
+        known={"chat_completion": target, "process_chat_response": sought},
+        origins={"process_chat_response": sought},
     )
     assert evidence.found is False
+
+
+def test_source_evidence_points_to_the_exact_matched_line_not_a_merged_block(tmp_path: Path) -> None:
+    """A long function whose body the statement splitter merges into one
+    block must still report the real line the reference sits on."""
+    (tmp_path / "app").mkdir()
+    padding = "\n".join(f"    filler_{i} = {i}" for i in range(40))
+    (tmp_path / "app" / "big.py").write_text(
+        "def chat_completion():\n"
+        f"{padding}\n"
+        "    return process_chat_response(filler_0)\n",
+        encoding="utf-8",
+    )
+    sought = identity("process_chat_response", "app/big.py")
+    target = identity("chat_completion", "app/big.py", line=1)
+    facts = FakeFacts({"app/big.py": [
+        {"name": "chat_completion", "file": "app/big.py", "start_line": 1,
+         "end_line": 42, "language": "python"},
+    ]})
+    executor = InvestigationExecutor(index=FakeIndex(), facts=facts, repo_root=tmp_path)
+    decision = InvestigationDecision(
+        action=ACTION_INSPECT_ENCLOSING_FUNCTION, target="chat_completion",
+        sought_symbol="process_chat_response",
+    )
+    evidence = executor.execute(
+        decision,
+        known={"chat_completion": target, "process_chat_response": sought},
+        origins={"process_chat_response": sought},
+    )
+    assert evidence.found is True
+    assert evidence.line == 42
+    assert "process_chat_response" in evidence.matched_text

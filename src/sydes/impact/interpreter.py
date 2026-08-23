@@ -68,6 +68,7 @@ from sydes.impact.models import (
     ImpactResult,
     ImpactStep,
     SymbolIdentity,
+    UnresolvedFrontier,
     UnresolvedImpact,
 )
 
@@ -318,22 +319,34 @@ class ImpactInterpreter:
                 # cleanly. A guide turn here would have nothing to look at.
                 continue
 
-            origin = dead_ends[-1][0] if dead_ends else start_identity
+            # `known` grounds `target` (any name/file surfaced so far, meaningful
+            # or not — a pseudo node's *file* can still be a legitimate place to
+            # look for the real relationship, which is exactly how the guide
+            # gets from a dead end to a same-file real symbol via
+            # INSPECT_NEARBY_ENTRYPOINTS). `frontier.candidate_origins` is the
+            # separate, narrower set legal for `sought_symbol` — no position is
+            # ever picked on the loop's behalf; the guide names its own target
+            # each turn from what is actually offered.
             known: dict[str, SymbolIdentity] = {start_identity.short_name: start_identity}
             for ident, _trail in dead_ends:
                 known.setdefault(ident.short_name, ident)
-            known.setdefault(origin.short_name, origin)
+            frontier = _build_frontier(start_identity, dead_ends, index)
 
             executor = InvestigationExecutor(index=index, facts=index.facts, repo_root=self._repo_root)
-            tried: set[tuple[str, str]] = set()
+            tried: set[tuple[str, str, str]] = set()
             per_symbol_budget = self._guide_budget.max_turns_per_symbol
             tried_summary: list[str] = []
             metrics["guide_triggered"] = True
             symbol_resolved = False
 
             while per_symbol_budget > 0 and total_budget > 0 and not symbol_resolved:
+                origin_names = sorted(
+                    set(frontier.candidate_origins)
+                    | {name_ for name_, ident in known.items() if index.is_meaningful_symbol(ident)}
+                )
+                origins = {name_: known[name_] for name_ in origin_names}
                 question = _build_question(
-                    start_identity, reason, dead_ends, known, tried_summary,
+                    start_identity, reason, dead_ends, known, origin_names, tried_summary,
                     remaining=min(per_symbol_budget, total_budget),
                     repo=index.repo_of(symbol),
                 )
@@ -350,15 +363,16 @@ class ImpactInterpreter:
 
                 if decision.action == ACTION_STOP_UNRESOLVED:
                     break
-                progress_key = (decision.action, decision.target)
+                progress_key = (decision.action, decision.target, decision.sought_symbol)
                 if progress_key in tried:
                     metrics["guide_no_progress"] += 1
                     break
                 tried.add(progress_key)
 
-                evidence = executor.execute(decision, known=known, origin=origin)
+                evidence = executor.execute(decision, known=known, origins=origins)
                 tried_summary.append(
-                    f"{decision.action}({decision.target}) -> "
+                    f"{decision.action}({decision.target}"
+                    f"{', seeking ' + decision.sought_symbol if decision.sought_symbol else ''}) -> "
                     f"{'found: ' + evidence.detail if evidence.found else 'nothing new'}"
                 )
                 if not evidence.found:
@@ -369,8 +383,9 @@ class ImpactInterpreter:
                     ACTION_INSPECT_SYMBOL, ACTION_INSPECT_ENCLOSING_FUNCTION, ACTION_INSPECT_SOURCE_SPAN,
                 ):
                     target_identity = known[decision.target]
+                    sought_identity = origins[decision.sought_symbol]
                     index.add_confirmed_edge(
-                        caller=target_identity, callee=origin, evidence=evidence.detail,
+                        caller=target_identity, callee=sought_identity, evidence=evidence.detail,
                     )
                 elif decision.action == ACTION_INSPECT_NEARBY_ENTRYPOINTS:
                     continue  # `known` was extended in place; ask again next turn
@@ -388,7 +403,11 @@ class ImpactInterpreter:
                 if newly_resolved:
                     symbol_resolved = True
                     break
-                dead_ends = fresh_dead_ends or dead_ends
+                if fresh_dead_ends:
+                    dead_ends = fresh_dead_ends
+                    for ident, _trail in dead_ends:
+                        known.setdefault(ident.short_name, ident)
+                    frontier = _build_frontier(start_identity, dead_ends, index)
 
             item = unresolved_by_name.get(name)
             if symbol_resolved:
@@ -739,7 +758,11 @@ def _classify_unresolved_reason(
         return REASON_TRAVERSAL_TRUNCATED
     if not identity.resolved:
         return REASON_AMBIGUOUS_SYMBOL_IDENTITY
-    deepest = dead_ends[-1][0] if dead_ends else None
+    # Prefer a real, defined symbol for the ambiguity check over whatever
+    # dead end happened to be visited last — a pseudo/attribute-like node
+    # can't meaningfully collide with "another symbol of the same name."
+    meaningful = [ident for ident, _trail in dead_ends if index.is_meaningful_symbol(ident)]
+    deepest = meaningful[-1] if meaningful else (dead_ends[-1][0] if dead_ends else None)
     if deepest is not None and index.candidate_count_for(deepest) > 1:
         return REASON_MULTIPLE_UNRESOLVED_CANDIDATES
     if dead_ends:
@@ -747,11 +770,81 @@ def _classify_unresolved_reason(
     return REASON_NO_ENTRYPOINT_REACHED
 
 
+def _strip_checkout_prefix(qualified_name: str, file: str) -> str:
+    """Drop whatever project/checkout-path segment prefixes a qualified name.
+
+    CBM derives its project identifier from the indexed repository's own
+    path, so a qualified name for a symbol in `a/b/c.py` reads
+    `<opaque-project-id>.a.b.c.<symbol>`. The identifier varies by checkout
+    and is never meaningful to a guide; the dotted form of the symbol's own
+    file always appears right after it, so finding *that* substring and
+    keeping everything from there on strips the noise without knowing
+    anything about how the prefix was built. Purely cosmetic: canonical
+    identity (`SymbolIdentity.key`) never goes through this.
+    """
+    if not qualified_name or not file:
+        return qualified_name
+    dotted_file = file.rsplit(".", 1)[0].replace("/", ".")
+    if not dotted_file:
+        return qualified_name
+    index = qualified_name.find(dotted_file)
+    return qualified_name[index:] if index > 0 else qualified_name
+
+
+def _display_label(identity: SymbolIdentity) -> str:
+    """Guide-facing rendering of an identity: cleaned qualified name if
+    known, else the short name. Never used for identity/equality."""
+    cleaned = _strip_checkout_prefix(identity.qualified_name, identity.file)
+    return cleaned or identity.short_name or identity.label
+
+
+def _display_step(step: ImpactStep) -> str:
+    """Guide-facing rendering of one traversal step, prefix-stripped."""
+    cleaned = _strip_checkout_prefix(step.qualified_name, step.file)
+    return f"{step.relation}:{cleaned or step.symbol}"
+
+
+def _build_frontier(
+    start_identity: SymbolIdentity,
+    dead_ends: list[tuple[SymbolIdentity, tuple[ImpactStep, ...]]],
+    index: _FactIndex,
+) -> UnresolvedFrontier:
+    """Describe one changed symbol's unresolved reach without picking an
+    origin. Every dead end the deterministic walk actually visited is
+    classified once, by whether it is backed by a real definition — never by
+    where it happened to land in the traversal order."""
+    depth_of: dict[str, int] = {}
+    meaningful: list[SymbolIdentity] = []
+    pseudo: list[SymbolIdentity] = []
+    seen: set[str] = set()
+    for identity, trail in dead_ends:
+        if identity.short_name in seen:
+            continue
+        seen.add(identity.short_name)
+        depth_of[identity.short_name] = len(trail)
+        (meaningful if index.is_meaningful_symbol(identity) else pseudo).append(identity)
+    meaningful.sort(key=lambda ident: (-depth_of.get(ident.short_name, 0), ident.short_name))
+
+    partial_paths = tuple(
+        " -> ".join(_display_step(step) for step in trail) or _display_label(identity)
+        for identity, trail in dead_ends[-5:]
+    )
+    candidate_origins = tuple(ident.short_name for ident in meaningful) or (start_identity.short_name,)
+    return UnresolvedFrontier(
+        start_symbol=start_identity.short_name,
+        frontier_nodes=tuple(ident.short_name for ident in meaningful),
+        partial_paths=partial_paths,
+        pseudo_or_low_value_nodes=tuple(ident.short_name for ident in pseudo),
+        candidate_origins=candidate_origins,
+    )
+
+
 def _build_question(
     start_identity: SymbolIdentity,
     reason: str,
     dead_ends: list[tuple[SymbolIdentity, tuple[ImpactStep, ...]]],
     known: dict[str, SymbolIdentity],
+    candidate_origin_names: list[str],
     tried_summary: list[str],
     *,
     remaining: int,
@@ -764,7 +857,7 @@ def _build_question(
     question costs nothing beyond string formatting.
     """
     partial_paths = tuple(
-        " -> ".join(step.describe() for step in trail) or identity.label
+        " -> ".join(_display_step(step) for step in trail) or _display_label(identity)
         for identity, trail in dead_ends[-5:]
     )
     nearby_facts = tuple(tried_summary[-5:])
@@ -772,12 +865,13 @@ def _build_question(
     return ImpactQuestion(
         repo=repo,
         changed_symbol=start_identity.short_name,
-        qualified_name=start_identity.qualified_name,
+        qualified_name=_strip_checkout_prefix(start_identity.qualified_name, start_identity.file),
         file=start_identity.file,
         reason=reason,
         partial_paths=partial_paths,
         nearby_facts=nearby_facts,
         candidate_entrypoints=candidate_entrypoints,
+        candidate_origins=tuple(candidate_origin_names),
         source_context="",
         remaining_budget=remaining,
     )
@@ -972,6 +1066,24 @@ class _FactIndex:
         if identity.file:
             candidates = [c for c in candidates if c.get("file") == identity.file]
         return len(candidates)
+
+    def is_meaningful_symbol(self, identity: SymbolIdentity) -> bool:
+        """Whether this node is backed by an actual definition — a function,
+        method, or class Sydes has a real span for — as opposed to a
+        synthetic or attribute-like reference (a module dunder, an import
+        target, anything CBM's usage extraction surfaced without a body).
+
+        Structural, never name-based: this is a presence check against the
+        shared symbol index, not a pattern match on the identifier itself —
+        it must generalize to any language or naming convention without
+        special-casing a single name like `__file__`.
+        """
+        if not identity.file or not identity.short_name:
+            return False
+        return any(
+            str(entry.get("name") or "") == identity.short_name
+            for entry in self.facts.symbols_for_file(identity.repo, identity.file)
+        )
 
     def entrypoints_named(self, name: str, file: str | None = None) -> list[dict[str, Any]]:
         """Entrypoints defined by this symbol name, narrowed by file if known."""

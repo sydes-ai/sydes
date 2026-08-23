@@ -44,6 +44,7 @@ def _question(**overrides) -> ImpactQuestion:
         file="app/chat.py", reason=REASON_PARTIAL_PATH_DEAD_END,
         partial_paths=("calls:process_chat_response",),
         nearby_facts=(), candidate_entrypoints=("chat_completion",),
+        candidate_origins=("process_chat_response",),
         source_context="", remaining_budget=3,
     )
     base.update(overrides)
@@ -53,10 +54,12 @@ def _question(**overrides) -> ImpactQuestion:
 def test_valid_action_selection_parses_cleanly() -> None:
     decision = parse_guide_decision(
         '{"action": "inspect_enclosing_function", "target": "chat_completion", '
+        '"sought_symbol": "process_chat_response", '
         '"rationale": "check whether it calls the dead end"}'
     )
     assert decision.action == ACTION_INSPECT_ENCLOSING_FUNCTION
     assert decision.target == "chat_completion"
+    assert decision.sought_symbol == "process_chat_response"
 
 
 def test_stop_unresolved_needs_no_target() -> None:
@@ -92,17 +95,31 @@ def test_missing_required_target_fails_closed() -> None:
         parse_guide_decision('{"action": "trace_callers"}')
 
 
+def test_source_action_missing_sought_symbol_fails_closed() -> None:
+    with pytest.raises(GuideError):
+        parse_guide_decision('{"action": "inspect_enclosing_function", "target": "chat_completion"}')
+
+
+def test_non_source_action_does_not_require_sought_symbol() -> None:
+    decision = parse_guide_decision('{"action": "trace_callers", "target": "helper"}')
+    assert decision.sought_symbol == ""
+
+
 def test_json_list_instead_of_object_fails_closed() -> None:
     with pytest.raises(GuideError):
         parse_guide_decision('[{"action": "stop_unresolved"}]')
 
 
 def test_llm_guide_returns_a_decision_from_a_fake_client() -> None:
-    client = _FakeLLMClient('{"action": "inspect_source_span", "target": "chat_completion"}')
+    client = _FakeLLMClient(
+        '{"action": "inspect_source_span", "target": "chat_completion", '
+        '"sought_symbol": "process_chat_response"}'
+    )
     guide = LLMImpactGuide(client)
     decision = guide.investigate(_question())
     assert decision.action == "inspect_source_span"
     assert decision.target == "chat_completion"
+    assert decision.sought_symbol == "process_chat_response"
 
 
 def test_llm_guide_wraps_provider_failure_as_guide_error() -> None:

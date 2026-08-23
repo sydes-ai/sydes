@@ -34,6 +34,20 @@ from sydes.impact.models import (
 REPO = "app"
 
 
+class CapturingGuide:
+    """Records every `ImpactQuestion` it was asked, then answers from a script."""
+
+    def __init__(self, decisions: list[InvestigationDecision]) -> None:
+        self._decisions = list(decisions)
+        self.questions = []
+        self.calls = 0
+
+    def investigate(self, question):
+        self.calls += 1
+        self.questions.append(question)
+        return self._decisions.pop(0)
+
+
 class ScriptedGuide:
     """Returns one scripted `InvestigationDecision` per call, in order.
 
@@ -208,16 +222,128 @@ def _chat_facts() -> StructuralFacts:
     # streaming_chat_response_handler" — the reverse of the missing
     # "chat_completion calls process_chat_response" edge this test exists to
     # recover.
+    # process_chat_response and the changed symbol both live in app/svc.py
+    # (the shared "middleware" module), matching open-webui's real shape:
+    # chat_completion (main.py) is a different file from process_chat_response
+    # and streaming_chat_response_handler (both in middleware.py). A second,
+    # pseudo (unregistered) dead end one hop further out sits in app/chat.py —
+    # mirroring the `__file__`-shaped node the live validation actually found:
+    # CBM's own extraction can surface a reference like this without it being
+    # a real symbol, and its *file* is what makes app/chat.py discoverable via
+    # INSPECT_NEARBY_ENTRYPOINTS even though the node itself is never offered
+    # as a `sought_symbol`.
     return facts(
-        call_edges=[call_edge(
-            "process_chat_response", "streaming_chat_response_handler",
-            caller_file="app/chat.py", callee_file="app/svc.py",
-        )],
+        call_edges=[
+            call_edge(
+                "process_chat_response", "streaming_chat_response_handler",
+                caller_file="app/svc.py", callee_file="app/svc.py",
+            ),
+            call_edge(
+                "__pseudo_ref__", "process_chat_response",
+                caller_file="app/chat.py", callee_file="app/svc.py",
+            ),
+        ],
         entrypoints=[entrypoint("chat_completion", file="app/chat.py", method="POST", path="/api/chat/completions")],
-        symbol_index={"repos": [{"repo": REPO, "files": [{"path": "app/chat.py", "symbols": [
-            {"name": "chat_completion", "file": "app/chat.py", "start_line": 1, "end_line": 4, "language": "python"},
+        symbol_index={"repos": [{"repo": REPO, "files": [
+            {"path": "app/chat.py", "symbols": [
+                {"name": "chat_completion", "file": "app/chat.py", "start_line": 1, "end_line": 4, "language": "python"},
+            ]},
+            {"path": "app/svc.py", "symbols": [
+                {"name": "process_chat_response", "file": "app/svc.py", "start_line": 1, "end_line": 2, "language": "python"},
+            ]},
+        ]}]},
+    )
+
+
+def test_pseudo_node_does_not_override_a_meaningful_symbol_origin() -> None:
+    """Reproduces the exact defect the model-comparison experiment found:
+    a pseudo/attribute-like dead end visited *last* (deepest in the BFS)
+    must not become the only investigable origin just because it was
+    visited last — `dead_ends[-1]` picked it before this fix."""
+    f = facts(
+        call_edges=[
+            call_edge("real_caller", "leaf"),
+            call_edge("pseudo_attr", "real_caller"),
+        ],
+        symbol_index={"repos": [{"repo": REPO, "files": [{"path": "app/svc.py", "symbols": [
+            {"name": "real_caller", "file": "app/svc.py", "start_line": 1, "end_line": 2, "language": "python"},
+            # `pseudo_attr` is deliberately absent: nothing defines it, the
+            # way `__file__` or an import target never has a real body.
         ]}]}]},
     )
+    guide = CapturingGuide([InvestigationDecision(action=ACTION_STOP_UNRESOLVED)])
+    interpreter = ImpactInterpreter(guide=guide, guide_policy=GUIDE_AUTO)
+    interpreter.interpret(changed("leaf"), f, repo=REPO)
+
+    question = guide.questions[0]
+    assert "real_caller" in question.candidate_origins
+    assert "pseudo_attr" not in question.candidate_origins
+
+
+def test_multiple_meaningful_frontier_nodes_are_preserved() -> None:
+    """When more than one real symbol sits on the frontier, both must be
+    offered — the loop must not silently narrow to one."""
+    f = facts(
+        call_edges=[
+            call_edge("real_caller_a", "leaf"),
+            call_edge("real_caller_b", "leaf"),
+        ],
+        symbol_index={"repos": [{"repo": REPO, "files": [{"path": "app/svc.py", "symbols": [
+            {"name": "real_caller_a", "file": "app/svc.py", "start_line": 1, "end_line": 2, "language": "python"},
+            {"name": "real_caller_b", "file": "app/svc.py", "start_line": 3, "end_line": 4, "language": "python"},
+        ]}]}]},
+    )
+    guide = CapturingGuide([InvestigationDecision(action=ACTION_STOP_UNRESOLVED)])
+    interpreter = ImpactInterpreter(guide=guide, guide_policy=GUIDE_AUTO)
+    interpreter.interpret(changed("leaf"), f, repo=REPO)
+
+    question = guide.questions[0]
+    assert "real_caller_a" in question.candidate_origins
+    assert "real_caller_b" in question.candidate_origins
+
+
+def test_candidate_origin_ordering_is_deterministic_across_runs() -> None:
+    """Identical facts must produce an identical `candidate_origins` order
+    every run — deepest-first, then alphabetical — never dict/set iteration
+    order leaking through."""
+    f = facts(
+        call_edges=[
+            call_edge("shallow_caller", "leaf"),
+            call_edge("deep_caller", "shallow_caller"),
+        ],
+        symbol_index={"repos": [{"repo": REPO, "files": [{"path": "app/svc.py", "symbols": [
+            {"name": "shallow_caller", "file": "app/svc.py", "start_line": 1, "end_line": 2, "language": "python"},
+            {"name": "deep_caller", "file": "app/svc.py", "start_line": 3, "end_line": 4, "language": "python"},
+        ]}]}]},
+    )
+    orders = []
+    for _ in range(3):
+        guide = CapturingGuide([InvestigationDecision(action=ACTION_STOP_UNRESOLVED)])
+        interpreter = ImpactInterpreter(guide=guide, guide_policy=GUIDE_AUTO)
+        interpreter.interpret(changed("leaf"), f, repo=REPO)
+        orders.append(guide.questions[0].candidate_origins)
+    assert len(set(orders)) == 1  # identical every run
+    # Deepest-first: `deep_caller` is two hops out, `shallow_caller` one.
+    assert orders[0].index("deep_caller") < orders[0].index("shallow_caller")
+
+
+def test_source_confirming_action_receives_target_and_sought_symbol(chat_repo: Path) -> None:
+    """The guide must supply both halves of the relationship — which
+    target's source to read, and which symbol to look for in it — not just
+    a bare `inspect X`."""
+    guide = CapturingGuide([
+        InvestigationDecision(action=ACTION_INSPECT_NEARBY_ENTRYPOINTS, target="app/chat.py"),
+        InvestigationDecision(
+            action=ACTION_INSPECT_ENCLOSING_FUNCTION, target="chat_completion",
+            sought_symbol="process_chat_response",
+        ),
+    ])
+    interpreter = ImpactInterpreter(guide=guide, guide_policy=GUIDE_AUTO, repo_root=chat_repo)
+    interpreter.interpret(changed("streaming_chat_response_handler"), _chat_facts(), repo=REPO)
+
+    # The second question must offer process_chat_response as a legal origin
+    # before the guide is asked to name it as sought_symbol.
+    assert "process_chat_response" in guide.questions[1].candidate_origins
 
 
 def test_source_confirmed_edge_recovers_the_missing_entrypoint(chat_repo: Path) -> None:
@@ -226,7 +352,10 @@ def test_source_confirmed_edge_recovers_the_missing_entrypoint(chat_repo: Path) 
     executor confirms the reference by reading the real source."""
     guide = ScriptedGuide([
         InvestigationDecision(action=ACTION_INSPECT_NEARBY_ENTRYPOINTS, target="app/chat.py"),
-        InvestigationDecision(action=ACTION_INSPECT_ENCLOSING_FUNCTION, target="chat_completion"),
+        InvestigationDecision(
+            action=ACTION_INSPECT_ENCLOSING_FUNCTION, target="chat_completion",
+            sought_symbol="process_chat_response",
+        ),
     ])
     interpreter = ImpactInterpreter(guide=guide, guide_policy=GUIDE_AUTO, repo_root=chat_repo)
     result = interpreter.interpret(changed("streaming_chat_response_handler"), _chat_facts(), repo=REPO)
@@ -260,12 +389,40 @@ def chat_repo_no_reference(tmp_path: Path) -> Path:
     return tmp_path
 
 
+def test_qualified_name_is_stripped_of_checkout_path_noise() -> None:
+    """Real CBM qualified names carry an opaque project-id prefix derived
+    from the checkout path (e.g. `<checkout-id>.app.svc.leaf`); the
+    guide-facing question must show only the dotted module path onward."""
+    noisy_prefix = "private-tmp-some-checkout-id-1234"
+    f = facts(call_edges=[{
+        "repo": REPO,
+        "caller_file": "app/svc.py", "caller_symbol": "orphan_caller",
+        "caller_qualified_name": f"{noisy_prefix}.app.svc.orphan_caller", "caller_line": 1,
+        "callee_file": "app/svc.py", "callee_symbol": "leaf",
+        "callee_qualified_name": f"{noisy_prefix}.app.svc.leaf", "callee_line": 2,
+    }])
+    # No qualified_name supplied on the changed symbol itself — matching real
+    # attribution for a plain function — so identity resolution learns the
+    # (noisy) one CBM's own edges carry, the same way production code does.
+    guide = CapturingGuide([InvestigationDecision(action=ACTION_STOP_UNRESOLVED)])
+    interpreter = ImpactInterpreter(guide=guide, guide_policy=GUIDE_AUTO)
+    interpreter.interpret(changed("leaf"), f, repo=REPO)
+
+    question = guide.questions[0]
+    assert question.file == "app/svc.py"  # already clean, repo-relative
+    assert noisy_prefix not in question.qualified_name
+    assert question.qualified_name == "app.svc.leaf"
+
+
 def test_unconfirmed_hypothesis_is_not_promoted(chat_repo_no_reference: Path) -> None:
     """If source inspection finds no reference, the entrypoint must not be
     fabricated even though it genuinely exists elsewhere in the facts."""
     guide = ScriptedGuide([
         InvestigationDecision(action=ACTION_INSPECT_NEARBY_ENTRYPOINTS, target="app/chat.py"),
-        InvestigationDecision(action=ACTION_INSPECT_ENCLOSING_FUNCTION, target="chat_completion"),
+        InvestigationDecision(
+            action=ACTION_INSPECT_ENCLOSING_FUNCTION, target="chat_completion",
+            sought_symbol="process_chat_response",
+        ),
         InvestigationDecision(action=ACTION_STOP_UNRESOLVED),
     ])
     interpreter = ImpactInterpreter(guide=guide, guide_policy=GUIDE_AUTO, repo_root=chat_repo_no_reference)

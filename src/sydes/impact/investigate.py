@@ -105,6 +105,33 @@ def _symbol_dict_for(identity: SymbolIdentity, facts: Any) -> dict[str, Any] | N
     return None
 
 
+def _locate_exact_line(
+    repo_root: Path, file: str, line_start: int, line_end: int, needle: str,
+) -> tuple[int, str] | None:
+    """The first raw line in `[line_start, line_end]` naming `needle` as a
+    whole identifier, with that line as its own excerpt.
+
+    A lightweight re-read of the already-bounded region, not a new parser:
+    the statement splitter normalizes whitespace and can merge many raw
+    lines into one block, which is fine for identifier matching but wrong to
+    cite as "the line" — this recovers the actual line so the reported
+    excerpt always contains the match it claims to.
+    """
+    if line_start <= 0:
+        return None
+    try:
+        text = (repo_root / file).read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return None
+    lines = text.splitlines()
+    end = max(line_start, line_end) if line_end > 0 else line_start
+    for line_no in range(line_start, min(end, len(lines)) + 1):
+        raw = lines[line_no - 1]
+        if needle in _IDENTIFIER_RE.findall(raw):
+            return line_no, raw.strip()[:200]
+    return None
+
+
 class InvestigationExecutor:
     """Executes one `InvestigationDecision` against the loaded facts.
 
@@ -124,8 +151,13 @@ class InvestigationExecutor:
 
     def execute(
         self, decision: InvestigationDecision, *,
-        known: dict[str, SymbolIdentity], origin: SymbolIdentity,
+        known: dict[str, SymbolIdentity], origins: dict[str, SymbolIdentity],
     ) -> InvestigationEvidence:
+        """`known` grounds `target` (any name/file the question surfaced);
+        `origins` grounds `sought_symbol` (only the meaningful subset the
+        question offered as `candidate_origins`) — deliberately two separate
+        maps, so a source-confirming action cannot name a pseudo-node or an
+        unrelated discovered name as the relationship it is checking."""
         action = decision.action
         if action == ACTION_STOP_UNRESOLVED:
             return InvestigationEvidence(
@@ -162,7 +194,19 @@ class InvestigationExecutor:
                 PROVENANCE_CBM_SIGNATURE_TEXT,
             )
         if action in (ACTION_INSPECT_SYMBOL, ACTION_INSPECT_ENCLOSING_FUNCTION, ACTION_INSPECT_SOURCE_SPAN):
-            return self._inspect_source(decision, target_identity, origin=origin)
+            sought = origins.get(decision.sought_symbol)
+            if sought is None:
+                return InvestigationEvidence(
+                    action=action, target=decision.target, found=False, ambiguous=True,
+                    detail=(
+                        f"sought_symbol {decision.sought_symbol!r} was not among "
+                        "this question's candidate_origins; rejected without "
+                        "querying anything"
+                    ),
+                    provenance=PROVENANCE_EXECUTOR_REJECTED,
+                    sought_symbol=decision.sought_symbol,
+                )
+            return self._inspect_source(decision, target_identity, sought=sought)
 
         # `parse_guide_decision` already restricts `action` to
         # `INVESTIGATION_ACTIONS`, so reaching here means a caller constructed
@@ -247,20 +291,20 @@ class InvestigationExecutor:
 
     def _inspect_source(
         self, decision: InvestigationDecision, target: SymbolIdentity,
-        *, origin: SymbolIdentity,
+        *, sought: SymbolIdentity,
     ) -> InvestigationEvidence:
         if self._repo_root is None:
             return InvestigationEvidence(
                 action=decision.action, target=decision.target, found=False, ambiguous=False,
                 detail="no repository root available to read source from",
-                provenance=PROVENANCE_SOURCE_INSPECTION,
+                provenance=PROVENANCE_SOURCE_INSPECTION, sought_symbol=decision.sought_symbol,
             )
         span = _symbol_dict_for(target, self._facts)
         if span is None:
             return InvestigationEvidence(
                 action=decision.action, target=decision.target, found=False, ambiguous=True,
                 detail=f"no unambiguous declaration span found for {decision.target!r}",
-                provenance=PROVENANCE_SOURCE_INSPECTION,
+                provenance=PROVENANCE_SOURCE_INSPECTION, sought_symbol=decision.sought_symbol,
             )
         sliced = slice_resolved_handler_body(
             repo_root=self._repo_root, handler_name=decision.target, symbol=span,
@@ -270,23 +314,40 @@ class InvestigationExecutor:
             return InvestigationEvidence(
                 action=decision.action, target=decision.target, found=False, ambiguous=False,
                 detail=f"could not slice a body for {decision.target!r} in {span.get('file')}",
-                provenance=PROVENANCE_SOURCE_INSPECTION, file=str(span.get("file") or ""),
+                provenance=PROVENANCE_SOURCE_INSPECTION, sought_symbol=decision.sought_symbol,
+                file=str(span.get("file") or ""),
             )
+        file = str(span.get("file") or "")
         for statement in sliced.get("statements", []):
             text = str(statement.get("text") or "")
-            if origin.short_name in _IDENTIFIER_RE.findall(text):
-                return InvestigationEvidence(
-                    action=decision.action, target=decision.target, found=True, ambiguous=False,
-                    detail=(
-                        f"source of {decision.target!r} references {origin.short_name!r} "
-                        f"at line {statement.get('line_start')}"
-                    ),
-                    provenance=PROVENANCE_SOURCE_INSPECTION,
-                    file=str(span.get("file") or ""), line=statement.get("line_start"),
-                    matched_text=text[:200],
-                )
+            if sought.short_name not in _IDENTIFIER_RE.findall(text):
+                continue
+            # The statement splitter can merge a very large block into one
+            # normalized, whitespace-collapsed "statement" spanning hundreds
+            # of raw lines — citing its `line_start` would point at whatever
+            # happens to open that block, not at the actual reference. A
+            # direct scan of the raw lines in this statement's own span finds
+            # the real line, so the reported evidence always contains what it
+            # claims to.
+            located = _locate_exact_line(
+                self._repo_root, file,
+                int(statement.get("line_start") or 0), int(statement.get("line_end") or 0),
+                sought.short_name,
+            )
+            exact_line, excerpt = located if located is not None else (
+                statement.get("line_start"), text[:200],
+            )
+            return InvestigationEvidence(
+                action=decision.action, target=decision.target, found=True, ambiguous=False,
+                detail=(
+                    f"source of {decision.target!r} references {sought.short_name!r} "
+                    f"at line {exact_line}"
+                ),
+                provenance=PROVENANCE_SOURCE_INSPECTION, sought_symbol=decision.sought_symbol,
+                file=file, line=exact_line, matched_text=excerpt,
+            )
         return InvestigationEvidence(
             action=decision.action, target=decision.target, found=False, ambiguous=False,
-            detail=f"source of {decision.target!r} does not reference {origin.short_name!r}",
-            provenance=PROVENANCE_SOURCE_INSPECTION, file=str(span.get("file") or ""),
+            detail=f"source of {decision.target!r} does not reference {sought.short_name!r}",
+            provenance=PROVENANCE_SOURCE_INSPECTION, sought_symbol=decision.sought_symbol, file=file,
         )
