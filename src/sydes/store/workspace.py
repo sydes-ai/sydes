@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 import hashlib
 import json
+import os
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
@@ -20,6 +21,11 @@ from sydes.core.models import RepoRef
 
 
 DEFAULT_STORE_ROOT = Path("~/.sydes")
+
+#: Environment override for the store root. Unset in normal use, so the default
+#: stays ``~/.sydes``; set it to relocate the whole store, which is what the
+#: test suite does to keep runs out of a developer's real workspace.
+STORE_ROOT_ENV_VAR = "SYDES_HOME"
 
 
 @dataclass(frozen=True)
@@ -35,9 +41,19 @@ class WorkspacePaths:
 
 
 def resolve_store_root(root: Path | None = None) -> Path:
-    """Resolve the workspace store root (defaults to ``~/.sydes``)."""
-    base = root if root is not None else DEFAULT_STORE_ROOT
-    return base.expanduser()
+    """Resolve the workspace store root.
+
+    Precedence: an explicit ``root`` argument, then ``$SYDES_HOME``, then
+    ``~/.sydes``. Every workspace path in Sydes flows through here, so setting
+    the environment variable relocates the entire store — artifacts, discovery
+    cache, and file-fact index alike — without touching any call site.
+    """
+    if root is not None:
+        return root.expanduser()
+    override = os.environ.get(STORE_ROOT_ENV_VAR, "").strip()
+    if override:
+        return Path(override).expanduser()
+    return DEFAULT_STORE_ROOT.expanduser()
 
 
 def compute_workspace_id(repos: list[RepoRef]) -> str:

@@ -1,5 +1,7 @@
 """Tests for local Sydes workspace store helpers."""
 
+import pytest
+
 import json
 from pathlib import Path
 
@@ -15,8 +17,13 @@ from sydes.store.workspace import (
 )
 
 
+@pytest.mark.uses_real_sydes_home
 def test_resolve_store_root_defaults_to_user_sydes_dir() -> None:
-    """Default root should resolve to ~/.sydes."""
+    """Default root should resolve to ~/.sydes.
+
+    Opted out of store isolation because it asserts the production default.
+    It only resolves a path and never writes, so it stays safe to run.
+    """
     root = resolve_store_root()
 
     assert root.name == ".sydes"
