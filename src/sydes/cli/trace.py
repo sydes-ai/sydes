@@ -46,7 +46,7 @@ from sydes.llm.client import LLMClientError, validate_llm_available
 from sydes.report.json_report import render_json
 from sydes.report.terminal import render_terminal
 from sydes.store.workspace import compute_workspace_id, create_run_id, save_run_artifact
-from sydes.discover.file_facts import build_structural_index
+from sydes.code_intelligence import get_code_intelligence
 from sydes.generate.contracts import (
     build_api_contract_from_routes,
     enrich_api_contract_from_layered_trace,
@@ -601,8 +601,10 @@ def trace_command(
         run_id = create_run_id()
         # Same symbol facts as before, obtained through the shared index so a
         # warm repository does not re-extract every file.
-        structural = build_structural_index(result.repos, workspace_id=workspace_id)
-        handler_symbol_index = structural.handler_symbol_batch
+        structural = get_code_intelligence().build_or_update(
+            result.repos, workspace_id=workspace_id
+        )
+        handler_symbol_index = structural.symbol_index
         resolved_handlers_payload = None
         if (
             matched_endpoint is not None

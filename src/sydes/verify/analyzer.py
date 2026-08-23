@@ -39,7 +39,7 @@ from sydes.core.models import (
     TraceSummary,
 )
 from sydes.discover.endpoints import discover_endpoints
-from sydes.discover.file_facts import build_structural_index, structural_index_diagnostics
+from sydes.code_intelligence import get_code_intelligence
 from sydes.discover.target_match import resolve_trace_target
 from sydes.store.workspace import compute_workspace_id
 from sydes.generate.contracts import build_api_contract_from_routes
@@ -681,9 +681,11 @@ def analyze_change(
     # Route, symbol, and graph facts all come from one incremental index; the
     # analysis below is unchanged and simply reads from it.
     workspace_id = compute_workspace_id(normalized_repos)
-    structural = build_structural_index(normalized_repos, workspace_id=workspace_id)
-    result.diagnostics.extend(structural_index_diagnostics(structural))
-    handler_index = structural.handler_symbol_batch
+    structural = get_code_intelligence().build_or_update(
+        normalized_repos, workspace_id=workspace_id
+    )
+    result.diagnostics.extend(structural.diagnostics)
+    handler_index = structural.symbol_index
     result.diagnostics.append(
         "handler_symbol_index: "
         + ", ".join(f"{key}={value}" for key, value in sorted(handler_index.get("summary", {}).items()))
@@ -724,7 +726,7 @@ def analyze_change(
         model_spec=options.model_spec,
         llm_policy=options.llm_policy if options.llm_policy in {"auto", "always", "never"} else "auto",
         strict_llm=False,
-        route_index_batch=structural.route_index_batch,
+        route_index_batch=structural.route_index,
     )
     result.diagnostics.extend(
         note for note in routes.notes if "coverage" in note or "routes" in note.lower()

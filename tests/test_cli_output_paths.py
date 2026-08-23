@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from sydes.discover.file_facts import IndexMetrics, StructuralIndex
+from sydes.code_intelligence import StructuralFacts
 from typer.testing import CliRunner
 
 from sydes.cli.main import app
@@ -373,15 +373,21 @@ def test_trace_output_directory_writes_enriched_api_contract_for_express(
         "sydes.cli.trace.save_run_artifact",
         lambda **_kwargs: tmp_path / "artifact.json",
     )
+    _stub_facts = StructuralFacts(
+        repo_map={"version": "v1", "repos": []},
+        route_index={"version": "v1", "repos": []},
+        symbol_index={"repos": [{"repo": "worklenz", "files": []}], "summary": {}},
+        route_graph={"version": "v1", "repos": []},
+    )
+
+    class _StubIntelligence:
+        name = "native"
+
+        def build_or_update(self, repos, **_kwargs):
+            return _stub_facts
+
     monkeypatch.setattr(
-        "sydes.cli.trace.build_structural_index",
-        lambda *a, **k: StructuralIndex(
-            repo_map_batch={"version": "v1", "repos": []},
-            route_index_batch={"version": "v1", "repos": []},
-            handler_symbol_batch={"repos": [{"repo": "worklenz", "files": []}], "summary": {}},
-            route_graph_facts={"version": "v1", "repos": []},
-            metrics=IndexMetrics(),
-        ),
+        "sydes.cli.trace.get_code_intelligence", lambda *a, **k: _StubIntelligence()
     )
     monkeypatch.setattr(
         "sydes.cli.trace.resolve_handler_reference",

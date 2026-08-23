@@ -21,7 +21,7 @@ from sydes.discover.discovery_cache import (
     load_cache_bundle,
     save_cache_bundle,
 )
-from sydes.discover.file_facts import build_structural_index, structural_index_diagnostics
+from sydes.code_intelligence import get_code_intelligence
 from sydes.discover.routing_pattern_planner import (
     build_routing_pattern_planner_input,
     run_routing_pattern_planner,
@@ -281,14 +281,15 @@ def routes_command(
             raise typer.Exit(code=1)
 
     # One structural build for the whole command: discovery, the artifacts
-    # below, and route composition all read from it.
-    structural = build_structural_index(repos, workspace_id=workspace_id)
+    # below, and route composition all read from it. Which backend produced the
+    # facts is not this command's concern.
+    structural = get_code_intelligence().build_or_update(repos, workspace_id=workspace_id)
 
     try:
         discover_kwargs: dict[str, object] = {
             "model_spec": model,
             "strict_llm": not allow_partial,
-            "route_index_batch": structural.route_index_batch,
+            "route_index_batch": structural.route_index,
         }
         if llm_policy != "auto":
             discover_kwargs["llm_policy"] = llm_policy
@@ -368,7 +369,7 @@ def routes_command(
 
     repo_map_batch: dict | None = None
     try:
-        repo_map_batch = structural.repo_map_batch
+        repo_map_batch = structural.repo_map
         repo_map_payload = {
             "timestamp": datetime.now(tz=UTC).isoformat(),
             "repo_inputs": [item.model_dump() for item in repos],
@@ -389,7 +390,7 @@ def routes_command(
         route_index_payload = {
             "timestamp": datetime.now(tz=UTC).isoformat(),
             "repo_inputs": [item.model_dump() for item in repos],
-            "index": structural.route_index_batch,
+            "index": structural.route_index,
         }
         route_index_batch = route_index_payload["index"]
         route_index_artifact_path = save_run_artifact(
@@ -408,7 +409,7 @@ def routes_command(
         # it here would remove it from every other consumer of the same object.
         route_graph_facts = {
             key: value
-            for key, value in structural.route_graph_facts.items()
+            for key, value in structural.route_graph.items()
             if key != "_repo_endpoint_candidates"
         }
         route_graph_payload = {
@@ -427,7 +428,7 @@ def routes_command(
         result.notes.append(f"Could not save route graph facts artifact: {exc}")
 
     coverage_by_repo: dict[str, dict] = {}
-    result.notes.extend(structural_index_diagnostics(structural))
+    result.notes.extend(structural.diagnostics)
 
     route_index_repos = _repo_index_by_name(route_index_batch, "repos")
     route_graph_repos = _repo_index_by_name(route_graph_facts, "repos")

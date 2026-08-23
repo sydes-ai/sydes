@@ -9,10 +9,23 @@ from typer.testing import CliRunner
 import sydes.cli.routes as routes_module
 from sydes.cli.main import app
 from sydes.core.models import EndpointCandidate, RepoRef, RoutesResult
-from sydes.discover.file_facts import IndexMetrics, StructuralIndex
+from sydes.code_intelligence import StructuralFacts
 from sydes.discover.discovery_cache import DiscoveryCacheBundle, DiscoveryCacheStatus
 
 runner = CliRunner()
+
+
+class _StubIntelligence:
+    """Serves fabricated structural facts through the code-intelligence seam."""
+
+    name = "native"
+
+    def __init__(self, facts) -> None:
+        self._facts = facts
+
+    def build_or_update(self, repos, **_kwargs):
+        return self._facts
+
 
 
 @pytest.fixture(autouse=True)
@@ -220,17 +233,20 @@ def test_routes_command_planner_skips_under_auto_when_coverage_strong(tmp_path: 
     monkeypatch.setattr(routes_module, "discover_endpoints", _fake_discovery)
     monkeypatch.setattr(routes_module, "compute_workspace_id", lambda repos: "ws-test")
     monkeypatch.setattr(routes_module, "create_run_id", lambda: "run-test")
-    strong_index = StructuralIndex(
-        repo_map_batch={"version": "v1", "repos": []},
-        route_index_batch={
+    strong_index = StructuralFacts(
+        repo_map={"version": "v1", "repos": []},
+        route_index={
             "version": "v1",
             "repos": [{"repo": "api", "summary": {"files_indexed": 10, "files_with_route_calls": 0, "route_call_count": 0, "mount_call_count": 0, "router_symbol_count": 0}, "files": []}],
         },
-        handler_symbol_batch={"version": "v1", "repos": [], "summary": {}},
-        route_graph_facts={"version": "v1", "repos": [{"repo": "api", "summary": {"containers": 0, "declarations": 0, "mount_edges": 0, "composed_routes": 0, "unresolved_mounts": 0}}]},
-        metrics=IndexMetrics(),
+        symbol_index={"version": "v1", "repos": [], "summary": {}},
+        route_graph={"version": "v1", "repos": [{"repo": "api", "summary": {"containers": 0, "declarations": 0, "mount_edges": 0, "composed_routes": 0, "unresolved_mounts": 0}}]},
     )
-    monkeypatch.setattr(routes_module, "build_structural_index", lambda *a, **k: strong_index)
+    monkeypatch.setattr(
+        routes_module,
+        "get_code_intelligence",
+        lambda *a, **k: _StubIntelligence(strong_index),
+    )
     monkeypatch.setattr(
         routes_module,
         "save_run_artifact",
@@ -283,17 +299,20 @@ def test_routes_command_planner_runs_under_auto_when_coverage_weak(tmp_path: Pat
     monkeypatch.setattr(routes_module, "create_run_id", lambda: "run-test")
     # Weak coverage is injected through the shared structural index, which is
     # now the single place the command obtains structural facts.
-    weak_index = StructuralIndex(
-        repo_map_batch={"version": "v1", "repos": []},
-        route_index_batch={
+    weak_index = StructuralFacts(
+        repo_map={"version": "v1", "repos": []},
+        route_index={
             "version": "v1",
             "repos": [{"repo": "api", "summary": {"files_indexed": 10, "files_with_route_calls": 8, "route_call_count": 25, "mount_call_count": 6, "router_symbol_count": 7}, "files": []}],
         },
-        handler_symbol_batch={"version": "v1", "repos": [], "summary": {}},
-        route_graph_facts={"version": "v1", "repos": [{"repo": "api", "summary": {"containers": 7, "declarations": 25, "mount_edges": 6, "composed_routes": 1, "unresolved_mounts": 6}}]},
-        metrics=IndexMetrics(),
+        symbol_index={"version": "v1", "repos": [], "summary": {}},
+        route_graph={"version": "v1", "repos": [{"repo": "api", "summary": {"containers": 7, "declarations": 25, "mount_edges": 6, "composed_routes": 1, "unresolved_mounts": 6}}]},
     )
-    monkeypatch.setattr(routes_module, "build_structural_index", lambda *a, **k: weak_index)
+    monkeypatch.setattr(
+        routes_module,
+        "get_code_intelligence",
+        lambda *a, **k: _StubIntelligence(weak_index),
+    )
     monkeypatch.setattr(routes_module, "create_default_llm_client", lambda **kwargs: _PlannerClient())
     monkeypatch.setattr(
         routes_module,
@@ -323,14 +342,17 @@ def test_routes_command_planner_does_not_run_under_never(tmp_path: Path, monkeyp
     monkeypatch.setattr(routes_module, "discover_endpoints", _fake_discovery)
     monkeypatch.setattr(routes_module, "compute_workspace_id", lambda repos: "ws-test")
     monkeypatch.setattr(routes_module, "create_run_id", lambda: "run-test")
-    empty_index = StructuralIndex(
-        repo_map_batch={"version": "v1", "repos": []},
-        route_index_batch={"version": "v1", "repos": [{"repo": "api", "summary": {}, "files": []}]},
-        handler_symbol_batch={"version": "v1", "repos": [], "summary": {}},
-        route_graph_facts={"version": "v1", "repos": [{"repo": "api", "summary": {}}]},
-        metrics=IndexMetrics(),
+    empty_index = StructuralFacts(
+        repo_map={"version": "v1", "repos": []},
+        route_index={"version": "v1", "repos": [{"repo": "api", "summary": {}, "files": []}]},
+        symbol_index={"version": "v1", "repos": [], "summary": {}},
+        route_graph={"version": "v1", "repos": [{"repo": "api", "summary": {}}]},
     )
-    monkeypatch.setattr(routes_module, "build_structural_index", lambda *a, **k: empty_index)
+    monkeypatch.setattr(
+        routes_module,
+        "get_code_intelligence",
+        lambda *a, **k: _StubIntelligence(empty_index),
+    )
     monkeypatch.setattr(
         routes_module,
         "save_run_artifact",
