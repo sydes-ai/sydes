@@ -289,8 +289,14 @@ def _trace_route(
     repos: list[RepoRef],
     handler_index: dict,
     options: VerifyChangeOptions,
+    call_edges: list[dict] | None = None,
 ) -> tuple[dict, list[str]]:
-    """Run the shared trace machinery for one endpoint."""
+    """Run the shared trace machinery for one endpoint.
+
+    `call_edges` carries a backend-supplied call graph when the selected
+    code-intelligence backend provides one; `None` means the native follower
+    reads call names from source as before.
+    """
     notes: list[str] = []
     repo_index = next(
         (
@@ -328,6 +334,7 @@ def _trace_route(
                 primary_slice=primary_slice,
                 repo_index=repo_index,
                 budgets=CallFollowBudgets(),
+                call_edges=call_edges,
             )
             known_symbols = {
                 str(symbol.get("name") or "")
@@ -783,6 +790,10 @@ def analyze_change(
             repos=normalized_repos,
             handler_index=handler_index,
             options=options,
+            # Present only when the backend supplies a call graph. Sydes never
+            # substitutes its own extraction for a backend that was selected
+            # and returned nothing: the absence is reported as uncertainty.
+            call_edges=structural.call_edges if structural.provides_call_graph else None,
         )
         contract = traced["layered_contract"]
         analysis_status, analysis_notes = _analysis_status_from(trace_notes)

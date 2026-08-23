@@ -283,6 +283,25 @@ def _resolve_call(
     return None, "not_found"
 
 
+def _symbol_from_edge(edge: dict, files_by_path: dict[str, dict]) -> dict | None:
+    """Locate a backend edge's target in the symbol index.
+
+    The backend resolved the call; this only finds the matching indexed symbol
+    so the existing traversal has a span to slice.
+    """
+    target_file = files_by_path.get(str(edge.get("callee_file") or ""))
+    if not target_file:
+        return None
+    name = str(edge.get("callee_symbol") or "")
+    for symbol in target_file.get("symbols", []) or []:
+        if symbol.get("name") == name and symbol.get("kind") in {"function", "class_method"}:
+            return symbol
+    for symbol in target_file.get("symbols", []) or []:
+        if symbol.get("name") == name:
+            return symbol
+    return None
+
+
 def build_layered_trace_expansion(
     *,
     repo_root: Path,
@@ -291,8 +310,17 @@ def build_layered_trace_expansion(
     primary_slice: dict,
     repo_index: dict,
     budgets: CallFollowBudgets,
+    call_edges: list[dict] | None = None,
 ) -> dict:
-    """Follow bounded important project-local calls from the primary handler slice."""
+    """Follow bounded important project-local calls from the primary handler slice.
+
+    `call_edges`, when supplied, is a normalized call graph from the selected
+    code-intelligence backend. Sydes then follows *those* edges instead of
+    reading call names out of statement text, which is what makes traversal
+    work for languages Sydes cannot parse. Everything that decides *whether* to
+    follow an edge — budgets, importance, skip rules — stays here, because that
+    is traversal policy rather than a structural fact.
+    """
     budgets_payload = asdict(budgets)
     files_by_path, symbols_by_name = _build_file_maps(repo_index)
     visited_functions: set[tuple[str, str]] = set()
@@ -356,13 +384,32 @@ def build_layered_trace_expansion(
         }
 
     candidates: list[tuple[int, str, dict]] = []
-    for stmt in primary_slice.get("statements", []):
-        for call_name in _extract_calls_from_statement_text(stmt.get("text", "")):
-            if not _is_followable_call_name(call_name):
+    edge_targets: dict[str, dict] = {}
+    if call_edges is not None:
+        # Backend-supplied call graph: no statement text is read.
+        handler_symbol_name = (primary_handler_name or "").rsplit(".", 1)[-1]
+        for edge in call_edges:
+            if edge.get("caller_file") != current_file:
+                continue
+            if handler_symbol_name and edge.get("caller_symbol") != handler_symbol_name:
+                continue
+            call_name = str(edge.get("callee_symbol") or "")
+            if not call_name or not _is_followable_call_name(call_name):
                 skipped_calls.append({"call": call_name, "reason": "not_followable"})
                 continue
-            score = _importance_score(call_name, stmt)
-            candidates.append((score, call_name, stmt))
+            # Synthesised so the existing importance and skip policy applies
+            # unchanged to edges, exactly as it does to parsed calls.
+            stmt = {"text": f"{call_name}(", "line": edge.get("caller_line")}
+            edge_targets[call_name] = edge
+            candidates.append((_importance_score(call_name, stmt), call_name, stmt))
+    else:
+        for stmt in primary_slice.get("statements", []):
+            for call_name in _extract_calls_from_statement_text(stmt.get("text", "")):
+                if not _is_followable_call_name(call_name):
+                    skipped_calls.append({"call": call_name, "reason": "not_followable"})
+                    continue
+                score = _importance_score(call_name, stmt)
+                candidates.append((score, call_name, stmt))
     candidates.sort(key=lambda item: item[0], reverse=True)
 
     processed_calls = 0
@@ -377,12 +424,19 @@ def build_layered_trace_expansion(
         if score < 0:
             skipped_calls.append({"call": call_name, "reason": "low_importance"})
             continue
-        symbol, reason = _resolve_call(
-            call_name=call_name,
-            current_file_payload=current_file_payload,
-            files_by_path=files_by_path,
-            symbols_by_name=symbols_by_name,
-        )
+        edge = edge_targets.get(call_name)
+        if edge is not None:
+            # The backend already resolved the target; no import following.
+            symbol, reason = _symbol_from_edge(edge, files_by_path), None
+            if symbol is None:
+                reason = "backend_edge_target_not_indexed"
+        else:
+            symbol, reason = _resolve_call(
+                call_name=call_name,
+                current_file_payload=current_file_payload,
+                files_by_path=files_by_path,
+                symbols_by_name=symbols_by_name,
+            )
         if symbol is None:
             unresolved_calls.append({"call": call_name, "reason": reason or "not_found"})
             continue

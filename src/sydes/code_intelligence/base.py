@@ -58,6 +58,17 @@ class StructuralFacts:
     metrics: dict[str, Any] = field(default_factory=dict)
     #: Human-readable metric lines for a diagnostics section.
     diagnostics: list[str] = field(default_factory=list)
+    #: Normalized caller -> callee edges, when the backend supplies a call
+    #: graph. Empty for a backend that does not: an absent edge set means "not
+    #: provided", never "no calls exist", and callers must not read it as
+    #: evidence of absence.
+    #:
+    #: Each edge: repo, caller_file, caller_symbol, caller_qualified_name,
+    #: caller_line, callee_file, callee_symbol, callee_qualified_name,
+    #: callee_line, source.
+    call_edges: list[dict[str, Any]] = field(default_factory=list)
+    #: Whether this backend supplied a call graph at all.
+    provides_call_graph: bool = False
     #: Which backend produced these facts.
     backend: str = "native"
 
@@ -74,6 +85,20 @@ class StructuralFacts:
                 if item.get("path") == path:
                     return list(item.get("symbols", []) or [])
         return []
+
+    def callees(self, repo: str, symbol: str) -> list[dict[str, Any]]:
+        """Outbound call edges from one symbol, when a call graph is present."""
+        return [
+            edge for edge in self.call_edges
+            if edge.get("repo") == repo and edge.get("caller_symbol") == symbol
+        ]
+
+    def callers(self, repo: str, symbol: str) -> list[dict[str, Any]]:
+        """Inbound call edges to one symbol, when a call graph is present."""
+        return [
+            edge for edge in self.call_edges
+            if edge.get("repo") == repo and edge.get("callee_symbol") == symbol
+        ]
 
     def indexed_files(self, repo: str | None = None) -> set[str]:
         """Paths the symbol index actually covers."""

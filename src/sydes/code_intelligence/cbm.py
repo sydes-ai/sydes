@@ -105,11 +105,41 @@ def _run_tool(executable: str, tool: str, arguments: dict[str, Any], timeout: in
     return payload.get("structuredContent", payload)
 
 
-def _rows(payload: dict[str, Any]) -> list[list[Any]]:
+def _rows(payload: dict[str, Any], *, columns: int) -> tuple[list[list[str]], int]:
+    """Rows from a `query_graph` response, with the count of unparseable ones.
+
+    CBM 0.10.8 dropped the structured `columns`/`rows` payload that 0.9.0
+    returned and now renders results as text: a header, then one
+    whitespace-separated line per row. Values in the fields Sydes requests
+    never contain spaces, but that is a property of the data rather than a
+    guarantee of the format, so every row is checked against the expected
+    arity. A row that does not match is dropped and counted rather than
+    silently mis-split into the wrong columns.
+    """
     if isinstance(payload.get("error"), str):
         raise CodeIntelligenceError(f"Codebase Memory query failed: {payload['error']}")
-    rows = payload.get("rows")
-    return rows if isinstance(rows, list) else []
+
+    structured = payload.get("rows")
+    if isinstance(structured, list):
+        return [[str(cell) for cell in row] for row in structured], 0
+
+    text = ""
+    for block in payload.get("content", []) or []:
+        if isinstance(block, dict) and block.get("type") == "text":
+            text = str(block.get("text") or "")
+            break
+
+    rows: list[list[str]] = []
+    malformed = 0
+    for line in text.splitlines():
+        if not line.startswith("  ") or line.startswith("total:"):
+            continue
+        fields = [field.strip('"') for field in line.split()]
+        if len(fields) != columns:
+            malformed += 1
+            continue
+        rows.append(fields)
+    return rows, malformed
 
 
 def _line(value: Any) -> int | None:
@@ -131,6 +161,7 @@ class CBMCodeIntelligence:
     name = CBM_BACKEND
 
     def __init__(self, executable: str | None = None) -> None:
+        self._malformed_rows = 0
         self._executable = executable or _executable()
         self._version = self._read_version()
 
@@ -158,15 +189,51 @@ class CBMCodeIntelligence:
             )
         return project, payload
 
-    def _query(self, project: str, query: str) -> list[list[Any]]:
-        return _rows(
+    def _query(self, project: str, query: str, *, columns: int) -> list[list[str]]:
+        rows, malformed = _rows(
             _run_tool(
                 self._executable,
                 "query_graph",
                 {"project": project, "query": query},
                 _QUERY_TIMEOUT_SECONDS,
-            )
+            ),
+            columns=columns,
         )
+        if malformed:
+            self._malformed_rows += malformed
+        return rows
+
+    def _call_edges_for(self, project: str, repo: str) -> list[dict[str, Any]]:
+        """CBM's call graph, normalized away from Cypher shape.
+
+        This is the fact that makes the backend worth having: it is produced
+        without Sydes parsing a single function body, so it holds for every
+        language CBM indexes rather than only the two Sydes can read.
+        """
+        rows = self._query(
+            project,
+            "MATCH (a)-[:CALLS]->(b) WHERE a.file_path <> '' AND b.file_path <> '' "
+            "RETURN a.qualified_name, a.file_path, a.start_line, "
+            "b.qualified_name, b.file_path, b.start_line",
+            columns=6,
+        )
+        edges: list[dict[str, Any]] = []
+        for caller_q, caller_file, caller_line, callee_q, callee_file, callee_line in rows:
+            if not _is_repository_path(caller_file) or not _is_repository_path(callee_file):
+                continue
+            edges.append({
+                "repo": repo,
+                "caller_file": caller_file,
+                "caller_symbol": str(caller_q).rsplit(".", 1)[-1],
+                "caller_qualified_name": caller_q,
+                "caller_line": _line(caller_line),
+                "callee_file": callee_file,
+                "callee_symbol": str(callee_q).rsplit(".", 1)[-1],
+                "callee_qualified_name": callee_q,
+                "callee_line": _line(callee_line),
+                "source": CBM_BACKEND,
+            })
+        return edges
 
     def _symbols_for(self, project: str) -> dict[str, list[dict[str, Any]]]:
         """Every definition CBM knows, grouped by repository-relative file."""
@@ -176,6 +243,7 @@ class CBMCodeIntelligence:
                 project,
                 f"MATCH (n:{label}) WHERE n.file_path <> '' RETURN n.name, n.file_path, "
                 "n.start_line, n.end_line, n.parent_class, n.is_exported",
+                columns=6,
             )
             for name, path, start, end, parent, exported in (
                 (row + [None] * 6)[:6] for row in rows
@@ -210,6 +278,7 @@ class CBMCodeIntelligence:
             project,
             "MATCH (a)-[r:IMPORTS]->(b) WHERE a.file_path <> '' "
             "RETURN a.file_path, r.local_name, b.file_path, b.qualified_name",
+            columns=4,
         )
         for importer, local, target, qualified in ((row + [None] * 4)[:4] for row in rows):
             if not _is_repository_path(importer):
@@ -245,6 +314,7 @@ class CBMCodeIntelligence:
         totals = {"files_indexed": 0, "symbols": 0, "imports": 0, "exports": 0}
         index_ms = 0.0
         query_ms = 0.0
+        call_edges: list[dict[str, Any]] = []
         gaps: list[str] = []
 
         for repo in repos:
@@ -255,6 +325,7 @@ class CBMCodeIntelligence:
             query_started = time.perf_counter()
             symbols_by_file = self._symbols_for(project)
             imports_by_file = self._imports_for(project)
+            call_edges.extend(self._call_edges_for(project, repo.name))
             query_ms += (time.perf_counter() - query_started) * 1000.0
 
             files = []
@@ -307,14 +378,20 @@ class CBMCodeIntelligence:
             "route composition is computed by Sydes, not CBM: CBM reports "
             "uncomposed route paths and models no persistence sinks"
         )
-        gaps.append("call edges are not consumed yet: Sydes derives them from the symbol index")
+        if not call_edges:
+            gaps.append("CBM returned no CALLS edges for this repository set")
+        if self._malformed_rows:
+            gaps.append(
+                f"{self._malformed_rows} query row(s) did not match the expected "
+                "column arity and were dropped rather than mis-parsed"
+            )
 
         total_ms = (time.perf_counter() - started) * 1000.0
         diagnostics = [
             f"code_intelligence_backend=cbm version={self._version}",
             f"cbm_index_ms={index_ms:.1f} cbm_query_ms={query_ms:.1f}"
             f" sydes_route_semantics_ms={semantics_ms:.1f} total_ms={total_ms:.1f}",
-            "cbm_supplied=symbols,spans,imports,exports"
+            "cbm_supplied=symbols,spans,imports,exports,call_edges"
             "  sydes_semantics=route_index,route_graph,repo_map",
         ]
         diagnostics.extend(f"cbm_gap: {gap}" for gap in gaps)
@@ -333,12 +410,15 @@ class CBMCodeIntelligence:
                 "cbm_version": self._version,
                 "files_total": totals["files_indexed"],
                 "symbols": totals["symbols"],
+                "call_edges": len(call_edges),
                 "index_ms": round(index_ms, 1),
                 "query_ms": round(query_ms, 1),
                 "sydes_route_semantics_ms": round(semantics_ms, 1),
                 "total_index_ms": round(total_ms, 1),
                 "gaps": gaps,
             },
+            call_edges=call_edges,
+            provides_call_graph=True,
             diagnostics=diagnostics,
             backend=self.name,
         )
