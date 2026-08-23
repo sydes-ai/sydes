@@ -6,6 +6,8 @@ import json
 from pathlib import Path
 
 import pytest
+
+from sydes.discover.file_facts import IndexMetrics, StructuralIndex
 from typer.testing import CliRunner
 
 from sydes.cli.main import app
@@ -372,8 +374,14 @@ def test_trace_output_directory_writes_enriched_api_contract_for_express(
         lambda **_kwargs: tmp_path / "artifact.json",
     )
     monkeypatch.setattr(
-        "sydes.cli.trace.build_handler_symbol_index_batch",
-        lambda repos: {"repos": [{"repo": "worklenz", "files": []}], "summary": {}},
+        "sydes.cli.trace.build_structural_index",
+        lambda *a, **k: StructuralIndex(
+            repo_map_batch={"version": "v1", "repos": []},
+            route_index_batch={"version": "v1", "repos": []},
+            handler_symbol_batch={"repos": [{"repo": "worklenz", "files": []}], "summary": {}},
+            route_graph_facts={"version": "v1", "repos": []},
+            metrics=IndexMetrics(),
+        ),
     )
     monkeypatch.setattr(
         "sydes.cli.trace.resolve_handler_reference",

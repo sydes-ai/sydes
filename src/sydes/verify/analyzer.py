@@ -39,7 +39,9 @@ from sydes.core.models import (
     TraceSummary,
 )
 from sydes.discover.endpoints import discover_endpoints
+from sydes.discover.file_facts import build_structural_index, structural_index_diagnostics
 from sydes.discover.target_match import resolve_trace_target
+from sydes.store.workspace import compute_workspace_id
 from sydes.generate.contracts import build_api_contract_from_routes
 from sydes.generate.tests import generate_test_matrix, match_route_contract
 from sydes.llm.client import LLMClient
@@ -47,7 +49,6 @@ from sydes.trace.call_follower import CallFollowBudgets, build_layered_trace_exp
 from sydes.trace.expand import prepare_flow_expansion_context, run_flow_expansion
 from sydes.trace.function_body_slicer import slice_resolved_handler_body
 from sydes.trace.handler_resolver import resolve_handler_reference
-from sydes.trace.handler_symbol_index import build_handler_symbol_index_batch
 from sydes.trace.layered_contract import build_layered_trace_contract
 from sydes.trace.sinks import normalize_sink_candidates
 from sydes.verify.git_change import resolve_change_set
@@ -677,7 +678,12 @@ def analyze_change(
     result.diagnostics.extend(change.notes)
 
     # --- shared system understanding -------------------------------------
-    handler_index = build_handler_symbol_index_batch(normalized_repos)
+    # Route, symbol, and graph facts all come from one incremental index; the
+    # analysis below is unchanged and simply reads from it.
+    workspace_id = compute_workspace_id(normalized_repos)
+    structural = build_structural_index(normalized_repos, workspace_id=workspace_id)
+    result.diagnostics.extend(structural_index_diagnostics(structural))
+    handler_index = structural.handler_symbol_batch
     result.diagnostics.append(
         "handler_symbol_index: "
         + ", ".join(f"{key}={value}" for key, value in sorted(handler_index.get("summary", {}).items()))
@@ -718,6 +724,7 @@ def analyze_change(
         model_spec=options.model_spec,
         llm_policy=options.llm_policy if options.llm_policy in {"auto", "always", "never"} else "auto",
         strict_llm=False,
+        route_index_batch=structural.route_index_batch,
     )
     result.diagnostics.extend(
         note for note in routes.notes if "coverage" in note or "routes" in note.lower()

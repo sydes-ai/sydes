@@ -806,8 +806,15 @@ def discover_endpoints(
     inventory_max_files: int = 5000,
     rank_top_k: int = 80,
     read_top_n: int = 5,
+    route_index_batch: dict | None = None,
 ) -> RoutesResult:
-    """Run end-to-end shallow endpoint discovery across input repositories."""
+    """Run end-to-end shallow endpoint discovery across input repositories.
+
+    `route_index_batch` lets a caller that already built the shared structural
+    index hand it in rather than have discovery rebuild it per repository. The
+    payload is the same shape either way, so passing it changes nothing but the
+    work done.
+    """
     if llm_policy not in {"auto", "always", "never"}:
         raise ValueError(f"Unsupported llm_policy '{llm_policy}'. Use: auto, always, never.")
     validated = validate_repo_roots(repos)
@@ -863,7 +870,20 @@ def discover_endpoints(
         files_sent_to_llm += len(llm_candidates)
 
         deterministic_routes, deterministic_frameworks = extract_deterministic_routes(deterministic_reads)
-        route_index_repo_batch = {"version": "v1", "repos": [build_route_index(repo)]}
+        indexed_repo = None
+        if isinstance(route_index_batch, dict):
+            indexed_repo = next(
+                (
+                    item
+                    for item in route_index_batch.get("repos") or []
+                    if isinstance(item, dict) and item.get("repo") == repo.name
+                ),
+                None,
+            )
+        route_index_repo_batch = {
+            "version": "v1",
+            "repos": [indexed_repo if indexed_repo is not None else build_route_index(repo)],
+        }
         route_graph_repo = build_route_graph_facts_from_route_index_batch(route_index_repo_batch)
         composed_routes = route_graph_repo.get("_repo_endpoint_candidates", {}).get(repo.name, [])
         if composed_routes:

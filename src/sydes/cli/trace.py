@@ -46,6 +46,7 @@ from sydes.llm.client import LLMClientError, validate_llm_available
 from sydes.report.json_report import render_json
 from sydes.report.terminal import render_terminal
 from sydes.store.workspace import compute_workspace_id, create_run_id, save_run_artifact
+from sydes.discover.file_facts import build_structural_index
 from sydes.generate.contracts import (
     build_api_contract_from_routes,
     enrich_api_contract_from_layered_trace,
@@ -63,7 +64,6 @@ from sydes.trace.cross_repo import (
 )
 from sydes.trace.expand import prepare_flow_expansion_context, run_flow_expansion
 from sydes.trace.sinks import normalize_sink_candidates
-from sydes.trace.handler_symbol_index import build_handler_symbol_index_batch
 from sydes.trace.handler_resolver import resolve_handler_reference
 from sydes.trace.function_body_slicer import slice_resolved_handler_body
 from sydes.trace.call_follower import CallFollowBudgets, build_layered_trace_expansion
@@ -599,7 +599,10 @@ def trace_command(
     try:
         workspace_id = compute_workspace_id(result.repos)
         run_id = create_run_id()
-        handler_symbol_index = build_handler_symbol_index_batch(result.repos)
+        # Same symbol facts as before, obtained through the shared index so a
+        # warm repository does not re-extract every file.
+        structural = build_structural_index(result.repos, workspace_id=workspace_id)
+        handler_symbol_index = structural.handler_symbol_batch
         resolved_handlers_payload = None
         if (
             matched_endpoint is not None

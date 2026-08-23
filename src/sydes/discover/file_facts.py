@@ -485,7 +485,9 @@ class StructuralIndex:
 def build_structural_index(
     repos: list[RepoRef],
     *,
+    workspace_id: str | None = None,
     store: FileFactStore | None = None,
+    root: Path | None = None,
     persist: bool = True,
 ) -> StructuralIndex:
     """Build the structural fact set, reusing per-file facts where sound.
@@ -513,6 +515,10 @@ def build_structural_index(
     clock = _Clock()
     started = time.perf_counter()
     metrics = IndexMetrics()
+
+    # Callers name a workspace; only this module knows where facts live.
+    if store is None and workspace_id is not None:
+        store = FileFactStore.for_repos(workspace_id, repos, root=root)
 
     with clock.measure("load"):
         if store is not None and not store.loaded:
@@ -650,3 +656,23 @@ def _combine_symbol_indexes(indexes: list[dict[str, Any]]) -> dict[str, Any]:
             if isinstance(value, int):
                 totals[key] = totals.get(key, 0) + value
     return {"version": "v1", "repos": indexes, "summary": dict(sorted(totals.items()))}
+
+
+def structural_index_diagnostics(index: StructuralIndex) -> list[str]:
+    """Compact, human-readable metric lines for a diagnostics section."""
+    metrics = index.metrics
+    lines = [
+        f"index_state={metrics.index_state}"
+        f" files_total={metrics.files_total}"
+        f" files_reused={metrics.files_reused}"
+        f" files_reparsed={metrics.files_reparsed}"
+        f" added={metrics.files_added}"
+        f" modified={metrics.files_modified}"
+        f" deleted={metrics.files_deleted}",
+        f"index_total_ms={metrics.total_index_ms:.1f}"
+        f" hash_ms={metrics.file_hash_ms:.1f}"
+        f" parse_ms={metrics.file_parse_ms:.1f}"
+        f" global_ms={metrics.global_derivation_ms:.1f}",
+    ]
+    lines.extend(f"index_note: {note}" for note in metrics.notes)
+    return lines
