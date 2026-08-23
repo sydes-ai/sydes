@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from sydes.core.models import RepoRef
-from sydes.discover.repo_map import IGNORED_DIRS, build_repo_map
+from sydes.discover.repo_map import IGNORED_DIRS
 from sydes.ingest.file_roles import (
     FILE_ROLE_SOURCE_ROUTE_CANDIDATE,
     classify_candidate_file_role,
@@ -18,37 +18,6 @@ from sydes.trace.handler_symbols.js_ts import JsTsHandlerSymbolExtractor
 from sydes.trace.handler_symbols.python import PythonHandlerSymbolExtractor
 
 _MAX_FILE_SIZE = 2_000_000
-
-
-def _select_preferred_dirs(repo_map_payload: dict) -> set[str]:
-    preferred_dirs: set[str] = set()
-    for key in (
-        "candidate_route_dirs",
-        "candidate_backend_dirs",
-        "candidate_controller_dirs",
-    ):
-        for item in repo_map_payload.get(key, []):
-            if isinstance(item, str) and item and item != ".":
-                preferred_dirs.add(item)
-    for entry in repo_map_payload.get("entrypoint_candidates", []):
-        if isinstance(entry, str) and entry:
-            parent = str(Path(entry).parent).replace("\\", "/")
-            if parent and parent != ".":
-                preferred_dirs.add(parent)
-    return preferred_dirs
-
-
-def _should_include(relative_path: str, preferred_dirs: set[str]) -> bool:
-    if not preferred_dirs:
-        return True
-    for directory in preferred_dirs:
-        if relative_path == directory or relative_path.startswith(directory + "/"):
-            return True
-    parent = str(Path(relative_path).parent).replace("\\", "/")
-    for directory in preferred_dirs:
-        if parent == directory or parent.startswith(directory + "/"):
-            return True
-    return False
 
 
 def _extractor_registry() -> list[HandlerSymbolExtractor]:
@@ -67,8 +36,6 @@ def _extractor_by_extension() -> dict[str, HandlerSymbolExtractor]:
 def build_handler_symbol_index(repo: RepoRef, *, fact_cache: Any = None) -> dict:
     """Build a generic handler symbol index for one repository."""
     root = Path(repo.root).expanduser().resolve()
-    repo_map_payload = build_repo_map(repo)
-    preferred_dirs = _select_preferred_dirs(repo_map_payload)
     by_ext = _extractor_by_extension()
 
     files: list[dict] = []
@@ -97,12 +64,18 @@ def build_handler_symbol_index(repo: RepoRef, *, fact_cache: Any = None) -> dict
             role = classify_candidate_file_role(rel)
             if role != FILE_ROLE_SOURCE_ROUTE_CANDIDATE:
                 continue
-            # Repository-root modules are always indexed: entrypoints and shared
-            # data-access modules commonly live there, and they are frequent
-            # call targets from handlers in route directories.
-            at_repo_root = str(Path(rel).parent) == "."
-            if not at_repo_root and not _should_include(rel, preferred_dirs):
-                continue
+            # Every ordinary source file is indexed, not only those under
+            # route-shaped directories. Change attribution and call following
+            # both consult this index, and a changed file that is missing from
+            # it yields no symbols at all — which silently reduces a real change
+            # to "no downstream effects established". Library code (`core/`,
+            # `db/`, `utils/`) lives outside route directories by nature, so
+            # route location cannot be a precondition for being indexed.
+            #
+            # Exclusions still apply and do the real filtering: IGNORED_DIRS
+            # prunes vendor/build/cache trees during the walk, the role check
+            # above drops tests and docs, and the size guard below skips
+            # generated blobs.
             # Symbol facts embed `resolved_file`, which depends on the whole
             # path set, so the orchestrator disables reuse whenever files were
             # added or deleted. Within a stable path set a hash match is exact.

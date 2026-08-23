@@ -86,6 +86,23 @@ _CONNECTION_ERROR_RE = re.compile(
 _PYTEST_DEPENDENCY_RE = re.compile(
     r"""(?:^|["'\s\[,])pytest(?:[<>=!~\[\s"',\]]|$)""", re.MULTILINE
 )
+#: unittest substitutes a synthetic `_FailedTest` for any module it could not
+#: import, and that placeholder still counts toward "Ran N tests". Without this
+#: marker an environment that cannot even load the suite reads as a real result.
+_UNITTEST_LOAD_FAILURE_RE = re.compile(
+    r"unittest\.loader\._FailedTest|_get_module_from_name|Failed to import test module"
+)
+
+#: An import that resolves but lacks the expected name is a version/interpreter
+#: mismatch, not a defect in the change under review.
+_IMPORT_NAME_ERROR_RE = re.compile(
+    r"ImportError: cannot import name ['\"](?P<module>[^'\"]+)['\"]"
+)
+
+#: unittest separates `failures` (an assertion was false) from `errors` (an
+#: exception escaped, which includes modules that never loaded).
+_UNITTEST_FAILURES_RE = re.compile(r"\bfailures=(?P<count>\d+)")
+
 _ASSERTION_LINE_RE = re.compile(
     r"^(?:E\s+|\s*)(?P<text>(?:\w*(?:Error|Exception|Failure)|assert|AssertionError)\b.*)$"
 )
@@ -420,11 +437,28 @@ def _classify_output(combined: str) -> tuple[str | None, str | None]:
     service that cannot be reached are both environment problems, not failures
     of the code under review.
     """
+    # A reported assertion failure is hard evidence about the change and
+    # outranks any environment problem found alongside it. Hiding a real
+    # failure behind an unrelated bad import would be the worse error.
+    failures = _UNITTEST_FAILURES_RE.search(combined)
+    if failures is not None and failures.group("count") != "0":
+        return None, None
+
     match = _MISSING_MODULE_RE.search(combined) or _NODE_MISSING_MODULE_RE.search(combined)
     if match:
         return BLOCKER_MISSING_DEPENDENCY, match.group("module")
     if _CONNECTION_ERROR_RE.search(combined):
         return BLOCKER_MISSING_DEPENDENCY, None
+
+    # A module that never imported produces a synthetic test which unittest
+    # counts and reports as an *error*. Only treat that as infrastructure when
+    # no genuine assertion failure is reported alongside it: a real failing
+    # assertion is hard evidence about the change and must survive.
+    if _UNITTEST_LOAD_FAILURE_RE.search(combined):
+        named = _IMPORT_NAME_ERROR_RE.search(combined)
+        if named is not None:
+            return BLOCKER_MISSING_DEPENDENCY, named.group("module")
+        return BLOCKER_COLLECTION_ERROR, None
     return None, None
 
 
