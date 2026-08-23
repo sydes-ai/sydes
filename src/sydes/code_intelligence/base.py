@@ -67,6 +67,22 @@ class StructuralFacts:
     #: caller_line, callee_file, callee_symbol, callee_qualified_name,
     #: callee_line, source.
     call_edges: list[dict[str, Any]] = field(default_factory=list)
+    #: Normalized "symbol named inside another symbol's body" references, when
+    #: the backend supplies them. Distinct from `call_edges`: a symbol can be
+    #: referenced without being invoked, which is how a dependency declared in
+    #: a decorator argument or composed inside another definition reaches the
+    #: code that uses it. Empty means "not provided", never "none exist".
+    #:
+    #: Each edge: repo, user_file, user_symbol, user_qualified_name,
+    #: used_file, used_symbol, used_qualified_name, source.
+    usage_edges: list[dict[str, Any]] = field(default_factory=list)
+    #: Symbols the backend annotated with route metadata or decorator source.
+    #: Reported verbatim; deciding whether a decorator makes a symbol an
+    #: entrypoint is interpretation and happens above this seam.
+    #:
+    #: Each entry: repo, qualified_name, symbol, file, line, route_method,
+    #: route_path, source.
+    entrypoints: list[dict[str, Any]] = field(default_factory=list)
     #: Whether this backend supplied a call graph at all.
     provides_call_graph: bool = False
     #: Which backend produced these facts.
