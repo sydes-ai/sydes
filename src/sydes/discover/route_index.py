@@ -10,6 +10,7 @@ import re
 import os
 from collections import Counter
 from pathlib import Path
+from typing import Any
 
 from sydes.core.models import RepoRef
 from sydes.discover.repo_map import IGNORED_DIRS, build_repo_map
@@ -556,7 +557,9 @@ def _extract_handler_hint_from_route_snippet(snippet: str) -> str | None:
     return _unwrap(candidate)
 
 
-def build_route_index(repo: RepoRef, *, repo_map: dict | None = None) -> dict:
+def build_route_index(
+    repo: RepoRef, *, repo_map: dict | None = None, fact_cache: Any = None
+) -> dict:
     """Build compact deterministic route-signal index for one repository."""
     root = Path(repo.root).expanduser().resolve()
     repo_map_payload = repo_map or build_repo_map(repo)
@@ -597,14 +600,17 @@ def build_route_index(repo: RepoRef, *, repo_map: dict | None = None) -> dict:
                 and not _path_in_dirs(str(Path(rel).parent), preferred_dirs)
             ):
                 continue
-            try:
-                if path.stat().st_size > _MAX_FILE_SIZE:
+            entry = fact_cache.lookup(rel) if fact_cache is not None else None
+            if entry is None:
+                try:
+                    if path.stat().st_size > _MAX_FILE_SIZE:
+                        continue
+                    text = path.read_text(encoding="utf-8", errors="replace")
+                except OSError:
                     continue
-                text = path.read_text(encoding="utf-8", errors="replace")
-            except OSError:
-                continue
-
-            entry = _extract_index_for_file(rel, text, role)
+                entry = _extract_index_for_file(rel, text, role)
+                if fact_cache is not None:
+                    fact_cache.record(rel, entry)
             files.append(entry)
             files_indexed += 1
             if entry["route_calls"]:

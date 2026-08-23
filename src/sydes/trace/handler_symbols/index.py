@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 from collections import Counter
 from pathlib import Path
+from typing import Any
 
 from sydes.core.models import RepoRef
 from sydes.discover.repo_map import IGNORED_DIRS, build_repo_map
@@ -63,7 +64,7 @@ def _extractor_by_extension() -> dict[str, HandlerSymbolExtractor]:
     return mapping
 
 
-def build_handler_symbol_index(repo: RepoRef) -> dict:
+def build_handler_symbol_index(repo: RepoRef, *, fact_cache: Any = None) -> dict:
     """Build a generic handler symbol index for one repository."""
     root = Path(repo.root).expanduser().resolve()
     repo_map_payload = build_repo_map(repo)
@@ -102,14 +103,20 @@ def build_handler_symbol_index(repo: RepoRef) -> dict:
             at_repo_root = str(Path(rel).parent) == "."
             if not at_repo_root and not _should_include(rel, preferred_dirs):
                 continue
-            try:
-                if path.stat().st_size > _MAX_FILE_SIZE:
+            # Symbol facts embed `resolved_file`, which depends on the whole
+            # path set, so the orchestrator disables reuse whenever files were
+            # added or deleted. Within a stable path set a hash match is exact.
+            file_symbols = fact_cache.lookup(rel) if fact_cache is not None else None
+            if file_symbols is None:
+                try:
+                    if path.stat().st_size > _MAX_FILE_SIZE:
+                        continue
+                    text = path.read_text(encoding="utf-8", errors="replace")
+                except OSError:
                     continue
-                text = path.read_text(encoding="utf-8", errors="replace")
-            except OSError:
-                continue
-
-            file_symbols = extractor.extract_file(root, rel, text).to_dict()
+                file_symbols = extractor.extract_file(root, rel, text).to_dict()
+                if fact_cache is not None:
+                    fact_cache.record(rel, file_symbols)
             files.append(file_symbols)
             summary_counter["files_indexed"] += 1
             summary_counter["imports"] += len(file_symbols["imports"])
