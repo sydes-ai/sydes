@@ -27,8 +27,10 @@ from sydes.code_intelligence.cbm import CBM_BACKEND
 from sydes.code_intelligence.factory import get_code_intelligence
 from sydes.impact.models import (
     COMPLETENESS_TRUNCATED,
+    ENTRYPOINT_DECORATED,
     ENTRYPOINT_HTTP,
     IMPACT_STATUS_INFERRED,
+    IMPACT_STATUS_PROVEN,
     PROVENANCE_LLM_INFERRED_CORROBORATED,
     RELATION_LLM_INFERRED,
     STRATEGY_LLM_SEMANTIC_INFERENCE,
@@ -320,4 +322,134 @@ def test_inferred_flow_produces_an_obligation_but_never_verified(
     assert flow.impact_status == IMPACT_STATUS_INFERRED
     assert flow.obligations, "an inferred flow must still be allowed to generate obligations"
     assert all(o.status == VERIFICATION_UNVERIFIED for o in flow.obligations)  # never pre-verified
+    assert result.summary.verdict != VERDICT_VERIFIED
+
+
+def test_deterministic_and_inferred_duplicate_becomes_one_proven_accepted_impact(
+    repo: Path, tmp_path: Path, fake_cbm_backend: None, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test 4 (full pipeline): the same real route found both deterministically
+    and by the guide must appear exactly once in `accepted_impacts`, as PROVEN."""
+    _write(repo, "service.py", _SERVICE_V2)
+
+    proven_entry = AffectedEntrypoint(
+        repo="app", symbol="handle", qualified_name="app.views.handle", file="views.py",
+        kind=ENTRYPOINT_HTTP, route_method="GET", route_path="/x",
+        status=IMPACT_STATUS_PROVEN, changed_symbols=["helper"],
+    )
+    inferred_duplicate = AffectedEntrypoint(
+        repo="app", symbol="handle", qualified_name="app.views.handle", file="views.py",
+        kind=ENTRYPOINT_HTTP, route_method="GET", route_path="/x",
+        status=IMPACT_STATUS_INFERRED, llm_confidence=0.5, changed_symbols=["helper"],
+    )
+    fake_result = ImpactResult(affected=[proven_entry, inferred_duplicate], unresolved=[])
+    monkeypatch.setattr(
+        "sydes.verify.analyzer.ImpactInterpreter.interpret", lambda self, *a, **k: fake_result,
+    )
+
+    result = _run(repo, tmp_path)
+
+    matching = [i for i in result.accepted_impacts if i.route_method == "GET" and i.route_path == "/x"]
+    assert len(matching) == 1
+    assert matching[0].status == IMPACT_STATUS_PROVEN
+
+
+def test_generic_non_http_accepted_behavior_survives_through_the_real_pipeline(
+    repo: Path, tmp_path: Path, fake_cbm_backend: None, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test 6: a non-HTTP accepted impact (no route to construct a flow
+    from) must still appear in `accepted_impacts` — never silently dropped
+    just because it cannot become a full `AffectedFlow`."""
+    _write(repo, "service.py", _SERVICE_V2)
+
+    generic_entry = AffectedEntrypoint(
+        repo="app", symbol="nightly_digest", qualified_name="app.jobs.nightly_digest",
+        file="jobs.py", kind=ENTRYPOINT_DECORATED, status=IMPACT_STATUS_INFERRED,
+        llm_confidence=0.4, llm_reason="reads a cache the changed helper populates",
+        changed_symbols=["helper"],
+    )
+    fake_result = ImpactResult(affected=[generic_entry], unresolved=[])
+    monkeypatch.setattr(
+        "sydes.verify.analyzer.ImpactInterpreter.interpret", lambda self, *a, **k: fake_result,
+    )
+
+    result = _run(repo, tmp_path)
+
+    matching = [i for i in result.accepted_impacts if i.label == "nightly_digest"]
+    assert len(matching) == 1
+    assert matching[0].verification_model_status == "unsupported_or_partial"
+    assert matching[0].status == IMPACT_STATUS_INFERRED
+    # Not silently dropped from affected_flows either — it simply isn't
+    # there, because it genuinely has no HTTP shape; the report (tested at
+    # the renderer level) is what makes it visible.
+    assert not any(f.handler == "nightly_digest" for f in result.affected_flows)
+
+
+def test_obligation_retains_impact_provenance_via_shared_id(
+    repo: Path, tmp_path: Path, fake_cbm_backend: None, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test 7: `changed code -> affected behavior -> obligation -> evidence
+    -> verdict` must be traceable — an obligation's `flow_id` must match the
+    id of the `accepted_impacts` entry that produced it."""
+    _write(repo, "service.py", _SERVICE_V2)
+
+    inferred_entry = AffectedEntrypoint(
+        repo="app", symbol="handle", qualified_name="app.views.handle", file="views.py",
+        kind=ENTRYPOINT_HTTP, route_method="GET", route_path="/x",
+        status=IMPACT_STATUS_INFERRED, llm_confidence=0.7, corroborated=True,
+        changed_symbols=["helper"],
+        paths=[ImpactPath(
+            steps=(ImpactStep(
+                symbol="handle", qualified_name="app.views.handle", file="views.py",
+                relation=RELATION_LLM_INFERRED, evidence="shares a query helper",
+                provenance=PROVENANCE_LLM_INFERRED_CORROBORATED,
+            ),),
+            strategy=STRATEGY_LLM_SEMANTIC_INFERENCE,
+        )],
+    )
+    fake_result = ImpactResult(affected=[inferred_entry], unresolved=[])
+    monkeypatch.setattr(
+        "sydes.verify.analyzer.ImpactInterpreter.interpret", lambda self, *a, **k: fake_result,
+    )
+
+    result = _run(repo, tmp_path)
+
+    impact = next(i for i in result.accepted_impacts if i.route_path == "/x")
+    flow = next(f for f in result.affected_flows if f.path == "/x")
+    assert impact.id == flow.id
+    assert impact.verification_model_status == "modeled"
+    obligation_flow_ids = {o.flow_id for o in flow.obligations}
+    assert obligation_flow_ids == {flow.id} == {impact.id}
+
+
+def test_provider_failure_preserves_deterministic_analysis_and_counts(
+    repo: Path, tmp_path: Path, fake_cbm_backend: None, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test 9: a guide-provider failure must not erase what deterministic
+    analysis already found — `accepted_impacts`/counts must still reflect
+    the real, PROVEN route."""
+    from sydes.llm.client import LLMClientError
+
+    def _boom(**kwargs):
+        raise LLMClientError("no provider configured")
+
+    monkeypatch.setattr("sydes.verify.analyzer.create_default_llm_client", _boom)
+    _write(repo, "service.py", _SERVICE_V2)
+
+    out = tmp_path / "result.json"
+    outcome = runner.invoke(
+        app,
+        [
+            "verify-change", "--base", "main", "--llm-policy", "never",
+            "--repo", f"app={repo}", "--json", str(out), "--impact-guide", "auto",
+        ],
+    )
+    assert outcome.exit_code == 0, outcome.output
+    import json
+    result = ChangeVerificationResult.model_validate(json.loads(out.read_text(encoding="utf-8")))
+
+    assert any(i.route_path == "/x" and i.status == IMPACT_STATUS_PROVEN for i in result.accepted_impacts)
+    assert result.summary.counts.impacts_proven >= 1
+    assert result.summary.counts.impacts_inferred == 0
+    assert any("AI impact inference unavailable" in note for note in result.analysis_notes)
     assert result.summary.verdict != VERDICT_VERIFIED

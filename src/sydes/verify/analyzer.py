@@ -43,8 +43,10 @@ from sydes.code_intelligence import get_code_intelligence
 from sydes.code_intelligence.cbm import CBM_BACKEND
 from sydes.impact import (
     COMPLETENESS_COMPLETE,
+    ENTRYPOINT_HTTP,
     GUIDE_OFF,
     IMPACT_STATUS_INFERRED,
+    IMPACT_STATUS_PROVEN,
     GuideBudget,
     ImpactInterpreter,
     ImpactResult,
@@ -82,6 +84,7 @@ from sydes.verify.models import (
     VERIFICATION_PASSED,
     VERIFICATION_UNKNOWN,
     VERIFICATION_UNVERIFIED,
+    AcceptedImpact,
     AffectedFlow,
     ChangedSymbol,
     ChangeSummary,
@@ -541,6 +544,90 @@ def resolve_flow_status(flow: AffectedFlow) -> None:
     )
 
 
+def _build_accepted_impacts(
+    impact_result: ImpactResult | None, affected_flows: list[AffectedFlow],
+) -> list[AcceptedImpact]:
+    """The one canonical merged impact list every downstream reader uses.
+
+    cbm backend: built from `impact_result.affected`, which already merges
+    PROVEN and INFERRED entries (PROVEN winning on any duplicate — see
+    `ImpactInterpreter._record_inferred`) — nothing is re-derived here, only
+    reshaped for the product-facing artifact. An entry that reached a real
+    `AffectedFlow` (matched by method+path) is `verification_model_status
+    ="modeled"`; anything else — a generic non-HTTP behavior, or a route
+    that never matched a real one — is `"unsupported_or_partial"` and stays
+    in this list rather than disappearing.
+
+    native backend (no `ImpactResult` exists): every affected flow is by
+    definition PROVEN and already modeled, so the canonical list is built
+    directly from `affected_flows` instead — still one code path for the
+    renderer, never two competing views depending on backend.
+    """
+    if impact_result is None:
+        return [
+            AcceptedImpact(
+                id=flow.id, label=flow.entry_label, repo=flow.repo,
+                kind=ENTRYPOINT_HTTP if flow.method and flow.path else "unknown",
+                status=IMPACT_STATUS_PROVEN,
+                changed_symbols=sorted({node.symbol for node in flow.changed_nodes}),
+                route_method=flow.method, route_path=flow.path,
+                verification_model_status="modeled",
+            )
+            for flow in affected_flows
+        ]
+
+    flow_by_route = {
+        ((flow.method or "").upper(), flow.path): flow
+        for flow in affected_flows if flow.method and flow.path
+    }
+    # Dedup is the interpreter's job first (`ImpactInterpreter._record_inferred`
+    # never emits a PROVEN+INFERRED pair for the same entrypoint), but this
+    # function is the canonical boundary Part 1 describes — it must guarantee
+    # "PROVEN wins, no duplicates" itself rather than merely assume its input
+    # already satisfies that, so a future caller of `ImpactResult.affected`
+    # cannot reintroduce a second competing view by construction.
+    by_id: dict[str, AcceptedImpact] = {}
+    for entry in impact_result.affected:
+        modeled_flow = None
+        if entry.route_method and entry.route_path:
+            modeled_flow = flow_by_route.get((entry.route_method.upper(), entry.route_path))
+        impact_id = (
+            modeled_flow.id if modeled_flow is not None
+            else f"impact:{entry.repo}:{entry.qualified_name or entry.symbol}"
+        )
+        is_inferred = entry.status == IMPACT_STATUS_INFERRED
+        # A human-facing label prefers the route, then the short symbol name
+        # — never the raw qualified_name CBM produces, which carries a
+        # checkout-path-derived project prefix (e.g.
+        # "Users-name-repos-project.pkg.module.symbol") that means nothing
+        # to a reader. `entry.label` (used for diagnostics/internal logging)
+        # falls back to that full qualified_name; the product-facing report
+        # deliberately does not.
+        label = (
+            f"{entry.route_method} {entry.route_path}"
+            if entry.route_method and entry.route_path
+            else (entry.symbol or entry.label)
+        )
+        existing = by_id.get(impact_id)
+        if existing is not None and existing.status == IMPACT_STATUS_PROVEN:
+            # PROVEN already dominates at this id; an inferred duplicate
+            # contributes nothing further to the canonical entry.
+            continue
+        by_id[impact_id] = AcceptedImpact(
+            id=impact_id, label=label, repo=entry.repo, kind=entry.kind,
+            status=entry.status,
+            changed_symbols=sorted(set(entry.changed_symbols)),
+            route_method=entry.route_method, route_path=entry.route_path,
+            llm_confidence=entry.llm_confidence if is_inferred else None,
+            llm_reason=(entry.llm_reason or None) if is_inferred else None,
+            llm_inference_type=(entry.llm_inference_type or None) if is_inferred else None,
+            llm_uncertainty=(entry.llm_uncertainty or None) if is_inferred else None,
+            corroborated=entry.corroborated if is_inferred else None,
+            verification_model_status="modeled" if modeled_flow is not None else "unsupported_or_partial",
+        )
+    return list(by_id.values())
+
+
 def _compute_summary(result: ChangeVerificationResult) -> ChangeSummary:
     """Derive risk and verdict from obligation outcomes only."""
     change = result.change
@@ -584,6 +671,8 @@ def _compute_summary(result: ChangeVerificationResult) -> ChangeSummary:
         verification_gaps=len(result.verification_gaps),
         runtime_dependencies=len(result.runtime_dependencies),
         cross_repo_impacts=len(result.cross_repo_impacts),
+        impacts_proven=sum(1 for item in result.accepted_impacts if item.status == IMPACT_STATUS_PROVEN),
+        impacts_inferred=sum(1 for item in result.accepted_impacts if item.status == IMPACT_STATUS_INFERRED),
     )
 
     reasons: list[str] = []
@@ -773,6 +862,15 @@ def _select_via_impact_interpreter(
     )
     impact_result = interpreter.interpret(changed, structural, repo=repo_name)
     reconciled = reconcile_entrypoints(impact_result.affected, structural.route_graph)
+    # CBM's own route facts are pre-composition (router-relative — e.g.
+    # "/{student_id}" rather than "/students/{student_id}");
+    # `reconcile_entrypoints` is what corrects that against Sydes' composed
+    # route graph. `impact_result.affected` must carry the *corrected*
+    # entrypoints from here on — every downstream reader of `impact_result`
+    # (diagnostics, and `_build_accepted_impacts` below) needs the same
+    # composed paths `affected_flows` uses, or a route.method+path match
+    # between them silently fails even though it is the same real route.
+    impact_result.affected = reconciled
 
     selected: list[EndpointCandidate] = []
     seen: set[str] = set()
@@ -912,6 +1010,26 @@ def analyze_change(
         )
         result.diagnostics.extend(guide_notes)
         result.diagnostics.extend(_impact_diagnostics(impact_result))
+        # Provider/guide failures must be visible in the human-readable
+        # report, not only countable in diagnostics — `analysis_notes` is
+        # the section every renderer already shows by default, unlike
+        # `diagnostics` (verbose-only). Deterministic analysis has already
+        # run by this point regardless, so the report can say both things
+        # are true at once: it ran, and AI inference may be incomplete.
+        for note in guide_notes:
+            if "impact_guide unavailable" in note:
+                result.analysis_notes.append(f"AI impact inference unavailable: {note.split(': ', 1)[-1]}")
+        guide_error_details = impact_result.metrics.get("guide_error_details") or []
+        if guide_error_details:
+            result.analysis_notes.append(
+                f"AI impact inference: {len(guide_error_details)} guide call(s) failed "
+                f"mid-run — {guide_error_details[-1]}"
+            )
+        if guide_notes or guide_error_details:
+            result.analysis_notes.append(
+                "Deterministic impact analysis still ran and is reflected below; "
+                "AI-inferred impact coverage may be incomplete."
+            )
         if impact_result.completeness != COMPLETENESS_COMPLETE:
             # A truncated traversal may hide a real entrypoint; the existing
             # verdict logic already refuses VERIFIED whenever analysis_status
@@ -923,6 +1041,7 @@ def analyze_change(
                 "reachable entrypoints may not be listed."
             )
     else:
+        impact_result = None
         selected = [
             endpoint
             for endpoint in routes.routes
@@ -1131,6 +1250,7 @@ def analyze_change(
 
     for flow in result.affected_flows:
         resolve_flow_status(flow)
+    result.accepted_impacts = _build_accepted_impacts(impact_result, result.affected_flows)
     result.summary = _compute_summary(result)
     return result
 

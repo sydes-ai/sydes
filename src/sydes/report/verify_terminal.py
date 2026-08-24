@@ -14,10 +14,17 @@ from sydes.verify.models import (
     VERIFICATION_PASSED,
     VERIFICATION_UNKNOWN,
     VERIFICATION_UNVERIFIED,
+    AcceptedImpact,
     AffectedFlow,
     ChangeVerificationResult,
     VerificationObligation,
 )
+
+#: `AcceptedImpact.status` values, duplicated here rather than imported from
+#: `sydes.impact` — the renderer depends only on `sydes.verify.models`, the
+#: same boundary every other section already respects.
+_IMPACT_PROVEN = "proven"
+_IMPACT_INFERRED = "inferred"
 
 _MARK = {
     VERIFICATION_PASSED: "✓",
@@ -72,7 +79,14 @@ def _render_obligation(
 
 def _render_flow(flow: AffectedFlow, lines: list[str], *, verbose: bool) -> None:
     """Render one affected flow: change-critical obligations first, then the rest."""
-    lines.append(f"{_MARK.get(flow.status, '?')} {flow.entry_label}   [{flow.status.upper()}]")
+    impact_tag = "  [AI-INFERRED IMPACT]" if flow.impact_status == _IMPACT_INFERRED else ""
+    lines.append(f"{_MARK.get(flow.status, '?')} {flow.entry_label}   [{flow.status.upper()}]{impact_tag}")
+    if flow.impact_status == _IMPACT_INFERRED:
+        lines.append(
+            "    this flow was proposed by AI semantic inference — see AFFECTED BEHAVIOR "
+            "above for the model's confidence and reasoning; verification below is real "
+            "evidence, never inferred"
+        )
     if flow.handler:
         location = flow.artifact_refs.get("handler_file") or flow.artifact_refs.get("route_file")
         lines.append(f"    handler: {flow.handler}  ({location})")
@@ -169,6 +183,72 @@ def _render_ci_suite(suite, lines: list[str], *, verbose: bool) -> None:
         )
 
 
+def _render_accepted_impact(impact: AcceptedImpact, lines: list[str], *, verbose: bool) -> None:
+    """Render one canonical impact — PROVEN compactly, INFERRED with its
+    reasoning, since an inferred entry is exactly the one a reviewer cannot
+    already see for themselves in the diff."""
+    label = impact.label
+    if impact.status == _IMPACT_INFERRED:
+        lines.append(f"  {label}")
+        if impact.llm_confidence is not None:
+            lines.append(f"      LLM confidence: {impact.llm_confidence:.2f}  (model self-assessment, not a calibrated probability)")
+        if impact.llm_reason:
+            lines.append(f"      Why: {impact.llm_reason}")
+        lines.append(
+            "      Structural confirmation: "
+            + ("matched a known entrypoint" if impact.corroborated else "unavailable")
+        )
+        if impact.llm_uncertainty:
+            lines.append(f"      Uncertainty: {impact.llm_uncertainty}")
+        if impact.verification_model_status != "modeled":
+            lines.append(
+                "      Verification: not yet modeled as a full flow — "
+                "no obligations were generated for this specific impact"
+            )
+        if verbose and impact.changed_symbols:
+            lines.append(f"      changed: {', '.join(impact.changed_symbols[:3])}")
+    else:
+        suffix = (
+            "" if impact.verification_model_status == "modeled"
+            else "   (not yet modeled as a full verification flow)"
+        )
+        lines.append(f"  {label}{suffix}")
+
+
+def _render_affected_behavior(result: ChangeVerificationResult, lines: list[str], *, verbose: bool) -> None:
+    """The canonical "what does Sydes believe is affected" view — the same
+    `accepted_impacts` list obligations/counts are derived from, so nothing
+    shown elsewhere can disagree with this section."""
+    impacts = result.accepted_impacts
+    proven = [item for item in impacts if item.status == _IMPACT_PROVEN]
+    inferred = [item for item in impacts if item.status == _IMPACT_INFERRED]
+    lines.append(f"Proven impacts: {len(proven)}")
+    lines.append(f"Inferred impacts: {len(inferred)}")
+    if not impacts:
+        lines.append("")
+        lines.append("  No affected behavior identified.")
+        return
+
+    if proven:
+        lines.append("")
+        lines.append("PROVEN")
+        for item in proven[: None if verbose else 8]:
+            _render_accepted_impact(item, lines, verbose=verbose)
+        hidden = len(proven) - 8
+        if not verbose and hidden > 0:
+            lines.append(f"  … {hidden} more (use --verbose)")
+    if inferred:
+        lines.append("")
+        lines.append("INFERRED")
+        for item in inferred:
+            # Never truncated, even without --verbose: an inferred impact is
+            # exactly the thing a reviewer has no other way to see, and
+            # hiding it behind a flag would recreate the silent-disappearance
+            # problem this section exists to close.
+            _render_accepted_impact(item, lines, verbose=verbose)
+    lines.append("")
+
+
 def render_verify_change_terminal(
     result: ChangeVerificationResult, *, verbose: bool = False
 ) -> str:
@@ -220,6 +300,9 @@ def render_verify_change_terminal(
         lines.append(
             f"    {symbol.qualified_name or symbol.name}  ({symbol.kind})  {symbol.file}:{symbol.start_line}"
         )
+
+    _section(lines, "AFFECTED BEHAVIOR")
+    _render_affected_behavior(result, lines, verbose=verbose)
 
     _section(lines, "CI REGRESSION SUITE")
     _render_ci_suite(result.ci_suite, lines, verbose=verbose)

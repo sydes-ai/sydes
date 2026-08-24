@@ -188,6 +188,10 @@ class VerificationCounts(BaseModel):
     verification_gaps: int = 0
     runtime_dependencies: int = 0
     cross_repo_impacts: int = 0
+    #: Derived from the same canonical `accepted_impacts` list the report
+    #: renders — never a separately-counted view of PROVEN/INFERRED.
+    impacts_proven: int = 0
+    impacts_inferred: int = 0
 
 
 class ChangeSummary(BaseModel):
@@ -325,6 +329,50 @@ class VerificationObligation(BaseModel):
     evidence: list[EvidenceRef] = Field(default_factory=list)
 
 
+class AcceptedImpact(BaseModel):
+    """One canonical merged impact — the single source of truth every
+    downstream layer (obligations, the human-readable report, structured
+    output for evaluation) reads from. Never a second, competing view of
+    "what Sydes found": built once from `ImpactResult.affected` (which
+    already merges PROVEN deterministic entries and INFERRED LLM candidates,
+    PROVEN winning on any duplicate), so nothing here is re-derived.
+
+    `id` matches the corresponding `AffectedFlow.id`/`VerificationObligation
+    .flow_id` when this impact was modeled into one (`verification_model_
+    status == "modeled"`) — that shared id is the provenance link from an
+    obligation back to the impact that produced it, without a duplicate
+    field to keep in sync.
+    """
+
+    id: str
+    label: str
+    repo: str | None = None
+    kind: str = "unknown"
+    #: `IMPACT_STATUS_PROVEN` or `IMPACT_STATUS_INFERRED` — see `sydes.impact.models`.
+    status: str = "proven"
+    changed_symbols: list[str] = Field(default_factory=list)
+    route_method: str | None = None
+    route_path: str | None = None
+    #: The fields below are populated only for `status == "inferred"`. Model
+    #: self-assessment, not a calibrated probability — presented as "LLM
+    #: confidence" everywhere it is shown, never as verification confidence.
+    llm_confidence: float | None = None
+    llm_reason: str | None = None
+    llm_inference_type: str | None = None
+    llm_uncertainty: str | None = None
+    #: Whether cheap corroboration matched this candidate against an
+    #: already-known fact. `False` does not remove the impact from this
+    #: list — an uncorroborated inference is still shown, never dropped.
+    corroborated: bool | None = None
+    #: "modeled": this impact reached a full `AffectedFlow` with obligations
+    #: (an HTTP route that could be reconciled). "unsupported_or_partial":
+    #: accepted by the impact layer but not yet representable as a full
+    #: verification flow — a generic backend behavior with no HTTP shape,
+    #: or an inferred route that never matched a real one. Recorded rather
+    #: than silently dropped either way.
+    verification_model_status: str = "modeled"
+
+
 class AffectedFlow(BaseModel):
     """One backend behavior path touched by the change.
 
@@ -414,6 +462,12 @@ class ChangeVerificationResult(BaseModel):
     change: ChangeSet
     summary: ChangeSummary = Field(default_factory=ChangeSummary)
     code_findings: list[CodeFinding] = Field(default_factory=list)
+    #: The one canonical merged impact set (PROVEN + INFERRED) — see
+    #: `AcceptedImpact`. Always populated, regardless of backend: `affected_flows`
+    #: below remains the detailed verification view for impacts that reached
+    #: it, but this list is the complete "what did Sydes find" answer, so no
+    #: accepted impact can be visible in one place and missing from another.
+    accepted_impacts: list[AcceptedImpact] = Field(default_factory=list)
     affected_flows: list[AffectedFlow] = Field(default_factory=list)
     analysis_status: str = ANALYSIS_COMPLETE
     analysis_notes: list[str] = Field(default_factory=list)
