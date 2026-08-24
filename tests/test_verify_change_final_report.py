@@ -148,3 +148,87 @@ def test_empty_accepted_impacts_renders_cleanly() -> None:
     assert "Proven impacts: 0" in report
     assert "Inferred impacts: 0" in report
     assert "No affected behavior identified." in report
+
+
+# --- Report prioritization: #6155 produced 222 PROVEN impacts, most of them
+# structural-only and many sharing the same low-information label (e.g.
+# "GET /" dozens of times) — dumping all of them individually made the
+# default report unreadable. These tests pin the fix. ------------------------
+
+def _modeled(n: int, prefix: str = "GET /route") -> list[AcceptedImpact]:
+    return [
+        AcceptedImpact(
+            id=f"flow:{i}", label=f"{prefix}{i}", status="proven",
+            route_method="GET", route_path=f"/route{i}", verification_model_status="modeled",
+        )
+        for i in range(n)
+    ]
+
+
+def _structural(n: int, label: str = "case_update_flow") -> list[AcceptedImpact]:
+    return [
+        AcceptedImpact(id=f"impact:{i}", label=label, status="proven", kind="function",
+                        verification_model_status="unsupported_or_partial")
+        for i in range(n)
+    ]
+
+
+def test_default_report_does_not_dump_hundreds_of_unsupported_impacts() -> None:
+    impacts = _modeled(3) + _structural(219, label="case_update_flow")
+    report = render_verify_change_terminal(_result(impacts))
+
+    assert "Proven impacts: 222" in report
+    # None of the 219 structural duplicates get an individual line — the
+    # label is collapsed into one summarized row with a count instead.
+    assert report.count("case_update_flow") <= 2  # the collapsed row itself, not per-item
+    assert "219 more impact(s) were identified but are not yet modeled" in report
+    assert "Use --verbose or structured JSON for the complete list." in report
+
+
+def test_modeled_impacts_remain_visible_and_prioritized_over_structural_noise() -> None:
+    impacts = _structural(50) + _modeled(3)
+    report = render_verify_change_terminal(_result(impacts))
+
+    assert "Modeled / verification-relevant impacts:" in report
+    for i in range(3):
+        assert f"GET /route{i}" in report
+    modeled_pos = report.index("Modeled / verification-relevant impacts:")
+    structural_pos = report.index("Additional structural impacts:")
+    assert modeled_pos < structural_pos  # modeled comes first, not buried after 50 structural rows
+
+
+def test_inferred_impacts_remain_fully_visible_even_alongside_many_proven() -> None:
+    impacts = _structural(200) + [
+        AcceptedImpact(
+            id="impact:inferred:1", label="GET /cases", status="inferred",
+            llm_confidence=0.72, llm_reason="shares a query helper", corroborated=False,
+            verification_model_status="unsupported_or_partial",
+        ),
+    ]
+    report = render_verify_change_terminal(_result(impacts))
+    assert "Inferred impacts: 1" in report
+    assert "GET /cases" in report
+    assert "LLM confidence: 0.72" in report
+
+
+def test_repeated_low_information_labels_are_collapsed_with_a_count() -> None:
+    impacts = _structural(15, label="GET /")
+    report = render_verify_change_terminal(_result(impacts))
+    assert "GET /  (×15)" in report
+    assert report.count("GET /") <= 2  # one collapsed row, not 15 individual lines
+
+
+def test_verbose_report_still_exposes_the_complete_proven_list() -> None:
+    impacts = _modeled(2) + _structural(30, label="case_update_flow")
+    report = render_verify_change_terminal(_result(impacts), verbose=True)
+    assert report.count("case_update_flow") == 30  # every one rendered, nothing summarized away
+    assert "GET /route0" in report and "GET /route1" in report
+
+
+def test_report_summarization_never_mutates_the_canonical_accepted_impacts_list() -> None:
+    impacts = _modeled(2) + _structural(30)
+    result = _result(impacts)
+    original_count = len(result.accepted_impacts)
+    render_verify_change_terminal(result)
+    render_verify_change_terminal(result, verbose=True)
+    assert len(result.accepted_impacts) == original_count == 32

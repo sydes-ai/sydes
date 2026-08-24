@@ -323,6 +323,13 @@ class ImpactInterpreter:
             "llm_candidates_corroborated": 0,
             "llm_candidates_uncorroborated": 0,
             "llm_new_entrypoints": 0,
+            #: A candidate that is obviously the changed symbol itself,
+            #: rejected before corroboration/merge — see `_is_self_referential`.
+            "llm_candidates_self_referential": 0,
+            #: An INFER_IMPACT turn that explicitly proposed zero candidates —
+            #: a legitimate, encouraged outcome ("no meaningful downstream
+            #: impact"), never counted toward `guide_errors`.
+            "llm_no_candidate_turns": 0,
         }
         if not candidates or self._guide is None or self._guide_policy == GUIDE_OFF:
             return metrics
@@ -412,10 +419,11 @@ class ImpactInterpreter:
                         metrics["guide_no_progress"] += 1
                         break
                     tried.add(progress_key)
-                    tried_summary.append(
-                        f"infer_impact -> {len(decision.candidates)} candidate(s)"
-                        if decision.candidates else "infer_impact -> no candidates proposed"
-                    )
+                    if decision.candidates:
+                        tried_summary.append(f"infer_impact -> {len(decision.candidates)} candidate(s)")
+                    else:
+                        tried_summary.append("infer_impact -> no meaningful downstream impact inferred")
+                        metrics["llm_no_candidate_turns"] += 1
                     # A recorded inferred entrypoint does not "resolve" the
                     # symbol in the PROVEN sense — `symbol_resolved` stays
                     # False, so the symbol remains visible in
@@ -426,6 +434,7 @@ class ImpactInterpreter:
                     self._apply_inferred_candidates(
                         decision.candidates, executor=executor, found=found,
                         result=result, name=name, turn=turn_number, metrics=metrics,
+                        changed_qualified_name=start_identity.qualified_name,
                     )
                     continue
 
@@ -522,6 +531,7 @@ class ImpactInterpreter:
         name: str,
         turn: int,
         metrics: dict[str, Any],
+        changed_qualified_name: str = "",
     ) -> None:
         """Corroborate and merge every candidate from one INFER_IMPACT turn.
 
@@ -532,10 +542,37 @@ class ImpactInterpreter:
         record is merged into `found` as `IMPACT_STATUS_INFERRED` — nothing
         proposed here is silently dropped, which is the exact failure mode
         this action exists to fix.
+
+        One thing *is* rejected before any of that: a candidate that is
+        obviously the changed symbol itself (see `_is_self_referential`) —
+        that is not a downstream impact, it is the guide restating its own
+        input, and M4's "never drop a meaningful inference" guarantee was
+        never meant to protect that.
         """
         corroborations = executor.corroborate_candidates(candidates)
         metrics["llm_candidates"] += len(candidates)
         for candidate, corroboration in zip(candidates, corroborations):
+            if _is_self_referential(candidate, name, changed_qualified_name):
+                metrics["llm_candidates_self_referential"] += 1
+                result.llm_candidate_log.append({
+                    "changed_symbol": name,
+                    "turn": turn,
+                    "candidate_entrypoint": candidate.entrypoint_label,
+                    "candidate_symbol": candidate.entrypoint_symbol,
+                    "confidence": candidate.confidence,
+                    "rationale": candidate.reason,
+                    "inference_type": candidate.inference_type,
+                    "uncertainty": candidate.uncertainty,
+                    "corroborated": False,
+                    "corroboration_evidence": "",
+                    "accepted": False,
+                    "rejection_reason": (
+                        "self_referential: candidate restates the changed symbol "
+                        "itself rather than naming a downstream affected behavior"
+                    ),
+                })
+                continue
+
             if corroboration["corroborated"]:
                 metrics["llm_candidates_corroborated"] += 1
             else:
@@ -918,6 +955,36 @@ def _signature_evidence(text: str, name: str) -> str:
     if position < 0:
         return signature[:200]
     return signature[max(0, position - 40): position + 60]
+
+
+def _normalize_for_self_reference(text: str) -> str:
+    """Collapse whitespace/punctuation/case so `"tool.ruff.lint"`,
+    `"tool_ruff_lint"`, and `" Tool.Ruff.Lint "` all compare equal — this is
+    only meant to catch the changed symbol restated in a slightly different
+    surface form, not to normalize meaning."""
+    return re.sub(r"[\s\-_/.]+", "", text.strip().lower())
+
+
+def _is_self_referential(candidate: ImpactCandidate, changed_name: str, changed_qualified_name: str) -> bool:
+    """Reject only the obvious case: the candidate *is* the changed symbol,
+    under a name/whitespace/punctuation normalization — never a semantic
+    judgement about whether the candidate is a meaningful downstream
+    behavior. That judgement belongs to the guide's own contract (the
+    prompt), not to a deterministic classifier here; this check exists
+    purely to stop a candidate that is trivially the changed symbol from
+    ever being recorded as an "impact" of itself.
+    """
+    changed = {_normalize_for_self_reference(changed_name)}
+    if changed_qualified_name:
+        changed.add(_normalize_for_self_reference(changed_qualified_name))
+    changed.discard("")
+
+    candidate_forms = {_normalize_for_self_reference(candidate.entrypoint_label)}
+    if candidate.entrypoint_symbol:
+        candidate_forms.add(_normalize_for_self_reference(candidate.entrypoint_symbol))
+    candidate_forms.discard("")
+
+    return bool(changed & candidate_forms)
 
 
 def _classify_unresolved_reason(

@@ -215,10 +215,39 @@ def _render_accepted_impact(impact: AcceptedImpact, lines: list[str], *, verbose
         lines.append(f"  {label}{suffix}")
 
 
+#: Non-verbose caps. A real PR can carry hundreds of PROVEN structural
+#: impacts (every symbol reachable from the change, most of them never
+#: reaching a full verification flow) — dumping all of them makes a review
+#: unreadable and drowns out the handful that actually matter. INFERRED
+#: impacts are never capped: see the loop below.
+_MODELED_SAMPLE_CAP = 20
+_STRUCTURAL_LABEL_SAMPLE_CAP = 8
+
+
+def _group_by_label(impacts: list[AcceptedImpact]) -> list[tuple[str, int]]:
+    """Collapse repeated low-information labels (`GET /` a hundred times,
+    say) into one row with a count — canonical identity (each `AcceptedImpact`
+    keeps its own `id`) is untouched; this only affects how the default
+    human report presents them, never the structured/JSON output."""
+    counts: dict[str, int] = {}
+    for item in impacts:
+        counts[item.label] = counts.get(item.label, 0) + 1
+    return sorted(counts.items(), key=lambda pair: (-pair[1], pair[0]))
+
+
 def _render_affected_behavior(result: ChangeVerificationResult, lines: list[str], *, verbose: bool) -> None:
     """The canonical "what does Sydes believe is affected" view — the same
     `accepted_impacts` list obligations/counts are derived from, so nothing
-    shown elsewhere can disagree with this section."""
+    shown elsewhere can disagree with this section.
+
+    Default (non-verbose) prioritizes what a reviewer actually needs:
+    modeled/verification-relevant PROVEN impacts first, a summarized count
+    for the remaining structural-only PROVEN impacts (with low-information
+    duplicate labels collapsed), and every INFERRED impact in full — its
+    rationale is exactly the thing a reviewer has no other way to see.
+    `--verbose` (or the JSON artifact) still exposes the complete PROVEN list,
+    nothing is ever dropped from `accepted_impacts` itself.
+    """
     impacts = result.accepted_impacts
     proven = [item for item in impacts if item.status == _IMPACT_PROVEN]
     inferred = [item for item in impacts if item.status == _IMPACT_INFERRED]
@@ -231,12 +260,35 @@ def _render_affected_behavior(result: ChangeVerificationResult, lines: list[str]
 
     if proven:
         lines.append("")
-        lines.append("PROVEN")
-        for item in proven[: None if verbose else 8]:
-            _render_accepted_impact(item, lines, verbose=verbose)
-        hidden = len(proven) - 8
-        if not verbose and hidden > 0:
-            lines.append(f"  … {hidden} more (use --verbose)")
+        if verbose:
+            lines.append("PROVEN")
+            for item in proven:
+                _render_accepted_impact(item, lines, verbose=verbose)
+        else:
+            modeled = [item for item in proven if item.verification_model_status == "modeled"]
+            structural = [item for item in proven if item.verification_model_status != "modeled"]
+            if modeled:
+                lines.append("Modeled / verification-relevant impacts:")
+                for item in modeled[:_MODELED_SAMPLE_CAP]:
+                    _render_accepted_impact(item, lines, verbose=verbose)
+                hidden = len(modeled) - _MODELED_SAMPLE_CAP
+                if hidden > 0:
+                    lines.append(f"  … {hidden} more (use --verbose)")
+            if structural:
+                if modeled:
+                    lines.append("")
+                lines.append("Additional structural impacts:")
+                lines.append(
+                    f"  {len(structural)} more impact(s) were identified but are not yet "
+                    "modeled as full verification flows."
+                )
+                grouped = _group_by_label(structural)
+                for label, count in grouped[:_STRUCTURAL_LABEL_SAMPLE_CAP]:
+                    suffix = f"  (×{count})" if count > 1 else ""
+                    lines.append(f"    {label}{suffix}")
+                if len(grouped) > _STRUCTURAL_LABEL_SAMPLE_CAP:
+                    lines.append(f"    … {len(grouped) - _STRUCTURAL_LABEL_SAMPLE_CAP} more distinct label(s)")
+                lines.append("  Use --verbose or structured JSON for the complete list.")
     if inferred:
         lines.append("")
         lines.append("INFERRED")
