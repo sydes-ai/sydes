@@ -25,9 +25,25 @@ from typer.testing import CliRunner
 from sydes.cli.main import app
 from sydes.code_intelligence.cbm import CBM_BACKEND
 from sydes.code_intelligence.factory import get_code_intelligence
-from sydes.impact.models import COMPLETENESS_TRUNCATED, ImpactResult
+from sydes.impact.models import (
+    COMPLETENESS_TRUNCATED,
+    ENTRYPOINT_HTTP,
+    IMPACT_STATUS_INFERRED,
+    PROVENANCE_LLM_INFERRED_CORROBORATED,
+    RELATION_LLM_INFERRED,
+    STRATEGY_LLM_SEMANTIC_INFERENCE,
+    AffectedEntrypoint,
+    ImpactPath,
+    ImpactResult,
+    ImpactStep,
+)
 from sydes.llm.client import LLMResponse
-from sydes.verify.models import ANALYSIS_PARTIAL, VERDICT_VERIFIED, ChangeVerificationResult
+from sydes.verify.models import (
+    ANALYSIS_PARTIAL,
+    VERDICT_VERIFIED,
+    VERIFICATION_UNVERIFIED,
+    ChangeVerificationResult,
+)
 
 runner = CliRunner()
 
@@ -261,4 +277,47 @@ def test_impact_guide_provider_unavailable_stays_conservative(
     import json
     result = ChangeVerificationResult.model_validate(json.loads(out.read_text(encoding="utf-8")))
     assert any("impact_guide unavailable" in note for note in result.diagnostics)
+    assert result.summary.verdict != VERDICT_VERIFIED
+
+
+def test_inferred_flow_produces_an_obligation_but_never_verified(
+    repo: Path, tmp_path: Path, fake_cbm_backend: None, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test 5: an M4 `IMPACT_STATUS_INFERRED` flow must still survive into
+    `affected_flows`/obligations (tagged with its provenance), and must never
+    by itself make the verdict VERIFIED — the same conservative aggregation
+    that already governs every deterministic obligation, unaffected by how
+    the flow was found."""
+    _write(repo, "service.py", _SERVICE_V2)
+
+    inferred_entry = AffectedEntrypoint(
+        repo="app", symbol="handle", qualified_name="app.views.handle", file="views.py",
+        kind=ENTRYPOINT_HTTP, route_method="GET", route_path="/x",
+        status=IMPACT_STATUS_INFERRED, llm_confidence=0.81,
+        llm_reason="shares a query helper", llm_inference_type="shared_utility",
+        llm_uncertainty="no direct graph edge", corroborated=True,
+        changed_symbols=["helper"],
+        paths=[ImpactPath(
+            steps=(ImpactStep(
+                symbol="handle", qualified_name="app.views.handle", file="views.py",
+                relation=RELATION_LLM_INFERRED, evidence="shares a query helper",
+                provenance=PROVENANCE_LLM_INFERRED_CORROBORATED,
+            ),),
+            strategy=STRATEGY_LLM_SEMANTIC_INFERENCE,
+        )],
+    )
+    fake_result = ImpactResult(affected=[inferred_entry], unresolved=[])
+    monkeypatch.setattr(
+        "sydes.verify.analyzer.ImpactInterpreter.interpret",
+        lambda self, *a, **k: fake_result,
+    )
+
+    result = _run(repo, tmp_path)
+
+    matching = [f for f in result.affected_flows if (f.method, f.path) == ("GET", "/x")]
+    assert matching, "the inferred flow must reach affected_flows, not disappear silently"
+    flow = matching[0]
+    assert flow.impact_status == IMPACT_STATUS_INFERRED
+    assert flow.obligations, "an inferred flow must still be allowed to generate obligations"
+    assert all(o.status == VERIFICATION_UNVERIFIED for o in flow.obligations)  # never pre-verified
     assert result.summary.verdict != VERDICT_VERIFIED

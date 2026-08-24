@@ -352,6 +352,15 @@ class AffectedFlow(BaseModel):
     obligations: list[VerificationObligation] = Field(default_factory=list)
     reason: str | None = None
     status: str = VERIFICATION_UNVERIFIED
+    #: "proven" (default) for a flow the deterministic impact layer reached
+    #: on its own; "inferred" when it was proposed by the M4 semantic
+    #: inference guide and corroborated against a real, already-known route.
+    #: Provenance only — never read by verdict aggregation, which decides
+    #: VERIFIED/INCOMPLETE/etc. purely from `obligations`/test evidence
+    #: regardless of how a flow was found. An inferred flow's obligations
+    #: start `VERIFICATION_UNVERIFIED` exactly like any other and can only
+    #: change status through the same real evidence any obligation needs.
+    impact_status: str = "proven"
 
 
 class VerificationGap(BaseModel):

@@ -96,6 +96,31 @@ def test_create_default_llm_client_uses_env(monkeypatch) -> None:
     assert client.keep_alive == "30m"
 
 
+def test_create_default_llm_client_temperature_override_none(monkeypatch) -> None:
+    """Explicitly passing `temperature=None` must build a client with no
+    pinned temperature, even though `SYDES_LLM_TEMPERATURE` (and its
+    default) would otherwise supply one."""
+    monkeypatch.setenv("SYDES_LLM_PROVIDER", "ollama")
+    monkeypatch.setenv("SYDES_LLM_MODEL", "qwen2.5:7b")
+    monkeypatch.setenv("SYDES_LLM_TEMPERATURE", "0")
+
+    client = create_default_llm_client(temperature=None)
+
+    assert client.temperature is None
+
+
+def test_create_default_llm_client_without_temperature_kwarg_uses_settings(monkeypatch) -> None:
+    """Every existing caller — one that never passes `temperature=` at all —
+    must see unchanged behavior: the environment/settings value, not None."""
+    monkeypatch.setenv("SYDES_LLM_PROVIDER", "ollama")
+    monkeypatch.setenv("SYDES_LLM_MODEL", "qwen2.5:7b")
+    monkeypatch.setenv("SYDES_LLM_TEMPERATURE", "0")
+
+    client = create_default_llm_client()
+
+    assert client.temperature == 0.0
+
+
 def test_create_default_llm_client_uses_model_spec_override(monkeypatch) -> None:
     """Model-spec override should pick provider+model independent of env model."""
     monkeypatch.setenv("SYDES_LLM_PROVIDER", "ollama")
@@ -160,6 +185,68 @@ def test_openai_client_constructs_sdk_with_expected_settings(monkeypatch) -> Non
     }
     assert captured["create_kwargs"]["model"] == "gpt-4.1-mini"
     assert captured["create_kwargs"]["temperature"] == 0.0
+
+
+def test_openai_client_with_temperature_none_omits_the_parameter(monkeypatch) -> None:
+    """A client constructed with `temperature=None`, given a request that
+    also doesn't specify one, must not send `temperature` to the OpenAI SDK
+    at all — some models reject an explicit value outright, and omitting is
+    the provider/model-capability-safe choice."""
+    captured: dict[str, object] = {}
+
+    class _FakeCompletions:
+        @staticmethod
+        def create(**kwargs):
+            captured["create_kwargs"] = kwargs
+            return type("Resp", (), {
+                "choices": [type("Choice", (), {"message": type("Msg", (), {"content": "ok"})()})()],
+            })()
+
+    class _FakeOpenAI:
+        def __init__(self, **_kwargs):
+            self.chat = type("Chat", (), {"completions": _FakeCompletions()})()
+
+    monkeypatch.setattr("sydes.llm.client.OpenAI", _FakeOpenAI)
+    client = OpenAIClient(
+        model="gpt-5.5", api_key="test-key", base_url="https://api.openai.com/v1",
+        timeout_seconds=42, temperature=None,
+    )
+
+    from sydes.llm.client import LLMRequest
+
+    response = client.generate(LLMRequest(prompt="hello"))
+    assert response.text == "ok"
+    assert "temperature" not in captured["create_kwargs"]
+
+
+def test_openai_client_explicit_request_temperature_still_applies(monkeypatch) -> None:
+    """A caller that genuinely wants a specific temperature must still be
+    able to set one — the None-omits behavior is additive, not a removal of
+    the existing capability."""
+    captured: dict[str, object] = {}
+
+    class _FakeCompletions:
+        @staticmethod
+        def create(**kwargs):
+            captured["create_kwargs"] = kwargs
+            return type("Resp", (), {
+                "choices": [type("Choice", (), {"message": type("Msg", (), {"content": "ok"})()})()],
+            })()
+
+    class _FakeOpenAI:
+        def __init__(self, **_kwargs):
+            self.chat = type("Chat", (), {"completions": _FakeCompletions()})()
+
+    monkeypatch.setattr("sydes.llm.client.OpenAI", _FakeOpenAI)
+    client = OpenAIClient(
+        model="gpt-4.1-mini", api_key="test-key", base_url="https://api.openai.com/v1",
+        timeout_seconds=42, temperature=None,
+    )
+
+    from sydes.llm.client import LLMRequest
+
+    client.generate(LLMRequest(prompt="hello", temperature=0.3))
+    assert captured["create_kwargs"]["temperature"] == 0.3
 
 
 def test_openai_404_error_includes_base_url_hint(monkeypatch) -> None:

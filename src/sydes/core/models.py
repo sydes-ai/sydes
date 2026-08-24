@@ -309,6 +309,15 @@ class EndpointCandidate(BaseModel):
     evidence: list[EvidenceRef] = Field(default_factory=list)
     confidence: float | None = None
     status: str | None = None
+    #: `None` (the default, and every pre-M4 candidate) for a route found
+    #: through deterministic discovery/reachability; "inferred" only when the
+    #: impact layer's semantic-inference guide proposed this route and it was
+    #: corroborated against an already-known, real route. Distinct from
+    #: `status` above (a discovery-confidence tier) and from `confidence` (a
+    #: numeric score) — this is provenance, kept so a reader can tell an
+    #: LLM-proposed-and-matched route from one Sydes reached on its own, all
+    #: the way through to the final `AffectedFlow`.
+    impact_status: str | None = None
 
 
 class CrossRepoCallCandidate(BaseModel):

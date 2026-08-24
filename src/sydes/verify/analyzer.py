@@ -44,6 +44,7 @@ from sydes.code_intelligence.cbm import CBM_BACKEND
 from sydes.impact import (
     COMPLETENESS_COMPLETE,
     GUIDE_OFF,
+    IMPACT_STATUS_INFERRED,
     GuideBudget,
     ImpactInterpreter,
     ImpactResult,
@@ -737,7 +738,12 @@ def _build_impact_guide(options: VerifyChangeOptions) -> tuple[Any | None, list[
     if options.llm_client is not None:
         return LLMImpactGuide(options.llm_client), []
     try:
-        client = create_default_llm_client(model_spec=options.model_spec)
+        # No pinned temperature: some models reject an explicit value (e.g.
+        # one observed rejecting 0.0, accepting only their own default), and
+        # the guide's own request already sends `temperature=None` — the
+        # client must be built the same way or its own default would still
+        # override the request's.
+        client = create_default_llm_client(model_spec=options.model_spec, temperature=None)
     except LLMClientError as exc:
         return None, [f"impact_guide unavailable: {exc}"]
     return LLMImpactGuide(client), []
@@ -772,7 +778,12 @@ def _select_via_impact_interpreter(
     seen: set[str] = set()
     for entrypoint in reconciled:
         if entrypoint.kind != "http_route":
-            continue  # non-HTTP entrypoints have no EndpointCandidate to map to
+            # Non-HTTP entrypoints (including non-HTTP INFERRED ones) have no
+            # EndpointCandidate to map to — visible in `impact_result.affected`
+            # and diagnostics, not in `affected_flows`. Unchanged from before
+            # M4: this is the same boundary PROVEN non-HTTP entries already
+            # had, not a new restriction on inferred ones.
+            continue
         candidate = _match_endpoint_candidate(entrypoint, routes.routes)
         if candidate is None:
             continue
@@ -780,6 +791,12 @@ def _select_via_impact_interpreter(
         if dedupe_key in seen:
             continue
         seen.add(dedupe_key)
+        if entrypoint.status == IMPACT_STATUS_INFERRED:
+            # `candidate` is the real, deterministically-discovered route the
+            # inferred entrypoint matched — only its provenance tag changes;
+            # its handler/file/method/path are exactly what deterministic
+            # discovery already found, never anything the guide guessed.
+            candidate = candidate.model_copy(update={"impact_status": IMPACT_STATUS_INFERRED})
         selected.append(candidate)
     return selected, impact_result, guide_notes
 
@@ -1058,6 +1075,11 @@ def analyze_change(
                 )
                 for item in change.symbols
             ],
+            # `endpoint`, not `resolved_endpoint`: `resolve_trace_target` may
+            # substitute a same-route object from `routes.routes` that never
+            # carried the tag `_select_via_impact_interpreter` set — the
+            # provenance belongs to the candidate M4 actually selected.
+            impact_status=endpoint.impact_status or "proven",
             steps=list((contract.get("flow") or {}).get("steps", []) or []),
             sinks=list(contract.get("sinks", []) or []),
             analysis_status=analysis_status,

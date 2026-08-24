@@ -28,6 +28,11 @@ RELATION_SIGNATURE_REFERENCE = "signature_reference"
 #: `RELATION_CALLS` so a reader can always tell a graph fact from a
 #: guide-directed source finding, no matter how far downstream it travels.
 RELATION_SOURCE_CONFIRMED = "source_confirmed"
+#: A step built directly from an LLM's semantic inference — no graph edge, no
+#: source read. Never claims proof; it exists so a reader can always tell a
+#: proven hop from an inferred one at a glance, same as `RELATION_SOURCE_CONFIRMED`
+#: distinguishes a guided source read from a plain graph edge.
+RELATION_LLM_INFERRED = "llm_inferred"
 
 #: Which strategy proposed a path. Recorded so a surprising result can be
 #: attributed to the rule that produced it rather than to the system at large.
@@ -41,6 +46,11 @@ STRATEGY_SIGNATURE_REFERENCE = "signature_reference"
 #: reader must be able to see that one hop of this path came from guided
 #: source inspection rather than the graph alone.
 STRATEGY_GUIDED_INVESTIGATION = "guided_investigation"
+#: A path built from an LLM semantic-inference candidate. Distinct from
+#: `STRATEGY_GUIDED_INVESTIGATION` (which still ends in a real confirmed
+#: graph/source relationship) — this strategy carries no such proof, only a
+#: model's rationale and confidence, however corroboration may have gone.
+STRATEGY_LLM_SEMANTIC_INFERENCE = "llm_semantic_inference"
 
 #: An entrypoint's kind, as far as the facts support. `unknown` is a real
 #: answer: a decorated symbol that is plainly an entrypoint but whose framework
@@ -55,6 +65,14 @@ COMPLETENESS_COMPLETE = "complete"
 COMPLETENESS_TRUNCATED = "truncated"
 COMPLETENESS_UNRESOLVED = "unresolved"
 
+#: Whether one affected entrypoint has a deterministic graph/source path
+#: (`PROVEN`) or came from the guide's own semantic reasoning with no such
+#: path (`INFERRED`). Proof, not confidence: an `INFERRED` entry may carry a
+#: high model confidence and still be `INFERRED` — this field never changes
+#: just because the model sounded sure. See `AffectedEntrypoint.status`.
+IMPACT_STATUS_PROVEN = "proven"
+IMPACT_STATUS_INFERRED = "inferred"
+
 
 #: Separator for a synthetic identity key. Not a valid identifier character in
 #: any language Sydes or CBM parses, so it cannot collide with a real name.
@@ -68,6 +86,16 @@ _KEY_SEP = "\u241f"
 #: reference on a guided one.
 PROVENANCE_DETERMINISTIC = "deterministic"
 PROVENANCE_LLM_GUIDED_SOURCE_CONFIRMED = "llm_guided_source_confirmed"
+#: An inferred candidate whose entrypoint matched something already present
+#: in the known facts (a declared route/entrypoint) — cheap corroboration,
+#: not a graph path. Still `IMPACT_STATUS_INFERRED`, never promoted to
+#: `PROVEN`: corroboration raises confidence in the claim, it does not
+#: manufacture the deterministic path `PROVEN` requires.
+PROVENANCE_LLM_INFERRED_CORROBORATED = "llm_inferred_corroborated"
+#: An inferred candidate with no matching known fact at all — the model's
+#: reasoning alone. Recorded rather than discarded, exactly as uncorroborated
+#: as its name says.
+PROVENANCE_LLM_INFERRED_UNCORROBORATED = "llm_inferred_uncorroborated"
 
 
 #: Guide invocation policy. `off` runs the M2 deterministic system exactly as
@@ -106,17 +134,25 @@ ACTION_FIND_DECORATOR_REFERENCES = "find_decorator_references"
 ACTION_FIND_SIGNATURE_REFERENCES = "find_signature_references"
 ACTION_INSPECT_NEARBY_ENTRYPOINTS = "inspect_nearby_entrypoints"
 ACTION_STOP_UNRESOLVED = "stop_unresolved"
+#: The primary M3 action: direct semantic impact inference. Rather than
+#: picking one target/relationship to mechanically check, the guide proposes
+#: zero or more `ImpactCandidate`s — entrypoints or behaviors it believes are
+#: plausibly affected, with its own confidence and rationale attached. The
+#: graph-navigation actions above remain available for the guide to gather
+#: more context first, but are no longer the only way a turn can conclude.
+ACTION_INFER_IMPACT = "infer_impact"
 INVESTIGATION_ACTIONS = frozenset({
     ACTION_TRACE_CALLERS, ACTION_TRACE_USAGES, ACTION_INSPECT_SYMBOL,
     ACTION_INSPECT_ENCLOSING_FUNCTION, ACTION_INSPECT_SOURCE_SPAN,
     ACTION_FIND_DECORATOR_REFERENCES, ACTION_FIND_SIGNATURE_REFERENCES,
-    ACTION_INSPECT_NEARBY_ENTRYPOINTS, ACTION_STOP_UNRESOLVED,
+    ACTION_INSPECT_NEARBY_ENTRYPOINTS, ACTION_STOP_UNRESOLVED, ACTION_INFER_IMPACT,
 })
 #: Actions that require `target` to name a symbol the question already
-#: surfaced. Only `INSPECT_NEARBY_ENTRYPOINTS` and `STOP_UNRESOLVED` can act
-#: without one (the former discovers new candidates by file, not by name).
+#: surfaced. Only `INSPECT_NEARBY_ENTRYPOINTS`, `STOP_UNRESOLVED`, and
+#: `INFER_IMPACT` can act without one (the first discovers new candidates by
+#: file, not by name; the last supplies `candidates` instead of a target).
 ACTIONS_REQUIRING_TARGET = INVESTIGATION_ACTIONS - {
-    ACTION_INSPECT_NEARBY_ENTRYPOINTS, ACTION_STOP_UNRESOLVED,
+    ACTION_INSPECT_NEARBY_ENTRYPOINTS, ACTION_STOP_UNRESOLVED, ACTION_INFER_IMPACT,
 }
 #: Source-confirming actions answer a concrete relationship — "does `target`'s
 #: source reference `sought_symbol`?" — not just "inspect `target`". These are
@@ -295,6 +331,26 @@ class AffectedEntrypoint:
     #: shortest path: two different relationships reaching the same handler are
     #: two different reasons to look at it.
     paths: list[ImpactPath] = field(default_factory=list)
+    #: `IMPACT_STATUS_PROVEN` (default) for every deterministic strategy;
+    #: `IMPACT_STATUS_INFERRED` only for an entry the guide proposed with no
+    #: deterministic path. If the same entrypoint is ever found both ways,
+    #: PROVEN wins and the record stays PROVEN — see `_record`/`_record_inferred`
+    #: in `interpreter.py`, which enforce that at merge time, not here.
+    status: str = IMPACT_STATUS_PROVEN
+    #: The fields below are populated only when `status == IMPACT_STATUS_INFERRED`.
+    #: Advisory metadata from the model, never proof — `label`/`strategies`
+    #: continue to describe *what* was found; these describe how sure the
+    #: model was and why, for a reader deciding how much to trust an entry
+    #: with no graph/source path behind it.
+    llm_confidence: float | None = None
+    llm_reason: str = ""
+    llm_inference_type: str = ""
+    llm_uncertainty: str = ""
+    #: Whether cheap corroboration (a match against an already-known fact —
+    #: never a new search) found something for this inferred candidate. Still
+    #: not proof; still `IMPACT_STATUS_INFERRED`. See
+    #: `PROVENANCE_LLM_INFERRED_CORROBORATED`.
+    corroborated: bool = False
 
     @property
     def strategies(self) -> list[str]:
@@ -321,6 +377,12 @@ class AffectedEntrypoint:
             "changed_symbols": sorted(self.changed_symbols),
             "strategies": self.strategies,
             "paths": [path.to_dict() for path in self.paths],
+            "status": self.status,
+            "llm_confidence": self.llm_confidence,
+            "llm_reason": self.llm_reason,
+            "llm_inference_type": self.llm_inference_type,
+            "llm_uncertainty": self.llm_uncertainty,
+            "corroborated": self.corroborated,
         }
 
 
@@ -359,6 +421,14 @@ class ImpactResult:
     #: Counters and limits, for diagnostics.
     metrics: dict[str, Any] = field(default_factory=dict)
     notes: list[str] = field(default_factory=list)
+    #: One compact, JSON-safe record per semantic-inference candidate the
+    #: guide ever proposed in this run — never a giant prompt/response dump.
+    #: Each entry: changed_symbol, turn, candidate entrypoint/symbol,
+    #: confidence, rationale, inference_type, uncertainty, corroborated,
+    #: corroboration_evidence, accepted, rejection_reason. Exists so every
+    #: guide turn can be reconstructed and evaluated after the fact, not just
+    #: summarized by the aggregate `metrics` counters.
+    llm_candidate_log: list[dict[str, Any]] = field(default_factory=list)
 
     @property
     def http_entrypoints(self) -> list[AffectedEntrypoint]:
@@ -371,6 +441,7 @@ class ImpactResult:
             "unresolved": [item.to_dict() for item in self.unresolved],
             "metrics": dict(self.metrics),
             "notes": list(self.notes),
+            "llm_candidate_log": list(self.llm_candidate_log),
         }
 
 
@@ -478,34 +549,82 @@ class UnresolvedFrontier:
         }
 
 
+def _clamp_confidence(value: float) -> float:
+    """Model confidence is advisory metadata, not math — but a value outside
+    [0, 1] is either a formatting slip or a model that doesn't know what a
+    probability is, and either way should not propagate uninspected."""
+    return max(0.0, min(1.0, value))
+
+
+@dataclass(frozen=True)
+class ImpactCandidate:
+    """One semantic impact hypothesis, straight from a guide turn.
+
+    Not evidence by itself. `entrypoint_label` is free text the guide chose
+    (a route like "GET /cases", or a plain description of a behavior when no
+    route applies) — the executor may find it matches something already
+    known (corroboration) or may find nothing, and either way the candidate
+    is preserved as `IMPACT_STATUS_INFERRED`, never silently dropped for
+    lack of proof.
+    """
+
+    entrypoint_label: str
+    entrypoint_symbol: str = ""
+    confidence: float = 0.0
+    reason: str = ""
+    inference_type: str = ""
+    uncertainty: str = ""
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "confidence", _clamp_confidence(self.confidence))
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "entrypoint_label": self.entrypoint_label,
+            "entrypoint_symbol": self.entrypoint_symbol,
+            "confidence": self.confidence,
+            "reason": self.reason,
+            "inference_type": self.inference_type,
+            "uncertainty": self.uncertainty,
+        }
+
+
 @dataclass(frozen=True)
 class InvestigationDecision:
-    """One guide turn's answer: exactly one action, on at most one target.
+    """One guide turn's answer.
 
-    `target` must name a symbol or file the corresponding `ImpactQuestion`
-    already surfaced (in `partial_paths`, `nearby_facts`, or
-    `candidate_entrypoints`) or the changed symbol itself — the executor
-    rejects anything else rather than trust a name the guide introduced on
-    its own.
+    Two shapes, by `action`:
 
-    `sought_symbol` is required only for the source-confirming actions
-    (`ACTIONS_REQUIRING_SOUGHT_SYMBOL`): it names the *other* half of the
-    relationship being checked — "does `target`'s source reference
-    `sought_symbol`?" — and must come from the question's
-    `candidate_origins`, not from `target`'s own vocabulary.
+    - `ACTION_INFER_IMPACT` (the primary M3 path): `candidates` carries zero
+      or more `ImpactCandidate`s — the guide's own semantic hypotheses about
+      what this changed symbol plausibly affects. `target`/`sought_symbol`
+      are unused for this action.
+    - Any other action (the legacy graph-navigation vocabulary, kept for
+      context-gathering turns): `target` must name a symbol or file the
+      corresponding `ImpactQuestion` already surfaced (in `partial_paths`,
+      `nearby_facts`, or `candidate_entrypoints`) or the changed symbol
+      itself — the executor rejects anything else rather than trust a name
+      the guide introduced on its own. `sought_symbol` is required only for
+      the source-confirming actions (`ACTIONS_REQUIRING_SOUGHT_SYMBOL`): it
+      names the *other* half of the relationship being checked — "does
+      `target`'s source reference `sought_symbol`?" — and must come from the
+      question's `candidate_origins`, never from `target`'s own vocabulary.
     """
 
     action: str
     target: str = ""
     sought_symbol: str = ""
     rationale: str = ""
+    candidates: tuple[ImpactCandidate, ...] = ()
     parameters: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "action": self.action, "target": self.target,
             "sought_symbol": self.sought_symbol,
-            "rationale": self.rationale, "parameters": dict(self.parameters),
+            "rationale": self.rationale,
+            "candidates": [c.to_dict() for c in self.candidates],
+            "parameters": dict(self.parameters),
         }
 
 

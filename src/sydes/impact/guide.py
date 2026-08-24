@@ -24,8 +24,10 @@ from typing import Any, Protocol
 from sydes.impact.models import (
     ACTIONS_REQUIRING_SOUGHT_SYMBOL,
     ACTIONS_REQUIRING_TARGET,
+    ACTION_INFER_IMPACT,
     ACTION_STOP_UNRESOLVED,
     INVESTIGATION_ACTIONS,
+    ImpactCandidate,
     ImpactQuestion,
     InvestigationDecision,
 )
@@ -60,24 +62,29 @@ class ImpactGuide(Protocol):
         """Return the next action to try, or raise `GuideError`."""
 
 
-_SYSTEM_PROMPT = """You are assisting a deterministic code-impact analyzer, not replacing it.
+_SYSTEM_PROMPT = """You are a semantic impact-inference layer assisting a deterministic code-impact analyzer, not replacing it.
 
-Your goal: find evidence connecting a changed symbol to the system entrypoints it could affect (an HTTP route, a scheduled job, any declared entrypoint), when the analyzer's own structural traversal already stalled without reaching one.
+Your goal: given a changed symbol whose structural (graph) path to a system entrypoint could not be established, decide which backend entrypoints or behaviors (an HTTP route, a scheduled job, any declared entrypoint) are PLAUSIBLY affected — even when the structural graph has not established the complete path.
 
 Ground rules:
-- You do NOT decide whether any route or entrypoint is affected. That is decided later, only from concrete evidence a deterministic tool actually confirms — never from your answer alone.
-- Choose exactly one action from the allowed list below.
-- `target`, if given, must be one of the exact names or files this question already listed (known_files, candidate_entrypoints, partial_paths). Do not invent a name you were not shown.
-- INSPECT_SYMBOL, INSPECT_ENCLOSING_FUNCTION, and INSPECT_SOURCE_SPAN each check one concrete relationship: "does `target`'s source actually reference `sought_symbol`?" Supply `sought_symbol` for these three, chosen from candidate_origins only — pick whichever origin is the actual relationship you are trying to confirm, not just the first one listed.
+- You do NOT decide whether anything is VERIFIED. Your output is impact evidence with explicit uncertainty, not a verification claim — a deterministic tool decides separately, from real test evidence, whether anything is actually verified.
+- Your primary action is INFER_IMPACT: propose zero or more candidate entrypoints/behaviors this changed symbol plausibly affects, each with your own honest confidence, a one-sentence reason, an inference_type (e.g. "semantic_indirect_dependency", "shared_utility", "naming_convention"), and an uncertainty note naming what the graph is missing. Do not force a candidate if you see nothing plausible — an empty candidate list is a legitimate answer.
+- Only reach for a graph-navigation action (TRACE_CALLERS, INSPECT_SYMBOL, INSPECT_NEARBY_ENTRYPOINTS, etc.) when you genuinely need one more piece of context before you can infer well — not as your default move, and not repeatedly. Prefer one high-value INFER_IMPACT call over many rounds of graph navigation.
+- A candidate's `entrypoint` should be the clearest identifier you can give — an "HTTP_METHOD /path" string when you believe it is a route, otherwise a short behavior description. `entrypoint_symbol`, if you know it, should be one of the exact names this question already listed (known_files, candidate_entrypoints, known_entrypoints_in_context, partial_paths) — never invent a symbol name you were not shown, though the entrypoint/behavior description itself may be your own words.
+- Confidence is your honest estimate in [0, 1], not a formality — do not default everything to a round number.
 - A completed deterministic path needs no further investigation — you are only ever asked about what is still unresolved.
-- Check attempted_actions before choosing: do not repeat one that already ran with the same target/sought_symbol, and prefer an action likely to surface genuinely new evidence over one that only re-examines what you already tried.
-- If traversal stalled inside or near a file that also declares known entrypoints, investigating those entrypoints' own source can be the most direct way to confirm or rule out a connection.
-- Reach for source inspection specifically when the graph looks like it is missing a relationship that plausibly exists in the code — a call the graph never captured, for instance.
-- Choose STOP_UNRESOLVED when nothing in the supplied context and remaining actions is likely to add real evidence. Do not guess to fill the budget.
+- Check attempted_actions before choosing: do not repeat an action that already ran with the same target/sought_symbol/candidates.
+- Choose STOP_UNRESOLVED only when you have already tried INFER_IMPACT (or are confident it would yield nothing) and no other action is likely to add real value. Do not guess to fill the budget, but also do not stop before trying to infer at least once.
 - Do not assume how any framework, decorator, or library behaves beyond what the supplied evidence already shows.
-- Respond with a single JSON object and nothing else: {"action": "<ACTION>", "target": "<name or empty>", "sought_symbol": "<name from candidate_origins, or empty if not applicable>", "rationale": "<one sentence>"}
+- Respond with a single JSON object and nothing else.
 
-Allowed actions: TRACE_CALLERS, TRACE_USAGES, INSPECT_SYMBOL, INSPECT_ENCLOSING_FUNCTION, INSPECT_SOURCE_SPAN, FIND_DECORATOR_REFERENCES, FIND_SIGNATURE_REFERENCES, INSPECT_NEARBY_ENTRYPOINTS, STOP_UNRESOLVED."""
+For INFER_IMPACT:
+{"action": "infer_impact", "candidates": [{"entrypoint": "GET /cases", "entrypoint_symbol": "optional exact known symbol", "confidence": 0.72, "reason": "one sentence", "inference_type": "semantic_indirect_dependency", "uncertainty": "what the graph is missing"}], "rationale": "one sentence"}
+
+For any other action:
+{"action": "<ACTION>", "target": "<name or empty>", "sought_symbol": "<name from candidate_origins, or empty if not applicable>", "rationale": "<one sentence>"}
+
+Allowed actions: INFER_IMPACT (primary), TRACE_CALLERS, TRACE_USAGES, INSPECT_SYMBOL, INSPECT_ENCLOSING_FUNCTION, INSPECT_SOURCE_SPAN, FIND_DECORATOR_REFERENCES, FIND_SIGNATURE_REFERENCES, INSPECT_NEARBY_ENTRYPOINTS, STOP_UNRESOLVED."""
 
 
 def build_guide_prompt(question: ImpactQuestion) -> str:
@@ -140,14 +147,61 @@ def _extract_json_object(text: str) -> Any | None:
         return None
 
 
+def _parse_candidate(raw: Any) -> ImpactCandidate | None:
+    """Parse one candidate object. Returns `None` for a malformed entry
+    rather than failing the whole turn — one bad candidate among several
+    good ones should not discard the good ones, though a turn producing
+    zero parseable candidates from a non-empty list is still suspicious
+    enough that the caller treats it as malformed (see `_parse_candidates`).
+    """
+    if not isinstance(raw, dict):
+        return None
+    label = raw.get("entrypoint") or raw.get("entrypoint_label")
+    if not isinstance(label, str) or not label.strip():
+        return None
+    symbol = raw.get("entrypoint_symbol", "")
+    symbol = symbol.strip() if isinstance(symbol, str) else ""
+    raw_confidence = raw.get("confidence", 0.0)
+    try:
+        confidence = float(raw_confidence)
+    except (TypeError, ValueError):
+        confidence = 0.0
+    reason = raw.get("reason", "")
+    reason = reason.strip() if isinstance(reason, str) else ""
+    inference_type = raw.get("inference_type", "")
+    inference_type = inference_type.strip() if isinstance(inference_type, str) else ""
+    uncertainty = raw.get("uncertainty", "")
+    uncertainty = uncertainty.strip() if isinstance(uncertainty, str) else ""
+    return ImpactCandidate(
+        entrypoint_label=label.strip(), entrypoint_symbol=symbol, confidence=confidence,
+        reason=reason, inference_type=inference_type, uncertainty=uncertainty,
+    )
+
+
+def _parse_candidates(raw: Any) -> tuple[ImpactCandidate, ...]:
+    if raw is None:
+        return ()
+    if not isinstance(raw, list):
+        raise GuideError("'candidates' must be a JSON array")
+    parsed = [_parse_candidate(item) for item in raw]
+    parsed = [item for item in parsed if item is not None]
+    if raw and not parsed:
+        # Every entry was malformed — an empty list would have been a
+        # legitimate "nothing plausible" answer, but a non-empty list that
+        # parses to nothing is a model that got the schema wrong.
+        raise GuideError("'candidates' contained no parseable candidate objects")
+    return tuple(parsed)
+
+
 def parse_guide_decision(text: str) -> InvestigationDecision:
     """Parse and strictly validate one guide response.
 
     Raises `GuideError` for anything that is not exactly the documented
     shape: a JSON object, an `action` string in `INVESTIGATION_ACTIONS`, and
-    (when the action requires one) a non-empty `target`. There is no
-    best-effort coercion here on purpose — a guide response close to valid
-    but not valid is exactly the case a fail-closed contract exists for.
+    (when the action requires one) a non-empty `target` or a parseable
+    `candidates` array. There is no best-effort coercion here on purpose — a
+    guide response close to valid but not valid is exactly the case a
+    fail-closed contract exists for.
     """
     payload = _extract_json_object(text)
     if not isinstance(payload, dict):
@@ -159,6 +213,10 @@ def parse_guide_decision(text: str) -> InvestigationDecision:
     action = raw_action.strip().lower()
     if action not in INVESTIGATION_ACTIONS:
         raise GuideError(f"guide chose an unsupported action: {raw_action!r}")
+
+    candidates: tuple[ImpactCandidate, ...] = ()
+    if action == ACTION_INFER_IMPACT:
+        candidates = _parse_candidates(payload.get("candidates"))
 
     raw_target = payload.get("target", "")
     target = raw_target.strip() if isinstance(raw_target, str) else ""
@@ -178,7 +236,7 @@ def parse_guide_decision(text: str) -> InvestigationDecision:
 
     return InvestigationDecision(
         action=action, target=target, sought_symbol=sought_symbol,
-        rationale=rationale, parameters=parameters,
+        rationale=rationale, candidates=candidates, parameters=parameters,
     )
 
 
@@ -191,8 +249,15 @@ class LLMImpactGuide:
     def investigate(self, question: ImpactQuestion) -> InvestigationDecision:
         prompt = build_guide_prompt(question)
         try:
+            # No `temperature` pinned here: some providers/models (e.g. one
+            # observed rejecting 0.0 outright) only support their own
+            # default. `LLMRequest(temperature=None)` means "use whatever
+            # the client/provider defaults to" — the client omits the
+            # parameter entirely rather than guessing a value that might be
+            # rejected. A caller that genuinely needs a specific temperature
+            # can still set one via `LLMSettings`/the client's own default.
             response = self._client.generate(
-                LLMRequest(prompt=prompt, system=_SYSTEM_PROMPT, temperature=0.0)
+                LLMRequest(prompt=prompt, system=_SYSTEM_PROMPT, temperature=None)
             )
         except LLMClientError as exc:
             raise GuideError(f"guide provider failed: {exc}") from exc

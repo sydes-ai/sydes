@@ -6,7 +6,7 @@ from dataclasses import dataclass
 import json
 import os
 from urllib import error, request
-from typing import Protocol
+from typing import Any, Protocol
 
 from anthropic import Anthropic
 from anthropic import AnthropicError
@@ -123,7 +123,7 @@ class OllamaClient:
         base_url: str,
         timeout_seconds: float = 90.0,
         keep_alive: str = "10m",
-        temperature: float = 0.0,
+        temperature: float | None = 0.0,
     ) -> None:
         self.model = model
         self.base_url = base_url.rstrip("/")
@@ -201,7 +201,7 @@ class OpenAIClient:
         api_key: str,
         base_url: str,
         timeout_seconds: float = 90.0,
-        temperature: float = 0.0,
+        temperature: float | None = 0.0,
     ) -> None:
         self.model = model
         self.api_key = api_key
@@ -226,12 +226,16 @@ class OpenAIClient:
             if request_data.temperature is not None
             else self.temperature
         )
+        # Some models reject an explicit temperature outright (observed:
+        # "'temperature' does not support 0.0 with this model. Only the
+        # default (1) value is supported") — omitting the parameter entirely
+        # when unresolved is the provider/model-capability-safe choice,
+        # rather than guessing a value that might be rejected.
+        create_kwargs: dict[str, Any] = {"model": self.model, "messages": messages}
+        if resolved_temperature is not None:
+            create_kwargs["temperature"] = resolved_temperature
         try:
-            response = self._client.chat.completions.create(
-                model=self.model,
-                messages=messages,
-                temperature=resolved_temperature,
-            )
+            response = self._client.chat.completions.create(**create_kwargs)
         except OpenAIError as exc:
             status_code = getattr(exc, "status_code", None)
             if status_code == 404:
@@ -268,7 +272,7 @@ class AnthropicClient:
         api_key: str,
         base_url: str,
         timeout_seconds: float = 90.0,
-        temperature: float = 0.0,
+        temperature: float | None = 0.0,
     ) -> None:
         self.model = model
         self.api_key = api_key
@@ -289,14 +293,16 @@ class AnthropicClient:
             if request_data.temperature is not None
             else self.temperature
         )
+        create_kwargs: dict[str, Any] = {
+            "model": self.model,
+            "max_tokens": self.max_tokens,
+            "messages": [{"role": "user", "content": request_data.prompt}],
+            "system": request_data.system,
+        }
+        if resolved_temperature is not None:
+            create_kwargs["temperature"] = resolved_temperature
         try:
-            response = self._client.messages.create(
-                model=self.model,
-                max_tokens=self.max_tokens,
-                messages=[{"role": "user", "content": request_data.prompt}],
-                system=request_data.system,
-                temperature=resolved_temperature,
-            )
+            response = self._client.messages.create(**create_kwargs)
         except AnthropicError as exc:
             raise LLMClientError(
                 f"Anthropic request failed for model '{self.model}': {exc}"
@@ -369,14 +375,32 @@ def load_llm_settings_from_env() -> LLMSettings:
     )
 
 
+#: Sentinel distinguishing "caller didn't pass `temperature`, use the
+#: environment/settings default" from "caller explicitly passed
+#: `temperature=None`, meaning omit it" — `None` itself is a legitimate
+#: override value, so it cannot double as the "not given" marker.
+_TEMPERATURE_NOT_GIVEN = object()
+
+
 def create_default_llm_client(
     model_spec: str | None = None,
     *,
     timeout_seconds_override: float | None = None,
+    temperature: float | None = _TEMPERATURE_NOT_GIVEN,  # type: ignore[assignment]
 ) -> LLMClient:
-    """Create the default LLM client from model spec or environment configuration."""
+    """Create the default LLM client from model spec or environment configuration.
+
+    `temperature` defaults to the environment/settings value (unchanged
+    behavior for every existing caller). Pass `temperature=None` explicitly
+    to build a client with no pinned temperature at all — the resulting
+    client omits the parameter from its provider request rather than
+    guessing a value a given model might reject.
+    """
     settings = load_llm_settings_from_env()
     timeout_seconds = timeout_seconds_override if timeout_seconds_override is not None else settings.timeout_seconds
+    resolved_temperature = (
+        settings.temperature if temperature is _TEMPERATURE_NOT_GIVEN else temperature
+    )
 
     provider = settings.provider
     model = settings.model
@@ -389,7 +413,7 @@ def create_default_llm_client(
             base_url=settings.base_url,
             timeout_seconds=timeout_seconds,
             keep_alive=settings.keep_alive,
-            temperature=settings.temperature,
+            temperature=resolved_temperature,
         )
 
     if provider == "openai":
@@ -408,7 +432,7 @@ def create_default_llm_client(
             api_key=api_key,
             base_url=openai_base_url,
             timeout_seconds=timeout_seconds,
-            temperature=settings.temperature,
+            temperature=resolved_temperature,
         )
 
     if provider == "anthropic":
@@ -427,7 +451,7 @@ def create_default_llm_client(
             api_key=api_key,
             base_url=anthropic_base_url,
             timeout_seconds=timeout_seconds,
-            temperature=settings.temperature,
+            temperature=resolved_temperature,
         )
 
     raise LLMClientError(

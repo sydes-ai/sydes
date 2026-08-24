@@ -31,6 +31,7 @@ from sydes.code_intelligence.base import StructuralFacts
 from sydes.impact.guide import GuideError, ImpactGuide
 from sydes.impact.investigate import InvestigationExecutor, source_preview
 from sydes.impact.models import (
+    ACTION_INFER_IMPACT,
     ACTION_INSPECT_ENCLOSING_FUNCTION,
     ACTION_INSPECT_NEARBY_ENTRYPOINTS,
     ACTION_INSPECT_SOURCE_SPAN,
@@ -44,8 +45,12 @@ from sydes.impact.models import (
     GUIDE_AUTO,
     GUIDE_OFF,
     GUIDE_POLICIES,
+    IMPACT_STATUS_INFERRED,
+    IMPACT_STATUS_PROVEN,
     PROVENANCE_DETERMINISTIC,
     PROVENANCE_LLM_GUIDED_SOURCE_CONFIRMED,
+    PROVENANCE_LLM_INFERRED_CORROBORATED,
+    PROVENANCE_LLM_INFERRED_UNCORROBORATED,
     REASON_AMBIGUOUS_SYMBOL_IDENTITY,
     REASON_MULTIPLE_UNRESOLVED_CANDIDATES,
     REASON_NO_ENTRYPOINT_REACHED,
@@ -54,6 +59,7 @@ from sydes.impact.models import (
     RELATION_CALLS,
     RELATION_DECORATOR_REFERENCE,
     RELATION_DIRECT,
+    RELATION_LLM_INFERRED,
     RELATION_SIGNATURE_REFERENCE,
     RELATION_SOURCE_CONFIRMED,
     RELATION_USAGE,
@@ -61,9 +67,11 @@ from sydes.impact.models import (
     STRATEGY_DECORATOR_REFERENCE,
     STRATEGY_DIRECT_ENTRYPOINT,
     STRATEGY_GUIDED_INVESTIGATION,
+    STRATEGY_LLM_SEMANTIC_INFERENCE,
     STRATEGY_SIGNATURE_REFERENCE,
     STRATEGY_USAGE_REACHABILITY,
     AffectedEntrypoint,
+    ImpactCandidate,
     ImpactPath,
     ImpactQuestion,
     ImpactResult,
@@ -302,6 +310,19 @@ class ImpactInterpreter:
             #: Separate from total `interpret()` time so a slow run can be
             #: attributed to CBM/traversal vs. the guide.
             "guide_latency_ms": 0.0,
+            #: Sanitized `str(GuideError)` messages, in order — a provider
+            #: failure must be visible in diagnostics, not just counted.
+            "guide_error_details": [],
+            #: How many `ImpactCandidate`s the guide proposed in total, how
+            #: many were accepted into `result.affected` (PROVEN duplicates
+            #: are not — see `_record_inferred`), how many corroborated vs.
+            #: not, and how many were genuinely new entrypoints (as opposed
+            #: to adding a second changed-symbol reason to one already found).
+            "llm_candidates": 0,
+            "llm_candidates_accepted": 0,
+            "llm_candidates_corroborated": 0,
+            "llm_candidates_uncorroborated": 0,
+            "llm_new_entrypoints": 0,
         }
         if not candidates or self._guide is None or self._guide_policy == GUIDE_OFF:
             return metrics
@@ -361,10 +382,15 @@ class ImpactInterpreter:
                     repo=index.repo_of(symbol),
                 )
                 turn_started = time.monotonic()
+                turn_number = len(tried_summary) + 1
                 try:
                     decision = self._guide.investigate(question)
-                except GuideError:
+                except GuideError as exc:
                     metrics["guide_errors"] += 1
+                    # A provider/parse failure must stay visible, not just
+                    # counted — the caller decides what to do with it, but it
+                    # is never silently discarded.
+                    metrics["guide_error_details"].append(f"guide_error={exc}")
                     metrics["guide_latency_ms"] += (time.monotonic() - turn_started) * 1000
                     break
                 metrics["guide_latency_ms"] += (time.monotonic() - turn_started) * 1000
@@ -376,6 +402,33 @@ class ImpactInterpreter:
 
                 if decision.action == ACTION_STOP_UNRESOLVED:
                     break
+
+                if decision.action == ACTION_INFER_IMPACT:
+                    progress_key = (
+                        decision.action, "",
+                        "|".join(sorted(c.entrypoint_label for c in decision.candidates)),
+                    )
+                    if progress_key in tried:
+                        metrics["guide_no_progress"] += 1
+                        break
+                    tried.add(progress_key)
+                    tried_summary.append(
+                        f"infer_impact -> {len(decision.candidates)} candidate(s)"
+                        if decision.candidates else "infer_impact -> no candidates proposed"
+                    )
+                    # A recorded inferred entrypoint does not "resolve" the
+                    # symbol in the PROVEN sense — `symbol_resolved` stays
+                    # False, so the symbol remains visible in
+                    # `result.unresolved` too (see below the loop), distinct
+                    # from a deterministic resolution. The turn loop simply
+                    # continues, bounded by the same budget as any other
+                    # action.
+                    self._apply_inferred_candidates(
+                        decision.candidates, executor=executor, found=found,
+                        result=result, name=name, turn=turn_number, metrics=metrics,
+                    )
+                    continue
+
                 progress_key = (decision.action, decision.target, decision.sought_symbol)
                 if progress_key in tried:
                     metrics["guide_no_progress"] += 1
@@ -458,6 +511,60 @@ class ImpactInterpreter:
             return self._reachability(symbol, index, dead_ends=dead_ends)
         finally:
             self.budget = original
+
+    @staticmethod
+    def _apply_inferred_candidates(
+        candidates: tuple[ImpactCandidate, ...],
+        *,
+        executor: InvestigationExecutor,
+        found: dict[str, AffectedEntrypoint],
+        result: ImpactResult,
+        name: str,
+        turn: int,
+        metrics: dict[str, Any],
+    ) -> None:
+        """Corroborate and merge every candidate from one INFER_IMPACT turn.
+
+        Corroboration (`InvestigationExecutor.corroborate_candidates`) is
+        cheap and never a new search — see its own docstring. Every
+        candidate is logged into `result.llm_candidate_log` regardless of
+        outcome, and every candidate not already dominated by a PROVEN
+        record is merged into `found` as `IMPACT_STATUS_INFERRED` — nothing
+        proposed here is silently dropped, which is the exact failure mode
+        this action exists to fix.
+        """
+        corroborations = executor.corroborate_candidates(candidates)
+        metrics["llm_candidates"] += len(candidates)
+        for candidate, corroboration in zip(candidates, corroborations):
+            if corroboration["corroborated"]:
+                metrics["llm_candidates_corroborated"] += 1
+            else:
+                metrics["llm_candidates_uncorroborated"] += 1
+
+            is_new = ImpactInterpreter._record_inferred(found, candidate, corroboration, name)
+            key = corroboration["qualified_name"] or corroboration["symbol"] or candidate.entrypoint_label
+            existing = found.get(key)
+            accepted = existing is not None and existing.status == IMPACT_STATUS_INFERRED
+            if accepted:
+                metrics["llm_candidates_accepted"] += 1
+                if is_new:
+                    metrics["llm_new_entrypoints"] += 1
+            rejection_reason = "" if accepted else "a PROVEN record for this entrypoint already exists"
+
+            result.llm_candidate_log.append({
+                "changed_symbol": name,
+                "turn": turn,
+                "candidate_entrypoint": candidate.entrypoint_label,
+                "candidate_symbol": candidate.entrypoint_symbol,
+                "confidence": candidate.confidence,
+                "rationale": candidate.reason,
+                "inference_type": candidate.inference_type,
+                "uncertainty": candidate.uncertainty,
+                "corroborated": corroboration["corroborated"],
+                "corroboration_evidence": corroboration["detail"],
+                "accepted": accepted,
+                "rejection_reason": rejection_reason,
+            })
 
     # -- strategies -------------------------------------------------------
 
@@ -703,6 +810,64 @@ class ImpactInterpreter:
                    and existing.strategy == path.strategy
                    for existing in entrypoint.paths):
             entrypoint.paths.append(path)
+
+    @staticmethod
+    def _record_inferred(
+        found: dict[str, AffectedEntrypoint],
+        candidate: ImpactCandidate,
+        corroboration: dict[str, Any],
+        changed_symbol: str,
+    ) -> bool:
+        """Merge one LLM candidate into `found`, honoring PROVEN dominance.
+
+        Uses the exact same key scheme as `_record` (`qualified_name` first,
+        then `symbol`) so a corroborated candidate — which carries the real
+        entry's own qualified_name/symbol — naturally lands on the same key
+        a deterministic record for it would. Returns whether this candidate
+        introduced a new entrypoint into `found` (for `llm_new_entrypoints`).
+        """
+        symbol = corroboration["symbol"] or candidate.entrypoint_label
+        qualified_name = corroboration["qualified_name"]
+        key = qualified_name or symbol
+        existing = found.get(key)
+        if existing is not None and existing.status == IMPACT_STATUS_PROVEN:
+            # PROVEN already carries a deterministic path; an inferred
+            # duplicate would add nothing but noise. The candidate is still
+            # visible in guide diagnostics — only the merged result is skipped.
+            return False
+
+        is_new = existing is None
+        if is_new:
+            entrypoint = AffectedEntrypoint(
+                repo=corroboration.get("repo", ""),
+                symbol=symbol, qualified_name=qualified_name,
+                file=corroboration["file"], kind=corroboration["kind"],
+                route_method=corroboration["route_method"], route_path=corroboration["route_path"],
+                status=IMPACT_STATUS_INFERRED,
+            )
+            found[key] = entrypoint
+        else:
+            entrypoint = existing
+
+        entrypoint.changed_symbols.append(changed_symbol)
+        entrypoint.llm_confidence = max(entrypoint.llm_confidence or 0.0, candidate.confidence)
+        entrypoint.llm_reason = entrypoint.llm_reason or candidate.reason
+        entrypoint.llm_inference_type = entrypoint.llm_inference_type or candidate.inference_type
+        entrypoint.llm_uncertainty = entrypoint.llm_uncertainty or candidate.uncertainty
+        entrypoint.corroborated = entrypoint.corroborated or corroboration["corroborated"]
+
+        step = ImpactStep(
+            symbol=symbol, qualified_name=qualified_name, file=corroboration["file"],
+            relation=RELATION_LLM_INFERRED, evidence=candidate.reason,
+            provenance=(
+                PROVENANCE_LLM_INFERRED_CORROBORATED if corroboration["corroborated"]
+                else PROVENANCE_LLM_INFERRED_UNCORROBORATED
+            ),
+        )
+        path = ImpactPath((step,), STRATEGY_LLM_SEMANTIC_INFERENCE)
+        if not any(existing_path.describe() == path.describe() for existing_path in entrypoint.paths):
+            entrypoint.paths.append(path)
+        return is_new
 
 
 def _classify(entry: dict[str, Any]) -> str:

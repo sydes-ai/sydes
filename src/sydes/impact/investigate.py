@@ -26,6 +26,10 @@ from sydes.impact.models import (
     ACTION_STOP_UNRESOLVED,
     ACTION_TRACE_CALLERS,
     ACTION_TRACE_USAGES,
+    ENTRYPOINT_DECORATED,
+    ENTRYPOINT_HTTP,
+    ENTRYPOINT_UNKNOWN,
+    ImpactCandidate,
     InvestigationDecision,
     InvestigationEvidence,
     RELATION_CALLS,
@@ -35,6 +39,21 @@ from sydes.impact.models import (
 from sydes.trace.function_body_slicer import slice_resolved_handler_body
 
 _IDENTIFIER_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
+#: A candidate's `entrypoint_label` is free text, but when it looks like an
+#: HTTP route ("GET /cases") it is worth recognising as one — corroboration
+#: (and later route reconciliation) can then match it by method+path exactly
+#: like a deterministically discovered route.
+_ROUTE_LABEL_RE = re.compile(
+    r"^\s*(GET|POST|PUT|PATCH|DELETE|OPTIONS|HEAD)\s+(/\S*)\s*$", re.IGNORECASE,
+)
+
+
+def parse_route_label(label: str) -> tuple[str, str] | None:
+    """`"GET /cases"` -> `("GET", "/cases")`; anything else -> `None`."""
+    match = _ROUTE_LABEL_RE.match(label)
+    if not match:
+        return None
+    return match.group(1).upper(), match.group(2)
 
 #: CBM's entrypoint/edge facts carry no `language` field, so a source slice
 #: needs a fallback. File extension is enough to tell an indentation-delimited
@@ -382,3 +401,73 @@ class InvestigationExecutor:
             detail=f"source of {decision.target!r} does not reference {sought.short_name!r}",
             provenance=PROVENANCE_SOURCE_INSPECTION, sought_symbol=decision.sought_symbol, file=file,
         )
+
+    # -- semantic-candidate corroboration ------------------------------------
+
+    def corroborate_candidates(
+        self, candidates: tuple[ImpactCandidate, ...],
+    ) -> list[dict[str, Any]]:
+        """Cheap corroboration for each `ACTION_INFER_IMPACT` candidate.
+
+        Deliberately not a search: every candidate is checked only against
+        `self._index.entrypoints`, the same already-loaded, already-known
+        entrypoint list every other action in this module reads from — no
+        new traversal, no new source read, no new query. Corroboration
+        raises confidence in a claim; it never manufactures the deterministic
+        path `IMPACT_STATUS_PROVEN` requires, and an unmatched candidate is
+        still returned (not dropped) so the caller can record it as an
+        uncorroborated inference.
+
+        One result dict per candidate, in the same order, each carrying
+        `corroborated`, `detail`, and the best-known `route_method`/
+        `route_path`/`symbol`/`qualified_name`/`file`/`kind` for building an
+        `AffectedEntrypoint` from it.
+        """
+        return [self._corroborate_one(candidate) for candidate in candidates]
+
+    def _corroborate_one(self, candidate: ImpactCandidate) -> dict[str, Any]:
+        parsed_route = parse_route_label(candidate.entrypoint_label)
+
+        match: dict[str, Any] | None = None
+        if candidate.entrypoint_symbol:
+            match = next(
+                (e for e in self._index.entrypoints if e.get("symbol") == candidate.entrypoint_symbol),
+                None,
+            )
+        if match is None and parsed_route:
+            method, path = parsed_route
+            match = next(
+                (
+                    e for e in self._index.entrypoints
+                    if (e.get("route_method") or "").upper() == method
+                    and (e.get("route_path") or "") == path
+                ),
+                None,
+            )
+
+        if match is not None:
+            route_method = match.get("route_method") or (parsed_route[0] if parsed_route else None)
+            route_path = match.get("route_path") or (parsed_route[1] if parsed_route else None)
+            return {
+                "corroborated": True,
+                "detail": (
+                    f"matches known entrypoint {match.get('symbol')!r}"
+                    + (f" ({route_method} {route_path})" if route_method and route_path else "")
+                ),
+                "route_method": route_method, "route_path": route_path,
+                "symbol": str(match.get("symbol") or candidate.entrypoint_symbol or ""),
+                "qualified_name": str(match.get("qualified_name") or ""),
+                "file": str(match.get("file") or ""),
+                "repo": str(match.get("repo") or ""),
+                "kind": ENTRYPOINT_HTTP if route_method and route_path else ENTRYPOINT_DECORATED,
+            }
+
+        route_method, route_path = parsed_route if parsed_route else (None, None)
+        return {
+            "corroborated": False,
+            "detail": "no known entrypoint or route matches this candidate",
+            "route_method": route_method, "route_path": route_path,
+            "symbol": candidate.entrypoint_symbol or candidate.entrypoint_label,
+            "qualified_name": "", "file": "", "repo": "",
+            "kind": ENTRYPOINT_HTTP if parsed_route else ENTRYPOINT_UNKNOWN,
+        }
