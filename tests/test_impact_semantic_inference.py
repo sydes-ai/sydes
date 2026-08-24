@@ -219,7 +219,9 @@ def test_no_hardcoded_action_selection_does_not_block_infer_impact() -> None:
     guide = ScriptedGuide([
         InvestigationDecision(
             action=ACTION_INFER_IMPACT,
-            candidates=(ImpactCandidate(entrypoint_label="some behavior", confidence=0.3),),
+            candidates=(
+                ImpactCandidate(entrypoint_label="some behavior", confidence=0.3, reason="plausible dependency"),
+            ),
         ),
         InvestigationDecision(action=ACTION_STOP_UNRESOLVED),
     ])
@@ -327,3 +329,67 @@ def test_non_http_inferred_entrypoint_is_not_silently_discarded() -> None:
     assert entry.kind != ENTRYPOINT_HTTP  # generic, not forced into an HTTP shape
     assert entry.route_method is None and entry.route_path is None
     assert entry.label == "the nightly digest scheduled job"
+
+
+# --- Task item 7: inference metadata hygiene --------------------------------
+
+def test_uncorroborated_inferred_impact_keeps_the_changed_symbols_own_repo() -> None:
+    """An uncorroborated candidate has no matched entrypoint to take a repo
+    from — it must fall back to the changed symbol's own real repo, never
+    an empty string that would later collapse an accepted-impact id into
+    `impact::symbol` instead of `impact:app:symbol`."""
+    f = facts(call_edges=[call_edge("orphan_caller", "leaf")])
+    guide = ScriptedGuide([
+        InvestigationDecision(
+            action=ACTION_INFER_IMPACT,
+            candidates=(
+                ImpactCandidate(
+                    entrypoint_label="process_chat_response", confidence=0.4,
+                    reason="shares a formatting helper",
+                ),
+            ),
+        ),
+        InvestigationDecision(action=ACTION_STOP_UNRESOLVED),
+    ])
+    interpreter = ImpactInterpreter(guide=guide, guide_policy=GUIDE_AUTO)
+    result = interpreter.interpret(changed("leaf"), f, repo=REPO)
+
+    assert len(result.affected) == 1
+    assert result.affected[0].repo == REPO
+    assert result.affected[0].repo != ""
+
+
+def test_candidate_with_no_causal_reason_is_not_accepted() -> None:
+    """An accepted inference must say why — a candidate with an empty
+    `reason` is rejected before merge, not silently accepted with a blank
+    rationale a reviewer would see with nothing to evaluate."""
+    f = facts(call_edges=[call_edge("orphan_caller", "leaf")])
+    guide = ScriptedGuide([
+        InvestigationDecision(
+            action=ACTION_INFER_IMPACT,
+            candidates=(
+                ImpactCandidate(entrypoint_label="GET /cases", confidence=0.9, reason=""),
+            ),
+        ),
+        InvestigationDecision(action=ACTION_STOP_UNRESOLVED),
+    ])
+    interpreter = ImpactInterpreter(guide=guide, guide_policy=GUIDE_AUTO)
+    result = interpreter.interpret(changed("leaf"), f, repo=REPO)
+
+    assert result.affected == []
+    assert result.metrics["llm_candidates_missing_reason"] == 1
+    assert result.metrics["llm_candidates_accepted"] == 0
+    log_entry = result.llm_candidate_log[0]
+    assert log_entry["accepted"] is False
+    assert "missing_reason" in log_entry["rejection_reason"]
+
+
+def test_confidence_outside_zero_one_is_clamped_not_trusted_verbatim() -> None:
+    """`ImpactCandidate` already clamps confidence to [0, 1] on construction
+    (a model returning `1.7` or `-3` is a formatting slip, not a real
+    probability) — pinned here as a regression against the M4 semantic-
+    inference contract, not newly introduced by this task."""
+    candidate_high = ImpactCandidate(entrypoint_label="x", confidence=1.7, reason="y")
+    candidate_low = ImpactCandidate(entrypoint_label="x", confidence=-3.0, reason="y")
+    assert candidate_high.confidence == 1.0
+    assert candidate_low.confidence == 0.0

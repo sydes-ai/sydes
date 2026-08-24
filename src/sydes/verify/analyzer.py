@@ -673,6 +673,10 @@ def _compute_summary(result: ChangeVerificationResult) -> ChangeSummary:
         cross_repo_impacts=len(result.cross_repo_impacts),
         impacts_proven=sum(1 for item in result.accepted_impacts if item.status == IMPACT_STATUS_PROVEN),
         impacts_inferred=sum(1 for item in result.accepted_impacts if item.status == IMPACT_STATUS_INFERRED),
+        impacts_not_modeled=sum(
+            1 for item in result.accepted_impacts if item.verification_model_status != "modeled"
+        ),
+        unresolved_changed_symbols=result.unresolved_changed_symbols,
     )
 
     reasons: list[str] = []
@@ -715,6 +719,48 @@ def _compute_summary(result: ChangeVerificationResult) -> ChangeSummary:
     if result.analysis_status != ANALYSIS_COMPLETE and verdict == VERDICT_VERIFIED:
         verdict = VERDICT_INCOMPLETE
         reasons.append("analysis was incomplete, so VERIFIED cannot be claimed")
+
+    # Three independent safety invariants over `accepted_impacts` — the
+    # canonical "what did Sydes find" set — none of which the obligation
+    # ladder above can see, since it only ever looks at `affected_flows`.
+    # Gated once on the pre-existing verdict so every applicable reason is
+    # still recorded even when more than one invariant fires at once —
+    # checking `verdict == VERDICT_VERIFIED` freshly before each one would
+    # let the first downgrade silently swallow the rest. None of these ever
+    # upgrades or otherwise changes an already-worse verdict.
+    if verdict == VERDICT_VERIFIED:
+        if counts.impacts_not_modeled:
+            # An accepted impact with no `AffectedFlow`/obligations has
+            # nothing that could have been checked — VERIFIED would be a
+            # claim about coverage that was never actually modeled,
+            # regardless of how many *other*, modeled obligations passed.
+            verdict = VERDICT_INCOMPLETE
+            reasons.append(
+                f"{counts.impacts_not_modeled} accepted impact(s) are not yet modeled for verification"
+            )
+        if counts.impacts_inferred:
+            # LLM confidence is not verification proof (see
+            # `sydes.impact.models` `IMPACT_STATUS_INFERRED`). A modeled
+            # inferred flow's obligations may all pass, but the impact
+            # itself is still a model's semantic guess, not a structurally
+            # proven fact — VERIFIED must wait for that to become PROVEN,
+            # not for its obligations alone to pass.
+            verdict = VERDICT_INCOMPLETE
+            reasons.append(
+                f"{counts.impacts_inferred} affected impact(s) remain AI-inferred rather than "
+                "structurally proven"
+            )
+        if counts.unresolved_changed_symbols:
+            # A changed symbol the deterministic interpreter never connected
+            # to any entrypoint is missing impact coverage, full stop — an
+            # `ImpactCandidate` may have been proposed for it (see
+            # `ChangeVerificationResult.unresolved_changed_symbols`), but a
+            # candidate is not proof the symbol's real impact was found.
+            verdict = VERDICT_INCOMPLETE
+            reasons.append(
+                f"{counts.unresolved_changed_symbols} changed symbol(s) have no established "
+                "impact path (unresolved); full impact coverage cannot be claimed"
+            )
 
     if not change.files:
         headline = f"No changes found against `{change.base}`."
@@ -1040,6 +1086,24 @@ def analyze_change(
                 "Impact analysis traversal was truncated by its bounds; some "
                 "reachable entrypoints may not be listed."
             )
+        if impact_result.unresolved:
+            # `completeness` only reflects traversal truncation — a
+            # *complete* traversal can still leave changed symbols with no
+            # entrypoint path at all (nothing truncated the search; there
+            # was simply nothing to find, or the guide only managed an
+            # INFERRED candidate rather than a proven path). That gap must
+            # not silently read as full impact coverage, so it is recorded
+            # here on the canonical result (`_compute_summary` reads
+            # `result.unresolved_changed_symbols` directly) rather than only
+            # ever appearing in a diagnostics line.
+            result.unresolved_changed_symbols = len(impact_result.unresolved)
+            result.analysis_status = ANALYSIS_PARTIAL
+            result.analysis_notes.append(
+                f"{len(impact_result.unresolved)} changed symbol(s) have no established "
+                "impact path to any entrypoint (an AI-inferred candidate may still exist "
+                "for one — see AFFECTED BEHAVIOR — but that is not the same as resolved "
+                "impact coverage)."
+            )
     else:
         impact_result = None
         selected = [
@@ -1092,8 +1156,13 @@ def analyze_change(
         for item in change.files
     }
 
-    for endpoint in selected[:MAX_FLOWS * 3]:
+    candidate_endpoints = selected[:MAX_FLOWS * 3]
+    max_flows_cap_hit = False
+    max_flows_cap_remaining = 0
+    for _cap_index, endpoint in enumerate(candidate_endpoints):
         if len(result.affected_flows) >= MAX_FLOWS:
+            max_flows_cap_hit = True
+            max_flows_cap_remaining = len(candidate_endpoints) - _cap_index
             break
         match = resolve_trace_target(
             routes.routes, path=endpoint.path or "/", method=endpoint.method
@@ -1236,6 +1305,22 @@ def analyze_change(
             obligation.supporting_tests = supporting
 
         result.affected_flows.append(flow)
+
+    if max_flows_cap_hit:
+        # `selected` had more route candidates than `MAX_FLOWS` could model
+        # this run — the ones left over stay recorded in `accepted_impacts`
+        # (via `verification_model_status="unsupported_or_partial"`, which
+        # already keeps VERIFIED out of reach) but never became a verification
+        # flow at all. That must not read as silently-complete coverage.
+        result.diagnostics.append(
+            f"max_flows_cap: modeled {len(result.affected_flows)} candidate route(s) "
+            f"(cap={MAX_FLOWS}); {max_flows_cap_remaining} left unmodeled by the cap"
+        )
+        result.analysis_notes.append(
+            f"Verification-flow modeling is capped at {MAX_FLOWS} per run; "
+            f"{max_flows_cap_remaining} additional candidate route(s) were not modeled "
+            "and remain recorded as accepted impact only, without obligations."
+        )
 
     if any(flow.analysis_status != ANALYSIS_COMPLETE for flow in result.affected_flows):
         result.analysis_status = ANALYSIS_PARTIAL

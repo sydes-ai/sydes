@@ -426,15 +426,27 @@ class InvestigationExecutor:
         return [self._corroborate_one(candidate) for candidate in candidates]
 
     def _corroborate_one(self, candidate: ImpactCandidate) -> dict[str, Any]:
+        """Corroborate by the strongest identity actually available.
+
+        `ImpactCandidate` never carries a qualified name, repo, or file —
+        the guide contract only ever shows the model bare short symbol
+        names (`ImpactQuestion.candidate_entrypoints`/`known_entrypoints`
+        are built from `SymbolIdentity.short_name`), so those stronger
+        tiers cannot be checked here; a route's exact method+path is the
+        strongest signal this function can actually see, so it is tried
+        first. A bare symbol name is the weakest identity available — a
+        short name like `update` or `handler` can legitimately collide
+        across a repository — so it is only ever accepted when it names
+        exactly one known entrypoint. More than one match is ambiguity, not
+        corroboration: reported as such, never resolved by picking the
+        first result, and never allowed to make a hallucinated
+        `entrypoint_symbol` look stronger merely because an unrelated
+        same-named symbol happens to exist elsewhere in the repository.
+        """
         parsed_route = parse_route_label(candidate.entrypoint_label)
 
         match: dict[str, Any] | None = None
-        if candidate.entrypoint_symbol:
-            match = next(
-                (e for e in self._index.entrypoints if e.get("symbol") == candidate.entrypoint_symbol),
-                None,
-            )
-        if match is None and parsed_route:
+        if parsed_route:
             method, path = parsed_route
             match = next(
                 (
@@ -444,6 +456,16 @@ class InvestigationExecutor:
                 ),
                 None,
             )
+
+        ambiguous_symbol_count = 0
+        if match is None and candidate.entrypoint_symbol:
+            symbol_matches = [
+                e for e in self._index.entrypoints if e.get("symbol") == candidate.entrypoint_symbol
+            ]
+            if len(symbol_matches) == 1:
+                match = symbol_matches[0]
+            elif len(symbol_matches) > 1:
+                ambiguous_symbol_count = len(symbol_matches)
 
         if match is not None:
             route_method = match.get("route_method") or (parsed_route[0] if parsed_route else None)
@@ -463,9 +485,15 @@ class InvestigationExecutor:
             }
 
         route_method, route_path = parsed_route if parsed_route else (None, None)
+        detail = (
+            f"{ambiguous_symbol_count} known entrypoints share the symbol name "
+            f"{candidate.entrypoint_symbol!r}; ambiguous, not corroborated"
+            if ambiguous_symbol_count
+            else "no known entrypoint or route matches this candidate"
+        )
         return {
             "corroborated": False,
-            "detail": "no known entrypoint or route matches this candidate",
+            "detail": detail,
             "route_method": route_method, "route_path": route_path,
             "symbol": candidate.entrypoint_symbol or candidate.entrypoint_label,
             "qualified_name": "", "file": "", "repo": "",

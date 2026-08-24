@@ -293,6 +293,12 @@ def test_workflow_b_uncorroborated_candidate_still_survives_when_it_names_no_rea
     assert inferred[0].corroborated is False
     assert inferred[0].verification_model_status == "unsupported_or_partial"
     assert "background cache warm" in report
+    # Task item 7: an uncorroborated candidate has no matched entrypoint to
+    # take a repo from, but it must still carry the changed symbol's own
+    # real repo — never collapse the id to "impact::<label>".
+    assert inferred[0].repo == "app"
+    assert inferred[0].id.startswith("impact:app:")
+    assert "impact::" not in inferred[0].id
 
 
 # --- Workflow C: provider failure -------------------------------------------

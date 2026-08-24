@@ -42,14 +42,26 @@ def verify_change_command(
     ] = False,
     llm_policy: Annotated[
         Literal["auto", "never"],
-        typer.Option("--llm-policy", help="`never` runs deterministic analysis only."),
+        typer.Option(
+            "--llm-policy",
+            help=(
+                "Controls optional LLM use in general route/flow discovery and "
+                "expansion ONLY — independent of --impact-guide, which separately "
+                "controls the M4 semantic impact-inference guide. `never` here does "
+                "NOT disable --impact-guide; `--llm-policy never --impact-guide auto` "
+                "is a valid, meaningful combination: deterministic structural/flow "
+                "analysis plus the AI impact guide only. `auto` (default): LLM-assisted "
+                "route/flow discovery may run. `never`: that pass is skipped."
+            ),
+        ),
     ] = "auto",
     impact_guide: Annotated[
         Literal["off", "auto", "always"],
         typer.Option(
             "--impact-guide",
             help=(
-                "M3 LLM investigation loop for unresolved impact (cbm backend only). "
+                "M4 semantic impact-inference guide for unresolved impact (cbm backend "
+                "only) — independent of --llm-policy (see its help). "
                 "`off` (default): deterministic impact analysis only. "
                 "`auto`: consult the guide only on unresolved structural triggers. "
                 "`always`: consult it whenever any symbol is unresolved (dev/debug)."

@@ -326,6 +326,9 @@ class ImpactInterpreter:
             #: A candidate that is obviously the changed symbol itself,
             #: rejected before corroboration/merge — see `_is_self_referential`.
             "llm_candidates_self_referential": 0,
+            #: A candidate with no causal reason at all, rejected before
+            #: corroboration/merge — an accepted inference must say why.
+            "llm_candidates_missing_reason": 0,
             #: An INFER_IMPACT turn that explicitly proposed zero candidates —
             #: a legitimate, encouraged outcome ("no meaningful downstream
             #: impact"), never counted toward `guide_errors`.
@@ -435,6 +438,7 @@ class ImpactInterpreter:
                         decision.candidates, executor=executor, found=found,
                         result=result, name=name, turn=turn_number, metrics=metrics,
                         changed_qualified_name=start_identity.qualified_name,
+                        changed_repo=index.repo_of(symbol),
                     )
                     continue
 
@@ -532,6 +536,7 @@ class ImpactInterpreter:
         turn: int,
         metrics: dict[str, Any],
         changed_qualified_name: str = "",
+        changed_repo: str = "",
     ) -> None:
         """Corroborate and merge every candidate from one INFER_IMPACT turn.
 
@@ -543,11 +548,15 @@ class ImpactInterpreter:
         proposed here is silently dropped, which is the exact failure mode
         this action exists to fix.
 
-        One thing *is* rejected before any of that: a candidate that is
-        obviously the changed symbol itself (see `_is_self_referential`) —
-        that is not a downstream impact, it is the guide restating its own
-        input, and M4's "never drop a meaningful inference" guarantee was
-        never meant to protect that.
+        Two things *are* rejected before any of that:
+        - a candidate that is obviously the changed symbol itself (see
+          `_is_self_referential`) — that is not a downstream impact, it is
+          the guide restating its own input, and M4's "never drop a
+          meaningful inference" guarantee was never meant to protect that;
+        - a candidate with no causal reason at all — an accepted inference
+          with nothing explaining *why* it might be affected is not
+          meaningfully different from a guess, and a reviewer reading
+          AFFECTED BEHAVIOR needs the "why" more than the "what."
         """
         corroborations = executor.corroborate_candidates(candidates)
         metrics["llm_candidates"] += len(candidates)
@@ -573,12 +582,30 @@ class ImpactInterpreter:
                 })
                 continue
 
+            if not candidate.reason.strip():
+                metrics["llm_candidates_missing_reason"] += 1
+                result.llm_candidate_log.append({
+                    "changed_symbol": name,
+                    "turn": turn,
+                    "candidate_entrypoint": candidate.entrypoint_label,
+                    "candidate_symbol": candidate.entrypoint_symbol,
+                    "confidence": candidate.confidence,
+                    "rationale": candidate.reason,
+                    "inference_type": candidate.inference_type,
+                    "uncertainty": candidate.uncertainty,
+                    "corroborated": False,
+                    "corroboration_evidence": "",
+                    "accepted": False,
+                    "rejection_reason": "missing_reason: candidate had no causal reason to accept",
+                })
+                continue
+
             if corroboration["corroborated"]:
                 metrics["llm_candidates_corroborated"] += 1
             else:
                 metrics["llm_candidates_uncorroborated"] += 1
 
-            is_new = ImpactInterpreter._record_inferred(found, candidate, corroboration, name)
+            is_new = ImpactInterpreter._record_inferred(found, candidate, corroboration, name, changed_repo)
             key = corroboration["qualified_name"] or corroboration["symbol"] or candidate.entrypoint_label
             existing = found.get(key)
             accepted = existing is not None and existing.status == IMPACT_STATUS_INFERRED
@@ -854,6 +881,7 @@ class ImpactInterpreter:
         candidate: ImpactCandidate,
         corroboration: dict[str, Any],
         changed_symbol: str,
+        changed_repo: str = "",
     ) -> bool:
         """Merge one LLM candidate into `found`, honoring PROVEN dominance.
 
@@ -876,7 +904,14 @@ class ImpactInterpreter:
         is_new = existing is None
         if is_new:
             entrypoint = AffectedEntrypoint(
-                repo=corroboration.get("repo", ""),
+                # Corroboration only knows a repo when it matched a real,
+                # already-known entrypoint (`corroboration["repo"]`); an
+                # uncorroborated candidate has no such match, but the
+                # changed symbol that produced this inference always has a
+                # real repo of its own — using it here (never inventing
+                # anything else) is what keeps downstream ids from
+                # collapsing to `impact::symbol` instead of `impact:app:symbol`.
+                repo=corroboration.get("repo") or changed_repo,
                 symbol=symbol, qualified_name=qualified_name,
                 file=corroboration["file"], kind=corroboration["kind"],
                 route_method=corroboration["route_method"], route_path=corroboration["route_path"],

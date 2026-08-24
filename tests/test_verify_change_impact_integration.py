@@ -38,6 +38,7 @@ from sydes.impact.models import (
     ImpactPath,
     ImpactResult,
     ImpactStep,
+    UnresolvedImpact,
 )
 from sydes.llm.client import LLMResponse
 from sydes.verify.models import (
@@ -453,3 +454,42 @@ def test_provider_failure_preserves_deterministic_analysis_and_counts(
     assert result.summary.counts.impacts_inferred == 0
     assert any("AI impact inference unavailable" in note for note in result.analysis_notes)
     assert result.summary.verdict != VERDICT_VERIFIED
+
+
+def test_unresolved_changed_symbol_reaches_the_canonical_result_and_stays_visible(
+    repo: Path, tmp_path: Path, fake_cbm_backend: None, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Task item 3, full pipeline: a changed symbol the deterministic
+    interpreter never connects to any entrypoint (`ImpactResult.unresolved`,
+    with `completeness` still COMPLETE — nothing was truncated, there is
+    simply nothing to find) must set `unresolved_changed_symbols` on the
+    canonical result, keep the verdict off VERIFIED, and say so in
+    `analysis_notes` — never silently absorbed into "analysis complete"."""
+    _write(repo, "service.py", _SERVICE_V2)
+
+    proven_entry = AffectedEntrypoint(
+        repo="app", symbol="handle", qualified_name="app.views.handle", file="views.py",
+        kind=ENTRYPOINT_HTTP, route_method="GET", route_path="/x",
+        status=IMPACT_STATUS_PROVEN, changed_symbols=["helper"],
+    )
+    fake_result = ImpactResult(
+        affected=[proven_entry],
+        unresolved=[UnresolvedImpact(repo="app", symbol="orphan_helper", reason="no_entrypoint_reached")],
+    )
+    monkeypatch.setattr(
+        "sydes.verify.analyzer.ImpactInterpreter.interpret",
+        lambda self, *a, **k: fake_result,
+    )
+
+    result = _run(repo, tmp_path)
+
+    assert result.unresolved_changed_symbols == 1
+    assert result.summary.counts.unresolved_changed_symbols == 1
+    assert any(i.route_path == "/x" and i.status == IMPACT_STATUS_PROVEN for i in result.accepted_impacts)
+    assert any("no established" in note and "impact path" in note for note in result.analysis_notes)
+    assert result.summary.verdict != VERDICT_VERIFIED
+    # The precise "would have been VERIFIED but for this" case — where this
+    # reason is the only thing standing between the verdict and VERIFIED —
+    # is pinned exactly in test_verify_change_summary_safety.py; here we
+    # only need to confirm the count and notes actually reach the canonical
+    # result end to end.

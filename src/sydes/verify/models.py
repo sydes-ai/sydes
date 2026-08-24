@@ -192,6 +192,17 @@ class VerificationCounts(BaseModel):
     #: renders — never a separately-counted view of PROVEN/INFERRED.
     impacts_proven: int = 0
     impacts_inferred: int = 0
+    #: Accepted impacts whose `verification_model_status != "modeled"` — no
+    #: `AffectedFlow`/obligations exist for them, so nothing about them has
+    #: actually been checked. VERIFIED is impossible while this is nonzero;
+    #: see `_compute_summary`.
+    impacts_not_modeled: int = 0
+    #: Changed symbols the deterministic impact interpreter never reached any
+    #: entrypoint from (an `ImpactCandidate` may still have been proposed for
+    #: one — that does not remove it from this count). Mirrors
+    #: `ChangeVerificationResult.unresolved_changed_symbols`; VERIFIED is
+    #: impossible while this is nonzero.
+    unresolved_changed_symbols: int = 0
 
 
 class ChangeSummary(BaseModel):
@@ -469,6 +480,14 @@ class ChangeVerificationResult(BaseModel):
     #: accepted impact can be visible in one place and missing from another.
     accepted_impacts: list[AcceptedImpact] = Field(default_factory=list)
     affected_flows: list[AffectedFlow] = Field(default_factory=list)
+    #: Changed symbols the deterministic impact interpreter never reached any
+    #: entrypoint from (`ImpactResult.unresolved`, cbm backend only) — set by
+    #: the pipeline before `_compute_summary` runs. An `ImpactCandidate` may
+    #: still have been proposed and accepted for one of these symbols; that
+    #: is a separate, weaker claim (INFERRED, not PROVEN) and does not reduce
+    #: this count. Always 0 for the native backend, which has no concept of
+    #: an unresolved symbol distinct from "no route found."
+    unresolved_changed_symbols: int = 0
     analysis_status: str = ANALYSIS_COMPLETE
     analysis_notes: list[str] = Field(default_factory=list)
     test_executions: list[TestExecution] = Field(default_factory=list)
