@@ -43,7 +43,8 @@ def _question(**overrides) -> ImpactQuestion:
         repo="app", changed_symbol="process_chat_response", qualified_name="",
         file="app/chat.py", reason=REASON_PARTIAL_PATH_DEAD_END,
         partial_paths=("calls:process_chat_response",),
-        nearby_facts=(), candidate_entrypoints=("chat_completion",),
+        known_files=("app/chat.py",), known_entrypoints=(),
+        attempted_actions=(), candidate_entrypoints=("chat_completion",),
         candidate_origins=("process_chat_response",),
         source_context="", remaining_budget=3,
     )

@@ -62,14 +62,19 @@ class ImpactGuide(Protocol):
 
 _SYSTEM_PROMPT = """You are assisting a deterministic code-impact analyzer, not replacing it.
 
+Your goal: find evidence connecting a changed symbol to the system entrypoints it could affect (an HTTP route, a scheduled job, any declared entrypoint), when the analyzer's own structural traversal already stalled without reaching one.
+
 Ground rules:
-- You do NOT decide whether any route or entrypoint is affected. That is decided later, only from concrete evidence, not from your answer.
-- Your only job is to choose the single most useful next investigation step for a human-auditable tool to carry out.
-- You must choose exactly one action from the allowed list below.
-- `target`, if given, must be one of the exact names or files listed in the question's partial paths, nearby facts, or candidate entrypoints. Do not invent a name that was not shown to you.
-- INSPECT_SYMBOL, INSPECT_ENCLOSING_FUNCTION, and INSPECT_SOURCE_SPAN each check a concrete relationship: "does `target`'s source actually reference `sought_symbol`?" You must also supply `sought_symbol` for these three actions, chosen from `candidate_origins` only — never from `target`'s own vocabulary and never invented. Pick whichever candidate origin is the actual unresolved relationship you are trying to confirm, not just the first one listed.
-- Do not assume how any framework, decorator, or library behaves unless the supplied evidence already shows it.
-- Prefer the cheapest, most direct structural check before a broader one. Choose STOP_UNRESOLVED if none of the actions seem likely to help, rather than guessing.
+- You do NOT decide whether any route or entrypoint is affected. That is decided later, only from concrete evidence a deterministic tool actually confirms — never from your answer alone.
+- Choose exactly one action from the allowed list below.
+- `target`, if given, must be one of the exact names or files this question already listed (known_files, candidate_entrypoints, partial_paths). Do not invent a name you were not shown.
+- INSPECT_SYMBOL, INSPECT_ENCLOSING_FUNCTION, and INSPECT_SOURCE_SPAN each check one concrete relationship: "does `target`'s source actually reference `sought_symbol`?" Supply `sought_symbol` for these three, chosen from candidate_origins only — pick whichever origin is the actual relationship you are trying to confirm, not just the first one listed.
+- A completed deterministic path needs no further investigation — you are only ever asked about what is still unresolved.
+- Check attempted_actions before choosing: do not repeat one that already ran with the same target/sought_symbol, and prefer an action likely to surface genuinely new evidence over one that only re-examines what you already tried.
+- If traversal stalled inside or near a file that also declares known entrypoints, investigating those entrypoints' own source can be the most direct way to confirm or rule out a connection.
+- Reach for source inspection specifically when the graph looks like it is missing a relationship that plausibly exists in the code — a call the graph never captured, for instance.
+- Choose STOP_UNRESOLVED when nothing in the supplied context and remaining actions is likely to add real evidence. Do not guess to fill the budget.
+- Do not assume how any framework, decorator, or library behaves beyond what the supplied evidence already shows.
 - Respond with a single JSON object and nothing else: {"action": "<ACTION>", "target": "<name or empty>", "sought_symbol": "<name from candidate_origins, or empty if not applicable>", "rationale": "<one sentence>"}
 
 Allowed actions: TRACE_CALLERS, TRACE_USAGES, INSPECT_SYMBOL, INSPECT_ENCLOSING_FUNCTION, INSPECT_SOURCE_SPAN, FIND_DECORATOR_REFERENCES, FIND_SIGNATURE_REFERENCES, INSPECT_NEARBY_ENTRYPOINTS, STOP_UNRESOLVED."""
@@ -84,21 +89,27 @@ def build_guide_prompt(question: ImpactQuestion) -> str:
         f"reason_unresolved: {question.reason}",
         f"remaining_investigation_budget: {question.remaining_budget}",
     ]
+    if question.source_context:
+        lines.append("changed_symbol_source_preview:")
+        lines.append(question.source_context)
     if question.partial_paths:
         lines.append("partial_paths_already_found:")
         lines.extend(f"  - {item}" for item in question.partial_paths)
-    if question.nearby_facts:
-        lines.append("nearby_graph_facts:")
-        lines.extend(f"  - {item}" for item in question.nearby_facts)
+    if question.known_files:
+        lines.append("known_files:")
+        lines.extend(f"  - {item}" for item in question.known_files)
+    if question.known_entrypoints:
+        lines.append("known_entrypoints_in_context:")
+        lines.extend(f"  - {item}" for item in question.known_entrypoints)
     if question.candidate_entrypoints:
-        lines.append("candidate_entrypoints:")
+        lines.append("candidate_entrypoints (legal target values):")
         lines.extend(f"  - {item}" for item in question.candidate_entrypoints)
     if question.candidate_origins:
         lines.append("candidate_origins (legal sought_symbol values):")
         lines.extend(f"  - {item}" for item in question.candidate_origins)
-    if question.source_context:
-        lines.append("bounded_source_context:")
-        lines.append(question.source_context)
+    if question.attempted_actions:
+        lines.append("attempted_actions_and_outcomes:")
+        lines.extend(f"  - {item}" for item in question.attempted_actions)
     lines.append("\nWhich single action should be tried next?")
     return "\n".join(lines)
 

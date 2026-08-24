@@ -24,11 +24,12 @@ from collections import deque
 from dataclasses import dataclass
 from pathlib import Path
 import re
+import time
 from typing import Any, Iterable
 
 from sydes.code_intelligence.base import StructuralFacts
 from sydes.impact.guide import GuideError, ImpactGuide
-from sydes.impact.investigate import InvestigationExecutor
+from sydes.impact.investigate import InvestigationExecutor, source_preview
 from sydes.impact.models import (
     ACTION_INSPECT_ENCLOSING_FUNCTION,
     ACTION_INSPECT_NEARBY_ENTRYPOINTS,
@@ -296,6 +297,11 @@ class ImpactInterpreter:
             "guide_budget_exhausted": False,
             "unresolved_before": len(candidates),
             "unresolved_after": len(candidates),
+            #: Wall time actually spent inside `guide.investigate()` calls —
+            #: the only part of this loop an external provider dominates.
+            #: Separate from total `interpret()` time so a slow run can be
+            #: attributed to CBM/traversal vs. the guide.
+            "guide_latency_ms": 0.0,
         }
         if not candidates or self._guide is None or self._guide_policy == GUIDE_OFF:
             return metrics
@@ -338,6 +344,9 @@ class ImpactInterpreter:
             tried_summary: list[str] = []
             metrics["guide_triggered"] = True
             symbol_resolved = False
+            # Computed once: the changed symbol's own source never changes
+            # mid-loop, so there is no reason to re-read it every turn.
+            preview = source_preview(start_identity, index.facts, self._repo_root)
 
             while per_symbol_budget > 0 and total_budget > 0 and not symbol_resolved:
                 origin_names = sorted(
@@ -346,15 +355,19 @@ class ImpactInterpreter:
                 )
                 origins = {name_: known[name_] for name_ in origin_names}
                 question = _build_question(
-                    start_identity, reason, dead_ends, known, origin_names, tried_summary,
+                    start_identity, reason, dead_ends, known, origin_names, tried_summary, index,
+                    source_context=preview,
                     remaining=min(per_symbol_budget, total_budget),
                     repo=index.repo_of(symbol),
                 )
+                turn_started = time.monotonic()
                 try:
                     decision = self._guide.investigate(question)
                 except GuideError:
                     metrics["guide_errors"] += 1
+                    metrics["guide_latency_ms"] += (time.monotonic() - turn_started) * 1000
                     break
+                metrics["guide_latency_ms"] += (time.monotonic() - turn_started) * 1000
                 metrics["guide_calls"] += 1
                 per_symbol_budget -= 1
                 total_budget -= 1
@@ -845,22 +858,29 @@ def _build_question(
     dead_ends: list[tuple[SymbolIdentity, tuple[ImpactStep, ...]]],
     known: dict[str, SymbolIdentity],
     candidate_origin_names: list[str],
-    tried_summary: list[str],
+    attempted_actions: list[str],
+    index: _FactIndex,
     *,
+    source_context: str,
     remaining: int,
     repo: str,
 ) -> ImpactQuestion:
     """Render what the deterministic pass already found as an `ImpactQuestion`.
 
     Every field is a plain string or tuple built from facts already in
-    `dead_ends`/`known` — nothing here queries CBM or a file, so building a
-    question costs nothing beyond string formatting.
+    `dead_ends`/`known`/`index` — nothing here queries CBM or a file (source
+    reading, when it happens, is done once by the caller and passed in as
+    `source_context`), so building a question costs nothing beyond string
+    formatting and a handful of lookups already held in memory.
     """
     partial_paths = tuple(
         " -> ".join(_display_step(step) for step in trail) or _display_label(identity)
         for identity, trail in dead_ends[-5:]
     )
-    nearby_facts = tuple(tried_summary[-5:])
+    known_files = tuple(sorted({ident.file for ident in known.values() if ident.file}))
+    known_entrypoints = tuple(sorted(
+        name for name, ident in known.items() if index.entrypoint_for_identity(ident) is not None
+    ))
     candidate_entrypoints = tuple(sorted(known.keys()))
     return ImpactQuestion(
         repo=repo,
@@ -869,10 +889,12 @@ def _build_question(
         file=start_identity.file,
         reason=reason,
         partial_paths=partial_paths,
-        nearby_facts=nearby_facts,
+        known_files=known_files,
+        known_entrypoints=known_entrypoints,
+        attempted_actions=tuple(attempted_actions),
         candidate_entrypoints=candidate_entrypoints,
         candidate_origins=tuple(candidate_origin_names),
-        source_context="",
+        source_context=source_context,
         remaining_budget=remaining,
     )
 

@@ -105,6 +105,37 @@ def _symbol_dict_for(identity: SymbolIdentity, facts: Any) -> dict[str, Any] | N
     return None
 
 
+#: How much of a changed symbol's own source to show the guide up front — a
+#: handful of statements, not the whole function. Keeps the question small
+#: while still giving the model *some* real code to reason from.
+_PREVIEW_MAX_STATEMENTS = 6
+_PREVIEW_MAX_CHARS = 400
+
+
+def source_preview(identity: SymbolIdentity, facts: Any, repo_root: Path | None) -> str:
+    """A short, bounded preview of one symbol's current source, or "".
+
+    Used only to seed `ImpactQuestion.source_context` with concrete code
+    before the guide's first turn — not a general-purpose reader. Reuses the
+    same span resolution and slicer the source-confirming actions use, so
+    there is exactly one way Sydes turns an identity into source text.
+    """
+    if repo_root is None:
+        return ""
+    span = _symbol_dict_for(identity, facts)
+    if span is None:
+        return ""
+    sliced = slice_resolved_handler_body(
+        repo_root=repo_root, handler_name=identity.short_name, symbol=span,
+        language=span.get("language"),
+    )
+    if sliced is None:
+        return ""
+    texts = [str(s.get("text") or "") for s in sliced.get("statements", [])[:_PREVIEW_MAX_STATEMENTS]]
+    preview = " ".join(text for text in texts if text)
+    return preview[:_PREVIEW_MAX_CHARS]
+
+
 def _locate_exact_line(
     repo_root: Path, file: str, line_start: int, line_end: int, needle: str,
 ) -> tuple[int, str] | None:

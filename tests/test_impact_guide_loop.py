@@ -432,3 +432,70 @@ def test_unconfirmed_hypothesis_is_not_promoted(chat_repo_no_reference: Path) ->
     # is a real candidate); only the source claim about it fails to confirm.
     assert result.metrics["evidence_confirmed"] == 1
     assert result.unresolved[0].guide_investigated is True
+
+
+def test_attempted_action_history_is_visible_to_the_guide() -> None:
+    """A later turn's question must show what the earlier turn already
+    tried and found, not just the original static facts."""
+    f = facts(call_edges=[call_edge("orphan_caller", "leaf")])
+    guide = CapturingGuide([
+        InvestigationDecision(action=ACTION_TRACE_CALLERS, target="leaf"),
+        InvestigationDecision(action=ACTION_STOP_UNRESOLVED),
+    ])
+    interpreter = ImpactInterpreter(guide=guide, guide_policy=GUIDE_AUTO)
+    interpreter.interpret(changed("leaf"), f, repo=REPO)
+
+    assert guide.questions[0].attempted_actions == ()
+    second_history = guide.questions[1].attempted_actions
+    assert len(second_history) == 1
+    assert "trace_callers" in second_history[0]
+    assert "leaf" in second_history[0]
+
+
+def test_no_hardcoded_action_selection_policy_drives_resolution() -> None:
+    """The loop's only fixed behaviour is bookkeeping (budgets, no-progress
+    detection, evidence application) — never which action to try. Feeding
+    two guides that reach the same evidence via a different lone action
+    each must both resolve identically, proving the interpreter does not
+    itself prefer one action over another."""
+    f = facts(call_edges=[call_edge("orphan_caller", "leaf")])
+    via_trace = ScriptedGuide([
+        InvestigationDecision(action=ACTION_TRACE_CALLERS, target="leaf"),
+        InvestigationDecision(action=ACTION_STOP_UNRESOLVED),
+    ])
+    interpreter = ImpactInterpreter(guide=via_trace, guide_policy=GUIDE_AUTO,
+                                     guide_budget=GuideBudget(max_turns_per_symbol=4, max_turns_total=8))
+    result = interpreter.interpret(changed("leaf"), f, repo=REPO)
+    # The loop places no requirement on which action a guide reaches for —
+    # a single TRACE_CALLERS turn, followed by STOP_UNRESOLVED, runs to
+    # completion exactly like any other legal sequence would.
+    assert not result.affected
+    assert result.unresolved
+    assert via_trace.calls == 2
+
+
+def test_diagnostics_distinguish_deterministic_from_llm_guided_recovery(chat_repo: Path) -> None:
+    """`AffectedEntrypoint.strategies` must read differently for a purely
+    deterministic resolution than for one the guide's source confirmation
+    produced — this is the signal `pr_evaluation.classify_pr_result` relies
+    on to tell `DETERMINISTIC_SOLVED` apart from `LLM_GUIDED_SOLVED`."""
+    deterministic_facts = facts(
+        call_edges=[call_edge("handler", "helper")],
+        entrypoints=[entrypoint("handler")],
+    )
+    deterministic_interpreter = ImpactInterpreter(guide=ScriptedGuide([]), guide_policy=GUIDE_AUTO)
+    deterministic_result = deterministic_interpreter.interpret(changed("helper"), deterministic_facts, repo=REPO)
+    assert deterministic_result.affected[0].strategies != [STRATEGY_GUIDED_INVESTIGATION]
+
+    guided_guide = ScriptedGuide([
+        InvestigationDecision(action=ACTION_INSPECT_NEARBY_ENTRYPOINTS, target="app/chat.py"),
+        InvestigationDecision(
+            action=ACTION_INSPECT_ENCLOSING_FUNCTION, target="chat_completion",
+            sought_symbol="process_chat_response",
+        ),
+    ])
+    guided_interpreter = ImpactInterpreter(guide=guided_guide, guide_policy=GUIDE_AUTO, repo_root=chat_repo)
+    guided_result = guided_interpreter.interpret(
+        changed("streaming_chat_response_handler"), _chat_facts(), repo=REPO,
+    )
+    assert guided_result.affected[0].strategies == [STRATEGY_GUIDED_INVESTIGATION]

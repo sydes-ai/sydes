@@ -392,10 +392,10 @@ class ImpactQuestion:
 
     Every field here is either a primitive or a tuple of strings: the guide
     never receives a live graph handle, a file handle, or anything it could
-    use to go beyond the bounded action vocabulary. `partial_paths` and
-    `nearby_facts` are human-readable renderings of facts the deterministic
-    pass already collected — the guide is shown evidence, never asked to
-    invent it.
+    use to go beyond the bounded action vocabulary — it is shown evidence,
+    never asked to invent it. Deliberately bounded: this is a small, curated
+    context for one changed symbol, never a repository dump or the whole
+    diff.
     """
 
     repo: str
@@ -403,14 +403,30 @@ class ImpactQuestion:
     qualified_name: str
     file: str
     reason: str
+    #: Human-readable renderings of the trails the deterministic walk
+    #: actually found before stalling.
     partial_paths: tuple[str, ...] = ()
-    nearby_facts: tuple[str, ...] = ()
+    #: Files already known to be structurally relevant (the changed symbol's
+    #: own file, plus every dead-end node's file) — legal for
+    #: `INSPECT_NEARBY_ENTRYPOINTS`'s `target`.
+    known_files: tuple[str, ...] = ()
+    #: Already-known entrypoints among the names surfaced so far (a subset
+    #: of `candidate_entrypoints`) — context for "is there already a route
+    #: nearby", without a separate query.
+    known_entrypoints: tuple[str, ...] = ()
+    #: Every action this turn's symbol has already tried, with its outcome,
+    #: oldest first — so the guide can see what already failed instead of
+    #: repeating it.
+    attempted_actions: tuple[str, ...] = ()
     candidate_entrypoints: tuple[str, ...] = ()
     #: Names legal as `InvestigationDecision.sought_symbol` right now — the
     #: meaningful (really-defined) nodes on the unresolved frontier, not
     #: picked down to one in advance. A source-confirming action must name
     #: its relationship target from this list, never from thin air.
     candidate_origins: tuple[str, ...] = ()
+    #: A short, bounded preview of the changed symbol's own current source —
+    #: a handful of statements, not the whole function or file — so the
+    #: guide has some concrete code to reason from up front.
     source_context: str = ""
     remaining_budget: int = 0
 
@@ -422,7 +438,9 @@ class ImpactQuestion:
             "file": self.file,
             "reason": self.reason,
             "partial_paths": list(self.partial_paths),
-            "nearby_facts": list(self.nearby_facts),
+            "known_files": list(self.known_files),
+            "known_entrypoints": list(self.known_entrypoints),
+            "attempted_actions": list(self.attempted_actions),
             "candidate_entrypoints": list(self.candidate_entrypoints),
             "candidate_origins": list(self.candidate_origins),
             "source_context": self.source_context,

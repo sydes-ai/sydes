@@ -14,7 +14,7 @@ from sydes.impact.guide import (
     parse_guide_decision,
 )
 from sydes.impact.interpreter import GuideBudget, ImpactInterpreter, TraversalBudget
-from sydes.impact.investigate import InvestigationExecutor
+from sydes.impact.investigate import InvestigationExecutor, source_preview
 from sydes.impact.reconcile import (
     build_route_lookup,
     reconcile_entrypoint,
@@ -95,5 +95,5 @@ __all__ = [
     "ImpactStep", "InvestigationDecision", "InvestigationEvidence", "InvestigationExecutor",
     "LLMImpactGuide", "SymbolIdentity", "TraversalBudget", "UnresolvedImpact",
     "build_guide_prompt", "build_route_lookup", "parse_guide_decision",
-    "reconcile_entrypoint", "reconcile_entrypoints",
+    "reconcile_entrypoint", "reconcile_entrypoints", "source_preview",
 ]
