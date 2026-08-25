@@ -12,6 +12,7 @@ from __future__ import annotations
 import pytest
 
 from sydes.impact.guide import (
+    _SYSTEM_PROMPT,
     FixedImpactGuide,
     GuideError,
     LLMImpactGuide,
@@ -148,3 +149,88 @@ def test_prompt_names_only_supplied_candidates() -> None:
     prompt = build_guide_prompt(question)
     assert "chat_completion" in prompt
     assert "process_chat_response" in prompt
+
+
+# --- Reviewer-grade `entrypoint` label contract ------------------------------
+#
+# These pin the system prompt's own words, not a downstream code check: label
+# quality is a contract fixed by asking the model clearly, not by filtering
+# its answer afterward. See guide.py's `_SYSTEM_PROMPT`.
+
+def test_system_prompt_demands_a_reviewer_facing_behavior_label() -> None:
+    """The contract must explicitly ask for behavior language, not just an
+    identifier — the exact gap real PR runs exposed."""
+    assert "BEHAVIOR LABEL" in _SYSTEM_PROMPT
+    assert "reviewer-facing" in _SYSTEM_PROMPT
+    assert "plain domain language" in _SYSTEM_PROMPT
+
+
+def test_system_prompt_explicitly_forbids_bare_symbol_names() -> None:
+    """Must name the failure mode directly: a bare identifier is never an
+    acceptable label, regardless of which specific identifier it is — a
+    structural rule, not a list of known-bad names."""
+    assert "never be only a bare function/method/class/file/module name" in _SYSTEM_PROMPT
+    assert "regardless of what that name is" in _SYSTEM_PROMPT
+
+
+def test_system_prompt_forbids_generic_restatement_templates() -> None:
+    """"X behavior changes" and its relatives must be named as invalid —
+    they restate that something changed without saying what."""
+    assert '"X behavior changes"' in _SYSTEM_PROMPT
+    assert '"changed function behavior"' in _SYSTEM_PROMPT
+
+
+def test_system_prompt_keeps_label_and_reason_distinct() -> None:
+    """The label must stay a short phrase; the causal explanation belongs
+    entirely in `reason`, never stuffed into the label."""
+    assert "a different field from `reason`" in _SYSTEM_PROMPT
+    assert "never carry the causal explanation itself" in _SYSTEM_PROMPT
+
+
+def test_system_prompt_permits_domain_overlap_with_the_changed_symbol() -> None:
+    """A label must not be rejected merely for sharing a domain word with
+    the changed symbol — only for being nothing but that symbol restated."""
+    assert "Reusing a domain word that also appears in the changed symbol" in _SYSTEM_PROMPT
+    assert "is fine" in _SYSTEM_PROMPT
+
+
+def test_system_prompt_still_rejects_self_referential_restatement() -> None:
+    """The pre-existing self-reference contract (a candidate must not just
+    be the changed symbol itself) must still be present alongside the new
+    label-quality language — this task tightens the contract, it does not
+    replace the earlier fix."""
+    assert "the changed symbol itself" in _SYSTEM_PROMPT
+    assert "restate its own input" in _SYSTEM_PROMPT or "restating the changed symbol" in _SYSTEM_PROMPT \
+        or "renamed, rephrased, or reworded version of the changed symbol" in _SYSTEM_PROMPT
+
+
+def test_llm_guide_makes_exactly_one_provider_call_per_investigate() -> None:
+    """Tightening the prompt must not add a second call (e.g. a self-check
+    or retry pass) — the guide's cost model is unchanged."""
+    class _CountingClient:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def generate(self, request):  # noqa: ANN001 - matches LLMClient protocol
+            self.calls += 1
+            return LLMResponse(text='{"action": "stop_unresolved"}')
+
+    client = _CountingClient()
+    guide = LLMImpactGuide(client)
+    guide.investigate(_question())
+    assert client.calls == 1
+
+
+def test_llm_guide_still_parses_a_reviewer_grade_label_candidate() -> None:
+    """A model following the tightened contract returns a multi-word,
+    non-identifier label — this must still parse exactly as before; the
+    prompt change touches instructions only, never the response schema."""
+    client = _FakeLLMClient(
+        '{"action": "infer_impact", "candidates": [{"entrypoint": '
+        '"cached listing results going stale after a write", '
+        '"confidence": 0.6, "reason": "the write path no longer invalidates the cache"}]}'
+    )
+    guide = LLMImpactGuide(client)
+    decision = guide.investigate(_question())
+    assert len(decision.candidates) == 1
+    assert decision.candidates[0].entrypoint_label == "cached listing results going stale after a write"
