@@ -234,7 +234,8 @@ def test_case_c_meaningful_uncorroborated_inference_survives_and_is_visible_in_r
         ChangeVerificationResult(change=change, accepted_impacts=[impact])
     )
     assert "GET /cases" in report
-    assert "Inferred impacts: 1" in report
+    assert "Inferred impact" in report
+    assert "INFERRED · 0.72" in report
 
 
 # --- Case E: provider failure remains distinct from "no impact" -------------

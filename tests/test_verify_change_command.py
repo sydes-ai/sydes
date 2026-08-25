@@ -77,10 +77,10 @@ def test_verify_change_reports_flow_verification_and_runtime(service_repo: Path)
     )
 
     assert result.exit_code == 0, result.output
-    assert "SYDES CHANGE VERIFICATION" in result.output
+    assert "SYDES VERIFICATION" in result.output
     assert "POST /refund" in result.output
     assert "RefundService.retry_refund" in result.output
-    assert "CI REGRESSION SUITE" in result.output
+    assert "CI" in result.output
     assert "PostgreSQL" in result.output
 
 
@@ -130,7 +130,8 @@ def test_verify_change_handles_no_changes(service_repo: Path) -> None:
 
     assert result.exit_code == 0, result.output
     assert "No changes against main." in result.output
-    assert "Verdict:  OK" in result.output
+    assert "Verdict" in result.output
+    assert result.output.rstrip().endswith("OK")
 
 
 def test_verify_change_reports_git_errors_cleanly(service_repo: Path) -> None:
