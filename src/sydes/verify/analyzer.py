@@ -1331,7 +1331,7 @@ def analyze_change(
     result.runtime_dependencies = infer_runtime_dependencies(
         files=repo_files, flows=result.affected_flows, changed_files=changed_files
     )
-    _run_test_execution(result, options, repo_files, primary_root)
+    _run_test_execution(result, options, repo_files, primary_root, changed_files)
 
     for flow in result.affected_flows:
         resolve_flow_status(flow)
@@ -1345,13 +1345,15 @@ def _run_test_execution(
     options: VerifyChangeOptions,
     repo_files,
     repo_root: Path,
+    changed_files: set[str],
 ) -> None:
     """Run the repository's own test suite once and resolve obligations from it."""
     settings = ExecutionSettings(
         enabled=options.run_tests, timeout_seconds=options.test_timeout_seconds
     )
     ci_suite, notes = run_ci_suite(
-        files=repo_files, repo_root=repo_root, settings=settings
+        files=repo_files, repo_root=repo_root, settings=settings,
+        changed_files=frozenset(changed_files),
     )
     result.diagnostics.extend(notes)
     result.ci_suite = ci_suite

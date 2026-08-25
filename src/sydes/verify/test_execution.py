@@ -726,8 +726,14 @@ _TEST_COMMAND_RE = re.compile(r"\b(?:pytest|jest|mocha|vitest|npm\s+test|node\s+
 _SHELL_METACHARACTERS = ("&&", "||", "|", ";", ">", "<", "$(", "`")
 
 
-def _workflow_test_command(files: RepoFiles) -> tuple[list[str], str] | None:
-    """Find a test command declared in a CI workflow, if one is unambiguous."""
+FRAMEWORK_NPM = "npm"
+
+
+def _workflow_test_commands(files: RepoFiles) -> list[tuple[list[str], str]]:
+    """Every test command declared in a CI workflow file — not just the
+    first — so a monorepo's separate backend/frontend jobs are all visible
+    to relevance scoring rather than only whichever line comes first."""
+    results: list[tuple[list[str], str]] = []
     for scanned in files.files:
         if ".github/workflows/" not in scanned.path:
             continue
@@ -740,12 +746,16 @@ def _workflow_test_command(files: RepoFiles) -> tuple[list[str], str] | None:
                 continue
             if any(token in command for token in _SHELL_METACHARACTERS):
                 continue
-            return command.split(), scanned.path
-    return None
+            results.append((command.split(), scanned.path))
+    return results
 
 
-def _package_test_script(files: RepoFiles) -> tuple[list[str], str] | None:
-    """Find a `npm test` script that actually runs a test runner."""
+def _package_test_scripts(files: RepoFiles) -> list[tuple[list[str], str, str]]:
+    """Every `npm test` script that actually runs a test runner, across
+    every `package.json` in the repository — not just the first found. A
+    monorepo's frontend package must compete on relevance with everything
+    else, never win merely by being discovered first."""
+    results: list[tuple[list[str], str, str]] = []
     for working_dir in _manifest_dirs(files, ("package.json",)):
         path = _in_dir(working_dir, "package.json")
         text = _read(files, path)
@@ -759,43 +769,199 @@ def _package_test_script(files: RepoFiles) -> tuple[list[str], str] | None:
         script = str((scripts or {}).get("test") or "")
         if not script or not _TEST_COMMAND_RE.search(script):
             continue
-        return ["npm", "test", "--silent"], path
-    return None
+        results.append((["npm", "test", "--silent"], path, working_dir))
+    return results
+
+
+@dataclass(slots=True)
+class _CiCandidate:
+    """One test command Sydes could run as the repository's regression
+    suite, tagged with the working directory it actually runs from — the
+    input relevance scoring (`_working_dir_relevance`) needs to tell an
+    unrelated nested package from the one that actually covers the change.
+    """
+
+    command: list[str]
+    source: str
+    working_dir: str
+    framework: str
+
+
+def _resolve_declared_runner_argv(
+    command: list[str], detections: list[FrameworkDetection]
+) -> tuple[list[str], str, str]:
+    """Re-point a declared `pytest`/`jest`/`mocha` command at the
+    environment-resolved binary/interpreter an existing detection already
+    found (repo virtualenv, `node_modules/.bin`), rather than whatever
+    happens to be on PATH. Anything else (`npm test`, `node --test`, ...) is
+    left exactly as declared. Returns `(argv, working_dir, framework)`;
+    `working_dir` falls back to "." (a workflow step's implicit cwd) when no
+    matching detection exists.
+    """
+    head = command[0]
+    if head not in {FRAMEWORK_PYTEST, FRAMEWORK_JEST, FRAMEWORK_MOCHA}:
+        return command, ".", head
+    detection = next(
+        (item for item in detections if item.framework == head and item.runner_available), None,
+    )
+    if detection is None:
+        return command, ".", head
+    return [*detection.runner_argv, *command[1:]], detection.working_dir, head
+
+
+def _build_ci_candidates(
+    files: RepoFiles, detections: list[FrameworkDetection]
+) -> list[_CiCandidate]:
+    """Every test command this repository demonstrably supports, each
+    tagged with the directory it runs from. Nothing here decides which one
+    to actually run — that is `_select_relevant_candidate`'s job, using
+    changed-file location, not this function's discovery order."""
+    candidates: list[_CiCandidate] = []
+    seen: set[tuple[str, ...]] = set()
+
+    for command, source in _workflow_test_commands(files):
+        argv, working_dir, framework = _resolve_declared_runner_argv(command, detections)
+        key = (source, *argv)
+        if key in seen:
+            continue
+        seen.add(key)
+        candidates.append(_CiCandidate(command=argv, source=source, working_dir=working_dir, framework=framework))
+
+    for command, source, working_dir in _package_test_scripts(files):
+        key = (source, *command)
+        if key in seen:
+            continue
+        seen.add(key)
+        # A jest/mocha detection at the same working_dir gives a more useful
+        # label than the generic "npm" the script itself implies. The
+        # command actually run is always the declared `npm test`, never
+        # substituted — this only affects how the eventual exit code is
+        # interpreted (`_interpret_exit`).
+        specific = next(
+            (
+                item for item in detections
+                if item.framework in {FRAMEWORK_JEST, FRAMEWORK_MOCHA} and item.working_dir == working_dir
+            ),
+            None,
+        )
+        framework = specific.framework if specific is not None else FRAMEWORK_NPM
+        candidates.append(_CiCandidate(command=command, source=source, working_dir=working_dir, framework=framework))
+
+    for detection in detections:
+        if not detection.runner_available or not detection.runner_argv:
+            continue
+        # `working_dir` is part of the source label (and the dedup key): two
+        # detections of the same framework in different directories — e.g.
+        # two Python packages each with their own pytest config — are
+        # different candidates, never collapsed into one.
+        source = f"detected:{detection.framework}:{detection.working_dir}"
+        key = (source, *detection.runner_argv)
+        if key in seen:
+            continue
+        seen.add(key)
+        candidates.append(_CiCandidate(
+            command=list(detection.runner_argv), source=source,
+            working_dir=detection.working_dir, framework=detection.framework,
+        ))
+
+    return candidates
+
+
+def _working_dir_relevance(working_dir: str, changed_files: frozenset[str]) -> int | None:
+    """How specifically `working_dir` encloses at least one changed file —
+    higher is more specific (closer to the change); `None` means it
+    encloses none of them. Purely path topology: no framework or language is
+    ever preferred by name, only by whether its own test command's directory
+    actually contains what changed. `working_dir == "."` is a trivial
+    ancestor of everything, so it only wins when no more specific candidate
+    also matches — which is exactly "a backend-rooted test command is
+    relevant to a backend change unless something more specific claims it."
+    """
+    prefix = "" if working_dir == "." else working_dir.rstrip("/") + "/"
+    if not any(path.startswith(prefix) for path in changed_files):
+        return None
+    return 0 if working_dir == "." else working_dir.count("/") + 1
+
+
+def _select_relevant_candidate(
+    candidates: list[_CiCandidate], changed_files: frozenset[str] | None,
+) -> tuple[_CiCandidate | None, list[str]]:
+    """Pick the candidate whose own working directory most specifically
+    encloses the changed files.
+
+    Returns `(None, notes)` when nothing can be safely preferred: either no
+    candidate's directory contains any changed file at all (there is
+    genuinely no relevant test command to run — never fall back to running
+    an unrelated one and implying it verified the change), or more than one
+    candidate is tied for the most specific match (a real ambiguity, not
+    resolved by guessing). `notes` always explains what happened, even on a
+    clean single-candidate pick with no changed-file context supplied.
+    """
+    notes: list[str] = []
+    if not candidates:
+        return None, notes
+    if changed_files is None:
+        # No change context supplied (a caller outside the normal
+        # verify-change pipeline): preserve the pre-existing priority order
+        # — first declared command, else the first detected framework —
+        # rather than refusing to pick anything.
+        declared = [item for item in candidates if not item.source.startswith("detected:")]
+        return (declared[0] if declared else candidates[0]), notes
+
+    scored = [(item, _working_dir_relevance(item.working_dir, changed_files)) for item in candidates]
+    relevant = [(item, score) for item, score in scored if score is not None]
+    if not relevant:
+        notes.append(
+            "ci_suite_candidates=" + ",".join(f"{item.source}:{item.working_dir}" for item, _ in scored)
+            + " none_relevant=true"
+        )
+        return None, notes
+
+    best_score = max(score for _item, score in relevant)
+    best = sorted((item for item, score in relevant if score == best_score), key=lambda item: item.working_dir)
+    if len(best) > 1:
+        # A genuine tie: more than one command's directory is an equally
+        # specific match for the changed files (e.g. two backend packages
+        # both touched in the same diff). Chosen deterministically — by
+        # working_dir, so repeated runs over the same input always agree —
+        # but the tie itself is never hidden.
+        chosen = best[0]
+        others = ", ".join(f"{item.source}:{item.working_dir}" for item in best[1:])
+        notes.append(
+            f"ci_suite_multiple_relevant=true chosen={chosen.source}:{chosen.working_dir} also_relevant={others}"
+        )
+        return chosen, notes
+
+    return best[0], notes
 
 
 def resolve_ci_test_command(
-    files: RepoFiles, detections: list[FrameworkDetection]
-) -> tuple[list[str], str, FrameworkDetection] | None:
-    """Resolve the repository's own test command, preferring declared signals.
+    files: RepoFiles, detections: list[FrameworkDetection],
+    *, changed_files: frozenset[str] | None = None,
+) -> tuple[tuple[list[str], str, _CiCandidate] | None, list[str]]:
+    """Resolve the repository's own test command, preferring one whose own
+    working directory actually contains the change.
 
-    The workflow file is the strongest statement of "how this project runs its
-    tests". A bare runner name from it is re-pointed at the environment the
-    existing runner detection already resolved, so the repo's virtualenv or
-    `node_modules` binary is used rather than whatever is on PATH.
+    This is the fix for a monorepo where an unrelated nested `package.json`
+    would otherwise become the sole regression suite for a backend-only
+    change purely because it was the first manifest discovered — relevance
+    is judged by repository/test topology (which directory holds the
+    change, which directory holds the test command), never by a hardcoded
+    "this language beats that language" rule.
     """
     if not detections:
-        return None
+        return None, []
     available = [item for item in detections if item.runner_available]
     if not available:
-        return None
+        return None, []
 
-    declared = _workflow_test_command(files) or _package_test_script(files)
-    if declared is not None:
-        command, source = declared
-        head = command[0]
-        detection = next(
-            (item for item in available if item.framework == head),
-            available[0],
-        )
-        # `pytest -v` becomes `<repo python> -m pytest -v`; anything already
-        # naming an interpreter or npm is left as written.
-        if head in {FRAMEWORK_PYTEST, FRAMEWORK_JEST, FRAMEWORK_MOCHA}:
-            return [*detection.runner_argv, *command[1:]], source, detection
-        return command, source, detection
-
-    # No declared command: fall back to the detected runner's conventional form.
-    detection = available[0]
-    return list(detection.runner_argv), f"detected:{detection.framework}", detection
+    candidates = _build_ci_candidates(files, detections)
+    if not candidates:
+        return None, []
+    chosen, notes = _select_relevant_candidate(candidates, changed_files)
+    if chosen is None:
+        return None, notes
+    return (chosen.command, chosen.source, chosen), notes
 
 
 _PYTEST_SUMMARY_RE = re.compile(
@@ -833,9 +999,17 @@ def _parse_suite_output(combined: str) -> tuple[int | None, int | None, str | No
 
 
 def run_ci_suite(
-    *, files: RepoFiles, repo_root: Path, settings: ExecutionSettings
+    *, files: RepoFiles, repo_root: Path, settings: ExecutionSettings,
+    changed_files: frozenset[str] | None = None,
 ) -> tuple[CiSuiteRun | None, list[str]]:
-    """Run the repository's own test command once and interpret the result."""
+    """Run the repository's own test command once and interpret the result.
+
+    `changed_files` (repo-relative paths) drives relevance selection when
+    more than one test command is discoverable — see
+    `resolve_ci_test_command`/`_select_relevant_candidate`. Omitting it
+    preserves the pre-existing "first declared, else first detected"
+    behavior for any caller outside the normal verify-change pipeline.
+    """
     detections = detect_frameworks(files)
     notes: list[str] = [
         "test_frameworks_detected="
@@ -844,17 +1018,31 @@ def run_ci_suite(
     if not settings.enabled:
         return None, [*notes, "ci_suite=disabled"]
 
-    resolved = resolve_ci_test_command(files, detections)
+    resolved, selection_notes = resolve_ci_test_command(files, detections, changed_files=changed_files)
+    notes.extend(selection_notes)
     if resolved is None:
-        unavailable = next(
-            (item for item in detections if not item.runner_available), None
-        )
-        blocker = BLOCKER_RUNNER_MISSING if unavailable else BLOCKER_FRAMEWORK_UNSUPPORTED
-        reason = (
-            unavailable.unavailable_reason
-            if unavailable and unavailable.unavailable_reason
-            else "No repository test command could be resolved"
-        )
+        if any("none_relevant=true" in note for note in selection_notes):
+            # At least one test command exists, but none of them run from a
+            # directory that contains anything this change actually
+            # touched — running one anyway would silently imply it verified
+            # a change it cannot see, which is exactly what this refuses to
+            # do (Task: "report UNKNOWN ... rather than choosing an
+            # unrelated suite").
+            blocker = BLOCKER_FRAMEWORK_UNSUPPORTED
+            reason = (
+                "No discoverable test command's own directory contains any changed file; "
+                "refusing to run an unrelated suite as if it verified this change"
+            )
+        else:
+            unavailable = next(
+                (item for item in detections if not item.runner_available), None
+            )
+            blocker = BLOCKER_RUNNER_MISSING if unavailable else BLOCKER_FRAMEWORK_UNSUPPORTED
+            reason = (
+                unavailable.unavailable_reason
+                if unavailable and unavailable.unavailable_reason
+                else "No repository test command could be resolved"
+            )
         notes.append(f"ci_suite=unresolved reason={reason}")
         return (
             CiSuiteRun(status=VERIFICATION_UNKNOWN, blocker=blocker, reason=reason),
