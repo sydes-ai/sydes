@@ -113,12 +113,13 @@ def test_auto_guide_now_fires_for_a_resolved_symbol_with_no_structural_lead() ->
     graph lead."""
     f = facts()  # no call/usage edges at all: genuinely no structural lead
     guide = ScriptedGuide([
-        InvestigationDecision(action=ACTION_STOP_UNRESOLVED),
+        InvestigationDecision(action=ACTION_STOP_UNRESOLVED),  # the whole-change turn
+        InvestigationDecision(action=ACTION_STOP_UNRESOLVED),  # the per-symbol turn
     ])
     interpreter = ImpactInterpreter(guide=guide, guide_policy=GUIDE_AUTO)
     interpreter.interpret([resolved_changed("apply_never_cache")], f, repo=REPO)
 
-    assert guide.calls >= 1, "AUTO must no longer skip a resolved, lead-less symbol"
+    assert guide.calls >= 2, "AUTO must no longer skip a resolved, lead-less symbol"
 
 
 def test_semantic_pass_fires_when_structural_impacts_already_exist_elsewhere() -> None:
@@ -132,12 +133,15 @@ def test_semantic_pass_fires_when_structural_impacts_already_exist_elsewhere() -
         {"name": "helper", "file": "app/svc.py", "repo": REPO},  # resolves deterministically
         resolved_changed("apply_never_cache", file="app/other.py"),  # no lead at all
     ]
-    guide = ScriptedGuide([InvestigationDecision(action=ACTION_STOP_UNRESOLVED)])
+    guide = ScriptedGuide([
+        InvestigationDecision(action=ACTION_STOP_UNRESOLVED),  # the whole-change turn
+        InvestigationDecision(action=ACTION_STOP_UNRESOLVED),  # the per-symbol turn
+    ])
     interpreter = ImpactInterpreter(guide=guide, guide_policy=GUIDE_AUTO)
     result = interpreter.interpret(changed_symbols, f, repo=REPO)
 
     assert any(item.status == IMPACT_STATUS_PROVEN for item in result.affected)
-    assert guide.calls >= 1
+    assert guide.calls >= 2
 
 
 # --- 3/4/9. Structural evidence remains available; PROVEN vs INFERRED stay
@@ -169,6 +173,7 @@ def test_proven_and_inferred_can_coexist_for_the_same_change() -> None:
         resolved_changed("apply_never_cache", file="app/other.py"),
     ]
     guide = ScriptedGuide([
+        InvestigationDecision(action=ACTION_STOP_UNRESOLVED),  # the whole-change turn, harmless
         _infer("GET /y", entrypoint_symbol="other_handler"),
         InvestigationDecision(action=ACTION_STOP_UNRESOLVED),
     ])
@@ -191,12 +196,16 @@ def test_whole_change_context_is_supplied_to_every_guide_turn() -> None:
         {"name": "helper", "file": "app/svc.py", "repo": REPO},
         resolved_changed("apply_never_cache", file="app/other.py"),
     ]
-    guide = ScriptedGuide([InvestigationDecision(action=ACTION_STOP_UNRESOLVED)])
+    guide = ScriptedGuide([
+        InvestigationDecision(action=ACTION_STOP_UNRESOLVED),  # the whole-change turn
+        InvestigationDecision(action=ACTION_STOP_UNRESOLVED),  # the per-symbol turn
+    ])
     interpreter = ImpactInterpreter(guide=guide, guide_policy=GUIDE_AUTO)
     interpreter.interpret(changed_symbols, f, repo=REPO)
 
-    assert guide.calls >= 1
-    question = guide.questions[0]
+    assert guide.calls >= 2
+    assert guide.questions[0].is_whole_change is True
+    question = guide.questions[1]
     assert question.changed_symbol == "apply_never_cache"
     # The OTHER changed symbol in this same PR is visible ...
     assert "helper" in question.other_changed_symbols
@@ -237,6 +246,7 @@ def test_candidate_naming_the_changed_symbol_as_entrypoint_symbol_is_not_rejecte
 def test_trivial_self_restatement_is_still_rejected() -> None:
     f = facts()
     guide = ScriptedGuide([
+        InvestigationDecision(action=ACTION_STOP_UNRESOLVED),  # the whole-change turn, harmless
         _infer("set_expires", entrypoint_symbol="set_expires"),  # label is just the symbol name
         InvestigationDecision(action=ACTION_STOP_UNRESOLVED),
     ])
@@ -254,8 +264,100 @@ def test_guide_calls_remain_bounded_even_with_several_lead_less_symbols() -> Non
     the existing per-symbol/total budgets are still the only bound needed."""
     f = facts()
     changed_symbols = [resolved_changed(f"view_{i}", file=f"app/view_{i}.py") for i in range(6)]
-    guide = ScriptedGuide([InvestigationDecision(action=ACTION_STOP_UNRESOLVED) for _ in range(6)])
+    guide = ScriptedGuide([InvestigationDecision(action=ACTION_STOP_UNRESOLVED) for _ in range(7)])
     interpreter = ImpactInterpreter(guide=guide, guide_policy=GUIDE_AUTO)
     interpreter.interpret(changed_symbols, f, repo=REPO)
 
     assert guide.calls <= 8  # the existing default GuideBudget.max_turns_total
+
+
+# --- M4.2: whole-change pass precedes per-symbol turns, and informs their
+# order without ever silently dropping a candidate ---------------------------
+
+def test_whole_change_pass_runs_before_any_per_symbol_turn() -> None:
+    """The very first guide turn must be the whole-change synthesis, not a
+    per-symbol question — this is the primary-loop reordering itself."""
+    f = facts()
+    changed_symbols = [resolved_changed("view_a"), resolved_changed("view_b", file="app/view_b.py")]
+    guide = ScriptedGuide([
+        InvestigationDecision(action=ACTION_STOP_UNRESOLVED),
+        InvestigationDecision(action=ACTION_STOP_UNRESOLVED),
+        InvestigationDecision(action=ACTION_STOP_UNRESOLVED),
+    ])
+    interpreter = ImpactInterpreter(guide=guide, guide_policy=GUIDE_AUTO)
+    interpreter.interpret(changed_symbols, f, repo=REPO)
+
+    assert guide.questions[0].is_whole_change is True
+    assert guide.questions[1].is_whole_change is False
+    assert guide.questions[2].is_whole_change is False
+
+
+def test_follow_up_symbols_reprioritize_investigation_order_not_iteration_order() -> None:
+    """Target selection must be informed by the whole-change interpretation,
+    not simple changed-symbol iteration order: when the whole-change turn
+    names `view_b` as the priority follow-up, it must be investigated before
+    `view_a` even though `view_a` appears first among the changed symbols."""
+    f = facts()
+    changed_symbols = [resolved_changed("view_a"), resolved_changed("view_b", file="app/view_b.py")]
+    guide = ScriptedGuide([
+        InvestigationDecision(action=ACTION_INFER_IMPACT, candidates=(), follow_up_symbols=("view_b",)),
+        InvestigationDecision(action=ACTION_STOP_UNRESOLVED),  # per-symbol turn for view_b
+        InvestigationDecision(action=ACTION_STOP_UNRESOLVED),  # per-symbol turn for view_a
+    ])
+    interpreter = ImpactInterpreter(guide=guide, guide_policy=GUIDE_AUTO)
+    interpreter.interpret(changed_symbols, f, repo=REPO)
+
+    assert guide.questions[1].changed_symbol == "view_b"
+    assert guide.questions[2].changed_symbol == "view_a"
+
+
+def test_unlisted_symbols_keep_their_original_order_after_reprioritization() -> None:
+    """A follow-up hint naming only some symbols must not drop or silently
+    reorder the rest beyond the named ones moving to the front."""
+    f = facts()
+    changed_symbols = [
+        resolved_changed("view_a"), resolved_changed("view_b", file="app/view_b.py"),
+        resolved_changed("view_c", file="app/view_c.py"),
+    ]
+    guide = ScriptedGuide([
+        InvestigationDecision(action=ACTION_INFER_IMPACT, candidates=(), follow_up_symbols=("view_c",)),
+        InvestigationDecision(action=ACTION_STOP_UNRESOLVED),  # view_c, prioritized
+        InvestigationDecision(action=ACTION_STOP_UNRESOLVED),  # view_a, original order preserved
+        InvestigationDecision(action=ACTION_STOP_UNRESOLVED),  # view_b, original order preserved
+    ])
+    interpreter = ImpactInterpreter(guide=guide, guide_policy=GUIDE_AUTO)
+    interpreter.interpret(changed_symbols, f, repo=REPO)
+
+    assert [q.changed_symbol for q in guide.questions[1:]] == ["view_c", "view_a", "view_b"]
+
+
+def test_whole_change_turn_can_yield_a_reviewer_grade_pr_wide_semantic_finding() -> None:
+    """The whole-change turn's own candidates must be accepted the same way
+    a per-symbol candidate is — surfacing a PR-wide behavior description
+    (not a bare symbol/config name) as an INFERRED impact."""
+    f = facts()
+    changed_symbols = [
+        resolved_changed("device_render_config_view"),
+        resolved_changed("device_config_tab_view", file="app/other.py"),
+    ]
+    guide = ScriptedGuide([
+        InvestigationDecision(
+            action=ACTION_INFER_IMPACT,
+            candidates=(
+                ImpactCandidate(
+                    entrypoint_label="Several data/configuration HTTP views are now explicitly non-cacheable",
+                    confidence=0.7,
+                    reason="both changed views now apply a never-cache decorator to their responses",
+                ),
+            ),
+        ),
+        InvestigationDecision(action=ACTION_STOP_UNRESOLVED),
+        InvestigationDecision(action=ACTION_STOP_UNRESOLVED),
+    ])
+    interpreter = ImpactInterpreter(guide=guide, guide_policy=GUIDE_AUTO)
+    result = interpreter.interpret(changed_symbols, f, repo=REPO)
+
+    assert len(result.affected) == 1
+    inferred = result.affected[0]
+    assert inferred.status == IMPACT_STATUS_INFERRED
+    assert inferred.label == "Several data/configuration HTTP views are now explicitly non-cacheable"

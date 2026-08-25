@@ -510,6 +510,17 @@ class ImpactQuestion:
     #: deterministic evidence already established before it reasons about
     #: this symbol, instead of reasoning from a blank slate every turn.
     accepted_impacts_so_far: tuple[str, ...] = ()
+    #: True for exactly one turn per `interpret()` call: the whole-change
+    #: pass that runs before any per-symbol turn. When set, `changed_symbol`
+    #: is a neutral marker rather than one real symbol, and
+    #: `other_changed_symbols`/`unresolved_symbols` carry the *complete*
+    #: lists (not "every symbol but this one") — see `build_guide_prompt`.
+    is_whole_change: bool = False
+    #: Short names of every changed symbol still unresolved by the
+    #: deterministic pass, bounded/deduped — only populated on the
+    #: whole-change turn, so the guide can see the shape of what is still
+    #: unknown, not just what has already been accepted.
+    unresolved_symbols: tuple[str, ...] = ()
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -528,6 +539,8 @@ class ImpactQuestion:
             "remaining_budget": self.remaining_budget,
             "other_changed_symbols": list(self.other_changed_symbols),
             "accepted_impacts_so_far": list(self.accepted_impacts_so_far),
+            "is_whole_change": self.is_whole_change,
+            "unresolved_symbols": list(self.unresolved_symbols),
         }
 
 
@@ -629,6 +642,14 @@ class InvestigationDecision:
     rationale: str = ""
     candidates: tuple[ImpactCandidate, ...] = ()
     parameters: dict[str, Any] = field(default_factory=dict)
+    #: Optional, meaningful only on the one whole-change `ACTION_INFER_IMPACT`
+    #: turn (`ImpactQuestion.is_whole_change`): names, in the guide's own
+    #: priority order, which still-unresolved changed symbols it judges worth
+    #: a closer, targeted look. Never a command — the interpreter still owns
+    #: which of these actually get a follow-up turn, bounded by the same
+    #: `GuideBudget` as everything else; an empty tuple means "no opinion,"
+    #: not "nothing is worth investigating."
+    follow_up_symbols: tuple[str, ...] = ()
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -637,6 +658,7 @@ class InvestigationDecision:
             "rationale": self.rationale,
             "candidates": [c.to_dict() for c in self.candidates],
             "parameters": dict(self.parameters),
+            "follow_up_symbols": list(self.follow_up_symbols),
         }
 
 

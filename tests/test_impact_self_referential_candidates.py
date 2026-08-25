@@ -92,6 +92,7 @@ def test_case_a_exact_self_reference_is_rejected() -> None:
     """changed symbol `tool.ruff`, candidate `tool.ruff` -> not accepted."""
     f = facts(call_edges=[call_edge("orphan_caller", "leaf")])
     guide = ScriptedGuide([
+        InvestigationDecision(action=ACTION_STOP_UNRESOLVED),  # the whole-change turn, harmless
         InvestigationDecision(
             action=ACTION_INFER_IMPACT,
             candidates=(
@@ -117,6 +118,7 @@ def test_case_a_nested_self_reference_is_rejected_even_with_punctuation_variance
     punctuation-varied restatement) -> both rejected."""
     f = facts(call_edges=[call_edge("orphan_caller", "leaf")])
     guide = ScriptedGuide([
+        InvestigationDecision(action=ACTION_STOP_UNRESOLVED),  # the whole-change turn, harmless
         InvestigationDecision(
             action=ACTION_INFER_IMPACT,
             candidates=(
@@ -242,7 +244,10 @@ def test_case_c_meaningful_uncorroborated_inference_survives_and_is_visible_in_r
 
 def test_case_e_provider_failure_is_not_confused_with_a_successful_no_impact_conclusion() -> None:
     f = facts(call_edges=[call_edge("orphan_caller", "leaf")])
-    guide = ScriptedGuide([GuideError("OpenAI request failed for model 'gpt-5.5': boom")])
+    guide = ScriptedGuide([
+        InvestigationDecision(action=ACTION_STOP_UNRESOLVED),  # the whole-change turn, harmless
+        GuideError("OpenAI request failed for model 'gpt-5.5': boom"),
+    ])
     interpreter = ImpactInterpreter(guide=guide, guide_policy=GUIDE_AUTO)
     result = interpreter.interpret(changed("leaf", file="app/svc.py"), f, repo=REPO)
 

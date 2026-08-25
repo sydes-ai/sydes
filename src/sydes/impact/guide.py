@@ -87,10 +87,11 @@ Ground rules:
 - A completed deterministic path needs no further investigation — you are only ever asked about what is still unresolved.
 - Check attempted_actions before choosing: do not repeat an action that already ran with the same target/sought_symbol/candidates.
 - Choose STOP_UNRESOLVED only when you have already tried INFER_IMPACT (or are confident it would yield nothing) and no other action is likely to add real value. Trying INFER_IMPACT and concluding with an empty candidate list satisfies this — you do not need to keep searching for something to report. Do not guess to fill the budget.
+- One turn per analysis is the WHOLE-CHANGE turn (marked as such in the question): there, `changed_symbol` is not one real symbol — it is every symbol this PR changed, taken together, plus every structural fact already found for any of them. Reason about the change as one coherent thing, not as an isolated fact about a single function: a PR-wide theme (e.g. "several endpoints are now non-cacheable", "writes now roll back their queued side effects") is exactly what this turn exists to surface, and a candidate here may legitimately describe a behavior that no single changed symbol's own turn could see on its own. On this turn only, you may also name up to a few of the still-unresolved changed symbols (from `still_unresolved_changed_symbols`) you judge most worth a closer, targeted look, via `"investigate_next"` — an ordered array of symbol names, most important first. This is a suggestion, not a command, and an empty array is fine when you have no particular opinion; the interpreter decides how many of your suggestions it can actually afford.
 - Respond with a single JSON object and nothing else.
 
 For INFER_IMPACT:
-{"action": "infer_impact", "candidates": [{"entrypoint": "GET /cases", "entrypoint_symbol": "optional exact known symbol", "confidence": 0.72, "reason": "one sentence naming the downstream behavior and why it is affected", "inference_type": "semantic_indirect_dependency", "uncertainty": "what the graph is missing"}], "rationale": "one sentence"}
+{"action": "infer_impact", "candidates": [{"entrypoint": "GET /cases", "entrypoint_symbol": "optional exact known symbol", "confidence": 0.72, "reason": "one sentence naming the downstream behavior and why it is affected", "inference_type": "semantic_indirect_dependency", "uncertainty": "what the graph is missing"}], "rationale": "one sentence", "investigate_next": ["optional_symbol_name", "..."]}
 
 For INFER_IMPACT with nothing meaningful to report:
 {"action": "infer_impact", "candidates": [], "rationale": "no meaningful downstream impact inferred"}
@@ -103,6 +104,32 @@ Allowed actions: INFER_IMPACT (primary), TRACE_CALLERS, TRACE_USAGES, INSPECT_SY
 
 def build_guide_prompt(question: ImpactQuestion) -> str:
     """Render one `ImpactQuestion` as the user turn of the guide prompt."""
+    if question.is_whole_change:
+        lines = [
+            "WHOLE-CHANGE TURN: the fields below describe the entire PR, not one symbol.",
+            f"changed_symbols_in_this_pr ({len(question.other_changed_symbols)}):",
+            *(f"  - {item}" for item in question.other_changed_symbols),
+            f"reason: {question.reason}",
+            f"remaining_investigation_budget: {question.remaining_budget}",
+        ]
+        if question.unresolved_symbols:
+            lines.append("still_unresolved_changed_symbols:")
+            lines.extend(f"  - {item}" for item in question.unresolved_symbols)
+        if question.source_context:
+            lines.append("changed_code_previews:")
+            lines.append(question.source_context)
+        if question.accepted_impacts_so_far:
+            lines.append("impacts_already_accepted_this_run (deterministic or previously inferred):")
+            lines.extend(f"  - {item}" for item in question.accepted_impacts_so_far)
+        if question.known_entrypoints:
+            lines.append("notable_known_entrypoints_in_context:")
+            lines.extend(f"  - {item}" for item in question.known_entrypoints)
+        lines.append(
+            "\nWhat existing behavior could now behave differently, considering the change as a whole? "
+            "You may also suggest investigate_next targets."
+        )
+        return "\n".join(lines)
+
     lines = [
         f"changed_symbol: {question.changed_symbol}",
         f"qualified_name: {question.qualified_name or '(unknown)'}",
@@ -235,8 +262,14 @@ def parse_guide_decision(text: str) -> InvestigationDecision:
         raise GuideError(f"guide chose an unsupported action: {raw_action!r}")
 
     candidates: tuple[ImpactCandidate, ...] = ()
+    follow_up_symbols: tuple[str, ...] = ()
     if action == ACTION_INFER_IMPACT:
         candidates = _parse_candidates(payload.get("candidates"))
+        raw_follow_ups = payload.get("investigate_next")
+        if isinstance(raw_follow_ups, list):
+            follow_up_symbols = tuple(
+                item.strip() for item in raw_follow_ups if isinstance(item, str) and item.strip()
+            )
 
     raw_target = payload.get("target", "")
     target = raw_target.strip() if isinstance(raw_target, str) else ""
@@ -257,6 +290,7 @@ def parse_guide_decision(text: str) -> InvestigationDecision:
     return InvestigationDecision(
         action=action, target=target, sought_symbol=sought_symbol,
         rationale=rationale, candidates=candidates, parameters=parameters,
+        follow_up_symbols=follow_up_symbols,
     )
 
 

@@ -251,7 +251,10 @@ def test_guide_error_fails_closed_with_visible_detail() -> None:
     candidate fabricated, the symbol stays unresolved — and must leave a
     readable trace in diagnostics, not just an incremented counter."""
     f = facts(call_edges=[call_edge("orphan_caller", "leaf")])
-    guide = ScriptedGuide([GuideError("OpenAI request failed for model 'gpt-5.5': boom")])
+    guide = ScriptedGuide([
+        InvestigationDecision(action=ACTION_STOP_UNRESOLVED),  # the whole-change turn, harmless
+        GuideError("OpenAI request failed for model 'gpt-5.5': boom"),
+    ])
     interpreter = ImpactInterpreter(guide=guide, guide_policy=GUIDE_AUTO)
     result = interpreter.interpret(changed("leaf"), f, repo=REPO)
 
@@ -269,6 +272,7 @@ def test_metrics_contain_llm_candidate_information() -> None:
     """Test 10: aggregate metrics must expose the new M4 counters."""
     f = facts(call_edges=[call_edge("orphan_caller", "leaf")])
     guide = ScriptedGuide([
+        InvestigationDecision(action=ACTION_STOP_UNRESOLVED),  # the whole-change turn, harmless
         InvestigationDecision(
             action=ACTION_INFER_IMPACT,
             candidates=(

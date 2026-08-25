@@ -119,11 +119,14 @@ def test_a_deterministically_resolved_symbol_never_calls_the_guide() -> None:
 def test_a_dead_end_triggers_the_guide_in_auto_mode() -> None:
     """A symbol with a partial path but no entrypoint must reach the guide."""
     f = facts(call_edges=[call_edge("orphan_caller", "leaf")])
-    guide = ScriptedGuide([InvestigationDecision(action=ACTION_STOP_UNRESOLVED)])
+    guide = ScriptedGuide([
+        InvestigationDecision(action=ACTION_STOP_UNRESOLVED),  # the whole-change turn
+        InvestigationDecision(action=ACTION_STOP_UNRESOLVED),  # the per-symbol turn
+    ])
     interpreter = ImpactInterpreter(guide=guide, guide_policy=GUIDE_AUTO)
     result = interpreter.interpret(changed("leaf"), f, repo=REPO)
     assert not result.affected
-    assert guide.calls == 1
+    assert guide.calls == 2
     assert result.metrics["guide_triggered"] is True
     assert result.unresolved[0].guide_investigated is True
 
@@ -139,15 +142,21 @@ def test_guide_is_never_consulted_when_policy_is_off_even_with_a_guide_present()
 
 def test_stop_unresolved_ends_the_loop_immediately() -> None:
     f = facts(call_edges=[call_edge("orphan_caller", "leaf")])
-    guide = ScriptedGuide([InvestigationDecision(action=ACTION_STOP_UNRESOLVED)])
+    guide = ScriptedGuide([
+        InvestigationDecision(action=ACTION_STOP_UNRESOLVED),  # the whole-change turn
+        InvestigationDecision(action=ACTION_STOP_UNRESOLVED),  # the per-symbol turn
+    ])
     interpreter = ImpactInterpreter(guide=guide, guide_policy=GUIDE_ALWAYS, guide_budget=GuideBudget(max_turns_per_symbol=3, max_turns_total=8))
     interpreter.interpret(changed("leaf"), f, repo=REPO)
-    assert guide.calls == 1  # never used its remaining 2 per-symbol turns
+    assert guide.calls == 2  # 1 whole-change + 1 per-symbol; never used its remaining 2 per-symbol turns
 
 
 def test_guide_error_fails_closed_and_leaves_the_symbol_unresolved() -> None:
     f = facts(call_edges=[call_edge("orphan_caller", "leaf")])
-    guide = ScriptedGuide([GuideError("provider timeout")])
+    guide = ScriptedGuide([
+        GuideError("provider timeout"),  # the whole-change turn
+        InvestigationDecision(action=ACTION_STOP_UNRESOLVED),  # the per-symbol turn
+    ])
     interpreter = ImpactInterpreter(guide=guide, guide_policy=GUIDE_AUTO)
     result = interpreter.interpret(changed("leaf"), f, repo=REPO)
     assert not result.affected
@@ -157,19 +166,22 @@ def test_guide_error_fails_closed_and_leaves_the_symbol_unresolved() -> None:
 def test_repeating_the_same_decision_is_detected_as_no_progress() -> None:
     f = facts(call_edges=[call_edge("orphan_caller", "leaf")])
     same = InvestigationDecision(action=ACTION_TRACE_CALLERS, target="leaf")
-    guide = ScriptedGuide([same, same, same])  # a third would prove the loop kept going
+    guide = ScriptedGuide([same, same, same])  # a fourth would prove the loop kept going
     interpreter = ImpactInterpreter(guide=guide, guide_policy=GUIDE_AUTO, guide_budget=GuideBudget(max_turns_per_symbol=3, max_turns_total=8))
     result = interpreter.interpret(changed("leaf"), f, repo=REPO)
-    # Turn 1 finds the (already-known) edge and re-evaluates without
-    # resolving; turn 2 asks again, gets the identical decision, and the loop
-    # stops right there rather than asking a third time.
-    assert guide.calls == 2
+    # Turn 1 is the whole-change pass (this non-INFER_IMPACT decision is a
+    # harmless no-op there); turn 2 finds the (already-known) edge and
+    # re-evaluates without resolving; turn 3 asks again, gets the identical
+    # decision, and the loop stops right there rather than asking a fourth
+    # time.
+    assert guide.calls == 3
     assert result.metrics["guide_no_progress"] == 1
 
 
 def test_per_symbol_budget_is_enforced() -> None:
     f = facts(call_edges=[call_edge("orphan_caller", "leaf")])
     decisions = [
+        InvestigationDecision(action=ACTION_STOP_UNRESOLVED),  # the whole-change turn
         InvestigationDecision(action=ACTION_TRACE_CALLERS, target="leaf"),
         InvestigationDecision(action=ACTION_INSPECT_NEARBY_ENTRYPOINTS, target="app/svc.py"),
         InvestigationDecision(action=ACTION_INSPECT_NEARBY_ENTRYPOINTS, target="app/other.py"),
@@ -179,7 +191,7 @@ def test_per_symbol_budget_is_enforced() -> None:
         guide=guide, guide_policy=GUIDE_AUTO, guide_budget=GuideBudget(max_turns_per_symbol=2, max_turns_total=8),
     )
     interpreter.interpret(changed("leaf"), f, repo=REPO)
-    assert guide.calls == 2  # third decision never consumed
+    assert guide.calls == 3  # 1 whole-change + 2 per-symbol; fourth decision never consumed
 
 
 def test_total_budget_is_enforced_across_symbols() -> None:
@@ -271,11 +283,14 @@ def test_pseudo_node_does_not_override_a_meaningful_symbol_origin() -> None:
             # way `__file__` or an import target never has a real body.
         ]}]}]},
     )
-    guide = CapturingGuide([InvestigationDecision(action=ACTION_STOP_UNRESOLVED)])
+    guide = CapturingGuide([
+        InvestigationDecision(action=ACTION_STOP_UNRESOLVED),  # the whole-change turn
+        InvestigationDecision(action=ACTION_STOP_UNRESOLVED),  # the per-symbol turn
+    ])
     interpreter = ImpactInterpreter(guide=guide, guide_policy=GUIDE_AUTO)
     interpreter.interpret(changed("leaf"), f, repo=REPO)
 
-    question = guide.questions[0]
+    question = guide.questions[1]
     assert "real_caller" in question.candidate_origins
     assert "pseudo_attr" not in question.candidate_origins
 
@@ -293,11 +308,14 @@ def test_multiple_meaningful_frontier_nodes_are_preserved() -> None:
             {"name": "real_caller_b", "file": "app/svc.py", "start_line": 3, "end_line": 4, "language": "python"},
         ]}]}]},
     )
-    guide = CapturingGuide([InvestigationDecision(action=ACTION_STOP_UNRESOLVED)])
+    guide = CapturingGuide([
+        InvestigationDecision(action=ACTION_STOP_UNRESOLVED),  # the whole-change turn
+        InvestigationDecision(action=ACTION_STOP_UNRESOLVED),  # the per-symbol turn
+    ])
     interpreter = ImpactInterpreter(guide=guide, guide_policy=GUIDE_AUTO)
     interpreter.interpret(changed("leaf"), f, repo=REPO)
 
-    question = guide.questions[0]
+    question = guide.questions[1]
     assert "real_caller_a" in question.candidate_origins
     assert "real_caller_b" in question.candidate_origins
 
@@ -318,10 +336,13 @@ def test_candidate_origin_ordering_is_deterministic_across_runs() -> None:
     )
     orders = []
     for _ in range(3):
-        guide = CapturingGuide([InvestigationDecision(action=ACTION_STOP_UNRESOLVED)])
+        guide = CapturingGuide([
+            InvestigationDecision(action=ACTION_STOP_UNRESOLVED),  # the whole-change turn
+            InvestigationDecision(action=ACTION_STOP_UNRESOLVED),  # the per-symbol turn
+        ])
         interpreter = ImpactInterpreter(guide=guide, guide_policy=GUIDE_AUTO)
         interpreter.interpret(changed("leaf"), f, repo=REPO)
-        orders.append(guide.questions[0].candidate_origins)
+        orders.append(guide.questions[1].candidate_origins)
     assert len(set(orders)) == 1  # identical every run
     # Deepest-first: `deep_caller` is two hops out, `shallow_caller` one.
     assert orders[0].index("deep_caller") < orders[0].index("shallow_caller")
@@ -332,6 +353,7 @@ def test_source_confirming_action_receives_target_and_sought_symbol(chat_repo: P
     target's source to read, and which symbol to look for in it — not just
     a bare `inspect X`."""
     guide = CapturingGuide([
+        InvestigationDecision(action=ACTION_STOP_UNRESOLVED),  # the whole-change turn
         InvestigationDecision(action=ACTION_INSPECT_NEARBY_ENTRYPOINTS, target="app/chat.py"),
         InvestigationDecision(
             action=ACTION_INSPECT_ENCLOSING_FUNCTION, target="chat_completion",
@@ -341,9 +363,10 @@ def test_source_confirming_action_receives_target_and_sought_symbol(chat_repo: P
     interpreter = ImpactInterpreter(guide=guide, guide_policy=GUIDE_AUTO, repo_root=chat_repo)
     interpreter.interpret(changed("streaming_chat_response_handler"), _chat_facts(), repo=REPO)
 
-    # The second question must offer process_chat_response as a legal origin
-    # before the guide is asked to name it as sought_symbol.
-    assert "process_chat_response" in guide.questions[1].candidate_origins
+    # The third question (second per-symbol turn) must offer
+    # process_chat_response as a legal origin before the guide is asked to
+    # name it as sought_symbol.
+    assert "process_chat_response" in guide.questions[2].candidate_origins
 
 
 def test_source_confirmed_edge_recovers_the_missing_entrypoint(chat_repo: Path) -> None:
@@ -351,6 +374,7 @@ def test_source_confirmed_edge_recovers_the_missing_entrypoint(chat_repo: Path) 
     process_chat_response, but the guide finds it structurally nearby and the
     executor confirms the reference by reading the real source."""
     guide = ScriptedGuide([
+        InvestigationDecision(action=ACTION_STOP_UNRESOLVED),  # the whole-change turn
         InvestigationDecision(action=ACTION_INSPECT_NEARBY_ENTRYPOINTS, target="app/chat.py"),
         InvestigationDecision(
             action=ACTION_INSPECT_ENCLOSING_FUNCTION, target="chat_completion",
@@ -404,11 +428,14 @@ def test_qualified_name_is_stripped_of_checkout_path_noise() -> None:
     # No qualified_name supplied on the changed symbol itself — matching real
     # attribution for a plain function — so identity resolution learns the
     # (noisy) one CBM's own edges carry, the same way production code does.
-    guide = CapturingGuide([InvestigationDecision(action=ACTION_STOP_UNRESOLVED)])
+    guide = CapturingGuide([
+        InvestigationDecision(action=ACTION_STOP_UNRESOLVED),  # the whole-change turn
+        InvestigationDecision(action=ACTION_STOP_UNRESOLVED),  # the per-symbol turn
+    ])
     interpreter = ImpactInterpreter(guide=guide, guide_policy=GUIDE_AUTO)
     interpreter.interpret(changed("leaf"), f, repo=REPO)
 
-    question = guide.questions[0]
+    question = guide.questions[1]
     assert question.file == "app/svc.py"  # already clean, repo-relative
     assert noisy_prefix not in question.qualified_name
     assert question.qualified_name == "app.svc.leaf"
@@ -418,6 +445,7 @@ def test_unconfirmed_hypothesis_is_not_promoted(chat_repo_no_reference: Path) ->
     """If source inspection finds no reference, the entrypoint must not be
     fabricated even though it genuinely exists elsewhere in the facts."""
     guide = ScriptedGuide([
+        InvestigationDecision(action=ACTION_STOP_UNRESOLVED),  # the whole-change turn
         InvestigationDecision(action=ACTION_INSPECT_NEARBY_ENTRYPOINTS, target="app/chat.py"),
         InvestigationDecision(
             action=ACTION_INSPECT_ENCLOSING_FUNCTION, target="chat_completion",
@@ -439,17 +467,18 @@ def test_attempted_action_history_is_visible_to_the_guide() -> None:
     tried and found, not just the original static facts."""
     f = facts(call_edges=[call_edge("orphan_caller", "leaf")])
     guide = CapturingGuide([
+        InvestigationDecision(action=ACTION_STOP_UNRESOLVED),  # the whole-change turn
         InvestigationDecision(action=ACTION_TRACE_CALLERS, target="leaf"),
         InvestigationDecision(action=ACTION_STOP_UNRESOLVED),
     ])
     interpreter = ImpactInterpreter(guide=guide, guide_policy=GUIDE_AUTO)
     interpreter.interpret(changed("leaf"), f, repo=REPO)
 
-    assert guide.questions[0].attempted_actions == ()
-    second_history = guide.questions[1].attempted_actions
-    assert len(second_history) == 1
-    assert "trace_callers" in second_history[0]
-    assert "leaf" in second_history[0]
+    assert guide.questions[1].attempted_actions == ()
+    third_history = guide.questions[2].attempted_actions
+    assert len(third_history) == 1
+    assert "trace_callers" in third_history[0]
+    assert "leaf" in third_history[0]
 
 
 def test_no_hardcoded_action_selection_policy_drives_resolution() -> None:
@@ -488,6 +517,7 @@ def test_diagnostics_distinguish_deterministic_from_llm_guided_recovery(chat_rep
     assert deterministic_result.affected[0].strategies != [STRATEGY_GUIDED_INVESTIGATION]
 
     guided_guide = ScriptedGuide([
+        InvestigationDecision(action=ACTION_STOP_UNRESOLVED),  # the whole-change turn
         InvestigationDecision(action=ACTION_INSPECT_NEARBY_ENTRYPOINTS, target="app/chat.py"),
         InvestigationDecision(
             action=ACTION_INSPECT_ENCLOSING_FUNCTION, target="chat_completion",

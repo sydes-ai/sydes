@@ -348,6 +348,23 @@ class ImpactInterpreter:
         total_budget = self._guide_budget.max_turns_total
         resolved_count = 0
 
+        # M4.2: one whole-change semantic turn before any per-symbol turn —
+        # see `_run_whole_change_pass`. It always consumes exactly one call
+        # against the shared budget (never zero, never more), and may name
+        # which of the still-unresolved symbols below are worth investigating
+        # first; unlisted ones keep their original order.
+        follow_up_symbols: tuple[str, ...] = ()
+        if total_budget > 0:
+            follow_up_symbols = self._run_whole_change_pass(
+                candidates, index, found, result, metrics,
+            )
+            total_budget -= 1
+        if follow_up_symbols:
+            priority = {name: position for position, name in enumerate(follow_up_symbols)}
+            candidates = sorted(
+                candidates, key=lambda item: priority.get(item[1], len(priority))
+            )
+
         for symbol, name, start_identity, dead_ends in candidates:
             if total_budget <= 0:
                 metrics["guide_budget_exhausted"] = True
@@ -519,6 +536,100 @@ class ImpactInterpreter:
 
         metrics["unresolved_after"] = len(candidates) - resolved_count
         return metrics
+
+    def _run_whole_change_pass(
+        self,
+        candidates: list[tuple[dict[str, Any], str, SymbolIdentity,
+                                list[tuple[SymbolIdentity, tuple[ImpactStep, ...]]]]],
+        index: _FactIndex,
+        found: dict[str, AffectedEntrypoint],
+        result: ImpactResult,
+        metrics: dict[str, Any],
+    ) -> tuple[str, ...]:
+        """One INFER_IMPACT turn about the whole change, before any
+        per-symbol turn — the fix for a loop that used to reason about
+        changed symbols one at a time until its budget ran out, with no
+        opportunity to notice a PR-wide theme spanning several of them.
+
+        Reuses every existing mechanism: the same `ImpactQuestion`/
+        `InvestigationDecision` types, the same `_apply_inferred_candidates`
+        (self-reference rejection, corroboration, `llm_candidate_log`), the
+        same guide. The only new things are the question's shape (the whole
+        change, not one symbol — see `ImpactQuestion.is_whole_change`) and
+        `InvestigationDecision.follow_up_symbols`, an optional, non-binding
+        priority order for the per-symbol turns that follow.
+
+        Always counts as exactly one call against the shared budget,
+        regardless of outcome (including a provider error) — the caller
+        already checked `total_budget > 0` before calling this.
+        """
+        metrics["guide_triggered"] = True
+        unresolved_names = tuple(name for _symbol, name, _identity, _dead_ends in candidates)
+        # A handful of changed-symbol source previews, not the whole diff —
+        # the same per-symbol preview machinery, just sampled across symbols
+        # instead of read once per turn.
+        previews = []
+        for _symbol, name, start_identity, _dead_ends in candidates[:5]:
+            preview = source_preview(start_identity, index.facts, self._repo_root)
+            if preview:
+                previews.append(f"# {name}\n{preview}")
+        question = ImpactQuestion(
+            repo=index.repo_of({}),
+            changed_symbol="(whole change)",
+            qualified_name="",
+            file="",
+            reason=(
+                f"{len(candidates)} changed symbol(s) in this PR have no established "
+                "structural path to a known entrypoint"
+            ),
+            source_context="\n\n".join(previews),
+            remaining_budget=self._guide_budget.max_turns_total,
+            other_changed_symbols=unresolved_names[:_WHOLE_CHANGE_CONTEXT_CAP],
+            accepted_impacts_so_far=tuple(
+                entry.label for entry in found.values()
+            )[:_WHOLE_CHANGE_CONTEXT_CAP],
+            known_entrypoints=tuple(
+                f"{entry.get('route_method')} {entry.get('route_path')}".strip()
+                if entry.get("route_method") and entry.get("route_path")
+                else str(entry.get("symbol") or "")
+                for entry in index.entrypoints[:_WHOLE_CHANGE_CONTEXT_CAP]
+            ),
+            is_whole_change=True,
+            unresolved_symbols=unresolved_names[:_WHOLE_CHANGE_CONTEXT_CAP],
+        )
+
+        turn_started = time.monotonic()
+        try:
+            decision = self._guide.investigate(question)
+        except GuideError as exc:
+            metrics["guide_calls"] += 1
+            metrics["guide_errors"] += 1
+            metrics["guide_error_details"].append(f"guide_error={exc}")
+            metrics["guide_latency_ms"] += (time.monotonic() - turn_started) * 1000
+            return ()
+        metrics["guide_latency_ms"] += (time.monotonic() - turn_started) * 1000
+        metrics["guide_calls"] += 1
+        actions = metrics["guide_actions"]
+        actions[decision.action] = actions.get(decision.action, 0) + 1
+
+        if decision.action != ACTION_INFER_IMPACT:
+            return ()
+        if not decision.candidates:
+            metrics["llm_no_candidate_turns"] += 1
+            return decision.follow_up_symbols
+
+        executor = InvestigationExecutor(index=index, facts=index.facts, repo_root=self._repo_root)
+        # `changed_qualified_name=""`: there is no single changed symbol for
+        # `_is_self_referential` to compare a label against on this turn, so
+        # it never trivially rejects anything here — the whole-change
+        # question does not restate any one symbol's name. `name` is a
+        # readable marker, not a real symbol, for `llm_candidate_log`/
+        # `changed_symbols` attribution.
+        self._apply_inferred_candidates(
+            decision.candidates, executor=executor, found=found, result=result,
+            name="(whole change)", turn=1, metrics=metrics, changed_repo=index.repo_of({}),
+        )
+        return decision.follow_up_symbols
 
     def _reachability_extended(
         self, symbol: dict[str, Any], index: _FactIndex,
