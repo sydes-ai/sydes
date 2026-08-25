@@ -11,6 +11,12 @@ import re
 
 from sydes.verify.models import (
     ANALYSIS_COMPLETE,
+    OBLIGATION_CROSS_REPO_CALL,
+    OBLIGATION_EVENT_EMISSION,
+    OBLIGATION_ROUTE_CONTRACT,
+    OBLIGATION_SIDE_EFFECT,
+    OBLIGATION_STATE_CONSISTENCY,
+    OBLIGATION_VALIDATION,
     ORIGIN_TRACE_SINK,
     VERIFICATION_FAILED,
     VERIFICATION_PASSED,
@@ -27,6 +33,11 @@ from sydes.verify.models import (
 #: same boundary every other section already respects.
 _IMPACT_PROVEN = "proven"
 _IMPACT_INFERRED = "inferred"
+
+#: `sydes.ingest.file_roles.FILE_ROLE_TEST_USAGE_CANDIDATE`, duplicated here
+#: for the same reason as `_IMPACT_PROVEN` above — this renderer depends
+#: only on `sydes.verify.models`.
+_FILE_ROLE_TEST_USAGE_CANDIDATE = "test_usage_candidate"
 
 _MARK = {
     VERIFICATION_PASSED: "✓",
@@ -348,9 +359,58 @@ def _changed_symbol_identities(result: ChangeVerificationResult) -> set[str]:
     return identities
 
 
+#: Roughly 5, per the product brief — not a new ranking system, just how
+#: many of the *already-filtered* relevant production symbols to show
+#: before pointing at --verbose for the rest.
+_CHANGED_DEFAULT_CAP = 5
+
+
+def _flow_participant_identities(result: ChangeVerificationResult) -> set[str]:
+    """Every symbol name that actually appears as a hop in a *rendered*
+    flow's own trace — the same identity set `_flow_chain_lines` already
+    computes per flow, pooled across all shown flows. A changed symbol
+    matching one of these genuinely participates in a shown system-impact
+    path (Task inclusion criterion 1)."""
+    identities: set[str] = set()
+    for flow in result.affected_flows:
+        for step in flow.steps:
+            if not isinstance(step, dict):
+                continue
+            symbol = step.get("symbol") or step.get("name")
+            if symbol:
+                identities.add(str(symbol))
+    return identities
+
+
+def _accepted_impact_identities(result: ChangeVerificationResult) -> set[str]:
+    """Every symbol name any accepted impact already attributes itself to
+    (`AcceptedImpact.changed_symbols`) — a changed symbol matching one of
+    these produced or IS an accepted affected behavior/entrypoint (Task
+    inclusion criterion 2), independent of whether that impact became a
+    rendered flow."""
+    identities: set[str] = set()
+    for impact in result.accepted_impacts:
+        identities.update(impact.changed_symbols)
+    return identities
+
+
+def _is_relevant_changed_symbol(name: str, short: str, relevant_identities: set[str]) -> bool:
+    return name in relevant_identities or short in relevant_identities
+
+
 def _render_changed_default(result: ChangeVerificationResult, lines: list[str]) -> None:
-    """Concrete file:line + function — never the raw `changed symbols: N`
-    debug count."""
+    """Concrete file:line + function for changed *production* symbols that
+    are relevant to what the report actually shows — never the raw
+    `changed symbols: N` debug count, and never every changed test function
+    (already visible in GitHub's own Files Changed view).
+
+    Relevance (Task inclusion criteria 1-2, using only fields the pipeline
+    already computed): a changed production symbol qualifies when it
+    participates in a rendered flow's own trace, or when it is among the
+    changed symbols an accepted impact already attributes itself to. No new
+    ranking or relevance score is introduced — a symbol either matches one
+    of these two existing sets or it does not.
+    """
     _header(lines, "Changed")
     if not result.change.symbols:
         if not result.change.files:
@@ -359,20 +419,47 @@ def _render_changed_default(result: ChangeVerificationResult, lines: list[str]) 
         for changed_file in result.change.files:
             lines.append(changed_file.path)
         return
+
+    test_files = {
+        item.path for item in result.change.files
+        if item.role == _FILE_ROLE_TEST_USAGE_CANDIDATE
+    }
+    production_symbols = [item for item in result.change.symbols if item.file not in test_files]
+    if not production_symbols:
+        lines.append("Only test files changed — see --verbose for the full list.")
+        return
+
+    relevant_identities = _flow_participant_identities(result) | _accepted_impact_identities(result)
+    relevant = [
+        item for item in production_symbols
+        if _is_relevant_changed_symbol(
+            item.qualified_name or item.name, item.name, relevant_identities
+        )
+    ]
+    # No shown flow/impact matched any changed symbol by name (e.g. nothing
+    # resolved at all) — fall back to the plain production-symbol list
+    # rather than rendering an empty "Changed" section.
+    shown_pool = relevant if relevant else production_symbols
+
     seen: set[tuple[str, int | None, str]] = set()
-    first = True
-    for symbol in result.change.symbols:
+    deduped: list = []
+    for symbol in shown_pool:
         name = symbol.qualified_name or symbol.name
         key = (symbol.file, symbol.start_line, name)
         if key in seen:
             continue
         seen.add(key)
-        if not first:
-            lines.append("")
-        first = False
+        deduped.append(symbol)
+
+    for symbol in deduped[:_CHANGED_DEFAULT_CAP]:
+        name = symbol.qualified_name or symbol.name
         location = f"{symbol.file}:{symbol.start_line}" if symbol.start_line else symbol.file
-        lines.append(location)
-        lines.append(name)
+        lines.append(f"{location} — {name}")
+
+    hidden = len(deduped) - _CHANGED_DEFAULT_CAP
+    if hidden > 0:
+        noun = "symbol" if hidden == 1 else "symbols"
+        lines.append(f"+{hidden} more relevant changed {noun} — use --verbose")
 
 
 def _flow_chain_lines(flow: AffectedFlow, changed_identities: set[str]) -> list[str]:
@@ -465,6 +552,52 @@ def _required_obligations_default(result: ChangeVerificationResult) -> list[Veri
     ]
 
 
+#: A statement past this length, or containing an implementation-expression
+#: character, is treated as "implementation-shaped" rather than a readable
+#: behavior claim — e.g. a raw sink snippet like
+#: `entity_subquery = ( db_session.query( func.jsonb_build_array(...`.
+_STATEMENT_LENGTH_THRESHOLD = 80
+_IMPLEMENTATION_HEAVY_CHARS = ("(", ")", "{", "}", "=")
+
+_RESPONDS_RE = re.compile(r"^(?P<route>.+?) responds (?P<code>\d{3})(?:\s*—.*)?$")
+
+#: Neutral behavior labels keyed by the obligation's own existing `kind`
+#: (see `sydes.verify.models` `OBLIGATION_*`) — reusing that already-defined
+#: vocabulary, not a new taxonomy, and never naming anything about the
+#: specific change beyond what its kind already says.
+_KIND_LABELS = {
+    OBLIGATION_ROUTE_CONTRACT: "Changed response behavior",
+    OBLIGATION_VALIDATION: "Changed validation behavior",
+    OBLIGATION_SIDE_EFFECT: "Changed downstream behavior",
+    OBLIGATION_STATE_CONSISTENCY: "Changed data/query behavior",
+    OBLIGATION_EVENT_EMISSION: "Changed event-emission behavior",
+    OBLIGATION_CROSS_REPO_CALL: "Changed cross-service call behavior",
+}
+
+
+def _concise_obligation_label(obligation: VerificationObligation) -> str:
+    """The default-report label for one obligation — the underlying
+    `statement`/JSON is never modified, this only decides what this one
+    renderer prints. A short, already-readable statement passes through
+    unchanged; an obvious "responds NNN — description" response-skeleton
+    statement shortens to "<route> returns NNN"; anything else long or
+    implementation-expression-heavy falls back to a neutral label derived
+    from the obligation's own existing `kind` — never a behavior Sydes did
+    not already represent in the result.
+    """
+    statement = obligation.statement
+    match = _RESPONDS_RE.match(statement)
+    if match:
+        return f"{match.group('route')} returns {match.group('code')}"
+    implementation_heavy = (
+        len(statement) > _STATEMENT_LENGTH_THRESHOLD
+        or any(char in statement for char in _IMPLEMENTATION_HEAVY_CHARS)
+    )
+    if not implementation_heavy:
+        return statement
+    return _KIND_LABELS.get(obligation.kind, "Changed behavior")
+
+
 def _render_verification_evidence_default(
     obligations: list[VerificationObligation], lines: list[str]
 ) -> None:
@@ -475,20 +608,23 @@ def _render_verification_evidence_default(
     for index, obligation in enumerate(obligations):
         if index > 0:
             lines.append("")
+        label = _concise_obligation_label(obligation)
         if obligation.status == VERIFICATION_PASSED:
-            lines.append(f"✓ {obligation.statement}")
+            lines.append(f"✓ {label}")
         elif obligation.status == VERIFICATION_FAILED:
-            lines.append(f"✗ {obligation.statement}")
+            lines.append(f"✗ {label}")
             if obligation.reason:
                 lines.append(f"  {obligation.reason}")
         elif obligation.status == VERIFICATION_UNKNOWN:
-            lines.append(f"? {obligation.statement}")
+            lines.append(f"? {label}")
             lines.append(f"  {obligation.reason or 'Sydes could not determine whether this holds.'}")
         else:  # VERIFICATION_UNVERIFIED
-            lines.append(f"? {obligation.statement}")
-            if obligation.supporting_tests:
-                lines.append("  Existing tests exercise this flow,")
-                lines.append("  but Sydes found no evidence that they establish this behavior.")
+            lines.append(f"? {label}")
+            supporting = len(obligation.supporting_tests)
+            if supporting:
+                noun = "test" if supporting == 1 else "tests"
+                lines.append(f"  Sydes found {supporting} existing {noun} that exercise this flow,")
+                lines.append("  but none explicitly establish this behavior.")
             else:
                 lines.append("  No existing verification evidence establishes this behavior.")
 
@@ -595,13 +731,6 @@ def _render_runtime_requirements_default(result: ChangeVerificationResult, lines
     lines.append(" · ".join(names))
 
 
-def _render_coverage_default(obligations: list[VerificationObligation], lines: list[str]) -> None:
-    established = sum(1 for item in obligations if item.status == VERIFICATION_PASSED)
-    not_established = len(obligations) - established
-    _header(lines, "Coverage")
-    lines.append(f"{established} established · {not_established} not established")
-
-
 def _render_headline_default(result: ChangeVerificationResult, lines: list[str]) -> None:
     counts = result.summary.counts
     risk = result.summary.risk.upper()
@@ -638,8 +767,6 @@ def _render_default_report(result: ChangeVerificationResult) -> str:
     _render_ci_default(result, lines)
     _render_could_not_establish_default(result, obligations, lines)
     _render_runtime_requirements_default(result, lines)
-    if obligations:
-        _render_coverage_default(obligations, lines)
 
     _header(lines, "Verdict")
     lines.append(result.summary.verdict)

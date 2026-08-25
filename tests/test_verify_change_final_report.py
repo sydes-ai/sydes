@@ -56,9 +56,10 @@ def _result(**overrides) -> ChangeVerificationResult:
 
 
 def _obligation(statement: str, *, flow_id: str = "flow:1", status: str = VERIFICATION_UNVERIFIED,
-                 supporting: bool = False, reason: str | None = None) -> VerificationObligation:
+                 supporting: bool = False, supporting_count: int = 1, kind: str = "route_contract",
+                 reason: str | None = None) -> VerificationObligation:
     obligation = VerificationObligation(
-        id=f"ob:{statement[:10]}", flow_id=flow_id, kind="route_contract", statement=statement,
+        id=f"ob:{statement[:10]}", flow_id=flow_id, kind=kind, statement=statement,
         origin="api_contract", required=True, status=status, reason=reason,
     )
     if status == VERIFICATION_PASSED:
@@ -67,7 +68,9 @@ def _obligation(statement: str, *, flow_id: str = "flow:1", status: str = VERIFI
         ]
     elif supporting:
         obligation.supporting_tests = [
-            MappedTest(id="t", name="test_it", evidence_tier=TIER_ASSERTED_EFFECT, match_rule="exercises the flow")
+            MappedTest(id=f"t{i}", name=f"test_it_{i}", evidence_tier=TIER_ASSERTED_EFFECT,
+                       match_rule="exercises the flow")
+            for i in range(supporting_count)
         ]
     return obligation
 
@@ -100,13 +103,116 @@ def test_deterministic_route_flow_shows_file_line_and_propagation() -> None:
     report = render_verify_change_terminal(result)
 
     assert "Changed" in report
-    assert "src/dispatch/signal/service.py:973" in report
-    assert "get_signal_stats" in report
+    # Compact single-line format: "<file>:<line> — <symbol>".
+    assert "src/dispatch/signal/service.py:973 — get_signal_stats" in report
     assert "System impact" in report
     assert "GET /stats" in report
     assert "→ return_signal_stats" in report
     assert "→ get_signal_stats [changed]" in report
     assert "→ database query" in report
+
+
+# --- Changed-section relevance filtering (Task items 1-3) -------------------
+
+def _flow_with_changed(*, participant_symbol: str = "get_signal_stats") -> AffectedFlow:
+    return AffectedFlow(
+        id="flow:GET:/stats", entry_label="GET /stats", method="GET", path="/stats",
+        steps=[
+            {"kind": "endpoint", "symbol": "return_signal_stats"},
+            {"kind": "followed_call", "symbol": participant_symbol},
+        ],
+    )
+
+
+def test_changed_test_symbols_are_hidden_by_default() -> None:
+    """Task item 1: changed test functions are never headlined by default —
+    GitHub's own Files Changed view already shows them."""
+    change = ChangeSet(
+        base="main", head="abc", files=[],
+        symbols=[
+            ChangedSymbol(id="1", repo="app", file="src/dispatch/signal/service.py",
+                          name="get_signal_stats", start_line=973),
+            ChangedSymbol(id="2", repo="app", file="tests/signal/test_signal_data_service.py",
+                          name="test_get_signal_stats_basic", start_line=4),
+        ],
+    )
+    flow = _flow_with_changed()
+    result = _result(change=change, affected_flows=[flow])
+    report = render_verify_change_terminal(result)
+
+    assert "get_signal_stats" in report
+    assert "test_get_signal_stats_basic" not in report
+    assert "test_signal_data_service.py" not in report
+
+
+def test_relevant_changed_production_symbols_are_retained() -> None:
+    """Task item 2: a changed production symbol that participates in a
+    rendered flow (criterion 1) or that an accepted impact already
+    attributes itself to (criterion 2) is kept — an unrelated changed
+    production symbol that matches neither is not."""
+    change = ChangeSet(
+        base="main", head="abc", files=[],
+        symbols=[
+            ChangedSymbol(id="1", repo="app", file="src/dispatch/signal/service.py",
+                          name="get_signal_stats", start_line=973),
+            ChangedSymbol(id="2", repo="app", file="src/dispatch/signal/models.py",
+                          name="SignalStats", start_line=382),
+            ChangedSymbol(id="3", repo="app", file="src/unrelated/module.py",
+                          name="unrelated_helper", start_line=10),
+        ],
+    )
+    flow = _flow_with_changed()  # participates via flow.steps
+    impact = AcceptedImpact(
+        id=flow.id, label="GET /stats", status="proven", verification_model_status="modeled",
+        changed_symbols=["get_signal_stats", "SignalStats"],  # SignalStats via criterion 2
+    )
+    result = _result(change=change, affected_flows=[flow], accepted_impacts=[impact])
+    report = render_verify_change_terminal(result)
+
+    assert "get_signal_stats" in report
+    assert "SignalStats" in report
+    assert "unrelated_helper" not in report
+
+
+def test_more_than_five_relevant_symbols_are_summarized() -> None:
+    """Task item: show the first relevant few, then a neutral +N line."""
+    symbols = [
+        ChangedSymbol(id=str(i), repo="app", file=f"src/app/module_{i}.py", name=f"changed_fn_{i}", start_line=i)
+        for i in range(8)
+    ]
+    change = ChangeSet(base="main", head="abc", files=[], symbols=symbols)
+    flow = AffectedFlow(
+        id="flow:1", entry_label="GET /stats", method="GET", path="/stats",
+        steps=[{"kind": "followed_call", "symbol": f"changed_fn_{i}"} for i in range(8)],
+    )
+    result = _result(change=change, affected_flows=[flow])
+    report = render_verify_change_terminal(result)
+    changed_section = report.split("System impact")[0]  # System impact legitimately lists all 8 hops
+
+    for i in range(5):
+        assert f"changed_fn_{i}" in changed_section
+    for i in range(5, 8):
+        assert f"changed_fn_{i}" not in changed_section
+    assert "+3 more relevant changed symbols — use --verbose" in changed_section
+
+
+def test_changed_symbol_location_is_not_described_as_a_diff_line() -> None:
+    """`:973` is the symbol's resolved source location, not necessarily the
+    exact changed diff line — the report must never claim otherwise."""
+    change = ChangeSet(
+        base="main", head="abc", files=[],
+        symbols=[ChangedSymbol(id="1", repo="app", file="src/app/service.py", name="get_stats", start_line=973)],
+    )
+    flow = AffectedFlow(
+        id="flow:1", entry_label="GET /stats", method="GET", path="/stats",
+        steps=[{"kind": "followed_call", "symbol": "get_stats"}],
+    )
+    result = _result(change=change, affected_flows=[flow])
+    report = render_verify_change_terminal(result)
+
+    assert "src/app/service.py:973 — get_stats" in report
+    assert "changed at line" not in report.lower()
+    assert "changed on line" not in report.lower()
 
 
 # --- 2. inferred-only impact -------------------------------------------------
@@ -159,7 +265,9 @@ def test_multiple_inferred_impacts_show_top_few_by_default_rest_in_verbose() -> 
 
 def test_ci_pass_with_unverified_behavior() -> None:
     flow = AffectedFlow(id="flow:1", entry_label="GET /stats", method="GET", path="/stats")
-    flow.obligations = [_obligation("GET /stats returns 200", flow_id=flow.id, supporting=True)]
+    flow.obligations = [
+        _obligation("GET /stats returns 200", flow_id=flow.id, supporting=True, supporting_count=5),
+    ]
     ci = CiSuiteRun(command=["python3", "-m", "pytest"], status=VERIFICATION_PASSED,
                      tests_passed=59, tests_failed=0)
     result = _result(affected_flows=[flow], ci_suite=ci)
@@ -169,8 +277,8 @@ def test_ci_pass_with_unverified_behavior() -> None:
     assert "✓ 59 tests passed" in report
     assert "Verification evidence" in report
     assert "? GET /stats returns 200" in report
-    assert "Existing tests exercise this flow," in report
-    assert "but Sydes found no evidence that they establish this behavior." in report
+    assert "Sydes found 5 existing tests that exercise this flow," in report
+    assert "but none explicitly establish this behavior." in report
     # No obligation-machinery vocabulary leaks into the default report.
     assert "mapped_tests" not in report
     assert "supporting_tests" not in report
@@ -194,6 +302,62 @@ def test_a_failed_obligation_shows_its_reason() -> None:
     report = render_verify_change_terminal(result)
     assert "✗ refund is idempotent" in report
     assert "test_refund_idempotent" in report
+
+
+def test_zero_supporting_tests_says_no_existing_evidence() -> None:
+    """Task item: zero supporting tests must never be worded as if some
+    partial coverage exists."""
+    flow = AffectedFlow(id="flow:1", entry_label="POST /refund", method="POST", path="/refund")
+    flow.obligations = [_obligation("refund is idempotent", flow_id=flow.id, supporting=False)]
+    result = _result(affected_flows=[flow])
+    report = render_verify_change_terminal(result)
+    assert "No existing verification evidence establishes this behavior." in report
+    assert "Sydes found 0" not in report
+
+
+# --- 5 (task's numbered list). long implementation-shaped statement --------
+
+def test_response_skeleton_statement_is_shortened() -> None:
+    flow = AffectedFlow(id="flow:1", entry_label="GET /stats", method="GET", path="/stats")
+    flow.obligations = [
+        _obligation(
+            "GET /stats responds 200 — Default 200 response skeleton.",
+            flow_id=flow.id, kind="route_contract",
+        ),
+    ]
+    result = _result(affected_flows=[flow])
+    report = render_verify_change_terminal(result)
+    assert "? GET /stats returns 200" in report
+    assert "Default 200 response skeleton" not in report
+
+
+def test_long_implementation_heavy_statement_gets_a_neutral_label() -> None:
+    raw = (
+        "GET /stats accessed entity_subquery = ( db_session.query( "
+        "func.jsonb_build_array( SignalStats.id, SignalStats.value ) ) )"
+    )
+    flow = AffectedFlow(id="flow:1", entry_label="GET /stats", method="GET", path="/stats")
+    flow.obligations = [_obligation(raw, flow_id=flow.id, kind="state_consistency")]
+    result = _result(affected_flows=[flow])
+    report = render_verify_change_terminal(result)
+
+    assert raw not in report
+    assert "entity_subquery" not in report
+    assert "db_session.query" not in report
+    assert "?" in report  # some concise neutral label was rendered instead
+
+    # The original statement is never modified — only this renderer's label
+    # differs from it.
+    assert flow.obligations[0].statement == raw
+
+
+def test_short_readable_statement_passes_through_unchanged() -> None:
+    """Task: preserve short, already-readable statements as-is."""
+    flow = AffectedFlow(id="flow:1", entry_label="POST /orders", method="POST", path="/orders")
+    flow.obligations = [_obligation("order total is recalculated", flow_id=flow.id, kind="side_effect")]
+    result = _result(affected_flows=[flow])
+    report = render_verify_change_terminal(result)
+    assert "? order total is recalculated" in report
 
 
 # --- 5. CI UNKNOWN due to missing dependency --------------------------------
@@ -275,6 +439,29 @@ def test_could_not_establish_never_prescribes_developer_actions() -> None:
     report = render_verify_change_terminal(result)
     for banned in ("Add test_", "Install ", "Create a mock", "You must", "You should"):
         assert banned not in report
+
+
+# --- Coverage section removed from the default report only -----------------
+
+def test_coverage_section_removed_from_default_but_counts_remain_available() -> None:
+    """Task item 3: "Coverage" is gone from the concise report (confusable
+    with code coverage; the same information already lives in Verification
+    evidence / What Sydes could not establish) — but the underlying counts
+    are untouched on the model, so JSON/verbose still carry them."""
+    flow = AffectedFlow(id="flow:1", entry_label="GET /stats", method="GET", path="/stats")
+    flow.obligations = [_obligation("GET /stats returns 200", flow_id=flow.id)]
+    result = _result(affected_flows=[flow])
+
+    default_report = render_verify_change_terminal(result)
+    assert "Coverage" not in default_report
+    assert "not established ·" not in default_report
+
+    # The counts themselves are untouched — same values a JSON consumer or
+    # --verbose reader would see.
+    assert result.summary.counts.obligations == 1
+    assert result.summary.counts.obligations_passed == 0
+    verbose_report = render_verify_change_terminal(result, verbose=True)
+    assert "Obligations: 1" in verbose_report
 
 
 # --- 8. verbose mode still exposes detailed information ---------------------
