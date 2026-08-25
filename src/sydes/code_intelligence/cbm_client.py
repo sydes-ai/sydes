@@ -25,6 +25,7 @@ documented tool surface rather than to a query dialect of a pre-1.0 tool.
 
 from __future__ import annotations
 
+from collections import deque
 from dataclasses import dataclass, field
 import json
 import os
@@ -50,6 +51,11 @@ _HANDSHAKE_TIMEOUT_SECONDS = 120.0
 _DEFAULT_CALL_TIMEOUT_SECONDS = 300.0
 #: Indexing walks and parses a whole repository, so it gets its own budget.
 _INDEX_TIMEOUT_SECONDS = 1800.0
+
+#: How much of the child's stderr to keep for diagnostics — enough to carry
+#: a bootstrap/native-runtime-download failure message, not a log dump.
+_STDERR_TAIL_LINES = 20
+_STDERR_LINE_MAX_CHARS = 300
 
 
 def resolve_executable(candidate: str | None = None) -> str:
@@ -119,6 +125,17 @@ class StdioMCPSession:
         # and pipe reads paired even if a caller ever parallelises them.
         self._lock = threading.Lock()
         self.metrics = ClientMetrics()
+        # The public `codebase-memory-mcp` wrapper downloads and caches the
+        # native runtime on first use; on a fresh machine that first launch
+        # can take real time. Sydes does not duplicate that bootstrap — it
+        # only keeps a bounded tail of the child's stderr so a bootstrap
+        # failure (download/verification/native-launch) is reported with the
+        # underlying reason rather than a bare "connection closed".
+        self._stderr_tail: deque[str] = deque(maxlen=_STDERR_TAIL_LINES)
+        #: `initialize`'s `serverInfo`, when the server reports one — the
+        #: least invasive way to see the running CBM version: it rides the
+        #: handshake Sydes already performs, no extra process or request.
+        self.server_info: dict[str, Any] | None = None
         self._start()
 
     # -- lifecycle --------------------------------------------------------
@@ -130,9 +147,7 @@ class StdioMCPSession:
                 [self._executable],
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
-                # CBM logs progress to stderr; discarding it keeps the pipe
-                # from filling and blocking the child mid-query.
-                stderr=subprocess.DEVNULL,
+                stderr=subprocess.PIPE,
                 text=True,
                 bufsize=1,
             )
@@ -141,17 +156,48 @@ class StdioMCPSession:
                 f"Could not start Codebase Memory at {self._executable!r}: {exc}"
             ) from exc
 
-        self._request(
-            "initialize",
-            {
-                "protocolVersion": _PROTOCOL_VERSION,
-                "capabilities": {},
-                "clientInfo": {"name": "sydes", "version": "1"},
-            },
-            timeout=_HANDSHAKE_TIMEOUT_SECONDS,
-        )
+        # Drained continuously on a daemon thread — the pipe must never fill
+        # and block the child mid-query (CBM logs progress to stderr), but a
+        # bounded recent tail is worth keeping for exactly the startup
+        # failure this task cares about.
+        threading.Thread(target=self._drain_stderr, daemon=True).start()
+
+        try:
+            result = self._request(
+                "initialize",
+                {
+                    "protocolVersion": _PROTOCOL_VERSION,
+                    "capabilities": {},
+                    "clientInfo": {"name": "sydes", "version": "1"},
+                },
+                timeout=_HANDSHAKE_TIMEOUT_SECONDS,
+            )
+        except CodeIntelligenceError as exc:
+            raise CodeIntelligenceError(
+                f"Sydes could not initialize code intelligence (Codebase Memory).\n{exc}"
+                f"{self._stderr_context()}"
+            ) from exc
+        self.server_info = result.get("serverInfo") if isinstance(result, dict) else None
         self._notify("notifications/initialized", {})
         self.metrics.session_start_ms = (time.perf_counter() - started) * 1000.0
+
+    def _drain_stderr(self) -> None:
+        process = self._process
+        if process is None or process.stderr is None:
+            return
+        try:
+            for line in process.stderr:
+                text = line.rstrip("\n")
+                if text:
+                    self._stderr_tail.append(text[:_STDERR_LINE_MAX_CHARS])
+        except (OSError, ValueError):
+            # The pipe went away (process killed mid-read); nothing to drain.
+            pass
+
+    def _stderr_context(self) -> str:
+        if not self._stderr_tail:
+            return ""
+        return "\n" + "\n".join(self._stderr_tail)
 
     def close(self) -> None:
         process, self._process = self._process, None
@@ -326,6 +372,17 @@ class CBMClient:
     def metrics(self) -> dict[str, Any]:
         session_metrics = getattr(self._session, "metrics", None)
         return session_metrics.to_dict() if session_metrics else {}
+
+    @property
+    def server_version(self) -> str | None:
+        """The running CBM server's own reported version, from the MCP
+        handshake `serverInfo` — diagnostics only, never a compatibility
+        gate: the pinned package dependency is what actually controls
+        compatibility, and imperfect version text is never a reason to
+        reject an otherwise-working session."""
+        info = getattr(self._session, "server_info", None)
+        version = info.get("version") if isinstance(info, dict) else None
+        return str(version) if version else None
 
     # -- indexing ---------------------------------------------------------
 

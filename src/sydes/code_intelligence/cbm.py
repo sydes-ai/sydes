@@ -25,6 +25,7 @@ backend the operator did not choose.
 from __future__ import annotations
 
 from pathlib import Path
+import sys
 import time
 from typing import Any
 
@@ -88,6 +89,11 @@ class CBMCodeIntelligence:
 
     def _ensure_client(self) -> CBMClient:
         if self._client is None:
+            # Not a progress bar — a first-run native-runtime download (the
+            # official wrapper's own bootstrap, never duplicated here) can
+            # take real time, and session startup itself is ~1.5s even when
+            # cached; one line so a first-time user isn't staring at nothing.
+            print("Preparing Sydes code intelligence...", file=sys.stderr)
             self._client = CBMClient.spawn(self._executable)
         return self._client
 
@@ -328,7 +334,8 @@ class CBMCodeIntelligence:
         total_ms = (time.perf_counter() - started) * 1000.0
         session = client.metrics
         diagnostics = [
-            "code_intelligence_backend=cbm transport=persistent_mcp_stdio",
+            f"code_intelligence_backend=cbm transport=persistent_mcp_stdio"
+            f" cbm_server_version={client.server_version or 'unknown'}",
             f"cbm_session_start_ms={session.get('session_start_ms', 0)}"
             f" cbm_calls={session.get('calls', 0)}"
             f" cbm_mean_call_ms={session.get('mean_call_ms', 0)}",

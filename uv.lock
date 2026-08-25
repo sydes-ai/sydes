@@ -83,6 +83,15 @@ wheels = [
 ]
 
 [[package]]
+name = "codebase-memory-mcp"
+version = "0.10.8"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/55/d0/6e6276883e919fa8f474bbad74a436ef05d02fe0c8b2a7f75a8e6a409903/codebase_memory_mcp-0.10.8.tar.gz", hash = "sha256:d8186745440b33e4c11d66c619a425b8270933a0120f2b8ffc9e484c1a523ee0", size = 35192, upload-time = "2026-08-19T02:41:44.53Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ec/0c/41dcce39589044ffbdee1e3d4a86f8860b62905123bd3e26c6cbe88b323d/codebase_memory_mcp-0.10.8-py3-none-any.whl", hash = "sha256:a5e39e6886bbdd7836cadaec13cdeb3ee3648c34fdf88359d9395abccc16287c", size = 14871, upload-time = "2026-08-19T02:41:43.469Z" },
+]
+
+[[package]]
 name = "colorama"
 version = "0.4.6"
 source = { registry = "https://pypi.org/simple" }
@@ -571,6 +580,7 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "anthropic" },
+    { name = "codebase-memory-mcp" },
     { name = "openai" },
     { name = "pydantic" },
     { name = "typer" },
@@ -589,6 +599,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "anthropic", specifier = ">=0.102.0" },
+    { name = "codebase-memory-mcp", specifier = "==0.10.8" },
     { name = "openai", specifier = ">=2.36.0" },
     { name = "pydantic", specifier = ">=2.7,<3.0" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0,<9.0" },

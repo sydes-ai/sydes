@@ -9,6 +9,7 @@ from typing import Annotated, Literal
 import typer
 
 from sydes.cli.output_paths import resolve_output_file_path, write_output_text
+from sydes.code_intelligence.base import CodeIntelligenceError
 from sydes.core.models import RepoRef
 from sydes.ingest.repos import parse_repo_specs
 from sydes.report.verify_terminal import render_verify_change_terminal
@@ -118,6 +119,12 @@ def verify_change_command(
         result = analyze_change(repos=repos, options=options)
     except GitChangeError as exc:
         typer.echo(f"Git error: {exc}")
+        raise typer.Exit(code=1) from exc
+    except CodeIntelligenceError as exc:
+        # `cbm_client.py` already frames an initialization failure clearly;
+        # this only stops it from surfacing as a raw traceback, and it never
+        # falls back to the native backend the operator did not choose.
+        typer.echo(str(exc))
         raise typer.Exit(code=1) from exc
     except ValueError as exc:
         raise typer.BadParameter(str(exc), param_hint="--repo") from exc
