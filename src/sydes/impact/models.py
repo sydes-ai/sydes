@@ -500,6 +500,16 @@ class ImpactQuestion:
     #: guide has some concrete code to reason from up front.
     source_context: str = ""
     remaining_budget: int = 0
+    #: Other symbols changed by this same PR (short names, bounded/deduped) —
+    #: whole-change context so the guide reasons about this one unresolved
+    #: symbol as part of the actual change, not in isolation. Never a second
+    #: diff dump: just names, so the model knows what else moved together.
+    other_changed_symbols: tuple[str, ...] = ()
+    #: Compact labels of impacts already accepted this run (deterministic or
+    #: previously-inferred), bounded/deduped — lets the guide see what
+    #: deterministic evidence already established before it reasons about
+    #: this symbol, instead of reasoning from a blank slate every turn.
+    accepted_impacts_so_far: tuple[str, ...] = ()
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -516,6 +526,8 @@ class ImpactQuestion:
             "candidate_origins": list(self.candidate_origins),
             "source_context": self.source_context,
             "remaining_budget": self.remaining_budget,
+            "other_changed_symbols": list(self.other_changed_symbols),
+            "accepted_impacts_so_far": list(self.accepted_impacts_so_far),
         }
 
 

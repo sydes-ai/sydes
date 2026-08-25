@@ -140,6 +140,67 @@ def test_missing_executable_names_the_explicit_alternative(monkeypatch) -> None:
 
 
 # --------------------------------------------------------------------------
+# Bulk sweep pagination (the saleor/saleor#19675 CBM transport-limit fix):
+# a whole-repository sweep with no LIMIT could exceed CBM's ~10 MB MCP
+# transport cap on a large enough codebase. Paginate with SKIP/LIMIT
+# instead of ever raising the transport limit.
+# --------------------------------------------------------------------------
+
+
+def _text_rows(rows: list[tuple[str, str]]) -> dict:
+    body = "\n".join(f"  {a} {b}" for a, b in rows)
+    return {"_text": body}
+
+
+def test_bulk_sweep_stops_after_a_partial_page_with_a_single_call() -> None:
+    from sydes.code_intelligence.cbm_client import _BULK_QUERY_PAGE_SIZE
+
+    session = FakeSession({"query_graph": _text_rows([("a", "1"), ("b", "2")])})
+    client = CBMClient(session)
+
+    rows = client._rows("proj", "MATCH (a) RETURN a.x, a.y", columns=2, order_by="a.x")
+
+    assert rows == [["a", "1"], ["b", "2"]]
+    assert len(session.calls) == 1  # a page smaller than the page size means "done"
+    query = session.calls[0][1]["query"]
+    assert "ORDER BY a.x" in query
+    assert f"LIMIT {_BULK_QUERY_PAGE_SIZE}" in query
+    assert "SKIP 0" in query
+
+
+def test_bulk_sweep_pages_through_a_full_first_page() -> None:
+    """A codebase large enough to fill one page must trigger a second call
+    at the next SKIP offset, rather than silently truncating results."""
+    from sydes.code_intelligence.cbm_client import _BULK_QUERY_PAGE_SIZE
+
+    first_page = [(f"sym{i}", "f.py") for i in range(_BULK_QUERY_PAGE_SIZE)]
+    second_page = [("last", "f.py")]
+
+    def reply(arguments: dict) -> dict:
+        if "SKIP 0 " in arguments["query"]:
+            return _text_rows(first_page)
+        return _text_rows(second_page)
+
+    session = FakeSession({"query_graph": reply})
+    client = CBMClient(session)
+
+    rows = client._rows("proj", "MATCH (a) RETURN a.x, a.y", columns=2, order_by="a.x")
+
+    assert len(rows) == _BULK_QUERY_PAGE_SIZE + 1
+    assert rows[-1] == ["last", "f.py"]
+    assert len(session.calls) == 2  # exactly one extra page, not an unbounded loop
+
+
+def test_bulk_sweep_page_size_is_conservatively_bounded_relative_to_the_transport_cap() -> None:
+    """No generic guarantee about row byte size, but the chosen page size
+    must be small enough that the intent — staying under CBM's ~10 MB
+    response cap — is credible, not merely nominal."""
+    from sydes.code_intelligence.cbm_client import _BULK_QUERY_PAGE_SIZE
+
+    assert _BULK_QUERY_PAGE_SIZE <= 10_000
+
+
+# --------------------------------------------------------------------------
 # Row parsing
 # --------------------------------------------------------------------------
 
@@ -167,7 +228,7 @@ def test_malformed_rows_are_counted_on_the_client() -> None:
     session = FakeSession({"query_graph": {"_text": "  a b\n  bad\n"}})
     client = CBMClient(session)
 
-    client._rows("proj", "MATCH ...", columns=2)
+    client._rows("proj", "MATCH ...", columns=2, order_by="a")
 
     assert client.malformed_rows == 1
 

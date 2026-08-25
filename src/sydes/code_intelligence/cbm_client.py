@@ -57,6 +57,16 @@ _INDEX_TIMEOUT_SECONDS = 1800.0
 _STDERR_TAIL_LINES = 20
 _STDERR_LINE_MAX_CHARS = 300
 
+#: Bulk Cypher sweeps (`all_symbols`, `all_imports`, `all_call_edges`,
+#: `all_usage_edges`) page at this row count — conservative enough that a
+#: typical repository's whole sweep fits in one page well under CBM's ~10 MB
+#: transport cap, and large enough that pagination costs nothing extra for
+#: repositories that don't need it.
+_BULK_QUERY_PAGE_SIZE = 4000
+#: Defensive cap on pages, so a server that never signals "last page" (by
+#: consistently returning a full page) cannot loop forever.
+_BULK_QUERY_MAX_PAGES = 500
+
 
 def resolve_executable(candidate: str | None = None) -> str:
     """Locate the CBM binary, or say plainly that it is absent."""
@@ -495,7 +505,7 @@ class CBMClient:
             project,
             f"MATCH (n:{label}) WHERE n.file_path <> '' RETURN n.name, n.file_path, "
             "n.start_line, n.end_line, n.parent_class, n.is_exported",
-            columns=6,
+            columns=6, order_by="n.file_path, n.name, n.start_line",
         )
 
     def all_imports(self, project: str) -> list[list[str]]:
@@ -504,7 +514,7 @@ class CBMClient:
             project,
             "MATCH (a)-[r:IMPORTS]->(b) WHERE a.file_path <> '' "
             "RETURN a.file_path, r.local_name, b.file_path, b.qualified_name",
-            columns=4,
+            columns=4, order_by="a.file_path, r.local_name",
         )
 
     def all_call_edges(self, project: str) -> list[list[str]]:
@@ -514,7 +524,7 @@ class CBMClient:
             "MATCH (a)-[:CALLS]->(b) WHERE a.file_path <> '' AND b.file_path <> '' "
             "RETURN a.qualified_name, a.file_path, a.start_line, "
             "b.qualified_name, b.file_path, b.start_line",
-            columns=6,
+            columns=6, order_by="a.qualified_name, a.start_line, b.qualified_name",
         )
 
     def all_usage_edges(self, project: str) -> list[list[str]]:
@@ -527,7 +537,7 @@ class CBMClient:
             project,
             "MATCH (a)-[:USAGE]->(b) WHERE a.file_path <> '' AND b.file_path <> '' "
             "RETURN a.qualified_name, a.file_path, b.qualified_name, b.file_path",
-            columns=4,
+            columns=4, order_by="a.qualified_name, b.qualified_name",
         )
 
     def decorated_symbols(self, project: str, *, page_size: int = 500) -> list[dict[str, Any]]:
@@ -576,10 +586,30 @@ class CBMClient:
             "query_graph", {"project": project, "query": query}
         )
 
-    def _rows(self, project: str, query: str, *, columns: int) -> list[list[str]]:
-        rows, malformed = parse_rows(self._query_graph(project, query), columns=columns)
-        self.malformed_rows += malformed
-        return rows
+    def _rows(self, project: str, query: str, *, columns: int, order_by: str) -> list[list[str]]:
+        """Run a bulk Cypher sweep, paging with `SKIP`/`LIMIT` rather than
+        requesting every row in one response.
+
+        CBM's MCP transport caps a single tool response (~10 MB); an
+        unbounded whole-repository sweep — every symbol, every call edge —
+        can exceed that on a large enough codebase, and the failure was a
+        hard error with no result at all. `order_by` is required, not just a
+        nicety: `SKIP` with no stable `ORDER BY` has no guaranteed row order
+        between calls, which could silently duplicate or drop rows across
+        pages. Most repositories return everything in a single page (zero
+        extra round trips); pagination only engages for the ones that would
+        otherwise fail outright.
+        """
+        all_rows: list[list[str]] = []
+        for page in range(_BULK_QUERY_MAX_PAGES):
+            offset = page * _BULK_QUERY_PAGE_SIZE
+            paged_query = f"{query} ORDER BY {order_by} SKIP {offset} LIMIT {_BULK_QUERY_PAGE_SIZE}"
+            rows, malformed = parse_rows(self._query_graph(project, paged_query), columns=columns)
+            self.malformed_rows += malformed
+            all_rows.extend(rows)
+            if len(rows) < _BULK_QUERY_PAGE_SIZE:
+                break
+        return all_rows
 
 
 def _escape(value: str) -> str:

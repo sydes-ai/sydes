@@ -124,6 +124,11 @@ class GuideBudget:
     max_turns_total: int = 8
 
 
+#: Whole-change context (other changed symbols, impacts already accepted)
+#: shown to every guide turn is a short list, not a second diff dump.
+_WHOLE_CHANGE_CONTEXT_CAP = 15
+
+
 class ImpactInterpreter:
     """Interprets structural facts as reachable entrypoints.
 
@@ -230,6 +235,7 @@ class ImpactInterpreter:
 
         guide_metrics = self._run_guide_loop(
             guide_candidates, index, found, result, truncated_globally=truncated,
+            all_changed_names=tuple(str(item["name"]) for item in changed),
         )
 
         # Deterministic ordering: identical facts must produce an identical
@@ -284,6 +290,7 @@ class ImpactInterpreter:
         result: ImpactResult,
         *,
         truncated_globally: bool,
+        all_changed_names: tuple[str, ...] = (),
     ) -> dict[str, Any]:
         """Ask the guide about unresolved symbols, bounded on every axis.
 
@@ -349,12 +356,18 @@ class ImpactInterpreter:
             reason = _classify_unresolved_reason(
                 dead_ends, start_identity, truncated_globally, index,
             )
-            has_a_lead = bool(dead_ends) or truncated_globally or not start_identity.resolved
-            if self._guide_policy == GUIDE_AUTO and not has_a_lead:
-                # Nothing structural to investigate from: no dead end, no
-                # truncation, and the changed symbol's own identity resolved
-                # cleanly. A guide turn here would have nothing to look at.
-                continue
+            # `has_a_lead` used to gate whether AUTO even asked the guide:
+            # under M3, the guide was a graph-navigation controller, and
+            # "no dead end, no truncation, identity resolved" genuinely meant
+            # there was nothing to navigate toward. Under M4 the guide's
+            # primary action is semantic inference (INFER_IMPACT), which
+            # needs the changed symbol's own behavior, not a graph lead — a
+            # symbol changed by nothing but adding a decorator has no dead
+            # end and no truncation, yet is exactly the case semantic
+            # inference exists for. So AUTO no longer skips a turn for lacking
+            # one; every unresolved symbol gets a bounded chance at semantic
+            # inference regardless of policy, and the existing per-symbol/
+            # total budgets remain the only bound on how many turns that costs.
 
             # `known` grounds `target` (any name/file surfaced so far, meaningful
             # or not — a pseudo node's *file* can still be a legitimate place to
@@ -390,6 +403,12 @@ class ImpactInterpreter:
                     source_context=preview,
                     remaining=min(per_symbol_budget, total_budget),
                     repo=index.repo_of(symbol),
+                    other_changed_symbols=tuple(
+                        n for n in all_changed_names if n != name
+                    )[:_WHOLE_CHANGE_CONTEXT_CAP],
+                    accepted_impacts_so_far=tuple(
+                        entry.label for entry in found.values()
+                    )[:_WHOLE_CHANGE_CONTEXT_CAP],
                 )
                 turn_started = time.monotonic()
                 turn_number = len(tried_summary) + 1
@@ -1001,25 +1020,30 @@ def _normalize_for_self_reference(text: str) -> str:
 
 
 def _is_self_referential(candidate: ImpactCandidate, changed_name: str, changed_qualified_name: str) -> bool:
-    """Reject only the obvious case: the candidate *is* the changed symbol,
-    under a name/whitespace/punctuation normalization — never a semantic
-    judgement about whether the candidate is a meaningful downstream
-    behavior. That judgement belongs to the guide's own contract (the
-    prompt), not to a deterministic classifier here; this check exists
-    purely to stop a candidate that is trivially the changed symbol from
-    ever being recorded as an "impact" of itself.
+    """Reject only the obvious case: the candidate's *label* — the actual
+    behavior description a reviewer would read — is nothing but the changed
+    symbol's own name restated, under a name/whitespace/punctuation
+    normalization. Never a semantic judgement about whether the label is a
+    meaningful downstream behavior; that judgement belongs to the guide's
+    own contract (the prompt), not to a deterministic classifier here.
+
+    Deliberately checks only `entrypoint_label`, not `entrypoint_symbol`.
+    `entrypoint_symbol` is guided to be one of the exact known names the
+    question already listed — and the changed symbol's own short name is
+    legitimately one of those (`_build_question` seeds `known` with it) —
+    so a candidate is allowed to cite the changed symbol as its own nearest
+    known anchor while its label still describes a distinct downstream
+    behavior (e.g. changed symbol `Order.set_expires`, label "order expiry
+    calculation now varies by sales channel"): rejecting on the symbol
+    field alone would discard exactly that kind of legitimate candidate.
     """
     changed = {_normalize_for_self_reference(changed_name)}
     if changed_qualified_name:
         changed.add(_normalize_for_self_reference(changed_qualified_name))
     changed.discard("")
 
-    candidate_forms = {_normalize_for_self_reference(candidate.entrypoint_label)}
-    if candidate.entrypoint_symbol:
-        candidate_forms.add(_normalize_for_self_reference(candidate.entrypoint_symbol))
-    candidate_forms.discard("")
-
-    return bool(changed & candidate_forms)
+    label_norm = _normalize_for_self_reference(candidate.entrypoint_label)
+    return bool(label_norm) and label_norm in changed
 
 
 def _classify_unresolved_reason(
@@ -1131,6 +1155,8 @@ def _build_question(
     source_context: str,
     remaining: int,
     repo: str,
+    other_changed_symbols: tuple[str, ...] = (),
+    accepted_impacts_so_far: tuple[str, ...] = (),
 ) -> ImpactQuestion:
     """Render what the deterministic pass already found as an `ImpactQuestion`.
 
@@ -1163,6 +1189,8 @@ def _build_question(
         candidate_origins=tuple(candidate_origin_names),
         source_context=source_context,
         remaining_budget=remaining,
+        other_changed_symbols=other_changed_symbols,
+        accepted_impacts_so_far=accepted_impacts_so_far,
     )
 
 
