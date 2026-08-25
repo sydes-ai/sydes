@@ -9,6 +9,7 @@ ever appears in it. `--verbose` keeps the full detailed report unchanged.
 
 from __future__ import annotations
 
+from sydes.core.models import EvidenceRef
 from sydes.report.verify_terminal import render_verify_change_terminal
 from sydes.verify.models import (
     RISK_HIGH,
@@ -358,6 +359,109 @@ def test_short_readable_statement_passes_through_unchanged() -> None:
     result = _result(affected_flows=[flow])
     report = render_verify_change_terminal(result)
     assert "? order total is recalculated" in report
+
+
+# --- Specific downstream identity in the fallback label ---------------------
+
+_RAW_IMPLEMENTATION_STATEMENT = (
+    "GET /stats accessed entity_subquery = ( db_session.query( "
+    "func.jsonb_build_array( SignalStats.id, SignalStats.value ) ) )"
+)
+
+
+def test_1_identifiable_downstream_function_from_evidence_and_sink_gives_specific_label() -> None:
+    """Priority 1: a symbol the obligation's own evidence/matched sink
+    already names, sharpened with the sink's kind/operation."""
+    flow = AffectedFlow(
+        id="flow:1", entry_label="GET /stats", method="GET", path="/stats", handler="return_signal_stats",
+        sinks=[{"kind": "database", "operation": "query", "name": "SELECT signal_stats",
+                "symbol": "get_signal_stats"}],
+    )
+    obligation = VerificationObligation(
+        id="ob:1", flow_id=flow.id, kind="state_consistency", statement=_RAW_IMPLEMENTATION_STATEMENT,
+        origin="trace_sink", required=True, status=VERIFICATION_UNVERIFIED,
+        source_refs=["sink:SELECT signal_stats"],
+        evidence=[EvidenceRef(file="service.py", symbol="get_signal_stats", label="trace_sink")],
+    )
+    flow.obligations = [obligation]
+    result = _result(affected_flows=[flow])
+    report = render_verify_change_terminal(result)
+
+    assert "? database query performed by get_signal_stats" in report
+    assert _RAW_IMPLEMENTATION_STATEMENT not in report
+    assert "entity_subquery" not in report
+    # JSON/model statement is untouched.
+    assert obligation.statement == _RAW_IMPLEMENTATION_STATEMENT
+
+
+def test_2_identifiable_handler_only_gives_handler_based_label() -> None:
+    """Priority 2: no evidence symbol and no matched sink, but the flow's
+    own handler is known."""
+    flow = AffectedFlow(
+        id="flow:1", entry_label="GET /stats", method="GET", path="/stats", handler="return_signal_stats",
+    )
+    obligation = VerificationObligation(
+        id="ob:1", flow_id=flow.id, kind="route_contract", statement=_RAW_IMPLEMENTATION_STATEMENT,
+        origin="api_contract", required=True, status=VERIFICATION_UNVERIFIED,
+    )
+    flow.obligations = [obligation]
+    result = _result(affected_flows=[flow])
+    report = render_verify_change_terminal(result)
+    assert "? return_signal_stats response behavior" in report
+
+
+def test_3_named_sink_alone_gives_a_useful_sink_label() -> None:
+    """A matched sink with no attributable symbol still contributes its own
+    kind/operation, rather than falling all the way to the generic label."""
+    flow = AffectedFlow(
+        id="flow:1", entry_label="GET /stats", method="GET", path="/stats",
+        sinks=[{"kind": "external_api", "operation": "call", "name": "payments client"}],
+    )
+    obligation = VerificationObligation(
+        id="ob:1", flow_id=flow.id, kind="cross_repo_call", statement=_RAW_IMPLEMENTATION_STATEMENT,
+        origin="trace_sink", required=True, status=VERIFICATION_UNVERIFIED,
+        source_refs=["sink:payments client"],
+    )
+    flow.obligations = [obligation]
+    result = _result(affected_flows=[flow])
+    report = render_verify_change_terminal(result)
+    assert "? external_api call" in report
+
+
+def test_4_no_useful_identity_keeps_the_generic_fallback() -> None:
+    """Priority 5: nothing usable anywhere (no evidence symbol, no matched
+    sink, no handler, no flow at all) — the pre-existing generic label."""
+    obligation = VerificationObligation(
+        id="ob:1", flow_id="flow:unknown", kind="side_effect", statement=_RAW_IMPLEMENTATION_STATEMENT,
+        origin="trace_sink", required=True, status=VERIFICATION_UNVERIFIED,
+    )
+    flow = AffectedFlow(id="flow:other", entry_label="GET /stats", method="GET", path="/stats")
+    flow.obligations = [obligation]  # obligation.flow_id deliberately does not match any rendered flow
+    result = _result(affected_flows=[flow])
+    report = render_verify_change_terminal(result)
+    assert "? Changed downstream behavior" in report
+
+
+def test_6_verbose_output_retains_the_original_obligation_statement() -> None:
+    flow = AffectedFlow(
+        id="flow:1", entry_label="GET /stats", method="GET", path="/stats", handler="return_signal_stats",
+        sinks=[{"kind": "database", "operation": "query", "name": "SELECT signal_stats",
+                "symbol": "get_signal_stats"}],
+    )
+    obligation = VerificationObligation(
+        id="ob:1", flow_id=flow.id, kind="state_consistency", statement=_RAW_IMPLEMENTATION_STATEMENT,
+        origin="trace_sink", required=True, status=VERIFICATION_UNVERIFIED,
+        source_refs=["sink:SELECT signal_stats"],
+        evidence=[EvidenceRef(file="service.py", symbol="get_signal_stats", label="trace_sink")],
+    )
+    flow.obligations = [obligation]
+    result = _result(affected_flows=[flow])
+
+    default_report = render_verify_change_terminal(result)
+    verbose_report = render_verify_change_terminal(result, verbose=True)
+
+    assert _RAW_IMPLEMENTATION_STATEMENT not in default_report
+    assert _RAW_IMPLEMENTATION_STATEMENT in verbose_report
 
 
 # --- 5. CI UNKNOWN due to missing dependency --------------------------------

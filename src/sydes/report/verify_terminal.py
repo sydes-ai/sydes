@@ -561,29 +561,92 @@ _IMPLEMENTATION_HEAVY_CHARS = ("(", ")", "{", "}", "=")
 
 _RESPONDS_RE = re.compile(r"^(?P<route>.+?) responds (?P<code>\d{3})(?:\s*—.*)?$")
 
-#: Neutral behavior labels keyed by the obligation's own existing `kind`
+#: Short behavior phrases keyed by the obligation's own existing `kind`
 #: (see `sydes.verify.models` `OBLIGATION_*`) — reusing that already-defined
-#: vocabulary, not a new taxonomy, and never naming anything about the
-#: specific change beyond what its kind already says.
-_KIND_LABELS = {
-    OBLIGATION_ROUTE_CONTRACT: "Changed response behavior",
-    OBLIGATION_VALIDATION: "Changed validation behavior",
-    OBLIGATION_SIDE_EFFECT: "Changed downstream behavior",
-    OBLIGATION_STATE_CONSISTENCY: "Changed data/query behavior",
-    OBLIGATION_EVENT_EMISSION: "Changed event-emission behavior",
-    OBLIGATION_CROSS_REPO_CALL: "Changed cross-service call behavior",
+#: vocabulary, not a new taxonomy. Used both to build a specific label
+#: ("get_signal_stats query behavior") when a downstream identity is
+#: available, and, unqualified ("Changed query behavior"), as the last-resort
+#: fallback when it is not.
+_KIND_PHRASES = {
+    OBLIGATION_ROUTE_CONTRACT: "response behavior",
+    OBLIGATION_VALIDATION: "validation behavior",
+    OBLIGATION_SIDE_EFFECT: "downstream behavior",
+    OBLIGATION_STATE_CONSISTENCY: "query behavior",
+    OBLIGATION_EVENT_EMISSION: "event-emission behavior",
+    OBLIGATION_CROSS_REPO_CALL: "cross-service call behavior",
 }
 
 
-def _concise_obligation_label(obligation: VerificationObligation) -> str:
+def _evidence_symbol(obligation: VerificationObligation) -> str:
+    """The first downstream function/service symbol the obligation's own
+    evidence already names — the same identity `map_tests_to_obligation`
+    and every `obligations.py` builder already attaches, never re-derived."""
+    for item in obligation.evidence:
+        if item.symbol:
+            return item.symbol
+    return ""
+
+
+def _sink_for_obligation(flow: AffectedFlow | None, obligation: VerificationObligation) -> dict | None:
+    """The flow sink this obligation's `source_refs` already points at
+    (`"sink:<id-or-name>"`, set by `_trace_obligations`), if any — the same
+    sink `_flow_chain_lines` already renders in System impact."""
+    if flow is None:
+        return None
+    refs = {ref.removeprefix("sink:") for ref in obligation.source_refs if ref.startswith("sink:")}
+    if not refs:
+        return None
+    for sink in flow.sinks:
+        if isinstance(sink, dict) and str(sink.get("id") or sink.get("name") or "") in refs:
+            return sink
+    return None
+
+
+def _specific_downstream_label(flow: AffectedFlow | None, obligation: VerificationObligation) -> str | None:
+    """The most specific downstream identity already present in the flow's
+    own data, in priority order: (1) the symbol the obligation's evidence or
+    matched sink already names, optionally sharpened with the sink's own
+    kind/operation; (2) the flow's own handler; (3) the flow's route/entry
+    label. Returns `None` — never a guess — when nothing usable exists.
+    """
+    phrase = _KIND_PHRASES.get(obligation.kind)
+    sink = _sink_for_obligation(flow, obligation)
+    sink_phrase = ""
+    sink_symbol = ""
+    if sink is not None:
+        sink_phrase = " ".join(token for token in (sink.get("kind"), sink.get("operation")) if token)
+        sink_symbol = str(sink.get("symbol") or "")
+    symbol = _evidence_symbol(obligation) or sink_symbol
+
+    if symbol and sink_phrase:
+        return f"{sink_phrase} performed by {symbol}"
+    if symbol:
+        return f"{symbol} {phrase}" if phrase else f"{symbol} behavior"
+    if sink_phrase:
+        return sink_phrase
+
+    if flow is not None and flow.handler:
+        handler = flow.handler.rsplit(".", 1)[-1]
+        return f"{handler} {phrase}" if phrase else f"{handler} behavior"
+
+    if flow is not None and flow.entry_label and phrase:
+        return f"{flow.entry_label} {phrase}"
+
+    return None
+
+
+def _concise_obligation_label(
+    obligation: VerificationObligation, flow: AffectedFlow | None = None
+) -> str:
     """The default-report label for one obligation — the underlying
     `statement`/JSON is never modified, this only decides what this one
     renderer prints. A short, already-readable statement passes through
     unchanged; an obvious "responds NNN — description" response-skeleton
     statement shortens to "<route> returns NNN"; anything else long or
-    implementation-expression-heavy falls back to a neutral label derived
-    from the obligation's own existing `kind` — never a behavior Sydes did
-    not already represent in the result.
+    implementation-expression-heavy prefers the most specific downstream
+    identity already present in the flow/obligation data (see
+    `_specific_downstream_label`), falling back to a generic label derived
+    from the obligation's own `kind` only when no such identity exists.
     """
     statement = obligation.statement
     match = _RESPONDS_RE.match(statement)
@@ -595,11 +658,15 @@ def _concise_obligation_label(obligation: VerificationObligation) -> str:
     )
     if not implementation_heavy:
         return statement
-    return _KIND_LABELS.get(obligation.kind, "Changed behavior")
+    specific = _specific_downstream_label(flow, obligation)
+    if specific:
+        return specific
+    phrase = _KIND_PHRASES.get(obligation.kind, "behavior")
+    return f"Changed {phrase}"
 
 
 def _render_verification_evidence_default(
-    obligations: list[VerificationObligation], lines: list[str]
+    obligations: list[VerificationObligation], flow_by_id: dict[str, AffectedFlow], lines: list[str]
 ) -> None:
     """Evidence, in plain language — never `mapped_tests`/`supporting_tests`
     by name. Reuses each obligation's existing status/reason/supporting-test
@@ -608,7 +675,7 @@ def _render_verification_evidence_default(
     for index, obligation in enumerate(obligations):
         if index > 0:
             lines.append("")
-        label = _concise_obligation_label(obligation)
+        label = _concise_obligation_label(obligation, flow_by_id.get(obligation.flow_id))
         if obligation.status == VERIFICATION_PASSED:
             lines.append(f"✓ {label}")
         elif obligation.status == VERIFICATION_FAILED:
@@ -762,7 +829,8 @@ def _render_default_report(result: ChangeVerificationResult) -> str:
 
     obligations = _required_obligations_default(result)
     if obligations:
-        _render_verification_evidence_default(obligations, lines)
+        flow_by_id = {flow.id: flow for flow in result.affected_flows}
+        _render_verification_evidence_default(obligations, flow_by_id, lines)
 
     _render_ci_default(result, lines)
     _render_could_not_establish_default(result, obligations, lines)
