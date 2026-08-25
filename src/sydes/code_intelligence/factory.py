@@ -1,6 +1,8 @@
 """Backend selection.
 
-Only `native` exists today. A name that is not registered raises rather than
+`native` (Sydes' own parser, default) and `cbm` (the `codebase-memory-mcp`
+code-graph backend, opt-in via `$SYDES_CODE_INTELLIGENCE=cbm`) are the two
+registered backends. A name that is not registered raises rather than
 degrading to whatever does work: falling back silently would mean a report
 built on facts from a backend the operator did not ask for, which is the one
 outcome that makes a verdict unreadable.
@@ -14,8 +16,7 @@ from sydes.code_intelligence.base import CodeIntelligence, CodeIntelligenceError
 from sydes.code_intelligence.cbm import CBM_BACKEND, CBMCodeIntelligence
 from sydes.code_intelligence.native import NATIVE_BACKEND, NativeCodeIntelligence
 
-#: Overrides the default backend. A future `cbm` backend registers alongside
-#: `native`; until it exists, naming it is an error rather than a no-op.
+#: Overrides the default backend (see module docstring for what's registered).
 BACKEND_ENV_VAR = "SYDES_CODE_INTELLIGENCE"
 
 DEFAULT_BACKEND = NATIVE_BACKEND

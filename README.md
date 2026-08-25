@@ -2,9 +2,9 @@
 
 ## What is Sydes?
 
-Sydes helps you understand how API requests flow through your backend — directly from code.
+Sydes uses code-graph evidence and AI reasoning to show what a backend change could affect — and what still hasn't been verified.
 
-It reconstructs routes, follows internal calls (even across services), and surfaces side effects like database writes — without manually reading hundreds of files.
+It reconstructs routes, follows internal calls (even across services), and surfaces side effects like database writes — without manually reading hundreds of files. For a specific code change, `sydes verify-change` (below) reports what it could prove reaches an affected behavior, what it could only infer, and what remains unverified — it does not guarantee complete coverage, full system testing, or universal framework support.
 
 ## Quickstart
 
@@ -148,6 +148,23 @@ A test being present is never reported as `passed`. Infrastructure problems are
 never reported as `failed`; they become `unknown` with a named blocker, linked
 to the runtime dependency behind them where one was discovered.
 
+### PROVEN vs. INFERRED impact
+
+Separately from test-verification state, each affected behavior Sydes reports
+carries how it was found:
+
+| Status | Meaning |
+| --- | --- |
+| `PROVEN` | Reached by a deterministic call/route path Sydes actually traced. |
+| `INFERRED` | Proposed by an AI reasoning pass over code-graph evidence, with no traced deterministic path. Shown with a confidence score and a reason. |
+
+`INFERRED` findings are evidence to investigate, not proof — they can never by
+themselves produce a `VERIFIED` verdict. This AI pass (`--impact-guide`) is
+optional and requires the `cbm` code-intelligence backend
+(`SYDES_CODE_INTELLIGENCE=cbm`); on its first use, Sydes bootstraps the
+`codebase-memory-mcp` native runtime into a local cache, which can take a
+noticeable moment the very first time.
+
 The verdict follows directly:
 
 ```text
@@ -170,8 +187,9 @@ Useful flags:
 
 ```bash
 sydes verify-change --base main --json result.json   # structured artifact for CI/PR tooling
-sydes verify-change --base main --no-code-review     # skip the LLM code-findings pass
+sydes verify-change --base main --code-review        # also run the advisory LLM code-findings pass (off by default)
 sydes verify-change --base main --llm-policy never   # deterministic analysis only, no model calls
+sydes verify-change --base main --impact-guide auto  # AI semantic impact inference for unresolved impact (cbm backend only)
 sydes verify-change --base main --verbose            # per-edge evidence, runner output, diagnostics
 sydes verify-change --base main --no-run-tests       # map tests but do not execute them
 sydes verify-change --base main --test-timeout 30    # per-test process timeout (default 120s)

@@ -423,8 +423,8 @@ def create_default_llm_client(
                 "OpenAI provider selected, but OPENAI_API_KEY is not set.\n\n"
                 "Set it with:\n"
                 "  export OPENAI_API_KEY=...\n\n"
-                "Or choose another provider:\n"
-                '  sydes trace "/checkout" --method POST --model ollama:llama3.1:8b'
+                "Or choose another provider, e.g. a local Ollama model:\n"
+                "  --model ollama:llama3.1:8b"
             )
         openai_base_url = os.getenv("OPENAI_BASE_URL", "").strip() or DEFAULT_OPENAI_BASE_URL
         return OpenAIClient(
@@ -442,8 +442,8 @@ def create_default_llm_client(
                 "Anthropic provider selected, but ANTHROPIC_API_KEY is not set.\n\n"
                 "Set it with:\n"
                 "  export ANTHROPIC_API_KEY=...\n\n"
-                "Or choose another provider:\n"
-                '  sydes trace "/checkout" --method POST --model ollama:llama3.1:8b'
+                "Or choose another provider, e.g. a local Ollama model:\n"
+                "  --model ollama:llama3.1:8b"
             )
         anthropic_base_url = os.getenv("ANTHROPIC_BASE_URL", "").strip() or DEFAULT_ANTHROPIC_BASE_URL
         return AnthropicClient(

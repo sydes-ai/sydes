@@ -48,7 +48,7 @@ def verify_change_command(
             help=(
                 "Controls optional LLM use in general route/flow discovery and "
                 "expansion ONLY — independent of --impact-guide, which separately "
-                "controls the M4 semantic impact-inference guide. `never` here does "
+                "controls the semantic impact-inference guide. `never` here does "
                 "NOT disable --impact-guide; `--llm-policy never --impact-guide auto` "
                 "is a valid, meaningful combination: deterministic structural/flow "
                 "analysis plus the AI impact guide only. `auto` (default): LLM-assisted "
@@ -61,7 +61,7 @@ def verify_change_command(
         typer.Option(
             "--impact-guide",
             help=(
-                "M4 semantic impact-inference guide for unresolved impact (cbm backend "
+                "Semantic impact-inference guide for unresolved impact (cbm backend "
                 "only) — independent of --llm-policy (see its help). "
                 "`off` (default): deterministic impact analysis only. "
                 "`auto`: consult the guide only on unresolved structural triggers. "
