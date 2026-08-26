@@ -54,6 +54,7 @@ from sydes.impact import (
     reconcile_entrypoints,
 )
 from sydes.discover.target_match import resolve_trace_target
+from sydes.observability import trace as _trace
 from sydes.store.workspace import compute_workspace_id
 from sydes.generate.contracts import build_api_contract_from_routes
 from sydes.generate.tests import generate_test_matrix, match_route_contract
@@ -564,7 +565,7 @@ def _build_accepted_impacts(
     renderer, never two competing views depending on backend.
     """
     if impact_result is None:
-        return [
+        native_impacts = [
             AcceptedImpact(
                 id=flow.id, label=flow.entry_label, repo=flow.repo,
                 kind=ENTRYPOINT_HTTP if flow.method and flow.path else "unknown",
@@ -575,6 +576,8 @@ def _build_accepted_impacts(
             )
             for flow in affected_flows
         ]
+        _trace_verification_decisions(native_impacts, affected_flows)
+        return native_impacts
 
     flow_by_route = {
         ((flow.method or "").upper(), flow.path): flow
@@ -625,7 +628,43 @@ def _build_accepted_impacts(
             corroborated=entry.corroborated if is_inferred else None,
             verification_model_status="modeled" if modeled_flow is not None else "unsupported_or_partial",
         )
-    return list(by_id.values())
+    accepted_impacts = list(by_id.values())
+    _trace_verification_decisions(accepted_impacts, affected_flows)
+    return accepted_impacts
+
+
+def _trace_verification_decisions(
+    accepted_impacts: list[AcceptedImpact], affected_flows: list[AffectedFlow],
+) -> None:
+    """Serialize why each accepted impact was (or was not) modeled for
+    verification — no new logic, just the `verification_model_status` and
+    obligation count `_build_accepted_impacts` already computed."""
+    if not _trace.is_enabled():
+        return
+    flows_by_id = {flow.id: flow for flow in affected_flows}
+    for impact in accepted_impacts:
+        flow = flows_by_id.get(impact.id)
+        obligations = len(flow.obligations) if flow is not None else 0
+        if impact.verification_model_status == "modeled":
+            reason = "matched a modeled AffectedFlow with obligations derived from it"
+        elif impact.route_method and impact.route_path:
+            reason = (
+                f"route {impact.route_method} {impact.route_path} did not match any "
+                "modeled AffectedFlow (no obligations could be derived for it)"
+            )
+        else:
+            reason = (
+                "no route information available for this impact (non-HTTP behavior); "
+                "no AffectedFlow/obligations exist for it"
+            )
+        _trace.record_verification_decision(
+            impact_id=impact.id,
+            label=impact.label,
+            status=impact.status,
+            verification_model_status=impact.verification_model_status,
+            reason=reason,
+            obligations=obligations,
+        )
 
 
 def _compute_summary(result: ChangeVerificationResult) -> ChangeSummary:
@@ -878,7 +917,9 @@ def _build_impact_guide(options: VerifyChangeOptions) -> tuple[Any | None, list[
         # the guide's own request already sends `temperature=None` — the
         # client must be built the same way or its own default would still
         # override the request's.
-        client = create_default_llm_client(model_spec=options.model_spec, temperature=None)
+        client = create_default_llm_client(
+            model_spec=options.model_spec, temperature=None, stage="impact_guide",
+        )
     except LLMClientError as exc:
         return None, [f"impact_guide unavailable: {exc}"]
     return LLMImpactGuide(client), []
@@ -957,6 +998,47 @@ def _impact_diagnostics(impact_result: ImpactResult) -> list[str]:
     return lines
 
 
+def _trace_impact_decisions(impact_result: ImpactResult) -> None:
+    """Serialize every structural (PROVEN) discovery and every LLM candidate
+    decision into `impact_decisions.jsonl` — no new judgment, only a
+    reshaping of what `ImpactInterpreter` already recorded on
+    `impact_result.affected`/`impact_result.llm_candidate_log`."""
+    if not _trace.is_enabled():
+        return
+    for entry in impact_result.affected:
+        if entry.status != IMPACT_STATUS_PROVEN:
+            continue
+        for changed_symbol in entry.changed_symbols or [""]:
+            _trace.record_impact_decision(
+                changed_symbol=changed_symbol,
+                candidate_label=entry.label,
+                kind=entry.kind,
+                source="deterministic",
+                status=entry.status,
+                accepted=True,
+                rejection_reason="",
+                corroborated=None,
+                confidence=None,
+                reason="",
+                evidence=entry.to_dict(),
+            )
+    for log_entry in impact_result.llm_candidate_log:
+        accepted = bool(log_entry.get("accepted"))
+        _trace.record_impact_decision(
+            changed_symbol=log_entry.get("changed_symbol", ""),
+            candidate_label=log_entry.get("candidate_entrypoint", ""),
+            kind="",
+            source="llm",
+            status=IMPACT_STATUS_INFERRED if accepted else "rejected",
+            accepted=accepted,
+            rejection_reason=log_entry.get("rejection_reason", ""),
+            corroborated=log_entry.get("corroborated"),
+            confidence=log_entry.get("confidence"),
+            reason=log_entry.get("rationale", ""),
+            evidence=log_entry,
+        )
+
+
 def analyze_change(
     *, repos: list[RepoRef], options: VerifyChangeOptions
 ) -> ChangeVerificationResult:
@@ -970,6 +1052,22 @@ def analyze_change(
         RepoRef(name=item.name, root=str(Path(item.root).expanduser().resolve()))
         for item in repos
     ]
+
+    trace_run_id = _trace.new_call_id("run")
+    _trace.start_run(
+        run_id=trace_run_id,
+        options={
+            "base": options.base,
+            "include_working_tree": options.include_working_tree,
+            "code_review": options.code_review,
+            "llm_policy": options.llm_policy,
+            "model_spec": options.model_spec,
+            "run_tests": options.run_tests,
+            "test_timeout_seconds": options.test_timeout_seconds,
+            "impact_guide": options.impact_guide,
+        },
+        repos=[{"name": item.name, "root": item.root} for item in normalized_repos],
+    )
 
     change = resolve_change_set(
         repo_name=primary.name,
@@ -1056,6 +1154,7 @@ def analyze_change(
         )
         result.diagnostics.extend(guide_notes)
         result.diagnostics.extend(_impact_diagnostics(impact_result))
+        _trace_impact_decisions(impact_result)
         # Provider/guide failures must be visible in the human-readable
         # report, not only countable in diagnostics — `analysis_notes` is
         # the section every renderer already shows by default, unlike
@@ -1337,7 +1436,33 @@ def analyze_change(
         resolve_flow_status(flow)
     result.accepted_impacts = _build_accepted_impacts(impact_result, result.affected_flows)
     result.summary = _compute_summary(result)
+    _trace.record_final_decision(
+        run_id=trace_run_id,
+        risk=result.summary.risk,
+        verdict=result.summary.verdict,
+        headline=result.summary.headline,
+        counts=result.summary.counts,
+        reasons=result.summary.risk_reasons,
+    )
     return result
+
+
+def _trace_test_decision(flow: AffectedFlow, obligation: VerificationObligation) -> None:
+    """Serialize one obligation's test-mapping/execution outcome — no new
+    logic, just the `mapped_tests`/`supporting_tests`/`status`/`reason`
+    `resolve_obligation_status` (or the `--no-run-tests` short-circuit just
+    above it) already set."""
+    if not _trace.is_enabled():
+        return
+    _trace.record_test_decision(
+        flow_id=flow.id,
+        obligation_id=obligation.id,
+        obligation_description=obligation.statement,
+        mapped_tests=[test.name for test in obligation.mapped_tests],
+        supporting_tests=[test.name for test in obligation.supporting_tests],
+        status=obligation.status,
+        reason=obligation.reason,
+    )
 
 
 def _run_test_execution(
@@ -1369,5 +1494,7 @@ def _run_test_execution(
             if not options.run_tests and obligation.mapped_tests:
                 obligation.status = VERIFICATION_UNKNOWN
                 obligation.reason = "Test execution was disabled (--no-run-tests)"
+                _trace_test_decision(flow, obligation)
                 continue
             resolve_obligation_status(obligation, ci_suite)
+            _trace_test_decision(flow, obligation)

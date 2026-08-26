@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import json
 import os
+import time
 from urllib import error, request
 from typing import Any, Protocol
 
@@ -12,6 +13,8 @@ from anthropic import Anthropic
 from anthropic import AnthropicError
 from openai import OpenAI
 from openai import OpenAIError
+
+from sydes.observability import trace as _trace
 
 DEFAULT_PROVIDER = "ollama"
 DEFAULT_MODEL = "llama3.1:latest"
@@ -46,6 +49,44 @@ class LLMClient(Protocol):
 
 class LLMClientError(RuntimeError):
     """Raised when an LLM provider request fails."""
+
+
+class TracingLLMClient:
+    """Wraps any `LLMClient` to record call metadata via
+    `sydes.observability.trace` — no-op unless `SYDES_TRACE_DIR` is set.
+
+    Adds no provider call of its own and never alters the request or the
+    response it passes through; it only observes and times the real call,
+    then hands back exactly what the wrapped client returned (or re-raises
+    exactly what it raised). Applied automatically by
+    `create_default_llm_client` when tracing is enabled — never constructed
+    directly by analysis code.
+    """
+
+    def __init__(self, inner: LLMClient, *, stage: str, provider: str, model: str) -> None:
+        self._inner = inner
+        self._stage = stage
+        self._provider = provider
+        self._model = model
+
+    def generate(self, request_data: LLMRequest) -> LLMResponse:
+        call_id = _trace.new_call_id("llm")
+        started = time.perf_counter()
+        try:
+            response = self._inner.generate(request_data)
+        except LLMClientError as exc:
+            _trace.record_llm_call(
+                call_id=call_id, stage=self._stage, provider=self._provider, model=self._model,
+                request=request_data, response_text=None, error=str(exc),
+                latency_ms=(time.perf_counter() - started) * 1000.0,
+            )
+            raise
+        _trace.record_llm_call(
+            call_id=call_id, stage=self._stage, provider=self._provider, model=self._model,
+            request=request_data, response_text=response.text, error=None,
+            latency_ms=(time.perf_counter() - started) * 1000.0,
+        )
+        return response
 
 
 def classify_llm_error(message: str) -> str:
@@ -387,6 +428,7 @@ def create_default_llm_client(
     *,
     timeout_seconds_override: float | None = None,
     temperature: float | None = _TEMPERATURE_NOT_GIVEN,  # type: ignore[assignment]
+    stage: str = "",
 ) -> LLMClient:
     """Create the default LLM client from model spec or environment configuration.
 
@@ -395,7 +437,32 @@ def create_default_llm_client(
     to build a client with no pinned temperature at all — the resulting
     client omits the parameter from its provider request rather than
     guessing a value a given model might reject.
+
+    `stage` is observability-only metadata (e.g. "impact_guide",
+    "route_discovery", "code_review") naming which LLM path this client is
+    for. It has no effect on the client's behavior; when `SYDES_TRACE_DIR`
+    is unset the returned client is exactly what it always was. When tracing
+    is enabled, the client is transparently wrapped so every call it makes
+    is recorded under that stage name — see `TracingLLMClient`.
     """
+    client = _build_llm_client(
+        model_spec, timeout_seconds_override=timeout_seconds_override, temperature=temperature,
+    )
+    if not _trace.is_enabled():
+        return client
+    provider, model, _settings = _resolve_provider_and_model(model_spec)
+    return TracingLLMClient(client, stage=stage or "unspecified", provider=provider, model=model)
+
+
+def _build_llm_client(
+    model_spec: str | None = None,
+    *,
+    timeout_seconds_override: float | None = None,
+    temperature: float | None = _TEMPERATURE_NOT_GIVEN,  # type: ignore[assignment]
+) -> LLMClient:
+    """The actual provider-selection logic, unchanged from before tracing
+    existed. Kept separate so `create_default_llm_client` can wrap its
+    result without duplicating any of this."""
     settings = load_llm_settings_from_env()
     timeout_seconds = timeout_seconds_override if timeout_seconds_override is not None else settings.timeout_seconds
     resolved_temperature = (

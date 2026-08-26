@@ -1280,7 +1280,7 @@ def run_flow_expansion(
         settings = load_llm_settings_from_env()
         timeout_seconds = settings.timeout_seconds
         try:
-            llm_client = create_default_llm_client(model_spec=model_spec)
+            llm_client = create_default_llm_client(model_spec=model_spec, stage="flow_expansion")
         except LLMClientError as exc:
             if strict_llm:
                 raise LLMClientError(classify_llm_error(str(exc))) from exc

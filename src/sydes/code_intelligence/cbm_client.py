@@ -37,6 +37,7 @@ import time
 from typing import Any, Protocol
 
 from sydes.code_intelligence.base import CodeIntelligenceError
+from sydes.observability import trace as _trace
 
 #: Overrides executable discovery, for a pinned or non-PATH install.
 CBM_EXECUTABLE_ENV_VAR = "SYDES_CBM_EXECUTABLE"
@@ -295,25 +296,44 @@ class StdioMCPSession:
                   *, timeout: float | None = None) -> dict[str, Any]:
         """Invoke a CBM tool, returning its structured payload."""
         budget = timeout if timeout is not None else _DEFAULT_CALL_TIMEOUT_SECONDS
+        call_id = _trace.new_call_id("cbm")
         started = time.perf_counter()
-        result = self._request(
-            "tools/call", {"name": tool, "arguments": arguments}, timeout=budget
-        )
-        self.metrics.record(tool, (time.perf_counter() - started) * 1000.0)
-
-        if result.get("isError"):
-            raise CodeIntelligenceError(
-                f"Codebase Memory tool {tool!r} reported an error: "
-                f"{_text_of(result)[:300]}"
+        result: dict[str, Any] | None = None
+        try:
+            result = self._request(
+                "tools/call", {"name": tool, "arguments": arguments}, timeout=budget
             )
-        structured = result.get("structuredContent")
-        if isinstance(structured, dict):
-            if isinstance(structured.get("error"), str):
+            self.metrics.record(tool, (time.perf_counter() - started) * 1000.0)
+
+            if result.get("isError"):
                 raise CodeIntelligenceError(
-                    f"Codebase Memory tool {tool!r} failed: {structured['error']}"
+                    f"Codebase Memory tool {tool!r} reported an error: "
+                    f"{_text_of(result)[:300]}"
                 )
-            return structured
-        return {"_text": _text_of(result)}
+            structured = result.get("structuredContent")
+            if isinstance(structured, dict):
+                if isinstance(structured.get("error"), str):
+                    raise CodeIntelligenceError(
+                        f"Codebase Memory tool {tool!r} failed: {structured['error']}"
+                    )
+                payload = structured
+            else:
+                payload = {"_text": _text_of(result)}
+        except Exception as exc:
+            _trace.record_cbm_call(
+                call_id=call_id, operation=tool, arguments=arguments,
+                duration_ms=(time.perf_counter() - started) * 1000.0,
+                success=False, error=str(exc), result_summary=None, raw_response=result,
+            )
+            raise
+        _trace.record_cbm_call(
+            call_id=call_id, operation=tool, arguments=arguments,
+            duration_ms=(time.perf_counter() - started) * 1000.0,
+            success=True, error=None,
+            result_summary=_cbm_result_summary(payload),
+            raw_response=result,
+        )
+        return payload
 
 
 def _text_of(payload: dict[str, Any]) -> str:
@@ -322,6 +342,21 @@ def _text_of(payload: dict[str, Any]) -> str:
         if isinstance(block, dict) and block.get("type") == "text":
             return str(block.get("text") or "")
     return ""
+
+
+def _cbm_result_summary(payload: dict[str, Any]) -> dict[str, Any]:
+    """A compact, cheap-to-read shape of one CBM payload for trace output —
+    never the full payload itself (that goes to `raw/cbm/<id>.json` instead,
+    since a bulk sweep's rows can be large)."""
+    summary: dict[str, Any] = {"keys": sorted(payload.keys())}
+    rows = payload.get("rows")
+    if isinstance(rows, list):
+        summary["row_count"] = len(rows)
+    text = payload.get("_text")
+    if isinstance(text, str):
+        summary["text_length"] = len(text)
+        summary["text_preview"] = text[:200]
+    return summary
 
 
 def parse_rows(payload: dict[str, Any], *, columns: int) -> tuple[list[list[str]], int]:

@@ -293,7 +293,7 @@ def run_trace_llm_summarizer(
 
     prompt = build_trace_llm_prompt(input_payload)
     if llm_client is None:
-        llm_client = create_default_llm_client(model_spec=model_spec)
+        llm_client = create_default_llm_client(model_spec=model_spec, stage="trace_summarization")
 
     response = llm_client.generate(LLMRequest(prompt=prompt, temperature=0))
     try:

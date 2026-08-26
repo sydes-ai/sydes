@@ -694,6 +694,7 @@ def run_llm_endpoint_discovery(
             llm_client = create_default_llm_client(
                 model_spec=model_spec,
                 timeout_seconds_override=model_timeout_seconds,
+                stage="route_discovery",
             )
         except LLMClientError as exc:
             if strict_llm:

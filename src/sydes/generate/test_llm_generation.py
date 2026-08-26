@@ -55,6 +55,7 @@ def generate_test_matrix_with_evidence_packet(
             llm_client = create_default_llm_client(
                 model_spec=model_spec,
                 timeout_seconds_override=timeout_s,
+                stage="test_generation",
             )
         except LLMClientError as exc:
             return TestMatrixGenerationResult(ok=False, warnings=[str(exc)], error=str(exc))

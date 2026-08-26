@@ -331,7 +331,7 @@ def generate_code_findings(
     llm_client: LLMClient | None = None,
 ) -> tuple[list[CodeFinding], list[str]]:
     """Run the code-findings LLM pass over the bounded change context."""
-    client = llm_client or create_default_llm_client(model_spec=model_spec)
+    client = llm_client or create_default_llm_client(model_spec=model_spec, stage="code_review")
     prompt = _bounded_prompt(_CODE_FINDINGS_HEADER, context)
     raw = _run(client, prompt)
     findings, warnings = _validate_findings(raw, context)
@@ -347,7 +347,7 @@ def generate_verification_gaps(
     llm_client: LLMClient | None = None,
 ) -> tuple[list[VerificationGap], list[str]]:
     """Run the verification-gap LLM pass over the bounded change context."""
-    client = llm_client or create_default_llm_client(model_spec=model_spec)
+    client = llm_client or create_default_llm_client(model_spec=model_spec, stage="verification_gaps")
     prompt = _bounded_prompt(_GAPS_HEADER, context)
     raw = _run(client, prompt)
     gaps, warnings = _validate_gaps(raw, context, covered_flow_ids)

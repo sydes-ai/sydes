@@ -46,6 +46,7 @@ def refine_api_contract_with_evidence_packet(
             llm_client = create_default_llm_client(
                 model_spec=model_spec,
                 timeout_seconds_override=timeout_s,
+                stage="contract_refinement",
             )
         except LLMClientError as exc:
             return ContractRefinementResult(ok=False, warnings=[str(exc)], error=str(exc))
