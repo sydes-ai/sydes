@@ -23,6 +23,7 @@ from sydes.verify.models import (
     VERIFICATION_UNKNOWN,
     VERIFICATION_UNVERIFIED,
     AcceptedImpact,
+    AffectedBoundary,
     AffectedFlow,
     ChangeSemanticAnalysis,
     ChangeVerificationResult,
@@ -585,19 +586,45 @@ def _render_change_analysis_verbose(analysis: ChangeSemanticAnalysis, lines: lis
             lines.append(f"    - {item}")
 
 
+#: Roughly a handful — matches `_CHANGED_DEFAULT_CAP`'s own reasoning.
+_BOUNDARY_DEFAULT_CAP = 5
+
+
+def _non_http_boundaries(result: ChangeVerificationResult) -> list[AffectedBoundary]:
+    """Boundaries not already covered by an HTTP `AffectedFlow` above them —
+    an `api`/`http` boundary is the same real route an `AffectedFlow` already
+    renders, so it is excluded here to avoid showing it twice."""
+    return [
+        item for item in result.affected_boundaries
+        if not (item.kind == "api" and item.subtype == "http")
+    ]
+
+
 def _render_system_impact_default(result: ChangeVerificationResult, lines: list[str]) -> None:
-    """The core section: how the change propagates, using the structural
-    trace/sink data Sydes already produced per flow — see `_flow_chain_lines`."""
+    """The core section: how the change propagates. HTTP flows use the
+    existing structural trace/sink rendering (`_flow_chain_lines`);
+    non-HTTP boundaries (callable/async/other api) — Increment C — render as
+    a compact `kind · label` line with a one-line evidence trail, never
+    forced into the HTTP flow shape."""
     _header(lines, "System impact")
-    if not result.affected_flows:
-        lines.append("No structural propagation path was established.")
-        return
     changed_identities = _changed_symbol_identities(result)
+    rendered_anything = False
     for index, flow in enumerate(result.affected_flows):
         if index > 0:
             lines.append("")
         lines.append(flow.entry_label)
         lines.extend(_flow_chain_lines(flow, changed_identities))
+        rendered_anything = True
+    boundaries = _non_http_boundaries(result)[:_BOUNDARY_DEFAULT_CAP]
+    for boundary in boundaries:
+        if rendered_anything:
+            lines.append("")
+        lines.append(f"{boundary.kind} · {boundary.label}")
+        for evidence_line in boundary.evidence[:1]:
+            lines.append(f"    {evidence_line}")
+        rendered_anything = True
+    if not rendered_anything:
+        lines.append("No structural propagation path was established.")
 
 
 def _render_inferred_impact_default(result: ChangeVerificationResult, lines: list[str]) -> None:
@@ -996,6 +1023,20 @@ def _render_verbose_report(result: ChangeVerificationResult) -> str:
 
     _section(lines, "AFFECTED BEHAVIOR")
     _render_affected_behavior(result, lines, verbose=verbose)
+
+    if result.affected_boundaries:
+        _section(lines, "BOUNDARIES (typed, transport-neutral; Increment C)")
+        for boundary in result.affected_boundaries:
+            subtype = f" ({boundary.subtype})" if boundary.subtype else ""
+            lines.append(f"  {boundary.kind}{subtype} · {boundary.label}")
+            lines.append(
+                f"      distance={boundary.distance}  evidence={boundary.evidence_strength}"
+                f"  status={boundary.status}"
+            )
+            for evidence_line in boundary.evidence:
+                lines.append(f"      {evidence_line}")
+            if boundary.changed_symbols:
+                lines.append(f"      from: {', '.join(boundary.changed_symbols)}")
 
     _section(lines, "CI REGRESSION SUITE")
     _render_ci_suite(result.ci_suite, lines, verbose=verbose)

@@ -86,6 +86,7 @@ from sydes.verify.models import (
     VERIFICATION_UNKNOWN,
     VERIFICATION_UNVERIFIED,
     AcceptedImpact,
+    AffectedBoundary,
     AffectedFlow,
     ChangedSymbol,
     ChangeSummary,
@@ -926,6 +927,25 @@ def _build_impact_guide(options: VerifyChangeOptions) -> tuple[Any | None, list[
     return LLMImpactGuide(client), []
 
 
+def _semantic_ranking_texts(analysis: Any | None) -> list[str]:
+    """Plain strings pulled from `pr_semantic_analysis` to *rank* the
+    boundary-discovery frontier — never to create a candidate or an edge.
+    Kept as flat text (not the pydantic model itself) so `sydes.impact`
+    stays decoupled from `sydes.verify`'s types."""
+    if analysis is None:
+        return []
+    texts: list[str] = []
+    for change in analysis.behavior_changes:
+        texts.append(change.description)
+        texts.extend(change.changed_symbols)
+    for hint in analysis.investigation_hints:
+        texts.append(hint.description)
+        texts.extend(hint.concepts)
+        texts.extend(hint.related_symbols)
+    texts.extend(analysis.likely_boundary_types)
+    return [text for text in texts if text]
+
+
 def _select_via_impact_interpreter(
     *,
     change: Any,
@@ -934,6 +954,7 @@ def _select_via_impact_interpreter(
     repo_name: str,
     options: VerifyChangeOptions,
     repo_root: Path | None,
+    semantic_analysis: Any | None = None,
 ) -> tuple[list[EndpointCandidate], ImpactResult, list[str]]:
     """Choose affected entrypoints through the impact interpreter.
 
@@ -948,7 +969,10 @@ def _select_via_impact_interpreter(
         guide_budget=GuideBudget(),
         repo_root=repo_root,
     )
-    impact_result = interpreter.interpret(changed, structural, repo=repo_name)
+    impact_result = interpreter.interpret(
+        changed, structural, repo=repo_name,
+        semantic_texts=_semantic_ranking_texts(semantic_analysis),
+    )
     reconciled = reconcile_entrypoints(impact_result.affected, structural.route_graph)
     # CBM's own route facts are pre-composition (router-relative — e.g.
     # "/{student_id}" rather than "/students/{student_id}");
@@ -1037,6 +1061,51 @@ def _trace_impact_decisions(impact_result: ImpactResult) -> None:
             confidence=log_entry.get("confidence"),
             reason=log_entry.get("rationale", ""),
             evidence=log_entry,
+        )
+
+
+def _to_affected_boundary(boundary: Any) -> AffectedBoundary:
+    """Reshape one `impact.DiscoveredBoundary` into the product-facing
+    `AffectedBoundary` — no re-derivation, only a smaller/JSON-simple view
+    (the full `ImpactPath` becomes one human-readable evidence line)."""
+    return AffectedBoundary(
+        id=boundary.id,
+        kind=boundary.kind,
+        subtype=boundary.subtype,
+        repo=boundary.repo,
+        file=boundary.file,
+        symbol=boundary.symbol,
+        label=boundary.label,
+        changed_symbols=sorted(set(boundary.changed_symbols)),
+        evidence=[boundary.path.describe()] if boundary.path is not None else [],
+        distance=boundary.distance,
+        evidence_strength=boundary.evidence_strength,
+        status=boundary.status,
+    )
+
+
+def _trace_boundary_decisions(impact_result: ImpactResult) -> None:
+    """Serialize the bounded, decision-relevant boundary-discovery log
+    (`ImpactResult.boundary_decisions`, already capped by
+    `boundary_discovery.discover_boundaries`) into `impact_decisions.jsonl`
+    — reuses the exact same trace category as structural/LLM impact
+    decisions rather than inventing a second one."""
+    if not _trace.is_enabled():
+        return
+    for decision in impact_result.boundary_decisions:
+        accepted = decision.get("decision") == "emitted"
+        _trace.record_impact_decision(
+            changed_symbol=decision.get("changed_symbol", ""),
+            candidate_label=decision.get("candidate", ""),
+            kind=decision.get("kind") or "",
+            source="boundary_discovery",
+            status=IMPACT_STATUS_PROVEN if accepted else "rejected",
+            accepted=accepted,
+            rejection_reason="" if accepted else (decision.get("reason") or decision.get("decision") or ""),
+            corroborated=None,
+            confidence=None,
+            reason=decision.get("reason", ""),
+            evidence=decision,
         )
 
 
@@ -1174,10 +1243,15 @@ def analyze_change(
         selected, impact_result, guide_notes = _select_via_impact_interpreter(
             change=change, routes=routes, structural=structural, repo_name=primary.name,
             options=options, repo_root=primary_root,
+            semantic_analysis=result.pr_semantic_analysis,
         )
         result.diagnostics.extend(guide_notes)
         result.diagnostics.extend(_impact_diagnostics(impact_result))
+        result.affected_boundaries = [
+            _to_affected_boundary(item) for item in impact_result.boundaries
+        ]
         _trace_impact_decisions(impact_result)
+        _trace_boundary_decisions(impact_result)
         # Provider/guide failures must be visible in the human-readable
         # report, not only countable in diagnostics — `analysis_notes` is
         # the section every renderer already shows by default, unlike

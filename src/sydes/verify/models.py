@@ -507,6 +507,41 @@ class ChangeSemanticAnalysis(BaseModel):
     uncertainties: list[str] = Field(default_factory=list)
 
 
+class AffectedBoundary(BaseModel):
+    """One typed, transport-neutral software boundary reachable from the
+    change — Increment C. Complementary to `AcceptedImpact`/`AffectedFlow`,
+    never a replacement: an HTTP boundary here and an HTTP `AffectedFlow`
+    may describe the same real route from two different angles, and this
+    model deliberately carries no `route_method`/`route_path` of its own —
+    those stay HTTP-only fields on `AcceptedImpact`/`AffectedFlow`.
+
+    Always `status=IMPACT_STATUS_PROVEN`: every boundary here was reached by
+    a real, deterministically-walked structural edge (never a
+    signature/type-only reference, never a semantic hint alone) — see
+    `sydes.impact.boundary_discovery` for the traversal that produces these
+    before `verify.analyzer` reshapes them into this product-facing form.
+    """
+
+    id: str
+    kind: str  # api | callable | async | external | unknown
+    subtype: str | None = None
+    repo: str | None = None
+    file: str | None = None
+    symbol: str | None = None
+    label: str = ""
+    changed_symbols: list[str] = Field(default_factory=list)
+    #: A one-line, human-readable rendering of the path that reached this
+    #: boundary (e.g. `"calls:helper -> usage:reserve"`) — never the raw
+    #: `ImpactPath` object, to keep this model small and JSON-simple.
+    evidence: list[str] = Field(default_factory=list)
+    distance: int = 0
+    #: `EDGE_STRENGTH_STRONG`/`EDGE_STRENGTH_MEDIUM` — see
+    #: `sydes.impact.models`. Never `weak`: a boundary reached only through
+    #: an import/signature-only reference is never emitted at all.
+    evidence_strength: str = "medium"
+    status: str = "proven"
+
+
 class RuntimeDependency(BaseModel):
     """Dependency that must be running/reachable to exercise affected behavior.
 
@@ -556,6 +591,13 @@ class ChangeVerificationResult(BaseModel):
     #: for why). Never contributes to `accepted_impacts`, `affected_flows`,
     #: obligations, or `summary.verdict` — see `ChangeSemanticAnalysis`.
     pr_semantic_analysis: ChangeSemanticAnalysis | None = None
+    #: Typed, transport-neutral boundaries (api/callable/async) the ranked
+    #: frontier walk found reachable from the change — Increment C. Always
+    #: `status="proven"` (see `AffectedBoundary`), never HTTP-gated: a
+    #: callable or async boundary needs no `AffectedFlow` to be visible here.
+    #: Empty (cbm backend with nothing found, or native backend, which does
+    #: not run boundary discovery at all) is a normal, non-error result.
+    affected_boundaries: list[AffectedBoundary] = Field(default_factory=list)
     affected_flows: list[AffectedFlow] = Field(default_factory=list)
     #: Changed symbols the deterministic impact interpreter never reached any
     #: entrypoint from (`ImpactResult.unresolved`, cbm backend only) — set by

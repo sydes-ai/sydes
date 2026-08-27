@@ -28,6 +28,7 @@ import time
 from typing import Any, Iterable
 
 from sydes.code_intelligence.base import StructuralFacts
+from sydes.impact.boundary_discovery import BoundaryBudget, discover_boundaries
 from sydes.impact.guide import GuideError, ImpactGuide
 from sydes.impact.investigate import InvestigationExecutor, source_preview
 from sydes.impact.models import (
@@ -167,12 +168,20 @@ class ImpactInterpreter:
         facts: StructuralFacts,
         *,
         repo: str | None = None,
+        semantic_texts: list[str] | None = None,
+        boundary_budget: BoundaryBudget | None = None,
     ) -> ImpactResult:
         """Find the entrypoints the changed symbols could reach.
 
         `changed_symbols` are mappings carrying at least `name`, and optionally
         `file` and `qualified_name` — the shape Sydes' change attribution
         already produces.
+
+        `semantic_texts` (Increment C): plain strings extracted from
+        `pr_semantic_analysis` (behavior-change descriptions, investigation
+        concepts/related symbols) — used only to *rank* the boundary-discovery
+        frontier below; see `boundary_discovery._semantic_relevance`. Never
+        required: omitted or empty, boundary discovery is fully deterministic.
         """
         changed = [item for item in changed_symbols if item.get("name")]
         index = _FactIndex(facts, repo)
@@ -214,7 +223,10 @@ class ImpactInterpreter:
                 reached = True
 
             for path, target in self._signature_references(symbol, index):
-                self._record(found, target, name, path)
+                # Weakest evidence this module produces — see `_record`'s
+                # docstring. Never PROVEN on the strength of a signature
+                # reference alone.
+                self._record(found, target, name, path, status=IMPACT_STATUS_INFERRED)
                 reached = True
 
             if not reached:
@@ -252,6 +264,19 @@ class ImpactInterpreter:
         result.completeness = (
             COMPLETENESS_TRUNCATED if truncated else COMPLETENESS_COMPLETE
         )
+
+        # Increment C: ranked, typed boundary discovery — a complementary
+        # pass over the same `index`/`facts` this method already built,
+        # never a second engine. See `boundary_discovery.discover_boundaries`
+        # for the full soundness argument (every boundary emitted was
+        # reached by a real walked edge; semantic hints only rank).
+        boundaries, boundary_decisions, boundary_metrics = discover_boundaries(
+            changed, index, facts,
+            semantic_texts=semantic_texts, budget=boundary_budget,
+        )
+        result.boundaries = boundaries
+        result.boundary_decisions = boundary_decisions
+
         result.metrics = {
             "changed_symbols": len(changed),
             "affected_entrypoints": len(result.affected),
@@ -264,6 +289,7 @@ class ImpactInterpreter:
             "max_visited": self.budget.max_visited,
             "ambiguous_edges": self._ambiguous_edges,
             **guide_metrics,
+            **boundary_metrics,
         }
         if truncated:
             result.notes.append(
@@ -985,7 +1011,22 @@ class ImpactInterpreter:
         entry: dict[str, Any],
         changed_symbol: str,
         path: ImpactPath,
+        *,
+        status: str = IMPACT_STATUS_PROVEN,
     ) -> None:
+        """Record one deterministically-reached entrypoint.
+
+        `status` defaults to `IMPACT_STATUS_PROVEN` for every strategy except
+        `_signature_references` — a changed *type* merely named in an
+        entrypoint's signature is the weakest evidence this module produces
+        (no call, no usage, no decorator reference: just a name appearing in
+        a type annotation), and must not read as established behavioral
+        impact on its own. If a *stronger* path later reaches the same
+        entrypoint (a real call/usage/decorator-reference from a different
+        changed symbol), it upgrades an existing weak record to PROVEN —
+        never the reverse: nothing here ever downgrades an already-PROVEN
+        entry.
+        """
         key = entry.get("qualified_name") or entry["symbol"]
         entrypoint = found.get(key)
         if entrypoint is None:
@@ -997,8 +1038,11 @@ class ImpactInterpreter:
                 kind=_classify(entry),
                 route_method=entry.get("route_method"),
                 route_path=entry.get("route_path"),
+                status=status,
             )
             found[key] = entrypoint
+        elif status == IMPACT_STATUS_PROVEN and entrypoint.status != IMPACT_STATUS_PROVEN:
+            entrypoint.status = IMPACT_STATUS_PROVEN
         entrypoint.changed_symbols.append(changed_symbol)
         if not any(existing.describe() == path.describe()
                    and existing.strategy == path.strategy

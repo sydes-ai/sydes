@@ -60,6 +60,37 @@ ENTRYPOINT_HTTP = "http_route"
 ENTRYPOINT_DECORATED = "decorated"
 ENTRYPOINT_UNKNOWN = "unknown"
 
+#: Increment C: the small, transport-neutral boundary taxonomy a
+#: `DiscoveredBoundary` may be classified as. `unknown`/`external` are
+#: fallback/reporting kinds — this task spends no real effort discovering
+#: `external` boundaries. See `sydes.impact.boundary_discovery`.
+BOUNDARY_API = "api"
+BOUNDARY_CALLABLE = "callable"
+BOUNDARY_ASYNC = "async"
+BOUNDARY_EXTERNAL = "external"
+BOUNDARY_UNKNOWN = "unknown"
+
+#: Optional, evidence-grounded refinement of a boundary's kind. Never
+#: invented beyond what structural facts already show — `http` from route
+#: metadata already captured, `scheduled_job`/`event_handler` from a small,
+#: generic decorator-keyword match (see `boundary_discovery.ASYNC_KEYWORDS`),
+#: `public_library`/`internal_service` from whether an exported symbol was
+#: reached from outside or inside its own file.
+BOUNDARY_SUBTYPE_HTTP = "http"
+BOUNDARY_SUBTYPE_SCHEDULED_JOB = "scheduled_job"
+BOUNDARY_SUBTYPE_EVENT_HANDLER = "event_handler"
+BOUNDARY_SUBTYPE_PUBLIC_LIBRARY = "public_library"
+BOUNDARY_SUBTYPE_INTERNAL_SERVICE = "internal_service"
+
+#: How strong the weakest edge on a boundary's accepted path was. A boundary
+#: reached ONLY through an import-only or signature/type-only reference is
+#: never emitted at all (see `boundary_discovery._MIN_ADMIT_EDGE_STRENGTH`) —
+#: this vocabulary exists so an emitted boundary's own strength stays visible
+#: even though every emitted one already cleared that bar.
+EDGE_STRENGTH_STRONG = "strong"
+EDGE_STRENGTH_MEDIUM = "medium"
+EDGE_STRENGTH_WEAK = "weak"
+
 #: Whether the traversal that produced a result ran to completion.
 COMPLETENESS_COMPLETE = "complete"
 COMPLETENESS_TRUNCATED = "truncated"
@@ -429,6 +460,18 @@ class ImpactResult:
     #: guide turn can be reconstructed and evaluated after the fact, not just
     #: summarized by the aggregate `metrics` counters.
     llm_candidate_log: list[dict[str, Any]] = field(default_factory=list)
+    #: Increment C: typed, transport-neutral boundaries the ranked frontier
+    #: walk in `boundary_discovery` found — always deterministic/structural
+    #: (see `DiscoveredBoundary.status`), never derived from
+    #: `llm_candidate_log`. Complementary to `affected`/`http_entrypoints`,
+    #: not a replacement: an HTTP boundary here and an `AffectedEntrypoint`
+    #: of `kind=ENTRYPOINT_HTTP` above may describe the same real route from
+    #: two different callers.
+    boundaries: list["DiscoveredBoundary"] = field(default_factory=list)
+    #: One compact record per frontier candidate that was either emitted as a
+    #: boundary or notably rejected (weak evidence, budget exhaustion) — not
+    #: one per graph node visited. See `boundary_discovery.discover_boundaries`.
+    boundary_decisions: list[dict[str, Any]] = field(default_factory=list)
 
     @property
     def http_entrypoints(self) -> list[AffectedEntrypoint]:
@@ -442,6 +485,68 @@ class ImpactResult:
             "metrics": dict(self.metrics),
             "notes": list(self.notes),
             "llm_candidate_log": list(self.llm_candidate_log),
+            "boundaries": [item.to_dict() for item in self.boundaries],
+        }
+
+
+@dataclass
+class DiscoveredBoundary:
+    """One typed, transport-neutral software boundary the ranked frontier
+    walk found reachable from a changed symbol — see
+    `sydes.impact.boundary_discovery`.
+
+    Deliberately small and flat, not a hierarchy: every boundary this pass
+    emits was reached via a real, walked structural edge (`RELATION_CALLS`/
+    `RELATION_USAGE`, never a signature/type-only reference), so `status` is
+    always `IMPACT_STATUS_PROVEN` — this pass never fabricates an edge, and
+    never invents behavioral evidence from a semantic hint alone. Usable even
+    when no HTTP route exists; an HTTP boundary here (`kind=BOUNDARY_API`,
+    `subtype=BOUNDARY_SUBTYPE_HTTP`) is a parallel, complementary view of the
+    same route an `AffectedFlow` may also model, never a substitute for one.
+    """
+
+    id: str
+    kind: str  # BOUNDARY_API | BOUNDARY_CALLABLE | BOUNDARY_ASYNC | BOUNDARY_UNKNOWN
+    repo: str
+    file: str
+    symbol: str
+    qualified_name: str = ""
+    label: str = ""
+    subtype: str | None = None
+    changed_symbols: list[str] = field(default_factory=list)
+    #: The path that reached this boundary — same `ImpactPath` type
+    #: `AffectedEntrypoint.paths` already uses, so a boundary's evidence
+    #: renders and serializes identically to any other reached path.
+    path: ImpactPath | None = None
+    distance: int = 0
+    #: The weakest edge relation on the accepted path — `EDGE_STRENGTH_*`.
+    #: Never `weak`: a path admitted only through an import/signature-only
+    #: reference is rejected before it is ever recorded here.
+    evidence_strength: str = EDGE_STRENGTH_MEDIUM
+    #: Deterministic, structural — see the class docstring. Kept as a field
+    #: (rather than a constant) only so a reader never has to special-case
+    #: this type against `AffectedEntrypoint.status`.
+    status: str = IMPACT_STATUS_PROVEN
+    #: The ranking score that selected this candidate over others — advisory
+    #: diagnostics only, never itself evidence.
+    score: float = 0.0
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "id": self.id,
+            "kind": self.kind,
+            "subtype": self.subtype,
+            "repo": self.repo,
+            "file": self.file,
+            "symbol": self.symbol,
+            "qualified_name": self.qualified_name,
+            "label": self.label or self.qualified_name or self.symbol,
+            "changed_symbols": sorted(set(self.changed_symbols)),
+            "path": self.path.to_dict() if self.path is not None else None,
+            "distance": self.distance,
+            "evidence_strength": self.evidence_strength,
+            "status": self.status,
+            "score": round(self.score, 3),
         }
 
 
