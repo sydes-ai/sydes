@@ -211,6 +211,162 @@ def test_a_boundary_with_no_stated_reason_is_dropped() -> None:
 
 
 # --------------------------------------------------------------------------
+# Increment D.1: calibration — boundary-crossing discipline, fixed subtype
+# vocabulary, and a real production-evidence requirement.
+# --------------------------------------------------------------------------
+
+def test_1_ui_surface_alone_does_not_survive_as_an_api_boundary() -> None:
+    """The exact real-PR failure shape: a UI/template rendering change, with
+    no candidate/source/structural evidence behind it, must not survive —
+    regardless of what confident label or subtype the model attaches."""
+    boundaries, _notes = run(CountingClient(_response({
+        "kind": "api", "subtype": "http_handler_ui", "label": "UI form rendering",
+        "symbol": "", "file": "", "changed_symbols": [],
+        "reason": "the template now renders new fields",
+        "supporting_evidence": ["change_summary mentions the UI now renders new fields"],
+        "uncertainty": "", "confidence": 0.8,
+    })))
+
+    assert boundaries == []
+
+
+def test_2_unsupported_subtype_is_normalized_not_invented(monkeypatch) -> None:
+    """`callable/form_validation` is not in the fixed vocabulary. With real
+    grounding evidence present, the KIND survives but the subtype is
+    normalized to `None` rather than passed through verbatim."""
+    boundaries, _notes = run(CountingClient(_response(
+        _boundary("callable", subtype="form_validation"),
+    )))
+
+    assert len(boundaries) == 1
+    assert boundaries[0].kind == "callable"
+    assert boundaries[0].subtype is None
+
+
+def test_3_api_http_subtype_survives() -> None:
+    boundaries, _notes = run(CountingClient(_response(_boundary("api", subtype="http"))))
+    assert len(boundaries) == 1
+    assert boundaries[0].subtype == "http"
+
+
+def test_4_api_route_registration_subtype_survives() -> None:
+    boundaries, _notes = run(CountingClient(_response(
+        _boundary("api", subtype="route_registration"),
+    )))
+    assert len(boundaries) == 1
+    assert boundaries[0].subtype == "route_registration"
+
+
+def test_5_callable_service_subtype_survives() -> None:
+    boundaries, _notes = run(CountingClient(_response(_boundary("callable", subtype="service"))))
+    assert len(boundaries) == 1
+    assert boundaries[0].subtype == "service"
+
+
+def test_6_callable_domain_subtype_survives() -> None:
+    boundaries, _notes = run(CountingClient(_response(_boundary("callable", subtype="domain"))))
+    assert len(boundaries) == 1
+    assert boundaries[0].subtype == "domain"
+
+
+def test_7_async_event_handler_survives_only_with_specific_evidence() -> None:
+    boundaries, _notes = run(CountingClient(_response(_boundary(
+        "async", subtype="event_handler",
+        supporting_evidence=["candidate symbol handler registered as a signal receiver"],
+    ))))
+    assert len(boundaries) == 1
+    assert boundaries[0].kind == "async"
+    assert boundaries[0].subtype == "event_handler"
+
+
+def test_8_kind_subtype_mismatch_is_normalized_conservatively() -> None:
+    """`api/service` — `service` belongs to `callable`'s vocabulary, not
+    `api`'s. The centralized validator drops it rather than passing through
+    a subtype that would misdescribe the kind."""
+    boundaries, _notes = run(CountingClient(_response(_boundary("api", subtype="service"))))
+    assert len(boundaries) == 1
+    assert boundaries[0].kind == "api"
+    assert boundaries[0].subtype is None
+
+
+def test_9_repo_context_and_semantic_summary_alone_cannot_produce_a_boundary() -> None:
+    """A candidate exists (so the call happens), but this specific proposed
+    boundary's own supporting_evidence cites only repo_context/semantic
+    prose — no concrete production fact. It must not survive even though
+    the call was made and other, well-grounded boundaries still could."""
+    boundaries, _notes = run(CountingClient(_response({
+        "kind": "callable", "subtype": "service", "label": "backend service change",
+        "symbol": "", "file": "", "changed_symbols": [],
+        "reason": "the change touches backend code",
+        "supporting_evidence": [
+            "repo_context: packages/core is a backend package",
+            "change_summary: the PR affects backend behavior",
+        ],
+        "uncertainty": "", "confidence": 0.7,
+    })))
+
+    assert boundaries == []
+
+
+def test_10_vague_evidence_rejected_concrete_evidence_survives() -> None:
+    """Two boundaries in the same response: one backed only by vague prose,
+    one citing the real supplied candidate symbol. Only the second must
+    survive — this is the evidence-quality gate operating per-boundary."""
+    boundaries, _notes = run(CountingClient(_response(
+        {
+            "kind": "callable", "subtype": "service", "label": "vague claim",
+            "symbol": "", "file": "", "changed_symbols": [],
+            "reason": "seems important", "supporting_evidence": ["the change feels significant"],
+            "uncertainty": "", "confidence": 0.5,
+        },
+        _boundary("callable", subtype="service", label="a real grounded surface"),
+    )))
+
+    assert len(boundaries) == 1
+    assert boundaries[0].label == "a real grounded surface"
+
+
+def test_11_multiple_related_symbols_may_form_one_grouped_boundary() -> None:
+    """No clustering logic — this is a parser/report support test: a single
+    inferred boundary may legitimately list several `changed_symbols`."""
+    boundaries, _notes = run(CountingClient(_response(_boundary(
+        "callable", subtype="service",
+        changed_symbols=["helper", "helper_two", "helper_three"],
+    ))))
+
+    assert len(boundaries) == 1
+    assert boundaries[0].changed_symbols == ["helper", "helper_two", "helper_three"]
+
+
+def test_centralized_validator_covers_every_kind() -> None:
+    from sydes.verify.boundary_reasoning import _normalize_subtype
+
+    assert _normalize_subtype("api", "http") == "http"
+    assert _normalize_subtype("api", "route_registration") == "route_registration"
+    assert _normalize_subtype("api", "made_up") is None
+    assert _normalize_subtype("callable", "service") == "service"
+    assert _normalize_subtype("callable", "domain") == "domain"
+    assert _normalize_subtype("callable", "public_callable") == "public_callable"
+    assert _normalize_subtype("callable", "http") is None
+    assert _normalize_subtype("async", "event_handler") == "event_handler"
+    assert _normalize_subtype("async", "scheduled_job") == "scheduled_job"
+    assert _normalize_subtype("async", "queue_consumer") == "queue_consumer"
+    assert _normalize_subtype("unknown", "anything") is None
+    assert _normalize_subtype("api", None) is None
+
+
+def test_prompt_states_the_boundary_crossing_criterion_and_fixed_vocabulary() -> None:
+    from sydes.verify.boundary_reasoning import _SYSTEM_PROMPT
+
+    assert "What crosses this boundary?" in _SYSTEM_PROMPT
+    assert "template renders new form fields" in _SYSTEM_PROMPT
+    assert "NOT automatically" in _SYSTEM_PROMPT
+    assert "http | route_registration" in _SYSTEM_PROMPT
+    assert "service | domain | public_callable" in _SYSTEM_PROMPT
+    assert "event_handler | scheduled_job | queue_consumer" in _SYSTEM_PROMPT
+
+
+# --------------------------------------------------------------------------
 # 6-7. Test / main candidate filtering
 # --------------------------------------------------------------------------
 

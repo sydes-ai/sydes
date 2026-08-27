@@ -89,6 +89,20 @@ BOUNDARY_SUBTYPE_PUBLIC_LIBRARY = "public_library"
 #: which is a naming convention in at least one supported language.
 BOUNDARY_SUBTYPE_ROUTE_REGISTRATION = "route_registration"
 BOUNDARY_SUBTYPE_PUBLIC_CALLABLE = "public_callable"
+#: Increment D.1. `service`/`domain`: a callable boundary the evidence-backed
+#: LLM stage may propose for a service-layer or domain-layer surface it
+#: cannot otherwise ground more specifically. `queue_consumer`: the async
+#: counterpart to `event_handler`/`scheduled_job` for message-queue
+#: consumption. `external_service`/`persistence`: the two `external`-kind
+#: subtypes the fixed vocabulary supports — see
+#: `sydes.verify.boundary_reasoning.SUBTYPES_BY_KIND` for the complete,
+#: centrally-validated kind/subtype mapping every inferred boundary is
+#: checked against.
+BOUNDARY_SUBTYPE_SERVICE = "service"
+BOUNDARY_SUBTYPE_DOMAIN = "domain"
+BOUNDARY_SUBTYPE_QUEUE_CONSUMER = "queue_consumer"
+BOUNDARY_SUBTYPE_EXTERNAL_SERVICE = "external_service"
+BOUNDARY_SUBTYPE_PERSISTENCE = "persistence"
 
 #: How strong the weakest edge on a boundary's accepted path was. A boundary
 #: reached ONLY through an import-only or signature/type-only reference is

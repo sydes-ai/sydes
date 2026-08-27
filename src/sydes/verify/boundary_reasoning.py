@@ -55,6 +55,16 @@ from sydes.impact.models import (
     BOUNDARY_ASYNC,
     BOUNDARY_CALLABLE,
     BOUNDARY_EXTERNAL,
+    BOUNDARY_SUBTYPE_DOMAIN,
+    BOUNDARY_SUBTYPE_EVENT_HANDLER,
+    BOUNDARY_SUBTYPE_EXTERNAL_SERVICE,
+    BOUNDARY_SUBTYPE_HTTP,
+    BOUNDARY_SUBTYPE_PERSISTENCE,
+    BOUNDARY_SUBTYPE_PUBLIC_CALLABLE,
+    BOUNDARY_SUBTYPE_QUEUE_CONSUMER,
+    BOUNDARY_SUBTYPE_ROUTE_REGISTRATION,
+    BOUNDARY_SUBTYPE_SCHEDULED_JOB,
+    BOUNDARY_SUBTYPE_SERVICE,
     BOUNDARY_UNKNOWN,
     IMPACT_STATUS_INFERRED,
     ImpactResult,
@@ -89,6 +99,40 @@ MAX_REPO_CONTEXT_FACTS = 6
 _ALLOWED_KINDS = frozenset({
     BOUNDARY_API, BOUNDARY_CALLABLE, BOUNDARY_ASYNC, BOUNDARY_EXTERNAL, BOUNDARY_UNKNOWN,
 })
+
+#: Increment D.1: the ONLY kind/subtype pairs this stage will report. A
+#: model-generated subtype outside this vocabulary is never surfaced
+#: verbatim — see `_normalize_subtype`. `unknown` intentionally has no
+#: subtype at all: a boundary Sydes cannot even name a kind for certainly
+#: has nothing meaningful to say about its subtype either.
+SUBTYPES_BY_KIND: dict[str, frozenset[str]] = {
+    BOUNDARY_API: frozenset({BOUNDARY_SUBTYPE_HTTP, BOUNDARY_SUBTYPE_ROUTE_REGISTRATION}),
+    BOUNDARY_CALLABLE: frozenset({
+        BOUNDARY_SUBTYPE_SERVICE, BOUNDARY_SUBTYPE_DOMAIN, BOUNDARY_SUBTYPE_PUBLIC_CALLABLE,
+    }),
+    BOUNDARY_ASYNC: frozenset({
+        BOUNDARY_SUBTYPE_EVENT_HANDLER, BOUNDARY_SUBTYPE_SCHEDULED_JOB, BOUNDARY_SUBTYPE_QUEUE_CONSUMER,
+    }),
+    BOUNDARY_EXTERNAL: frozenset({BOUNDARY_SUBTYPE_EXTERNAL_SERVICE, BOUNDARY_SUBTYPE_PERSISTENCE}),
+    BOUNDARY_UNKNOWN: frozenset(),
+}
+
+
+def _normalize_subtype(kind: str, subtype: str | None) -> str | None:
+    """The one centralized kind/subtype validator — every inferred boundary
+    passes through here, rather than scattered ad hoc checks.
+
+    A subtype outside the fixed vocabulary for its kind (whether wholly
+    invented, like `http_handler_ui`, or borrowed from a different kind's
+    vocabulary, like `kind=api, subtype=service`) is normalized to `None`
+    rather than rejecting the whole boundary: the kind itself may still be
+    correct even when the model's subtype word choice was not. This is the
+    conservative, existing-model-compatible behavior the task calls for —
+    stable subtype reporting without discarding an otherwise-valid kind.
+    """
+    if not subtype:
+        return None
+    return subtype if subtype in SUBTYPES_BY_KIND.get(kind, frozenset()) else None
 
 
 def _identity_of(repo: str, file: str, symbol: str, qualified: str = "") -> SymbolIdentity:
@@ -295,10 +339,22 @@ You are given: a semantic interpretation of the PR, real structural facts, a sma
 
 Your job: infer which architectural boundaries are likely affected, and say exactly which supplied facts support each one.
 
-Boundary kinds (use only these):
-- api       — a request/routing surface (HTTP handler, route registration, RPC entry)
-- callable  — a public/service/domain surface other code calls
-- async     — an event/signal handler, scheduled job, or queue consumer
+THE CENTRAL QUESTION — ask it before you propose anything: "What crosses this boundary?" A boundary is a meaningful architectural CUT where some interaction crosses from one component/layer/system surface into another. An affected behavior is not automatically a boundary just because it matters.
+
+Valid — something identifiable is crossing:
+- api:      an HTTP request crosses into a route/handler ("kind=api, subtype=http"), or a symbol registers a route that requests will cross into later ("kind=api, subtype=route_registration").
+- callable: a caller/component crosses into a service/domain/public callable ("kind=callable, subtype=service" or "domain" or "public_callable").
+- async:    an event/message/scheduler crosses into a handler/callback ("kind=async, subtype=event_handler", "scheduled_job", or "queue_consumer").
+
+NOT a boundary — nothing is shown crossing into or out of anything else:
+- "template renders new form fields" — a real, possibly important affected behavior, but no request/API/service boundary is shown being crossed. Return no boundary for this.
+- UI rendering changes may be important but are NOT automatically `api` boundaries.
+- Form validation may be behaviorally important but is NOT automatically a `callable` boundary unless the evidence shows it is a meaningful callable/service/domain surface (not just "a function got called").
+- Configuration changes are NOT automatically boundaries.
+- Database/model FIELD changes are NOT automatically `callable` boundaries.
+- File or directory role ALONE (including `repo_context`) is NEVER enough — see rule 10.
+- Test changes are supporting evidence only, never themselves a production boundary.
+When in doubt, return no boundary. An empty result is the correct, preferred answer whenever the evidence does not establish a real architectural cut — not a failure of this task.
 
 Rules — these are absolute:
 1. NEVER invent a structural edge, caller, or relationship that was not supplied.
@@ -306,15 +362,18 @@ Rules — these are absolute:
 3. NEVER treat test-only code as a production boundary. Test code may support an inference; it is never itself the boundary.
 4. Distinguish clearly between what the supplied evidence supports, what is uncertain, and what is simply missing. Put the latter two in `uncertainty`.
 5. If the evidence is insufficient, return an EMPTY list. That is a correct, preferred answer — not a failure.
-6. Prefer a small number of high-value boundaries over broad speculation.
-7. `supporting_evidence` must quote or name the specific supplied facts (a candidate symbol, a source snippet, a structural fact) behind the inference. An inference you cannot ground this way should not be returned.
+6. Prefer a small number of high-value boundaries over broad speculation. If several changed symbols clearly represent ONE architectural surface, group them under one boundary and list them all in `changed_symbols` rather than emitting one boundary per symbol.
+7. `supporting_evidence` must quote or name a SPECIFIC, CONCRETE supplied production fact — a candidate symbol, a source snippet, an accepted impact, a structural relation. A vague restatement of the change summary ("the change affects the UI") is not evidence. `repo_context` is never sufficient evidence on its own (see rule 10). An inference you cannot ground this way should not be returned.
 8. Do NOT re-propose a boundary already listed in `deterministic_boundaries` — those are already proven.
-9. Do not infer `async` merely because a symbol is decorated; the supplied evidence must actually show event/scheduler/queue semantics. Likewise do not infer `api` merely because a symbol looks web-ish.
-10. `repo_context` describes the repository's architecture (which package is backend or frontend-only, which is a publishable library, which directories are internal). Use it to INTERPRET candidates — e.g. do not propose a backend boundary inside a frontend-only package. It is never itself evidence of a structural relationship: a repo fact alone can never support a boundary, and must never be your only `supporting_evidence`.
+9. Do not infer `async` merely because a symbol is decorated; the supplied evidence must actually show event/scheduler/queue semantics. Likewise do not infer `api` merely because a symbol looks web-ish, and do not infer `callable` merely because something is exported or generically "used".
+10. `repo_context` describes the repository's architecture (which package is backend or frontend-only, which is a publishable library, which directories are internal). Use it ONLY to INTERPRET candidates you already have concrete evidence for — e.g. do not propose a backend boundary inside a frontend-only package. `repo_context` PLUS the PR's semantic summary, with no concrete candidate/source/structural fact behind it, is NEVER enough to emit a boundary.
 
 Do not summarize the PR — that is already done and supplied to you. Answer only the boundary question.
 
-`subtype` is optional and free-form but should be short and useful for reporting (e.g. http, route_registration, public_callable, service, domain, event_handler, scheduled_job). Omit it or use null when unclear.
+`subtype` MUST be one of this fixed vocabulary for the chosen `kind` (use `null` if none fits — do not invent a new word):
+- api:      http | route_registration
+- callable: service | domain | public_callable
+- async:    event_handler | scheduled_job | queue_consumer
 
 `confidence` is your own bounded self-assessment in [0,1], not a calibrated probability.
 
@@ -322,7 +381,61 @@ Return strict JSON only, exactly this shape:
 {"inferred_boundaries":[{"kind":"api|callable|async","subtype":"...","label":"short reviewer-facing behavior name","symbol":"...","file":"...","changed_symbols":["..."],"reason":"one sentence","supporting_evidence":["..."],"uncertainty":"...","confidence":0.0}]}"""
 
 
-def _parse_boundary(raw: Any, *, repo: str, position: int) -> AffectedBoundary | None:
+def _grounded_evidence_tokens(packet: dict[str, Any]) -> frozenset[str]:
+    """Tokens for genuine PRODUCTION facts the packet supplied — candidate
+    symbols/files, accepted-impact labels, unresolved symbols, changed
+    symbols, source-snippet symbols. Deliberately EXCLUDES `repo_context`:
+    a repository-architecture fact ("packages/core is backend") is context
+    for interpreting a candidate, never itself the concrete production
+    evidence an inferred boundary must cite (see `_is_evidence_grounded`).
+    """
+    tokens: set[str] = set()
+
+    def _add(text: str | None) -> None:
+        if text:
+            tokens.add(text.lower())
+
+    for candidate in packet.get("boundary_candidates", []):
+        _add(candidate.get("symbol"))
+        _add(candidate.get("file"))
+    for impact in packet.get("accepted_impacts", []):
+        _add(impact.get("label"))
+    for symbol in packet.get("unresolved_changed_symbols", []):
+        _add(symbol)
+    for changed in packet.get("changed_symbols", []):
+        _add(changed.get("symbol"))
+        _add(changed.get("file"))
+    for snippet in packet.get("relevant_source_snippets", []):
+        _add(snippet.get("symbol"))
+        _add(snippet.get("file"))
+    return frozenset(token for token in tokens if len(token) > 2)
+
+
+def _is_evidence_grounded(
+    *, symbol: str, supporting_evidence: list[str], grounded_tokens: frozenset[str],
+) -> bool:
+    """Whether at least one concrete PRODUCTION fact backs this boundary —
+    not merely `repo_context`, not merely the PR's semantic summary.
+
+    The `symbol` field matching a real candidate is sufficient on its own.
+    Otherwise, at least one `supporting_evidence` line must reference a real
+    supplied fact (a candidate symbol or file name) — citing only a
+    `repo_context` fact ("packages/core is backend") or vague prose
+    ("the change affects the UI") never counts, because neither is
+    concrete evidence that a boundary is actually crossed here.
+    """
+    if symbol and symbol.lower() in grounded_tokens:
+        return True
+    for line in supporting_evidence:
+        low = line.lower()
+        if any(token in low for token in grounded_tokens):
+            return True
+    return False
+
+
+def _parse_boundary(
+    raw: Any, *, repo: str, position: int, grounded_tokens: frozenset[str],
+) -> AffectedBoundary | None:
     """Parse one inferred boundary conservatively. A malformed entry is
     dropped rather than coerced — an inference Sydes cannot read is not an
     inference it should report."""
@@ -340,7 +453,7 @@ def _parse_boundary(raw: Any, *, repo: str, position: int) -> AffectedBoundary |
         return None
     symbol = str(raw.get("symbol") or "").strip()
     file = str(raw.get("file") or "").strip()
-    subtype = str(raw.get("subtype") or "").strip() or None
+    subtype = _normalize_subtype(kind, str(raw.get("subtype") or "").strip() or None)
     confidence = raw.get("confidence")
     confidence_value = (
         max(0.0, min(1.0, float(confidence)))
@@ -351,6 +464,13 @@ def _parse_boundary(raw: Any, *, repo: str, position: int) -> AffectedBoundary |
         for item in (raw.get("supporting_evidence") or [])
         if isinstance(item, str) and item.strip()
     ][:6]
+    # Increment D.1's central discipline: "template renders new form fields"
+    # is a real affected behavior, but it is not itself a boundary unless
+    # something concrete supplied actually crosses one. A repo-context fact
+    # or the PR's own semantic summary is never enough on its own.
+    if not _is_evidence_grounded(symbol=symbol, supporting_evidence=evidence,
+                                  grounded_tokens=grounded_tokens):
+        return None
     changed_symbols = [
         str(item).strip()
         for item in (raw.get("changed_symbols") or [])
@@ -377,13 +497,24 @@ def _parse_boundary(raw: Any, *, repo: str, position: int) -> AffectedBoundary |
 
 def parse_inferred_boundaries(
     raw: dict[str, Any], *, repo: str, deterministic: list[AffectedBoundary],
+    packet: dict[str, Any] | None = None,
 ) -> list[AffectedBoundary]:
-    """Parse, validate and de-duplicate one boundary-reasoning response."""
+    """Parse, validate and de-duplicate one boundary-reasoning response.
+
+    `packet` (the evidence packet this response was reasoned over) grounds
+    the evidence-quality check — omit it only in tests that do not care
+    about that rule, where an empty set of grounded tokens means every
+    boundary is rejected on that basis, which is the same conservative
+    default the real call site always supplies a real packet against.
+    """
     established = _deterministic_keys(deterministic)
+    grounded_tokens = _grounded_evidence_tokens(packet or {})
     out: list[AffectedBoundary] = []
     seen: set[tuple[str, str]] = set()
     for position, item in enumerate(raw.get("inferred_boundaries") or []):
-        boundary = _parse_boundary(item, repo=repo, position=position)
+        boundary = _parse_boundary(
+            item, repo=repo, position=position, grounded_tokens=grounded_tokens,
+        )
         if boundary is None:
             continue
         key = (boundary.kind, (boundary.symbol or boundary.label or "").lower())
@@ -455,7 +586,7 @@ def infer_boundaries(
         return [], ["boundary_reasoning unavailable: model output was not valid JSON."]
 
     boundaries = parse_inferred_boundaries(
-        raw, repo=repo, deterministic=deterministic_boundaries,
+        raw, repo=repo, deterministic=deterministic_boundaries, packet=packet,
     )
     return boundaries, [
         f"boundary_reasoning: candidates={len(packet['boundary_candidates'])} "
