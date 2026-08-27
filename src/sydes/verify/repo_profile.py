@@ -47,7 +47,7 @@ from typing import Any
 from sydes.ingest.file_roles import FILE_ROLE_TEST_USAGE_CANDIDATE, classify_candidate_file_role
 from sydes.store.workspace import ensure_workspace
 
-SCHEMA_VERSION = "v1"
+SCHEMA_VERSION = "v2"
 PROFILE_FILENAME = "repo_profile.json"
 
 #: The complete role vocabulary. Deliberately tiny — a package carries only
