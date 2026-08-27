@@ -484,8 +484,12 @@ def test_packet_carries_the_documented_evidence_fields_and_stays_bounded() -> No
     assert set(packet) == {
         "version", "change_summary", "behavior_changes", "changed_symbols",
         "deterministic_boundaries", "boundary_candidates", "accepted_impacts",
-        "unresolved_changed_symbols", "relevant_source_snippets", "uncertainties",
+        "unresolved_changed_symbols", "relevant_source_snippets", "repo_context",
+        "uncertainties",
     }
+    # No profile supplied — the field exists but stays empty, so boundary
+    # reasoning behaves exactly as it did before Increment B.
+    assert packet["repo_context"] == []
     assert len(packet["boundary_candidates"]) <= 12
     assert len(packet["changed_symbols"]) <= 20
     assert len(packet["accepted_impacts"]) <= 12

@@ -101,6 +101,7 @@ from sydes.verify.models import (
 from sydes.verify.boundary_reasoning import infer_boundaries
 from sydes.verify.obligations import derive_obligations
 from sydes.verify.pr_semantic_analysis import generate_pr_semantic_analysis
+from sydes.verify.repo_profile import get_or_build_repo_profile
 from sydes.verify.runtime import infer_runtime_dependencies
 from sydes.verify.source_files import load_repo_files
 from sydes.verify.test_execution import ExecutionSettings, run_ci_suite
@@ -1262,11 +1263,24 @@ def analyze_change(
         # `affected_flows`, obligations, or the verdict. Gated on the same
         # `--llm-policy` flag every other optional LLM pass already honors.
         if options.llm_policy != "never":
+            # Increment B: a persisted, deterministic repository profile.
+            # Built from manifests `repo_map` already located (no second
+            # walk, no LLM call) and reused across runs; only a handful of
+            # *retrieved* facts reach the packet below. Never load-bearing —
+            # `None` here simply means boundary reasoning behaves exactly as
+            # it did before profiles existed.
+            repo_profile, profile_notes = get_or_build_repo_profile(
+                repo_root=primary_root, repo_identity=primary.name,
+                workspace_id=workspace_id, observed_commit=change.head,
+                repo_map=structural.repo_map,
+            )
+            result.diagnostics.extend(profile_notes)
             inferred_boundaries, boundary_notes = infer_boundaries(
                 change=change, impact_result=impact_result,
                 deterministic_boundaries=result.affected_boundaries,
                 semantic_analysis=result.pr_semantic_analysis,
                 facts=structural, repo=primary.name, repo_root=primary_root,
+                repo_profile=repo_profile,
                 model_spec=options.model_spec, llm_client=options.llm_client,
             )
             result.affected_boundaries.extend(inferred_boundaries)

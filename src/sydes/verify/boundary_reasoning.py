@@ -83,6 +83,8 @@ MAX_PROMPT_CHARS = 20_000
 #: At most this many inferred boundaries survive parsing — "prefer a small
 #: number of high-value boundaries over broad speculation", enforced.
 MAX_INFERRED_BOUNDARIES = 6
+#: Increment B: a few repository architecture facts, not a profile dump.
+MAX_REPO_CONTEXT_FACTS = 6
 
 _ALLOWED_KINDS = frozenset({
     BOUNDARY_API, BOUNDARY_CALLABLE, BOUNDARY_ASYNC, BOUNDARY_EXTERNAL, BOUNDARY_UNKNOWN,
@@ -179,6 +181,40 @@ def _snippets_for(
     return snippets
 
 
+def _repo_context(
+    repo_profile: Any | None,
+    *,
+    change: ChangeSet,
+    candidates: list[dict[str, Any]],
+    semantic_analysis: Any | None,
+) -> list[str]:
+    """A handful of repository architecture facts relevant to *this* change.
+
+    Increment B: `repo_profile` is retrieval memory, never permanent prompt
+    context — the full profile is never injected. Only
+    `RepoProfile.lookup()`'s small, capped, deterministic result reaches the
+    prompt, keyed on the files and symbols actually in play here.
+    """
+    if repo_profile is None:
+        return []
+    concepts: list[str] = []
+    if semantic_analysis is not None:
+        concepts = [item.description for item in semantic_analysis.behavior_changes]
+        for hint in semantic_analysis.investigation_hints:
+            concepts.extend(hint.concepts)
+    files = [item.file for item in change.symbols if item.file]
+    files.extend(record["file"] for record in candidates if record.get("file"))
+    symbols = [item.name for item in change.symbols]
+    symbols.extend(record["symbol"] for record in candidates)
+    try:
+        facts_found = repo_profile.lookup(
+            files=files, symbols=symbols, concepts=concepts, limit=MAX_REPO_CONTEXT_FACTS,
+        )
+    except Exception:  # noqa: BLE001 - repo context is never load-bearing
+        return []
+    return [fact.describe() for fact in facts_found]
+
+
 def build_reasoning_packet(
     *,
     change: ChangeSet,
@@ -188,6 +224,7 @@ def build_reasoning_packet(
     facts: StructuralFacts,
     repo: str,
     repo_root: Path | None = None,
+    repo_profile: Any | None = None,
 ) -> dict[str, Any]:
     """Assemble the compact evidence packet. Deterministic and bounded —
     no LLM call, no CBM call, no graph walk of its own."""
@@ -229,6 +266,14 @@ def build_reasoning_packet(
         "relevant_source_snippets": _snippets_for(
             candidates, facts=facts, repo=repo, repo_root=repo_root,
         ),
+        # A few retrieved repository architecture facts — never the whole
+        # profile. Context for interpreting candidates (is this package
+        # backend or frontend-only? a publishable library surface?), never
+        # itself evidence of a structural relationship.
+        "repo_context": _repo_context(
+            repo_profile, change=change, candidates=candidates,
+            semantic_analysis=semantic_analysis,
+        ),
         "uncertainties": uncertainties,
     }
 
@@ -265,6 +310,7 @@ Rules — these are absolute:
 7. `supporting_evidence` must quote or name the specific supplied facts (a candidate symbol, a source snippet, a structural fact) behind the inference. An inference you cannot ground this way should not be returned.
 8. Do NOT re-propose a boundary already listed in `deterministic_boundaries` — those are already proven.
 9. Do not infer `async` merely because a symbol is decorated; the supplied evidence must actually show event/scheduler/queue semantics. Likewise do not infer `api` merely because a symbol looks web-ish.
+10. `repo_context` describes the repository's architecture (which package is backend or frontend-only, which is a publishable library, which directories are internal). Use it to INTERPRET candidates — e.g. do not propose a backend boundary inside a frontend-only package. It is never itself evidence of a structural relationship: a repo fact alone can never support a boundary, and must never be your only `supporting_evidence`.
 
 Do not summarize the PR — that is already done and supplied to you. Answer only the boundary question.
 
@@ -361,6 +407,7 @@ def infer_boundaries(
     facts: StructuralFacts,
     repo: str,
     repo_root: Path | None = None,
+    repo_profile: Any | None = None,
     model_spec: str | None = None,
     llm_client: LLMClient | None = None,
 ) -> tuple[list[AffectedBoundary], list[str]]:
@@ -379,7 +426,7 @@ def infer_boundaries(
         change=change, impact_result=impact_result,
         deterministic_boundaries=deterministic_boundaries,
         semantic_analysis=semantic_analysis, facts=facts, repo=repo,
-        repo_root=repo_root,
+        repo_root=repo_root, repo_profile=repo_profile,
     )
     if not has_reasonable_evidence(packet):
         return [], ["boundary_reasoning skipped: no production boundary candidate to reason over"]
