@@ -126,6 +126,128 @@ def test_rust_bin_and_lib_targets_map_to_application_and_library(tmp_path: Path)
 
 
 # --------------------------------------------------------------------------
+# Increment B.1: `repo_map` batch-shape normalization
+#
+# `StructuralFacts.repo_map` on the real `analyze_change` path is always
+# `build_repo_map_batch()`'s `{"repos": [...]}` wrapper, never the bare
+# single-repo shape `build_repo_map()` returns directly. Before this fix,
+# `build_repo_profile` read `manifests`/`extension_counts`/`folders`
+# straight off the top-level dict, which only exist on the single-repo
+# shape — so every real profile silently saw `packages=[]`,
+# `frameworks=[]`, no matter how many manifests actually existed.
+# --------------------------------------------------------------------------
+
+def test_single_repo_repo_map_remains_supported(tmp_path: Path) -> None:
+    """The un-normalized shape `build_repo_map()` returns directly must keep
+    working exactly as before — this is not a breaking schema change."""
+    write(tmp_path, "packages/core/package.json",
+          json.dumps({"name": "core", "dependencies": {"express": "^4"}}))
+    repo_map = build_repo_map(RepoRef(name=REPO, root=str(tmp_path)))
+
+    profile = build_repo_profile(
+        repo_root=tmp_path, repo_identity=REPO, observed_commit="c1", repo_map=repo_map,
+    )
+
+    assert package_named(profile, "packages/core").role == ROLE_BACKEND
+    assert profile.frameworks == ["Express"]
+
+
+def test_batch_repo_map_selects_the_matching_repo_by_name(tmp_path: Path) -> None:
+    """The real shape: `{"repos": [...]}`. Extraction must reach into it."""
+    write(tmp_path, "packages/core/package.json",
+          json.dumps({"name": "core", "dependencies": {"django": "^4"}}))
+    single = build_repo_map(RepoRef(name=REPO, root=str(tmp_path)))
+    batch = {"version": "v1", "repos": [single]}
+
+    profile = build_repo_profile(
+        repo_root=tmp_path, repo_identity=REPO, observed_commit="c1", repo_map=batch,
+    )
+
+    assert package_named(profile, "packages/core").role == ROLE_BACKEND
+    assert profile.frameworks == ["Django"]
+    assert profile.packages  # the original bug: this was always []
+
+
+def test_two_repos_in_a_batch_do_not_contaminate_each_other(tmp_path: Path) -> None:
+    """A multi-repo batch must profile ONLY the requested repo's manifests —
+    never silently fall back to the first entry in `repos`."""
+    root_a = tmp_path / "service_a"
+    root_b = tmp_path / "service_b"
+    write(root_a, "package.json", json.dumps({"name": "a", "dependencies": {"express": "^4"}}))
+    write(root_b, "package.json", json.dumps({"name": "b", "dependencies": {"react": "^18"}}))
+    batch = {
+        "version": "v1",
+        "repos": [
+            build_repo_map(RepoRef(name="service_a", root=str(root_a))),
+            build_repo_map(RepoRef(name="service_b", root=str(root_b))),
+        ],
+    }
+
+    profile_a = build_repo_profile(
+        repo_root=root_a, repo_identity="service_a", observed_commit="c1", repo_map=batch,
+    )
+    profile_b = build_repo_profile(
+        repo_root=root_b, repo_identity="service_b", observed_commit="c1", repo_map=batch,
+    )
+
+    assert profile_a.frameworks == ["Express"]
+    assert profile_b.frameworks == ["React"]
+    assert package_named(profile_a, "").role == ROLE_BACKEND
+    assert package_named(profile_b, "").role == ROLE_FRONTEND
+
+
+def test_no_matching_repo_name_yields_a_conservative_empty_profile(tmp_path: Path) -> None:
+    write(tmp_path, "packages/core/package.json",
+          json.dumps({"name": "core", "dependencies": {"express": "^4"}}))
+    batch = {"repos": [build_repo_map(RepoRef(name="other_repo", root=str(tmp_path)))]}
+
+    profile = build_repo_profile(
+        repo_root=tmp_path, repo_identity=REPO, observed_commit="c1", repo_map=batch,
+    )
+
+    assert profile.packages == []
+    assert profile.frameworks == []
+    assert profile.languages == []
+
+
+def test_batch_shape_persists_and_reloads_with_full_extraction(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    store = tmp_path / "store"
+    write(repo, "packages/core/package.json",
+          json.dumps({"name": "core", "dependencies": {"fastapi": ">=0.1"}}))
+    batch = {"repos": [build_repo_map(RepoRef(name=REPO, root=str(repo)))]}
+
+    profile, notes = get_or_build_repo_profile(
+        repo_root=repo, repo_identity=REPO, workspace_id="ws-b1",
+        observed_commit="c1", repo_map=batch, root=store,
+    )
+    assert profile is not None
+    assert profile.packages  # rebuilt correctly from the batch shape
+    reloaded = load_repo_profile("ws-b1", store)
+
+    assert reloaded is not None
+    assert reloaded.to_dict() == profile.to_dict()
+    assert any("rebuilt" in note for note in notes)
+
+
+def test_normalizing_the_repo_map_makes_no_llm_or_cbm_call(tmp_path: Path) -> None:
+    """The fix is pure dict selection — confirm it stays that way."""
+    import inspect
+
+    from sydes.verify import repo_profile as module
+
+    source = inspect.getsource(module._normalize_repo_map_for_repo)
+    assert "create_default_llm_client" not in source
+    assert "CBMClient" not in source
+    assert "call_tool" not in source
+
+    write(tmp_path, "packages/core/package.json", json.dumps({"name": "core"}))
+    batch = {"repos": [build_repo_map(RepoRef(name=REPO, root=str(tmp_path)))]}
+    profile = build_repo_profile(repo_root=tmp_path, repo_identity=REPO, repo_map=batch)
+    assert profile.packages
+
+
+# --------------------------------------------------------------------------
 # 4. Test roots, via the existing shared classifier
 # --------------------------------------------------------------------------
 

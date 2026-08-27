@@ -517,6 +517,38 @@ def _surface_hints(root: Path, packages: list[RepoPackage]) -> tuple[list[RepoFa
     return public, internal
 
 
+def _normalize_repo_map_for_repo(
+    repo_map: dict[str, Any] | None, repo_identity: str,
+) -> dict[str, Any]:
+    """The one place `repo_map`'s two possible shapes are told apart.
+
+    `build_repo_map()` (single-repo) returns `{"repo": ..., "manifests": [...],
+    "extension_counts": {...}, "folders": [...], ...}` directly.
+    `build_repo_map_batch()` — what `StructuralFacts.repo_map` actually holds
+    on the normal `analyze_change` path — wraps one of those per repository
+    under `{"repos": [...]}` instead. `build_repo_profile` only ever reads
+    `manifests`/`extension_counts`/`folders`, which exist on the single-repo
+    shape; called with the batch shape unnormalized, every one of those
+    lookups silently sees `[]`/`{}` and the profile ends up looking empty
+    (`packages=[]`, `frameworks=[]`) even though the facts were right there.
+
+    Batch shape narrows to the entry whose own `"repo"` field matches
+    `repo_identity` exactly — never the first entry, which would silently
+    profile the wrong repository in a multi-repo run. No match found (or an
+    empty/malformed payload) returns `{}`, the same conservative empty map
+    `build_repo_profile` already treats as "nothing to extract from".
+    """
+    if not isinstance(repo_map, dict):
+        return {}
+    repos = repo_map.get("repos")
+    if not isinstance(repos, list):
+        return repo_map  # already single-repo shaped; unchanged
+    for entry in repos:
+        if isinstance(entry, dict) and entry.get("repo") == repo_identity:
+            return entry
+    return {}
+
+
 def build_repo_profile(
     *,
     repo_root: Path,
@@ -532,7 +564,7 @@ def build_repo_profile(
     No LLM call, no CBM call.
     """
     root = Path(repo_root).expanduser().resolve()
-    repo_map = repo_map or {}
+    repo_map = _normalize_repo_map_for_repo(repo_map, repo_identity)
     manifests = [str(item) for item in repo_map.get("manifests") or []]
 
     packages: list[RepoPackage] = []
