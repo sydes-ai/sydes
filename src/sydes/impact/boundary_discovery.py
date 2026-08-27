@@ -1,4 +1,4 @@
-"""Ranked, typed boundary discovery — Increment C.
+"""Ranked, typed boundary discovery — Increment C, corrected in C.1.
 
 Where `ImpactInterpreter`'s existing deterministic walk stops only at a
 declared *entrypoint* (a symbol CBM annotated with route metadata or a
@@ -14,18 +14,52 @@ inbound call/usage adjacency) and `StructuralFacts` exactly as
 extraction, no second graph. The only new thing is the ranked frontier walk
 and the classification rules layered on top of the same facts.
 
-Soundness, by construction:
+Increment C.1 — frontier ranking vs. boundary eligibility are two distinct
+questions, and real-PR evaluation showed C's first cut conflated them:
+
+- `_score` ("which real structural node should be inspected next") answers
+  frontier ranking. A high score is a reason to look at a node *sooner*,
+  never a reason to treat it as a boundary.
+- `_classify` ("is this node a meaningful architectural boundary where this
+  branch should stop") answers eligibility, entirely separately. Reachable,
+  exported, or highly ranked are each necessary-but-not-sufficient; none of
+  them alone qualifies a node. Every changed symbol is run through
+  `_classify` *before* any expansion at all (see the seed loop in
+  `discover_boundaries`) — a route handler or route-registration symbol
+  never has to acquire a caller first.
+
+C.1's specific eligibility corrections, each answering a real-PR failure:
+- A test node (by file role or by the same generic naming convention Sydes
+  already uses for test *files*, applied to the symbol name) is never
+  eligible for any boundary kind — see `_is_test_identity`. Tests remain
+  graph nodes traversal can pass *through*; they just cannot terminate a
+  branch as a production boundary.
+- An executable entrypoint (`main`) is never classified `callable` — see
+  `_is_executable_entrypoint`.
+- `exported` alone (even reached across a file) is no longer sufficient for
+  `callable`/`public_library`: it must additionally cross a *directory*
+  (module/package) boundary — see `_crosses_module_boundary`. A same-
+  directory export is common, ordinary internal code, not evidence of a
+  public API surface; per the task's own instruction, that case is left as
+  "not a boundary yet" and traversal continues rather than guessing.
+- A "generic decorated" node was never treated as `async` even before this
+  correction (only a specific, small scheduled-job/event-handler keyword
+  set was ever recognized) — this file adds tests pinning that this stays
+  true, not new logic.
+
+Soundness, unchanged from C, by construction:
 - Every candidate this module ever considers was reached by literally
   walking `index.inbound()` — real `RELATION_CALLS`/`RELATION_USAGE` edges
   (or `RELATION_SOURCE_CONFIRMED`, from the guide's own confirmed source
   reads). A signature/type-only reference is never part of this adjacency at
   all, so it can never become the sole reason a boundary is reached — see
-  `_MIN_ADMIT_EDGE_STRENGTH`.
+  `_MIN_ADMIT_EDGE_POINTS`.
 - `pr_semantic_analysis` hints (via `semantic_texts`) only ever adjust
   *ranking* (`_semantic_relevance`) — they add points to a candidate that a
   real edge already produced. They never create a candidate, never add an
-  edge, and a caller with no semantic hints at all gets fully deterministic
-  behavior (`_semantic_relevance` returns 0 for everyone).
+  edge, never enter `_classify`, and a caller with no semantic hints at all
+  gets fully deterministic behavior (`_semantic_relevance` returns 0 for
+  everyone).
 - Every emitted `DiscoveredBoundary.status` is `IMPACT_STATUS_PROVEN` — this
   pass never proposes an `INFERRED` boundary; that vocabulary stays the
   guide's alone (`ImpactCandidate`/`llm_candidate_log`).
@@ -43,7 +77,6 @@ from sydes.impact.models import (
     BOUNDARY_CALLABLE,
     BOUNDARY_SUBTYPE_EVENT_HANDLER,
     BOUNDARY_SUBTYPE_HTTP,
-    BOUNDARY_SUBTYPE_INTERNAL_SERVICE,
     BOUNDARY_SUBTYPE_PUBLIC_LIBRARY,
     BOUNDARY_SUBTYPE_SCHEDULED_JOB,
     EDGE_STRENGTH_MEDIUM,
@@ -58,6 +91,7 @@ from sydes.impact.models import (
     RELATION_USAGE,
     SymbolIdentity,
 )
+from sydes.ingest.file_roles import FILE_ROLE_TEST_USAGE_CANDIDATE, classify_candidate_file_role
 
 if TYPE_CHECKING:
     from sydes.code_intelligence.base import StructuralFacts
@@ -209,18 +243,77 @@ def _is_exported(facts: "StructuralFacts", identity: SymbolIdentity) -> bool:
     return False
 
 
+#: Generic, language-neutral test-name markers — the exact same convention
+#: `sydes.ingest.file_roles.classify_candidate_file_role` already uses for
+#: *file names* (`test_*.py`/`*_test.py` etc.), applied here to the *symbol*
+#: name so a test embedded in its own module (common in Rust, where a test
+#: is `#[test] fn test_x()` inside the same source file, not a separate
+#: file) is still recognized. Not a language-specific pattern library — one
+#: already-endorsed naming convention, reused.
+_TEST_NAME_PREFIXES = ("test_",)
+_TEST_NAME_SUFFIXES = ("_test",)
+
+#: Executable-entrypoint names that must never be classified `callable` —
+#: see the module docstring. Kept to the one universal, unambiguous case
+#: rather than a broader "is this a main-like function" heuristic.
+_EXECUTABLE_ENTRYPOINT_NAMES = frozenset({"main"})
+
+
+def _is_test_identity(identity: SymbolIdentity, facts: "StructuralFacts") -> bool:
+    """Tests remain graph nodes and reachability/verification evidence —
+    they must never terminate a branch as a production boundary. Prefers
+    the existing file-role classifier; the symbol-name convention is only a
+    fallback for languages (like Rust) where tests commonly live inside an
+    ordinary source file rather than a separate test file."""
+    if identity.file and classify_candidate_file_role(identity.file) == FILE_ROLE_TEST_USAGE_CANDIDATE:
+        return True
+    name = identity.short_name.lower()
+    return name.startswith(_TEST_NAME_PREFIXES) or name.endswith(_TEST_NAME_SUFFIXES)
+
+
+def _is_executable_entrypoint(identity: SymbolIdentity) -> bool:
+    return identity.short_name in _EXECUTABLE_ENTRYPOINT_NAMES
+
+
+def _crosses_module_boundary(from_file: str, to_file: str) -> bool:
+    """Whether `to_file` sits in a different directory than `from_file` —
+    the stronger bar Increment C.1 requires for `callable`/`public_library`.
+
+    A same-directory export is ordinary code splitting within one module,
+    not evidence of a deliberate public API surface; two files landing in
+    different directories is a simple, generic, already-available (no new
+    fact needed) proxy for "used across a module/package boundary." Neither
+    file being known at all is never treated as a boundary crossing.
+    """
+    if not from_file or not to_file:
+        return False
+    from_dir = from_file.rsplit("/", 1)[0] if "/" in from_file else ""
+    to_dir = to_file.rsplit("/", 1)[0] if "/" in to_file else ""
+    return from_dir != to_dir
+
+
 def _classify(
     candidate: _Candidate, index: "_FactIndex", facts: "StructuralFacts",
 ) -> tuple[str, str | None] | None:
-    """Whether this candidate node is itself a meaningful boundary — and if
-    so, which kind/subtype. Returns `None` when it is merely an intermediate
-    caller worth expanding through, not a stopping point.
+    """Boundary ELIGIBILITY — a distinct question from frontier ranking
+    (`_score`/`_boundary_likelihood`). Returns the boundary kind/subtype only
+    when this node is itself a meaningful architectural cut where a branch
+    should stop; `None` means "not a boundary yet, keep expanding (subject
+    to budget)" — reachable, exported, or highly ranked are each necessary
+    but never sufficient on their own.
 
     Every check here reads only facts already computed elsewhere
-    (`index.entrypoint_for_identity`, `facts.symbols_for_file`) — nothing is
-    inferred or guessed about what a decorator or export "really" does.
+    (`index.entrypoint_for_identity`, `facts.symbols_for_file`,
+    `classify_candidate_file_role`) — nothing is inferred or guessed about
+    what a decorator, export, or file path "really" means.
     """
     identity = candidate.identity
+
+    # Tests are reachability evidence, never a production boundary — checked
+    # first so nothing below can accidentally promote one.
+    if _is_test_identity(identity, facts):
+        return None
+
     method, path = _route_info_for(index, identity)
     if method or path:
         return BOUNDARY_API, BOUNDARY_SUBTYPE_HTTP
@@ -232,30 +325,41 @@ def _classify(
             return BOUNDARY_ASYNC, BOUNDARY_SUBTYPE_SCHEDULED_JOB
         if tokens & _EVENT_HANDLER_KEYWORDS:
             return BOUNDARY_ASYNC, BOUNDARY_SUBTYPE_EVENT_HANDLER
+        # A decorator exists but its meaning is ambiguous (no keyword match)
+        # — preserved as evidence on the path, never upgraded to `async`.
+
+    if _is_executable_entrypoint(identity):
+        return None
 
     if candidate.distance > 0 and _is_exported(facts, identity):
-        crossed_file = bool(candidate.reached_from_file) and candidate.reached_from_file != identity.file
-        subtype = (
-            BOUNDARY_SUBTYPE_PUBLIC_LIBRARY if crossed_file
-            else BOUNDARY_SUBTYPE_INTERNAL_SERVICE
-        )
-        return BOUNDARY_CALLABLE, subtype
+        if _crosses_module_boundary(candidate.reached_from_file, identity.file):
+            return BOUNDARY_CALLABLE, BOUNDARY_SUBTYPE_PUBLIC_LIBRARY
+        # Exported, but only within the same directory as its caller — not
+        # strong enough evidence of a public API surface on its own. Sydes
+        # has no repo_profile / declared-public-surface fact today to
+        # corroborate it further, so this stays "not a boundary yet" and
+        # traversal continues past it rather than guessing.
 
     return None
 
 
 def _boundary_likelihood(candidate: _Candidate, index: "_FactIndex", facts: "StructuralFacts") -> float:
-    """A cheap prioritization hint used only for frontier ordering — the
-    actual accept/reject decision is `_classify`, called again at pop time."""
+    """A cheap prioritization hint used only for FRONTIER RANKING — never
+    the accept/reject decision, which is `_classify` alone, called again at
+    pop time. A node scoring high here (e.g. a test that happens to be
+    exported) can still be rejected by `_classify` — ranking only decides
+    what gets inspected sooner, not what qualifies."""
     identity = candidate.identity
+    if _is_test_identity(identity, facts) or _is_executable_entrypoint(identity):
+        return 0.0
     method, path = _route_info_for(index, identity)
     if method or path:
         return _LIKELIHOOD_ROUTE
     if _decorator_keyword_tokens(_decorator_text_for(index, identity)) & _ASYNC_KEYWORDS:
         return _LIKELIHOOD_ASYNC_DECORATOR
     if candidate.distance > 0 and _is_exported(facts, identity):
-        crossed_file = bool(candidate.reached_from_file) and candidate.reached_from_file != identity.file
-        return _LIKELIHOOD_EXPORTED_CROSS_FILE if crossed_file else _LIKELIHOOD_EXPORTED_SAME_FILE
+        crosses = _crosses_module_boundary(candidate.reached_from_file, identity.file)
+        return _LIKELIHOOD_EXPORTED_CROSS_FILE if crosses else _LIKELIHOOD_EXPORTED_SAME_FILE
     return 0.0
 
 
@@ -321,68 +425,60 @@ def discover_boundaries(
             "reason": reason,
         })
 
-    for symbol in changed_symbols:
-        identity = index.identity_of(symbol)
-        if identity.key in visited:
-            continue
-        visited.add(identity.key)
-        candidate = _Candidate(
-            identity=identity, distance=0, path=(), weakest_points=_POINTS_CALL,
-            changed_symbol=str(symbol.get("name") or ""),
-        )
-        candidate.score = _score(candidate, index, facts, semantic_tokens)
-        frontier.append(candidate)
-        frontier_nodes += 1
+    def _try_emit(candidate: "_Candidate") -> bool:
+        """Boundary ELIGIBILITY check for one candidate — `_classify` alone
+        decides; ranking never does. Returns `True` when this candidate is
+        terminal (either emitted, or rejected on weak evidence) — the caller
+        must not expand past it either way once eligibility says stop, and
+        must expand it when this returns `False`."""
+        kind_subtype = _classify(candidate, index, facts)
+        if kind_subtype is None:
+            return False
 
-    while frontier and len(boundaries) < budget.max_boundaries and expansions < budget.max_expansions:
-        frontier.sort(key=lambda item: (-item.score, item.distance, item.identity.key))
-        current = frontier.pop(0)
-        expansions += 1
-
-        kind_subtype = _classify(current, index, facts)
-        if kind_subtype is not None and current.weakest_points >= _MIN_ADMIT_EDGE_POINTS:
-            kind, subtype = kind_subtype
-            key = _boundary_id(kind, current.identity)
-            if key not in emitted_keys:
-                emitted_keys.add(key)
-                path = ImpactPath(
-                    current.path,
-                    "boundary_discovery",
-                ) if current.path else None
-                boundaries.append(DiscoveredBoundary(
-                    id=key,
-                    kind=kind,
-                    subtype=subtype,
-                    repo=current.identity.repo,
-                    file=current.identity.file,
-                    symbol=current.identity.short_name,
-                    qualified_name=current.identity.qualified_name,
-                    label=current.identity.qualified_name or current.identity.short_name,
-                    changed_symbols=[current.changed_symbol],
-                    path=path,
-                    distance=current.distance,
-                    evidence_strength=_strength_label(current.weakest_points),
-                    score=current.score,
-                ))
-                _log("emitted", current, kind=kind, subtype=subtype)
-            else:
-                for existing in boundaries:
-                    if existing.id == key and current.changed_symbol not in existing.changed_symbols:
-                        existing.changed_symbols.append(current.changed_symbol)
-            continue  # a meaningful boundary terminates this branch
-
-        if kind_subtype is not None:
+        kind, subtype = kind_subtype
+        if candidate.weakest_points < _MIN_ADMIT_EDGE_POINTS:
             # Classified, but the weakest edge on the path did not clear the
             # admission bar — the soundness rule in practice. Never emitted.
-            _log("rejected_weak_evidence", current, kind=kind_subtype[0],
-                 subtype=kind_subtype[1], reason="weakest edge below admission threshold")
-            continue
+            _log("rejected_weak_evidence", candidate, kind=kind, subtype=subtype,
+                 reason="weakest edge below admission threshold")
+            return True
 
+        key = _boundary_id(kind, candidate.identity)
+        if key not in emitted_keys:
+            emitted_keys.add(key)
+            path = ImpactPath(candidate.path, "boundary_discovery") if candidate.path else None
+            boundaries.append(DiscoveredBoundary(
+                id=key,
+                kind=kind,
+                subtype=subtype,
+                repo=candidate.identity.repo,
+                file=candidate.identity.file,
+                symbol=candidate.identity.short_name,
+                qualified_name=candidate.identity.qualified_name,
+                label=candidate.identity.qualified_name or candidate.identity.short_name,
+                changed_symbols=[candidate.changed_symbol],
+                path=path,
+                distance=candidate.distance,
+                evidence_strength=_strength_label(candidate.weakest_points),
+                score=candidate.score,
+            ))
+            _log("emitted", candidate, kind=kind, subtype=subtype)
+        else:
+            for existing in boundaries:
+                if existing.id == key and candidate.changed_symbol not in existing.changed_symbols:
+                    existing.changed_symbols.append(candidate.changed_symbol)
+        return True  # a meaningful boundary terminates this branch
+
+    def _expand(current: "_Candidate") -> None:
+        """Push `current`'s real inbound (caller/usage) edges onto the
+        frontier for later ranking — called only when `_try_emit` already
+        said this node is not itself a boundary."""
+        nonlocal frontier_nodes, budget_exhausted
         if current.distance >= budget.max_hops:
             if index.inbound(current.identity):
                 budget_exhausted = True
                 _log("budget_exhausted", current, reason="max_hops reached with unexplored inbound edges")
-            continue
+            return
 
         inbound = index.inbound(current.identity)[: budget.max_candidates_per_symbol]
         for relation, predecessor_identity, _payload in inbound:
@@ -415,6 +511,38 @@ def discover_boundaries(
             next_candidate.score = _score(next_candidate, index, facts, semantic_tokens)
             frontier.append(next_candidate)
             frontier_nodes += 1
+
+    # --- 1. Seed every changed symbol as a distance-0 candidate. Nothing
+    # below expands a candidate's callers until that same candidate's own
+    # eligibility has been checked first (see the loop below) — a route
+    # handler or route-registration symbol never has to acquire a caller
+    # first to become a boundary. -----------------------------------------
+    for symbol in changed_symbols:
+        identity = index.identity_of(symbol)
+        if identity.key in visited:
+            continue
+        visited.add(identity.key)
+        seed = _Candidate(
+            identity=identity, distance=0, path=(), weakest_points=_POINTS_CALL,
+            changed_symbol=str(symbol.get("name") or ""),
+        )
+        seed.score = _score(seed, index, facts, semantic_tokens)
+        frontier.append(seed)
+        frontier_nodes += 1
+
+    # --- 2. Ranked frontier walk. Every pop, seed or later hop alike, is
+    # first run through boundary ELIGIBILITY (`_try_emit` -> `_classify`)
+    # and only expanded (`_expand`, walking its real inbound edges) when
+    # eligibility says "not a boundary yet" — ranking (the sort below)
+    # never substitutes for that check. ------------------------------------
+    while frontier and len(boundaries) < budget.max_boundaries and expansions < budget.max_expansions:
+        frontier.sort(key=lambda item: (-item.score, item.distance, item.identity.key))
+        current = frontier.pop(0)
+        expansions += 1
+
+        if _try_emit(current):
+            continue
+        _expand(current)
 
     if frontier and (len(boundaries) >= budget.max_boundaries or expansions >= budget.max_expansions):
         budget_exhausted = True

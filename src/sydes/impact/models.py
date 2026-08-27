@@ -73,14 +73,14 @@ BOUNDARY_UNKNOWN = "unknown"
 #: Optional, evidence-grounded refinement of a boundary's kind. Never
 #: invented beyond what structural facts already show — `http` from route
 #: metadata already captured, `scheduled_job`/`event_handler` from a small,
-#: generic decorator-keyword match (see `boundary_discovery.ASYNC_KEYWORDS`),
-#: `public_library`/`internal_service` from whether an exported symbol was
-#: reached from outside or inside its own file.
+#: generic decorator-keyword match (see `boundary_discovery._ASYNC_KEYWORDS`),
+#: `public_library` only from an exported symbol reached across a module/
+#: directory boundary (Increment C.1 — a same-directory export alone is not
+#: strong enough evidence; see `boundary_discovery._crosses_module_boundary`).
 BOUNDARY_SUBTYPE_HTTP = "http"
 BOUNDARY_SUBTYPE_SCHEDULED_JOB = "scheduled_job"
 BOUNDARY_SUBTYPE_EVENT_HANDLER = "event_handler"
 BOUNDARY_SUBTYPE_PUBLIC_LIBRARY = "public_library"
-BOUNDARY_SUBTYPE_INTERNAL_SERVICE = "internal_service"
 
 #: How strong the weakest edge on a boundary's accepted path was. A boundary
 #: reached ONLY through an import-only or signature/type-only reference is
