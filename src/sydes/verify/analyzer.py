@@ -98,6 +98,7 @@ from sydes.verify.models import (
     VerificationCounts,
     VerificationObligation,
 )
+from sydes.verify.boundary_reasoning import infer_boundaries
 from sydes.verify.obligations import derive_obligations
 from sydes.verify.pr_semantic_analysis import generate_pr_semantic_analysis
 from sydes.verify.runtime import infer_runtime_dependencies
@@ -1252,6 +1253,29 @@ def analyze_change(
         ]
         _trace_impact_decisions(impact_result)
         _trace_boundary_decisions(impact_result)
+
+        # --- Increment D: evidence-backed boundary inference ------------
+        # One bounded LLM call over a compact packet of evidence already
+        # gathered above, only for what deterministic discovery could not
+        # ESTABLISH. Appended to the same `affected_boundaries` list under
+        # `status="inferred"` — never fed into `accepted_impacts`,
+        # `affected_flows`, obligations, or the verdict. Gated on the same
+        # `--llm-policy` flag every other optional LLM pass already honors.
+        if options.llm_policy != "never":
+            inferred_boundaries, boundary_notes = infer_boundaries(
+                change=change, impact_result=impact_result,
+                deterministic_boundaries=result.affected_boundaries,
+                semantic_analysis=result.pr_semantic_analysis,
+                facts=structural, repo=primary.name, repo_root=primary_root,
+                model_spec=options.model_spec, llm_client=options.llm_client,
+            )
+            result.affected_boundaries.extend(inferred_boundaries)
+            result.diagnostics.extend(boundary_notes)
+            for note in boundary_notes:
+                if "unavailable" in note:
+                    result.analysis_notes.append(
+                        "AI boundary inference unavailable: " + note.split(": ", 1)[-1]
+                    )
         # Provider/guide failures must be visible in the human-readable
         # report, not only countable in diagnostics — `analysis_notes` is
         # the section every renderer already shows by default, unlike

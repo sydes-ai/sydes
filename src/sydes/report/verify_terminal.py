@@ -591,13 +591,48 @@ _BOUNDARY_DEFAULT_CAP = 5
 
 
 def _non_http_boundaries(result: ChangeVerificationResult) -> list[AffectedBoundary]:
-    """Boundaries not already covered by an HTTP `AffectedFlow` above them —
-    an `api`/`http` boundary is the same real route an `AffectedFlow` already
-    renders, so it is excluded here to avoid showing it twice."""
+    """ESTABLISHED boundaries not already covered by an HTTP `AffectedFlow`
+    above them — an `api`/`http` boundary is the same real route an
+    `AffectedFlow` already renders, so it is excluded here to avoid showing
+    it twice. Inferred boundaries are deliberately NOT included: they render
+    in their own section, never in the same visual language as proof."""
     return [
         item for item in result.affected_boundaries
-        if not (item.kind == "api" and item.subtype == "http")
+        if item.status != _IMPACT_INFERRED
+        and not (item.kind == "api" and item.subtype == "http")
     ]
+
+
+def _render_inferred_boundaries_default(
+    result: ChangeVerificationResult, lines: list[str],
+) -> None:
+    """Increment D boundaries — evidence-backed inference, kept visually
+    distinct from the ESTABLISHED structural boundaries above. Each carries
+    the facts that support it and what remains uncertain, so a reader can
+    tell at a glance that this is a hypothesis rather than a proven path."""
+    inferred = [
+        item for item in result.affected_boundaries if item.status == _IMPACT_INFERRED
+    ]
+    if not inferred:
+        return
+    ranked = sorted(inferred, key=lambda item: (-(item.llm_confidence or 0.0), item.label))
+    _header(lines, "Inferred boundaries")
+    for index, item in enumerate(ranked[:_BOUNDARY_DEFAULT_CAP]):
+        if index > 0:
+            lines.append("")
+        subtype = f"/{item.subtype}" if item.subtype else ""
+        lines.append(f"INFERRED · {item.kind}{subtype} · {item.label}")
+        if item.reason:
+            lines.append(f"    {item.reason}")
+        if item.evidence:
+            lines.append(f"    Evidence: {'; '.join(item.evidence[:2])}")
+        if item.uncertainty:
+            lines.append(f"    Uncertain: {item.uncertainty}")
+    hidden = len(ranked) - min(len(ranked), _BOUNDARY_DEFAULT_CAP)
+    if hidden > 0:
+        noun = "boundary" if hidden == 1 else "boundaries"
+        lines.append("")
+        lines.append(f"… {hidden} more inferred {noun} — use --verbose for the full list.")
 
 
 def _render_system_impact_default(result: ChangeVerificationResult, lines: list[str]) -> None:
@@ -945,6 +980,7 @@ def _render_default_report(result: ChangeVerificationResult) -> str:
     _render_changed_default(result, lines)
     _render_change_analysis_default(result, lines)
     _render_system_impact_default(result, lines)
+    _render_inferred_boundaries_default(result, lines)
     _render_inferred_impact_default(result, lines)
 
     obligations = _required_obligations_default(result)
@@ -1025,18 +1061,32 @@ def _render_verbose_report(result: ChangeVerificationResult) -> str:
     _render_affected_behavior(result, lines, verbose=verbose)
 
     if result.affected_boundaries:
-        _section(lines, "BOUNDARIES (typed, transport-neutral; Increment C)")
-        for boundary in result.affected_boundaries:
-            subtype = f" ({boundary.subtype})" if boundary.subtype else ""
-            lines.append(f"  {boundary.kind}{subtype} · {boundary.label}")
-            lines.append(
-                f"      distance={boundary.distance}  evidence={boundary.evidence_strength}"
-                f"  status={boundary.status}"
-            )
-            for evidence_line in boundary.evidence:
-                lines.append(f"      {evidence_line}")
-            if boundary.changed_symbols:
-                lines.append(f"      from: {', '.join(boundary.changed_symbols)}")
+        _section(lines, "BOUNDARIES (typed, transport-neutral)")
+        established = [
+            item for item in result.affected_boundaries if item.status != _IMPACT_INFERRED
+        ]
+        inferred = [
+            item for item in result.affected_boundaries if item.status == _IMPACT_INFERRED
+        ]
+        for header, group in (("ESTABLISHED", established), ("INFERRED", inferred)):
+            if not group:
+                continue
+            lines.append(f"  {header}")
+            for boundary in group:
+                subtype = f" ({boundary.subtype})" if boundary.subtype else ""
+                lines.append(f"    {boundary.kind}{subtype} · {boundary.label}")
+                lines.append(
+                    f"        distance={boundary.distance}"
+                    f"  evidence={boundary.evidence_strength}  status={boundary.status}"
+                )
+                if boundary.reason:
+                    lines.append(f"        reason: {boundary.reason}")
+                for evidence_line in boundary.evidence:
+                    lines.append(f"        {evidence_line}")
+                if boundary.uncertainty:
+                    lines.append(f"        uncertain: {boundary.uncertainty}")
+                if boundary.changed_symbols:
+                    lines.append(f"        from: {', '.join(boundary.changed_symbols)}")
 
     _section(lines, "CI REGRESSION SUITE")
     _render_ci_suite(result.ci_suite, lines, verbose=verbose)

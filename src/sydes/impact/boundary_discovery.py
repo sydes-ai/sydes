@@ -246,6 +246,22 @@ def _is_executable_entrypoint(identity: SymbolIdentity) -> bool:
     return identity.short_name in _EXECUTABLE_ENTRYPOINT_NAMES
 
 
+def is_production_boundary_candidate(
+    identity: SymbolIdentity, facts: "StructuralFacts",
+) -> bool:
+    """Whether this symbol may be offered as a *production* boundary
+    candidate at all — the C.1 exclusions, exposed for reuse.
+
+    Public so Increment D's evidence packet applies exactly these rules
+    rather than reimplementing them: a test symbol or an executable
+    entrypoint must be excluded from LLM boundary reasoning for the same
+    reasons it is excluded from deterministic emission, and two copies of
+    that rule would inevitably drift apart. Tests may still appear in a
+    packet as *supporting* evidence; this gates candidacy only.
+    """
+    return not _is_test_identity(identity, facts) and not _is_executable_entrypoint(identity)
+
+
 def _classify(
     candidate: _Candidate, index: "_FactIndex", facts: "StructuralFacts",
     evidence_index: "BoundaryEvidenceIndex | None" = None,

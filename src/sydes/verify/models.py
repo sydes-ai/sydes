@@ -515,11 +515,23 @@ class AffectedBoundary(BaseModel):
     model deliberately carries no `route_method`/`route_path` of its own —
     those stay HTTP-only fields on `AcceptedImpact`/`AffectedFlow`.
 
-    Always `status=IMPACT_STATUS_PROVEN`: every boundary here was reached by
-    a real, deterministically-walked structural edge (never a
-    signature/type-only reference, never a semantic hint alone) — see
-    `sydes.impact.boundary_discovery` for the traversal that produces these
-    before `verify.analyzer` reshapes them into this product-facing form.
+    One representation, two epistemic states, distinguished by `status`:
+
+    - `"proven"` (Increment C, the default): reached by a real,
+      deterministically-walked structural edge — never a signature/type-only
+      reference, never a semantic hint alone. Produced by
+      `sydes.impact.boundary_discovery` and reshaped here by
+      `verify.analyzer`. This is structural proof.
+    - `"inferred"` (Increment D): proposed by one bounded LLM reasoning pass
+      over a compact packet of real evidence, for cases current extraction
+      cannot fully ground. Produced by `verify.boundary_reasoning`. This is
+      a hypothesis backed by supplied evidence — NOT proof, and deliberately
+      invisible to verdict math: nothing here creates an `AffectedFlow`, a
+      `VerificationObligation`, or an `AcceptedImpact`, and
+      `affected_boundaries` is not an input to `_compute_summary`.
+
+    An inferred boundary is never emitted for a boundary a deterministic one
+    already covers — see `boundary_reasoning` for that precedence rule.
     """
 
     id: str
@@ -532,14 +544,25 @@ class AffectedBoundary(BaseModel):
     changed_symbols: list[str] = Field(default_factory=list)
     #: A one-line, human-readable rendering of the path that reached this
     #: boundary (e.g. `"calls:helper -> usage:reserve"`) — never the raw
-    #: `ImpactPath` object, to keep this model small and JSON-simple.
+    #: `ImpactPath` object, to keep this model small and JSON-simple. For an
+    #: inferred boundary, the specific supplied facts the model cited.
     evidence: list[str] = Field(default_factory=list)
     distance: int = 0
     #: `EDGE_STRENGTH_STRONG`/`EDGE_STRENGTH_MEDIUM` — see
     #: `sydes.impact.models`. Never `weak`: a boundary reached only through
     #: an import/signature-only reference is never emitted at all.
     evidence_strength: str = "medium"
+    #: `IMPACT_STATUS_PROVEN` | `IMPACT_STATUS_INFERRED` — see the class
+    #: docstring. The single field separating structural proof from
+    #: evidence-backed inference.
     status: str = "proven"
+    #: Populated only when `status == "inferred"`: why the model believes
+    #: this boundary is affected, what it could not establish, and its own
+    #: bounded self-assessment. Never a calibrated probability, and never
+    #: read by anything that decides a verdict.
+    reason: str | None = None
+    uncertainty: str | None = None
+    llm_confidence: float | None = None
 
 
 class RuntimeDependency(BaseModel):
