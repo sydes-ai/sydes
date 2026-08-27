@@ -81,6 +81,14 @@ BOUNDARY_SUBTYPE_HTTP = "http"
 BOUNDARY_SUBTYPE_SCHEDULED_JOB = "scheduled_job"
 BOUNDARY_SUBTYPE_EVENT_HANDLER = "event_handler"
 BOUNDARY_SUBTYPE_PUBLIC_LIBRARY = "public_library"
+#: Increment C.2. `route_registration`: the symbol itself registers routes
+#: (from `route_index` route-call sites attributed to their enclosing
+#: symbol). `public_callable`: an explicit export *statement* names this
+#: symbol — the only public-surface signal strong enough to establish a
+#: callable boundary, as distinct from `symbol_index`'s `exported` bool,
+#: which is a naming convention in at least one supported language.
+BOUNDARY_SUBTYPE_ROUTE_REGISTRATION = "route_registration"
+BOUNDARY_SUBTYPE_PUBLIC_CALLABLE = "public_callable"
 
 #: How strong the weakest edge on a boundary's accepted path was. A boundary
 #: reached ONLY through an import-only or signature/type-only reference is

@@ -36,18 +36,27 @@ C.1's specific eligibility corrections, each answering a real-PR failure:
   branch as a production boundary.
 - An executable entrypoint (`main`) is never classified `callable` — see
   `_is_executable_entrypoint`.
-- `exported` alone (even reached across a file) is no longer sufficient for
-  `callable`/`public_library`: it must additionally cross a *directory*
-  (module/package) boundary — see `_crosses_module_boundary`. A same-
-  directory export is common, ordinary internal code, not evidence of a
-  public API surface; per the task's own instruction, that case is left as
-  "not a boundary yet" and traversal continues rather than guessing.
-- A "generic decorated" node was never treated as `async` even before this
-  correction (only a specific, small scheduled-job/event-handler keyword
-  set was ever recognized) — this file adds tests pinning that this stays
-  true, not new logic.
+- `exported` alone is not sufficient for `callable`. C.1 first tried
+  requiring it to also cross a directory; C.2 replaced that proxy outright,
+  because the raw `exported` flag is a *naming convention* in at least one
+  supported language. Only an explicit export statement now qualifies.
+- A "generic decorated" node is never treated as `async`: only a specific,
+  small scheduled-job/event-handler keyword vocabulary is recognized, and a
+  decorator matching none of it yields no evidence rather than a guess.
 
-Soundness, unchanged from C, by construction:
+Increment C.2 — boundary RECALL. C.1's precision held, but real-PR
+evaluation showed route-registration methods, decorated handlers and
+service surfaces producing no boundary at all. The cause was not this
+traversal: it was that architectural facts Sydes already computes (notably
+the whole of `facts.route_index` — every route-registration call site, with
+line numbers, populated by BOTH backends) never reached this layer in a
+usable shape. `_classify` no longer re-derives evidence per fact family;
+it consults one normalized vocabulary built by
+`sydes.impact.boundary_evidence`, which is where every "what counts as
+evidence" rule now lives. Ranking (`_score`) is unchanged and still
+entirely separate from eligibility.
+
+Soundness, unchanged from C/C.1, by construction:
 - Every candidate this module ever considers was reached by literally
   walking `index.inbound()` — real `RELATION_CALLS`/`RELATION_USAGE` edges
   (or `RELATION_SOURCE_CONFIRMED`, from the guide's own confirmed source
@@ -75,12 +84,9 @@ from sydes.impact.models import (
     BOUNDARY_API,
     BOUNDARY_ASYNC,
     BOUNDARY_CALLABLE,
-    BOUNDARY_SUBTYPE_EVENT_HANDLER,
-    BOUNDARY_SUBTYPE_HTTP,
-    BOUNDARY_SUBTYPE_PUBLIC_LIBRARY,
-    BOUNDARY_SUBTYPE_SCHEDULED_JOB,
     EDGE_STRENGTH_MEDIUM,
     EDGE_STRENGTH_STRONG,
+    EDGE_STRENGTH_WEAK,
     DiscoveredBoundary,
     ImpactPath,
     ImpactStep,
@@ -91,27 +97,16 @@ from sydes.impact.models import (
     RELATION_USAGE,
     SymbolIdentity,
 )
+from sydes.impact.boundary_evidence import (
+    BoundaryEvidence,
+    BoundaryEvidenceIndex,
+    build_boundary_evidence,
+)
 from sydes.ingest.file_roles import FILE_ROLE_TEST_USAGE_CANDIDATE, classify_candidate_file_role
 
 if TYPE_CHECKING:
     from sydes.code_intelligence.base import StructuralFacts
     from sydes.impact.interpreter import _FactIndex
-
-#: A small, generic (not framework-specific) decorator-text keyword set for
-#: recognizing an async/background boundary — the exact shape of entrypoint
-#: current Sydes has historically dropped for being non-HTTP. Matched as
-#: whole identifier tokens against the same verbatim decorator text
-#: `_FactIndex` already carries; nothing here is a business rule about any
-#: one framework.
-_SCHEDULED_JOB_KEYWORDS = frozenset({
-    "task", "cron", "schedule", "scheduled", "periodic", "celery", "job",
-    "worker", "beat", "shared_task",
-})
-_EVENT_HANDLER_KEYWORDS = frozenset({
-    "signal", "receiver", "subscribe", "subscriber", "consumer", "listener",
-    "on_event", "event_handler", "queue", "handler", "dispatch",
-})
-_ASYNC_KEYWORDS = _SCHEDULED_JOB_KEYWORDS | _EVENT_HANDLER_KEYWORDS
 
 _IDENTIFIER_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 
@@ -176,19 +171,6 @@ def _tokenize(text: str) -> frozenset[str]:
     return frozenset(match.group(0).lower() for match in _IDENTIFIER_RE.finditer(text or ""))
 
 
-def _decorator_keyword_tokens(text: str) -> frozenset[str]:
-    """Tokens for ASYNC-keyword matching only: real decorators are commonly
-    compound (`signal_receiver`, `shared_task`, `on_event`), so this also
-    splits each identifier on `_` — `_semantic_relevance` deliberately does
-    NOT use this, since exact identifier overlap is the right signal there."""
-    tokens: set[str] = set()
-    for match in _IDENTIFIER_RE.finditer(text or ""):
-        word = match.group(0).lower()
-        tokens.add(word)
-        tokens.update(part for part in word.split("_") if part)
-    return frozenset(tokens)
-
-
 def _strength_label(points: float) -> str:
     if points >= _POINTS_CALL:
         return EDGE_STRENGTH_STRONG
@@ -218,23 +200,12 @@ def _semantic_relevance(identity: SymbolIdentity, semantic_tokens: frozenset[str
     return min(_MAX_SEMANTIC_RELEVANCE, float(overlap))
 
 
-def _decorator_text_for(index: "_FactIndex", identity: SymbolIdentity) -> str:
-    entry = index.entrypoint_for_identity(identity)
-    if entry is None:
-        return ""
-    return str(entry.get("decorators") or "")
-
-
-def _route_info_for(index: "_FactIndex", identity: SymbolIdentity) -> tuple[str | None, str | None]:
-    entry = index.entrypoint_for_identity(identity)
-    if entry is None:
-        return None, None
-    method = entry.get("route_method")
-    path = entry.get("route_path")
-    return (str(method) if method else None, str(path) if path else None)
-
-
 def _is_exported(facts: "StructuralFacts", identity: SymbolIdentity) -> bool:
+    """The raw `exported` flag. WEAK evidence only — for Python it is a
+    naming convention (`not name.startswith("_")`), which is why C.1's
+    export-based rule over-fired. Used solely as a ranking hint now; the
+    only export signal that can *establish* a callable boundary is an
+    explicit export statement, normalized in `boundary_evidence`."""
     if not identity.file or not identity.short_name:
         return False
     for entry in facts.symbols_for_file(identity.repo, identity.file):
@@ -275,99 +246,78 @@ def _is_executable_entrypoint(identity: SymbolIdentity) -> bool:
     return identity.short_name in _EXECUTABLE_ENTRYPOINT_NAMES
 
 
-def _crosses_module_boundary(from_file: str, to_file: str) -> bool:
-    """Whether `to_file` sits in a different directory than `from_file` —
-    the stronger bar Increment C.1 requires for `callable`/`public_library`.
-
-    A same-directory export is ordinary code splitting within one module,
-    not evidence of a deliberate public API surface; two files landing in
-    different directories is a simple, generic, already-available (no new
-    fact needed) proxy for "used across a module/package boundary." Neither
-    file being known at all is never treated as a boundary crossing.
-    """
-    if not from_file or not to_file:
-        return False
-    from_dir = from_file.rsplit("/", 1)[0] if "/" in from_file else ""
-    to_dir = to_file.rsplit("/", 1)[0] if "/" in to_file else ""
-    return from_dir != to_dir
-
-
 def _classify(
     candidate: _Candidate, index: "_FactIndex", facts: "StructuralFacts",
-) -> tuple[str, str | None] | None:
+    evidence_index: "BoundaryEvidenceIndex | None" = None,
+) -> tuple[str, str | None, BoundaryEvidence | None] | None:
     """Boundary ELIGIBILITY — a distinct question from frontier ranking
-    (`_score`/`_boundary_likelihood`). Returns the boundary kind/subtype only
-    when this node is itself a meaningful architectural cut where a branch
-    should stop; `None` means "not a boundary yet, keep expanding (subject
-    to budget)" — reachable, exported, or highly ranked are each necessary
-    but never sufficient on their own.
+    (`_score`/`_boundary_likelihood`). Returns `(kind, subtype, evidence)`
+    only when this node is itself a meaningful architectural cut where a
+    branch should stop; `None` means "not a boundary yet, keep expanding
+    (subject to budget)" — reachable, exported, or highly ranked are each
+    necessary but never sufficient on their own.
 
-    Every check here reads only facts already computed elsewhere
-    (`index.entrypoint_for_identity`, `facts.symbols_for_file`,
-    `classify_candidate_file_role`) — nothing is inferred or guessed about
-    what a decorator, export, or file path "really" means.
+    Increment C.2: the positive answer now comes from `BoundaryEvidence`
+    normalized out of facts Sydes already had (see
+    `sydes.impact.boundary_evidence`), rather than from this function
+    re-deriving it per fact family. That is what lets a route-registration
+    method or an explicitly-exported public callable qualify at all — the
+    underlying facts existed before, but never reached here.
+
+    The C.1 exclusions still run first and still veto everything: no amount
+    of strong evidence makes a test function or `main` a production
+    boundary.
     """
     identity = candidate.identity
 
     # Tests are reachability evidence, never a production boundary — checked
-    # first so nothing below can accidentally promote one.
+    # first so nothing below can promote one, however strong its evidence.
     if _is_test_identity(identity, facts):
         return None
 
-    method, path = _route_info_for(index, identity)
-    if method or path:
-        return BOUNDARY_API, BOUNDARY_SUBTYPE_HTTP
-
-    decorators = _decorator_text_for(index, identity)
-    if decorators:
-        tokens = _decorator_keyword_tokens(decorators)
-        if tokens & _SCHEDULED_JOB_KEYWORDS:
-            return BOUNDARY_ASYNC, BOUNDARY_SUBTYPE_SCHEDULED_JOB
-        if tokens & _EVENT_HANDLER_KEYWORDS:
-            return BOUNDARY_ASYNC, BOUNDARY_SUBTYPE_EVENT_HANDLER
-        # A decorator exists but its meaning is ambiguous (no keyword match)
-        # — preserved as evidence on the path, never upgraded to `async`.
-
-    if _is_executable_entrypoint(identity):
-        return None
-
-    if candidate.distance > 0 and _is_exported(facts, identity):
-        if _crosses_module_boundary(candidate.reached_from_file, identity.file):
-            return BOUNDARY_CALLABLE, BOUNDARY_SUBTYPE_PUBLIC_LIBRARY
-        # Exported, but only within the same directory as its caller — not
-        # strong enough evidence of a public API surface on its own. Sydes
-        # has no repo_profile / declared-public-surface fact today to
-        # corroborate it further, so this stays "not a boundary yet" and
-        # traversal continues past it rather than guessing.
+    strongest = evidence_index.strongest(identity) if evidence_index is not None else None
+    if strongest is not None:
+        # `main` is an executable entrypoint, never a public library/callable
+        # surface — but it may legitimately carry API/async evidence.
+        if strongest.kind == BOUNDARY_CALLABLE and _is_executable_entrypoint(identity):
+            return None
+        if strongest.strength == EDGE_STRENGTH_WEAK:
+            return None  # weak evidence never establishes a boundary
+        return strongest.kind, strongest.subtype, strongest
 
     return None
 
 
-def _boundary_likelihood(candidate: _Candidate, index: "_FactIndex", facts: "StructuralFacts") -> float:
+def _boundary_likelihood(candidate: _Candidate, index: "_FactIndex", facts: "StructuralFacts",
+                          evidence_index: "BoundaryEvidenceIndex | None" = None) -> float:
     """A cheap prioritization hint used only for FRONTIER RANKING — never
     the accept/reject decision, which is `_classify` alone, called again at
-    pop time. A node scoring high here (e.g. a test that happens to be
-    exported) can still be rejected by `_classify` — ranking only decides
-    what gets inspected sooner, not what qualifies."""
+    pop time. A node scoring high here (e.g. a test that happens to carry
+    route evidence) can still be rejected by `_classify` — ranking only
+    decides what gets inspected sooner, not what qualifies."""
     identity = candidate.identity
     if _is_test_identity(identity, facts) or _is_executable_entrypoint(identity):
         return 0.0
-    method, path = _route_info_for(index, identity)
-    if method or path:
-        return _LIKELIHOOD_ROUTE
-    if _decorator_keyword_tokens(_decorator_text_for(index, identity)) & _ASYNC_KEYWORDS:
-        return _LIKELIHOOD_ASYNC_DECORATOR
+    strongest = evidence_index.strongest(identity) if evidence_index is not None else None
+    if strongest is not None and strongest.strength != EDGE_STRENGTH_WEAK:
+        if strongest.kind == BOUNDARY_API:
+            return _LIKELIHOOD_ROUTE
+        if strongest.kind == BOUNDARY_ASYNC:
+            return _LIKELIHOOD_ASYNC_DECORATOR
+        return _LIKELIHOOD_EXPORTED_CROSS_FILE
+    # A plain `exported` flag is too weak to establish anything (see
+    # `boundary_evidence`), but it is still a fine reason to look sooner.
     if candidate.distance > 0 and _is_exported(facts, identity):
-        crosses = _crosses_module_boundary(candidate.reached_from_file, identity.file)
-        return _LIKELIHOOD_EXPORTED_CROSS_FILE if crosses else _LIKELIHOOD_EXPORTED_SAME_FILE
+        return _LIKELIHOOD_EXPORTED_SAME_FILE
     return 0.0
 
 
 def _score(candidate: _Candidate, index: "_FactIndex", facts: "StructuralFacts",
-           semantic_tokens: frozenset[str]) -> float:
+           semantic_tokens: frozenset[str],
+           evidence_index: "BoundaryEvidenceIndex | None" = None) -> float:
     edge_reliability = candidate.weakest_points
     semantic_relevance = _semantic_relevance(candidate.identity, semantic_tokens)
-    boundary_likelihood = _boundary_likelihood(candidate, index, facts)
+    boundary_likelihood = _boundary_likelihood(candidate, index, facts, evidence_index)
     hop_penalty = _HOP_PENALTY * candidate.distance
     ambiguity_penalty = _AMBIGUITY_PENALTY if not candidate.identity.resolved else 0.0
     return (
@@ -400,6 +350,12 @@ def discover_boundaries(
     for text in semantic_texts or []:
         semantic_tokens = semantic_tokens | _tokenize(text)
 
+    # Increment C.2: normalize the architectural facts Sydes already holds
+    # into one small vocabulary this traversal can reason over. Reads only
+    # `facts` — no CBM call, no LLM call, and (critically) no access to any
+    # semantic hint, so no semantic input can ever become evidence.
+    evidence_index = build_boundary_evidence(facts, repo=index.repo_of({}) or None)
+
     frontier: list[_Candidate] = []
     visited: set[str] = set()
     emitted_keys: set[str] = set()
@@ -410,7 +366,8 @@ def discover_boundaries(
     budget_exhausted = False
 
     def _log(decision: str, candidate: _Candidate, *, kind: str | None = None,
-              subtype: str | None = None, reason: str = "") -> None:
+              subtype: str | None = None, reason: str = "",
+              evidence: BoundaryEvidence | None = None) -> None:
         if len(decisions) >= budget.max_decisions_logged:
             return
         decisions.append({
@@ -423,6 +380,10 @@ def discover_boundaries(
             "kind": kind,
             "subtype": subtype,
             "reason": reason,
+            # C.2: the normalized evidence behind this decision — a compact
+            # dict, never a raw source payload. Flows into
+            # `impact_decisions.jsonl` through the existing tracer.
+            "normalized_evidence": [evidence.to_dict()] if evidence is not None else [],
         })
 
     def _try_emit(candidate: "_Candidate") -> bool:
@@ -431,16 +392,16 @@ def discover_boundaries(
         terminal (either emitted, or rejected on weak evidence) — the caller
         must not expand past it either way once eligibility says stop, and
         must expand it when this returns `False`."""
-        kind_subtype = _classify(candidate, index, facts)
-        if kind_subtype is None:
+        classified = _classify(candidate, index, facts, evidence_index)
+        if classified is None:
             return False
 
-        kind, subtype = kind_subtype
+        kind, subtype, evidence = classified
         if candidate.weakest_points < _MIN_ADMIT_EDGE_POINTS:
             # Classified, but the weakest edge on the path did not clear the
             # admission bar — the soundness rule in practice. Never emitted.
             _log("rejected_weak_evidence", candidate, kind=kind, subtype=subtype,
-                 reason="weakest edge below admission threshold")
+                 reason="weakest edge below admission threshold", evidence=evidence)
             return True
 
         key = _boundary_id(kind, candidate.identity)
@@ -462,7 +423,7 @@ def discover_boundaries(
                 evidence_strength=_strength_label(candidate.weakest_points),
                 score=candidate.score,
             ))
-            _log("emitted", candidate, kind=kind, subtype=subtype)
+            _log("emitted", candidate, kind=kind, subtype=subtype, evidence=evidence)
         else:
             for existing in boundaries:
                 if existing.id == key and candidate.changed_symbol not in existing.changed_symbols:
@@ -508,7 +469,7 @@ def discover_boundaries(
                 changed_symbol=current.changed_symbol,
                 reached_from_file=current.identity.file,
             )
-            next_candidate.score = _score(next_candidate, index, facts, semantic_tokens)
+            next_candidate.score = _score(next_candidate, index, facts, semantic_tokens, evidence_index)
             frontier.append(next_candidate)
             frontier_nodes += 1
 
@@ -526,7 +487,7 @@ def discover_boundaries(
             identity=identity, distance=0, path=(), weakest_points=_POINTS_CALL,
             changed_symbol=str(symbol.get("name") or ""),
         )
-        seed.score = _score(seed, index, facts, semantic_tokens)
+        seed.score = _score(seed, index, facts, semantic_tokens, evidence_index)
         frontier.append(seed)
         frontier_nodes += 1
 

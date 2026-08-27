@@ -20,12 +20,14 @@ from __future__ import annotations
 from sydes.code_intelligence.base import StructuralFacts
 from sydes.impact import ImpactInterpreter
 from sydes.impact.boundary_discovery import BoundaryBudget
+from sydes.impact.boundary_evidence import build_boundary_evidence
 from sydes.impact.models import (
     BOUNDARY_API,
     BOUNDARY_ASYNC,
     BOUNDARY_CALLABLE,
     IMPACT_STATUS_INFERRED,
     IMPACT_STATUS_PROVEN,
+    SymbolIdentity,
 )
 from sydes.report.verify_terminal import render_verify_change_terminal
 from sydes.verify.models import AffectedBoundary, ChangeSet, ChangeVerificationResult
@@ -57,19 +59,46 @@ def symbol_file(path: str, symbols: list[dict]) -> dict:
     return {"path": path, "symbols": symbols}
 
 
-def sym(name: str, *, exported: bool = False) -> dict:
-    return {"name": name, "kind": "function", "exported": exported, "start_line": 1, "end_line": 2}
+def sym(name: str, *, exported: bool = False, start_line: int = 1, end_line: int = 2) -> dict:
+    return {
+        "name": name, "kind": "function", "exported": exported,
+        "start_line": start_line, "end_line": end_line,
+    }
+
+
+def route_call(*, method: str, path: str, line: int, handler_hint: str = "") -> dict:
+    """One entry of `route_index.files[].route_calls` — the shape Sydes'
+    own deterministic route extractor already produces for a registration
+    call site, including the line it sits on."""
+    return {
+        "receiver": "router", "method": method, "path": path,
+        "handler_hint": handler_hint, "line": line, "snippet": "",
+    }
+
+
+def route_index_file(path: str, *, route_calls: list[dict] | None = None,
+                     exports: list[dict] | None = None) -> dict:
+    return {
+        "path": path, "language": "python", "role": "source_route_candidate",
+        "signals": [], "router_symbols": [], "containers": [],
+        "route_calls": route_calls or [], "mount_calls": [],
+        "imports": [], "exports": exports or [], "path_literals": [],
+    }
 
 
 def facts(**kwargs) -> StructuralFacts:
     symbol_index = kwargs.get("symbol_index")
     if symbol_index is None:
         symbol_index = {"repos": [{"repo": REPO, "files": kwargs.get("files", [])}]}
+    route_index = kwargs.get("route_index")
+    if route_index is None:
+        route_index = {"repos": [{"repo": REPO, "files": kwargs.get("route_files", [])}]}
     return StructuralFacts(
         call_edges=kwargs.get("call_edges", []),
         usage_edges=kwargs.get("usage_edges", []),
         entrypoints=kwargs.get("entrypoints", []),
         symbol_index=symbol_index,
+        route_index=route_index,
         provides_call_graph=True,
         backend="cbm",
     )
@@ -120,6 +149,64 @@ def test_changed_service_reaching_an_http_handler_is_also_an_api_boundary() -> N
 # --------------------------------------------------------------------------
 # B. Seed route-registration boundary
 # --------------------------------------------------------------------------
+
+def test_b2_route_registration_call_site_inside_a_changed_method_is_api() -> None:
+    """C.2's central recall fix. The changed method contains route-
+    registration call sites (`route_index.route_calls`, with line numbers
+    Sydes' own extractor already recorded). Attributing those lines to the
+    enclosing symbol makes it an API boundary at distance 0 — no route
+    metadata on the symbol itself, no global route-file search, no caller."""
+    f = facts(
+        files=[symbol_file("app/routes.py", [
+            sym("RegisterPublicRoutes", start_line=10, end_line=30),
+        ])],
+        route_files=[route_index_file("app/routes.py", route_calls=[
+            route_call(method="get", path="/self-service/login", line=12),
+            route_call(method="post", path="/self-service/logout", line=18),
+        ])],
+    )
+    result = interpret(changed("RegisterPublicRoutes", file="app/routes.py"), f)
+
+    assert len(result.boundaries) == 1
+    boundary = result.boundaries[0]
+    assert boundary.kind == BOUNDARY_API
+    assert boundary.subtype == "route_registration"
+    assert boundary.distance == 0
+    assert boundary.status == IMPACT_STATUS_PROVEN
+
+
+def test_b3_route_call_outside_any_symbol_span_is_not_attributed_to_a_symbol() -> None:
+    """A module-level route call (line 2) sits inside no symbol's body — it
+    must not be misattributed to a nearby function (lines 10-30)."""
+    f = facts(
+        files=[symbol_file("app/routes.py", [sym("unrelated", start_line=10, end_line=30)])],
+        route_files=[route_index_file("app/routes.py", route_calls=[
+            route_call(method="get", path="/x", line=2),
+        ])],
+    )
+    result = interpret(changed("unrelated", file="app/routes.py"), f)
+
+    assert result.boundaries == []
+
+
+def test_b4_handler_named_by_a_route_call_is_an_http_boundary() -> None:
+    """The handler a route registration names is itself an API boundary,
+    even when the backend attached no route metadata to that symbol."""
+    f = facts(
+        call_edges=[call_edge("login_handler", "helper",
+                              caller_file="app/handlers.py", callee_file="app/svc.py")],
+        files=[symbol_file("app/handlers.py", [sym("login_handler", start_line=5, end_line=9)])],
+        route_files=[route_index_file("app/handlers.py", route_calls=[
+            route_call(method="post", path="/login", line=1, handler_hint="login_handler"),
+        ])],
+    )
+    result = interpret(changed("helper", file="app/svc.py"), f)
+
+    assert len(result.boundaries) == 1
+    assert result.boundaries[0].kind == BOUNDARY_API
+    assert result.boundaries[0].subtype == "http"
+    assert result.boundaries[0].symbol == "login_handler"
+
 
 def test_b_changed_route_registration_symbol_is_emitted_as_api_without_a_caller() -> None:
     """A route-REGISTRATION symbol, not a per-route handler — structurally
@@ -216,11 +303,10 @@ def test_e_generic_exported_same_module_caller_is_not_a_boundary() -> None:
 # F. Real public callable synthetic case
 # --------------------------------------------------------------------------
 
-def test_f_exported_symbol_across_a_module_boundary_is_callable() -> None:
-    """Stronger evidence: the exported symbol lives in a genuinely different
-    module/package directory (`app/public/`) than its caller
-    (`app/internal/`) — a real cross-module boundary, not just a
-    neighboring file."""
+def test_f_explicit_export_statement_makes_a_reached_symbol_callable() -> None:
+    """C.2: an explicit export *statement* (recorded in `route_index`) is
+    the strong public-surface evidence a callable boundary requires — not
+    the raw `exported` flag, which for Python is only a naming convention."""
     f = facts(
         call_edges=[
             call_edge("service_method", "helper",
@@ -229,14 +315,36 @@ def test_f_exported_symbol_across_a_module_boundary_is_callable() -> None:
                       caller_file="app/public/api.py", callee_file="app/internal/svc.py"),
         ],
         files=[symbol_file("app/public/api.py", [sym("public_export", exported=True)])],
+        route_files=[
+            route_index_file("app/public/api.py",
+                             exports=[{"kind": "named", "symbol": "public_export"}]),
+        ],
     )
     result = interpret(changed("helper", file="app/internal/helper.py"), f)
 
     assert len(result.boundaries) == 1
     boundary = result.boundaries[0]
     assert boundary.kind == BOUNDARY_CALLABLE
-    assert boundary.subtype == "public_library"
+    assert boundary.subtype == "public_callable"
     assert boundary.symbol == "public_export"
+
+
+def test_g2_raw_exported_flag_alone_does_not_make_a_callable_boundary() -> None:
+    """The C.2 correction, stated directly: identical graph to the test
+    above but with NO explicit export statement. The `exported=True` flag
+    and a cross-directory hop are no longer sufficient on their own."""
+    f = facts(
+        call_edges=[
+            call_edge("service_method", "helper",
+                      caller_file="app/internal/svc.py", callee_file="app/internal/helper.py"),
+            call_edge("plain_caller", "service_method",
+                      caller_file="app/public/api.py", callee_file="app/internal/svc.py"),
+        ],
+        files=[symbol_file("app/public/api.py", [sym("plain_caller", exported=True)])],
+    )
+    result = interpret(changed("helper", file="app/internal/helper.py"), f)
+
+    assert result.boundaries == []
 
 
 # --------------------------------------------------------------------------
@@ -424,6 +532,88 @@ def test_many_callers_of_a_shared_helper_emit_only_top_ranked_boundaries() -> No
 # --------------------------------------------------------------------------
 # Non-HTTP serialization / reporting
 # --------------------------------------------------------------------------
+
+def test_emitted_decision_carries_its_normalized_evidence_for_tracing() -> None:
+    """Observability: the bounded decision log records WHY a node qualified
+    — the normalized evidence — so `impact_decisions.jsonl` can explain a
+    boundary without a raw source dump."""
+    f = facts(
+        call_edges=[call_edge("http_handler", "helper")],
+        entrypoints=[entrypoint("http_handler", method="GET", path="/x")],
+    )
+    result = interpret(changed("helper"), f)
+
+    emitted = [item for item in result.boundary_decisions if item["decision"] == "emitted"]
+    assert len(emitted) == 1
+    evidence = emitted[0]["normalized_evidence"]
+    assert len(evidence) == 1
+    assert evidence[0]["kind"] == "api"
+    assert evidence[0]["subtype"] == "http"
+    assert evidence[0]["source"] == "route_metadata"
+    assert evidence[0]["strength"] == "strong"
+
+
+# --------------------------------------------------------------------------
+# Normalization layer, tested directly
+# --------------------------------------------------------------------------
+
+def _identity(file: str, symbol: str) -> SymbolIdentity:
+    return SymbolIdentity.from_fields(repo=REPO, file=file, short_name=symbol)
+
+
+def test_normalization_route_metadata_becomes_strong_api_http_evidence() -> None:
+    f = facts(entrypoints=[entrypoint("show_order", method="GET", path="/orders/{id}")])
+    evidence = build_boundary_evidence(f, repo=REPO).strongest(_identity("app/svc.py", "show_order"))
+
+    assert evidence is not None
+    assert (evidence.kind, evidence.subtype) == ("api", "http")
+    assert evidence.source == "route_metadata"
+    assert evidence.strength == "strong"
+
+
+def test_normalization_scheduler_decorator_becomes_strong_async_scheduled_job() -> None:
+    f = facts(entrypoints=[entrypoint("nightly", decorators="@shared_task(cron='0 2 * * *')")])
+    evidence = build_boundary_evidence(f, repo=REPO).strongest(_identity("app/svc.py", "nightly"))
+
+    assert evidence is not None
+    assert (evidence.kind, evidence.subtype) == ("async", "scheduled_job")
+    assert evidence.strength == "strong"
+
+
+def test_normalization_signal_decorator_becomes_strong_async_event_handler() -> None:
+    f = facts(entrypoints=[entrypoint("on_created", decorators="@receiver(post_save)")])
+    evidence = build_boundary_evidence(f, repo=REPO).strongest(_identity("app/svc.py", "on_created"))
+
+    assert evidence is not None
+    assert (evidence.kind, evidence.subtype) == ("async", "event_handler")
+
+
+def test_normalization_generic_decorator_produces_no_evidence_at_all() -> None:
+    """Not weak evidence — NO evidence. Generic decoration stays generic."""
+    f = facts(entrypoints=[entrypoint("wrapped", decorators="@functools.wraps(inner)")])
+    index = build_boundary_evidence(f, repo=REPO)
+
+    assert index.for_identity(_identity("app/svc.py", "wrapped")) == []
+
+
+def test_normalization_raw_exported_flag_produces_no_evidence() -> None:
+    """The `exported` bool never becomes evidence — only an explicit export
+    statement does. Pins the C.2 correction at the normalization layer."""
+    f = facts(files=[symbol_file("app/pub.py", [sym("thing", exported=True)])])
+    index = build_boundary_evidence(f, repo=REPO)
+
+    assert index.for_identity(_identity("app/pub.py", "thing")) == []
+
+
+def test_normalization_reads_no_semantic_input_and_needs_no_repo() -> None:
+    """`build_boundary_evidence` takes only `StructuralFacts` — there is no
+    parameter through which a semantic hint could ever arrive, which is why
+    semantic analysis structurally cannot manufacture evidence."""
+    import inspect
+
+    parameters = set(inspect.signature(build_boundary_evidence).parameters)
+    assert parameters == {"facts", "repo"}
+
 
 def test_callable_and_async_boundaries_survive_serialization_and_reporting() -> None:
     change = ChangeSet(base="main", head="abc123", files=[], symbols=[])
