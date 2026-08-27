@@ -9,10 +9,37 @@ from sydes.core.models import (
     FlowExpansionContext,
     ReadFileSnippet,
 )
-from sydes.discover.endpoints import discover_endpoints_from_candidates
+from sydes.discover.endpoints import discover_endpoints_from_candidates, run_llm_endpoint_discovery
 from sydes.llm.client import LLMRequest, LLMResponse
 from sydes.llm.prompts import build_endpoint_discovery_prompt, build_flow_expansion_prompt
 from sydes.trace.expand import build_flow_expansion_prompt_from_context
+
+
+def test_run_llm_endpoint_discovery_builds_its_client_with_no_pinned_temperature(monkeypatch) -> None:
+    """Regression test for a real observed failure: route discovery used to
+    build its default client without `temperature=None`, which silently
+    pinned `settings.temperature` (0.0 by default) — a value some models
+    reject outright. The client-construction call must always pass
+    `temperature=None`, matching the same fix already applied to the impact
+    guide's client."""
+    captured: dict[str, object] = {}
+
+    class _StubClient:
+        def generate(self, request: LLMRequest) -> LLMResponse:
+            return LLMResponse(text='{"endpoints":[]}')
+
+    def _fake_create_default_llm_client(**kwargs):
+        captured.update(kwargs)
+        return _StubClient()
+
+    monkeypatch.setattr(
+        "sydes.discover.endpoints.create_default_llm_client", _fake_create_default_llm_client,
+    )
+
+    run_llm_endpoint_discovery(candidates=[], llm_client=None, model_spec=None)
+
+    assert "temperature" in captured
+    assert captured["temperature"] is None
 
 
 def test_build_endpoint_discovery_prompt_encodes_rules_and_grounding() -> None:

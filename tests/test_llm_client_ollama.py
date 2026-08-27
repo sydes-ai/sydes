@@ -292,6 +292,38 @@ def test_create_default_llm_client_supports_anthropic_from_model_spec(monkeypatc
     assert client.base_url == "https://api.anthropic.com/v1"
 
 
+def test_create_default_llm_client_without_explicit_temperature_pins_the_settings_default(
+    monkeypatch,
+) -> None:
+    """Documents the trap a real route-discovery failure fell into: a caller
+    that does not pass `temperature=None` silently gets `settings.temperature`
+    (0.0 by default) pinned onto the client — and a request that also omits
+    `temperature` then sends that pinned 0.0 to the provider, which some
+    models reject outright."""
+    monkeypatch.setenv("SYDES_LLM_PROVIDER", "ollama")
+    monkeypatch.setenv("SYDES_LLM_MODEL", "llama3.1:8b")
+    monkeypatch.delenv("SYDES_LLM_TEMPERATURE", raising=False)
+
+    client = create_default_llm_client()
+
+    assert client.temperature == 0.0
+
+
+def test_create_default_llm_client_with_temperature_none_pins_nothing(monkeypatch) -> None:
+    """The fix: a caller that explicitly passes `temperature=None` (as
+    `_build_impact_guide`, the new PR-semantic-analysis pass, and now
+    route discovery all do) gets a client with no pinned temperature at
+    all — the provider call can omit the parameter entirely rather than
+    guessing a value a given model might reject."""
+    monkeypatch.setenv("SYDES_LLM_PROVIDER", "ollama")
+    monkeypatch.setenv("SYDES_LLM_MODEL", "llama3.1:8b")
+    monkeypatch.delenv("SYDES_LLM_TEMPERATURE", raising=False)
+
+    client = create_default_llm_client(temperature=None)
+
+    assert client.temperature is None
+
+
 def test_openai_ignores_sydes_llm_base_url(monkeypatch) -> None:
     """OpenAI should not reuse SYDES_LLM_BASE_URL (reserved for Ollama)."""
     monkeypatch.setenv("SYDES_LLM_PROVIDER", "openai")

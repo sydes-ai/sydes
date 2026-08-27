@@ -98,6 +98,7 @@ from sydes.verify.models import (
     VerificationObligation,
 )
 from sydes.verify.obligations import derive_obligations
+from sydes.verify.pr_semantic_analysis import generate_pr_semantic_analysis
 from sydes.verify.runtime import infer_runtime_dependencies
 from sydes.verify.source_files import load_repo_files
 from sydes.verify.test_execution import ExecutionSettings, run_ci_suite
@@ -1121,6 +1122,28 @@ def analyze_change(
                 f"Changed source file `{path}` yielded no symbols: {reason}. "
                 "Downstream effects of this file are not established."
             )
+    # --- PR-level semantic analysis (Increment A) -------------------------
+    # A separate, complementary read of the change as a whole — never a
+    # replacement for the structural analysis below, and never able to
+    # affect it: `pr_semantic_analysis` is not read by anything past this
+    # point. Runs whenever general LLM use is enabled (`--llm-policy`, the
+    # same flag route discovery already checks) and works even when
+    # `change.symbols` is empty (a language/indexing gap) — it reasons from
+    # `change.files`/the diff either way.
+    if options.llm_policy != "never":
+        semantic_analysis, semantic_notes = generate_pr_semantic_analysis(
+            change=change, repo_root=primary_root, model_spec=options.model_spec,
+            llm_client=options.llm_client,
+        )
+        result.pr_semantic_analysis = semantic_analysis
+        result.diagnostics.extend(semantic_notes)
+        if semantic_analysis is None:
+            for note in semantic_notes:
+                if "unavailable" in note:
+                    result.analysis_notes.append(
+                        "PR semantic analysis unavailable: " + note.split(": ", 1)[-1]
+                    )
+
     reachers = build_reverse_reach_index(handler_index)
     candidate_files = _candidate_route_files(change, change.symbols, reachers)
     result.diagnostics.append(f"reverse_reach_candidate_files={len(candidate_files)}")

@@ -24,6 +24,7 @@ from sydes.verify.models import (
     VERIFICATION_UNVERIFIED,
     AcceptedImpact,
     AffectedFlow,
+    ChangeSemanticAnalysis,
     ChangeVerificationResult,
     VerificationObligation,
 )
@@ -493,6 +494,97 @@ def _flow_chain_lines(flow: AffectedFlow, changed_identities: set[str]) -> list[
     return out
 
 
+#: Roughly a handful, matching `_CHANGED_DEFAULT_CAP`'s own reasoning — the
+#: semantic pass is already asked for short lists, this just caps the
+#: concise report's rendering of them too.
+_CHANGE_ANALYSIS_DEFAULT_CAP = 5
+
+
+def _render_change_analysis_default(result: ChangeVerificationResult, lines: list[str]) -> None:
+    """The semantic perspective — hypotheses from one bounded PR-level LLM
+    read of the change, kept visibly distinct from "System impact" (which is
+    structural/evidence-backed). Nothing here was ever proven or verified;
+    see `ChangeSemanticAnalysis`. Omitted entirely when the pass did not run
+    or produced nothing — never rendered as an empty section, and never
+    confused with "no impact" (see `ANALYSIS COMPLETENESS`/diagnostics for
+    why it may be absent)."""
+    analysis = result.pr_semantic_analysis
+    if analysis is None:
+        return
+    if not (
+        analysis.change_summary or analysis.behavior_changes
+        or analysis.investigation_hints or analysis.uncertainties
+    ):
+        return
+    _header(lines, "CHANGE ANALYSIS")
+    if analysis.change_summary:
+        lines.append(analysis.change_summary)
+    if analysis.behavior_changes:
+        lines.append("")
+        lines.append("Likely behavioral changes")
+        for item in analysis.behavior_changes[:_CHANGE_ANALYSIS_DEFAULT_CAP]:
+            lines.append(f"  • {item.description}")
+    if analysis.investigation_hints:
+        lines.append("")
+        lines.append("Investigate")
+        for item in analysis.investigation_hints[:_CHANGE_ANALYSIS_DEFAULT_CAP]:
+            lines.append(f"  • {item.description}")
+    if analysis.uncertainties:
+        lines.append("")
+        lines.append("Uncertain")
+        for item in analysis.uncertainties[:_CHANGE_ANALYSIS_DEFAULT_CAP]:
+            lines.append(f"  • {item}")
+
+
+def _render_change_analysis_verbose(analysis: ChangeSemanticAnalysis, lines: list[str]) -> None:
+    """Fuller detail than the concise report's `CHANGE ANALYSIS` section:
+    evidence/confidence per behavior change, important symbols, investigation
+    hints with their concepts/boundary-type hints, and local risks — still
+    entirely `origin=ORIGIN_LLM_HYPOTHESIS`, never evidence."""
+    if analysis.change_summary:
+        lines.append(f"  {analysis.change_summary}")
+        lines.append("")
+    for item in analysis.behavior_changes:
+        confidence = f"{item.confidence:.2f}" if item.confidence is not None else "?.??"
+        lines.append(f"  [{confidence}] {item.description}")
+        if item.changed_symbols:
+            lines.append(f"      symbols: {', '.join(item.changed_symbols)}")
+        for evidence in item.evidence:
+            lines.append(f"      evidence: {evidence}")
+    if analysis.important_symbols:
+        lines.append("")
+        lines.append("  Important symbols:")
+        for item in analysis.important_symbols:
+            location = item.file or ""
+            if item.symbol:
+                location = f"{location}::{item.symbol}" if location else item.symbol
+            lines.append(f"    {location}  — {item.reason}")
+    if analysis.investigation_hints:
+        lines.append("")
+        lines.append("  Investigation hints:")
+        for item in analysis.investigation_hints:
+            lines.append(f"    {item.description}")
+            if item.related_symbols:
+                lines.append(f"        related: {', '.join(item.related_symbols)}")
+            if item.concepts:
+                lines.append(f"        concepts: {', '.join(item.concepts)}")
+            if item.likely_boundary_types:
+                lines.append(f"        likely boundary types: {', '.join(item.likely_boundary_types)}")
+    if analysis.likely_boundary_types:
+        lines.append("")
+        lines.append(f"  Likely boundary types (overall): {', '.join(analysis.likely_boundary_types)}")
+    if analysis.local_risks:
+        lines.append("")
+        lines.append("  Local risks:")
+        for risk in analysis.local_risks:
+            lines.append(f"    - {risk}")
+    if analysis.uncertainties:
+        lines.append("")
+        lines.append("  Uncertain:")
+        for item in analysis.uncertainties:
+            lines.append(f"    - {item}")
+
+
 def _render_system_impact_default(result: ChangeVerificationResult, lines: list[str]) -> None:
     """The core section: how the change propagates, using the structural
     trace/sink data Sydes already produced per flow — see `_flow_chain_lines`."""
@@ -824,6 +916,7 @@ def _render_default_report(result: ChangeVerificationResult) -> str:
     _render_headline_default(result, lines)
 
     _render_changed_default(result, lines)
+    _render_change_analysis_default(result, lines)
     _render_system_impact_default(result, lines)
     _render_inferred_impact_default(result, lines)
 
@@ -896,6 +989,10 @@ def _render_verbose_report(result: ChangeVerificationResult) -> str:
         lines.append(
             f"    {symbol.qualified_name or symbol.name}  ({symbol.kind})  {symbol.file}:{symbol.start_line}"
         )
+
+    if result.pr_semantic_analysis is not None:
+        _section(lines, "CHANGE ANALYSIS (semantic hypothesis; not structural evidence)")
+        _render_change_analysis_verbose(result.pr_semantic_analysis, lines)
 
     _section(lines, "AFFECTED BEHAVIOR")
     _render_affected_behavior(result, lines, verbose=verbose)

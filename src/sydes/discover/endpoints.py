@@ -694,6 +694,13 @@ def run_llm_endpoint_discovery(
             llm_client = create_default_llm_client(
                 model_spec=model_spec,
                 timeout_seconds_override=model_timeout_seconds,
+                # No pinned temperature: some models reject an explicit value
+                # (e.g. one observed rejecting 0.0, accepting only their own
+                # default) — matching the same fix already applied to the
+                # impact guide's client (`_build_impact_guide` in
+                # `verify/analyzer.py`). The request below already omits
+                # `temperature` too, so neither layer reintroduces 0.0.
+                temperature=None,
                 stage="route_discovery",
             )
         except LLMClientError as exc:

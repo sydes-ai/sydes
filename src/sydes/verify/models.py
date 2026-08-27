@@ -71,6 +71,19 @@ ORIGIN_TRACE_STEP = "trace_step"
 ORIGIN_CROSS_REPO_LINK = "cross_repo_link"
 ORIGIN_LLM_HYPOTHESIS = "llm_hypothesis"
 
+# Fixed, small, forward-looking vocabulary for `ChangeSemanticAnalysis`'
+# boundary-type hints. These are hints for *later* boundary discovery only —
+# this task never performs boundary discovery from them.
+BOUNDARY_TYPE_API = "api"
+BOUNDARY_TYPE_CALLABLE = "callable"
+BOUNDARY_TYPE_ASYNC = "async"
+BOUNDARY_TYPE_EXTERNAL = "external"
+BOUNDARY_TYPE_UNKNOWN = "unknown"
+SEMANTIC_BOUNDARY_TYPES = frozenset({
+    BOUNDARY_TYPE_API, BOUNDARY_TYPE_CALLABLE, BOUNDARY_TYPE_ASYNC,
+    BOUNDARY_TYPE_EXTERNAL, BOUNDARY_TYPE_UNKNOWN,
+})
+
 # How complete the shared analysis was for a flow. Kept separate from
 # verification status: not knowing about a downstream effect is not the same as
 # there being none.
@@ -436,6 +449,64 @@ class VerificationGap(BaseModel):
     evidence: list[EvidenceRef] = Field(default_factory=list)
 
 
+class SemanticBehaviorChange(BaseModel):
+    """One behavior the PR-level semantic pass believes changed.
+
+    A hypothesis, not a proven impact — see `ChangeSemanticAnalysis`."""
+
+    description: str
+    changed_symbols: list[str] = Field(default_factory=list)
+    evidence: list[str] = Field(default_factory=list)
+    #: The model's own self-assessment, same convention as
+    #: `AcceptedImpact.llm_confidence` — never a verification confidence.
+    confidence: float | None = None
+
+
+class SemanticKeySymbol(BaseModel):
+    """One changed symbol/file the semantic pass judges most worth
+    attention, and why — not a claim that it was structurally reached."""
+
+    repo: str | None = None
+    file: str | None = None
+    symbol: str | None = None
+    reason: str
+
+
+class SemanticInvestigationHint(BaseModel):
+    """A pointer for structural analysis to look at — never itself a
+    discovered boundary. `likely_boundary_types` values are restricted to
+    `SEMANTIC_BOUNDARY_TYPES`."""
+
+    description: str
+    related_symbols: list[str] = Field(default_factory=list)
+    concepts: list[str] = Field(default_factory=list)
+    likely_boundary_types: list[str] = Field(default_factory=list)
+
+
+class ChangeSemanticAnalysis(BaseModel):
+    """One bounded, PR-level LLM read of the change as a whole — the
+    semantic perspective, complementary to (never a replacement for) Sydes'
+    structural/CBM analysis.
+
+    Everything here is `origin=ORIGIN_LLM_HYPOTHESIS`: it can never create a
+    PROVEN/INFERRED impact, an `AffectedFlow`, a `VerificationObligation`, or
+    move a verdict toward VERIFIED — see `sydes.verify.pr_semantic_analysis`
+    for the boundary this is deliberately kept on the far side of. It exists
+    to give a reviewer (and later, structural reconciliation) a starting
+    read of the change and where to look, never a claim about what was
+    actually found in the running system.
+    """
+
+    origin: str = ORIGIN_LLM_HYPOTHESIS
+    change_summary: str = ""
+    behavior_changes: list[SemanticBehaviorChange] = Field(default_factory=list)
+    important_symbols: list[SemanticKeySymbol] = Field(default_factory=list)
+    investigation_hints: list[SemanticInvestigationHint] = Field(default_factory=list)
+    likely_boundary_types: list[str] = Field(default_factory=list)
+    local_risks: list[str] = Field(default_factory=list)
+    uncertainties: list[str] = Field(default_factory=list)
+
+
 class RuntimeDependency(BaseModel):
     """Dependency that must be running/reachable to exercise affected behavior.
 
@@ -479,6 +550,12 @@ class ChangeVerificationResult(BaseModel):
     #: it, but this list is the complete "what did Sydes find" answer, so no
     #: accepted impact can be visible in one place and missing from another.
     accepted_impacts: list[AcceptedImpact] = Field(default_factory=list)
+    #: One bounded, PR-level semantic read of the change — always
+    #: `origin=ORIGIN_LLM_HYPOTHESIS`, `None` when the pass did not run or
+    #: could not produce a usable result (see `analysis_notes`/`diagnostics`
+    #: for why). Never contributes to `accepted_impacts`, `affected_flows`,
+    #: obligations, or `summary.verdict` — see `ChangeSemanticAnalysis`.
+    pr_semantic_analysis: ChangeSemanticAnalysis | None = None
     affected_flows: list[AffectedFlow] = Field(default_factory=list)
     #: Changed symbols the deterministic impact interpreter never reached any
     #: entrypoint from (`ImpactResult.unresolved`, cbm backend only) — set by
