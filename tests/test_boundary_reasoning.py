@@ -467,6 +467,106 @@ def test_an_established_boundary_is_never_duplicated_as_inferred() -> None:
 
 
 # --------------------------------------------------------------------------
+# Precision hardening: production-boundary ELIGIBILITY is distinct from
+# evidence GROUNDING. A real changed test symbol can satisfy grounding
+# (it is a genuine changed symbol) while still being categorically invalid
+# as an inferred production boundary. This reuses the exact same C.1
+# `is_production_boundary_candidate` predicate boundary_discovery already
+# applies deterministically — never a second, drifting implementation.
+# --------------------------------------------------------------------------
+
+def test_a_grounded_changed_test_symbol_is_rejected_as_a_boundary() -> None:
+    """The exact real-PR failure shape this patch targets: a test symbol is
+    a real changed symbol (so it satisfies grounding) but must never itself
+    become the inferred production boundary."""
+    boundaries, _notes = run(
+        CountingClient(_response(_boundary(
+            "api", subtype="route_registration", symbol="TestLogout",
+            file="app/tests/handler_test.go", changed_symbols=["TestLogout"],
+            label="logout route",
+        ))),
+        change=change_set("TestLogout", file="app/tests/handler_test.go"),
+    )
+
+    assert boundaries == []
+
+
+def test_test_file_with_api_looking_output_is_rejected() -> None:
+    """Even when the symbol name itself gives no test-naming hint, a file
+    resolved to a test path must still exclude it as a boundary identity."""
+    boundaries, _notes = run(
+        CountingClient(_response(_boundary(
+            "api", subtype="route_registration", symbol="handleLogin",
+            file="app/tests/handler_test.go", changed_symbols=["handleLogin"],
+        ))),
+        change=change_set("handleLogin", file="app/tests/handler_test.go"),
+    )
+
+    assert boundaries == []
+
+
+def test_main_remains_rejected_as_an_inferred_boundary() -> None:
+    boundaries, _notes = run(
+        CountingClient(_response(_boundary(
+            "callable", subtype="service", symbol="main",
+            file="app/cmd/bin.py", changed_symbols=["main"],
+        ))),
+        change=change_set("main", file="app/cmd/bin.py"),
+    )
+
+    assert boundaries == []
+
+
+def test_eligible_production_route_registration_symbol_survives() -> None:
+    boundaries, _notes = run(CountingClient(_response(
+        _boundary("api", subtype="route_registration", symbol="handler", file="app/svc.py"),
+    )))
+
+    assert len(boundaries) == 1
+    assert boundaries[0].symbol == "handler"
+
+
+def test_eligible_production_callable_symbol_survives() -> None:
+    boundaries, _notes = run(CountingClient(_response(
+        _boundary("callable", subtype="service", symbol="handler", file="app/svc.py"),
+    )))
+
+    assert len(boundaries) == 1
+    assert boundaries[0].symbol == "handler"
+
+
+def test_grouped_boundary_with_production_symbols_survives() -> None:
+    """No single concrete `symbol`/`file` — eligibility falls back to
+    resolving `changed_symbols` against the packet's own known facts."""
+    boundaries, _notes = run(
+        CountingClient(_response(_boundary(
+            "callable", subtype="service", symbol="", file="",
+            changed_symbols=["helper", "helper_two"],
+            supporting_evidence=["helper and helper_two changed together"],
+        ))),
+        change=change_set("helper", "helper_two", file="app/svc.py"),
+    )
+
+    assert len(boundaries) == 1
+    assert boundaries[0].changed_symbols == ["helper", "helper_two"]
+
+
+def test_grouped_boundary_whose_only_concrete_symbols_are_tests_is_rejected() -> None:
+    """A grouped/label-only boundary must not survive by hiding a test
+    symbol behind `changed_symbols` instead of `symbol`/`file`."""
+    boundaries, _notes = run(
+        CountingClient(_response(_boundary(
+            "callable", subtype="service", symbol="", file="",
+            changed_symbols=["test_thing"],
+            supporting_evidence=["test_thing changed"],
+        ))),
+        change=change_set("test_thing", file="app/tests/thing_test.py"),
+    )
+
+    assert boundaries == []
+
+
+# --------------------------------------------------------------------------
 # 11. Failure behavior
 # --------------------------------------------------------------------------
 

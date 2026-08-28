@@ -433,8 +433,71 @@ def _is_evidence_grounded(
     return False
 
 
+def _known_symbol_files(packet: dict[str, Any]) -> dict[str, str]:
+    """symbol name (lowercased) -> file, from the exact same packet facts
+    `_grounded_evidence_tokens` already draws on. Used only to resolve a
+    *grouped* boundary's `changed_symbols` entries (bare names, no file) to
+    a file `is_production_boundary_candidate` can actually check."""
+    mapping: dict[str, str] = {}
+
+    def _add(symbol: str | None, file: str | None) -> None:
+        if symbol and symbol.lower() not in mapping:
+            mapping[symbol.lower()] = file or ""
+
+    for candidate in packet.get("boundary_candidates", []):
+        _add(candidate.get("symbol"), candidate.get("file"))
+    for changed in packet.get("changed_symbols", []):
+        _add(changed.get("symbol"), changed.get("file"))
+    for snippet in packet.get("relevant_source_snippets", []):
+        _add(snippet.get("symbol"), snippet.get("file"))
+    return mapping
+
+
+def _is_production_eligible(
+    *,
+    symbol: str,
+    file: str,
+    changed_symbols: list[str],
+    repo: str,
+    facts: StructuralFacts,
+    known_symbol_files: dict[str, str],
+) -> bool:
+    """Boundary ELIGIBILITY, not evidence grounding — a test symbol can be a
+    real changed symbol (and so satisfy `_is_evidence_grounded`) while still
+    being categorically invalid as a production boundary.
+
+    Reuses `is_production_boundary_candidate` — the exact same C.1
+    exclusion `boundary_discovery`'s own deterministic traversal already
+    applies to every candidate it considers — rather than a second,
+    independently-drifting test/`main` check. A test symbol may still
+    appear in `supporting_evidence`; it can never BE the boundary.
+
+    Concrete `symbol`/`file`: checked directly. Grouped boundary (a label
+    with no single resolvable symbol): eligible if AT LEAST ONE of
+    `changed_symbols` resolves (via the packet's own facts) to an eligible
+    production identity — never if the only symbols we can resolve are all
+    test-only. A `changed_symbols` entry this packet never mentioned at all
+    cannot be checked either way and does not by itself block the group.
+    """
+    if symbol:
+        identity = _identity_of(repo, file, symbol)
+        return is_production_boundary_candidate(identity, facts)
+
+    resolved: list[bool] = []
+    for name in changed_symbols:
+        known_file = known_symbol_files.get(name.lower())
+        if known_file is None:
+            continue  # not one of our own supplied facts; cannot be checked
+        identity = _identity_of(repo, known_file, name)
+        resolved.append(is_production_boundary_candidate(identity, facts))
+    if not resolved:
+        return True  # nothing resolvable to check — do not block on this rule alone
+    return any(resolved)
+
+
 def _parse_boundary(
     raw: Any, *, repo: str, position: int, grounded_tokens: frozenset[str],
+    facts: StructuralFacts, known_symbol_files: dict[str, str],
 ) -> AffectedBoundary | None:
     """Parse one inferred boundary conservatively. A malformed entry is
     dropped rather than coerced — an inference Sydes cannot read is not an
@@ -464,6 +527,11 @@ def _parse_boundary(
         for item in (raw.get("supporting_evidence") or [])
         if isinstance(item, str) and item.strip()
     ][:6]
+    changed_symbols = [
+        str(item).strip()
+        for item in (raw.get("changed_symbols") or [])
+        if isinstance(item, str) and item.strip()
+    ][:6]
     # Increment D.1's central discipline: "template renders new form fields"
     # is a real affected behavior, but it is not itself a boundary unless
     # something concrete supplied actually crosses one. A repo-context fact
@@ -471,11 +539,16 @@ def _parse_boundary(
     if not _is_evidence_grounded(symbol=symbol, supporting_evidence=evidence,
                                   grounded_tokens=grounded_tokens):
         return None
-    changed_symbols = [
-        str(item).strip()
-        for item in (raw.get("changed_symbols") or [])
-        if isinstance(item, str) and item.strip()
-    ][:6]
+    # Grounding is not eligibility: a real changed test symbol can satisfy
+    # the check above while still being categorically invalid as a
+    # production boundary (e.g. TestLogout). Reuses the exact same C.1
+    # production-boundary predicate boundary_discovery applies deterministically
+    # — never a second, independently-drifting test/main exclusion.
+    if not _is_production_eligible(
+        symbol=symbol, file=file, changed_symbols=changed_symbols,
+        repo=repo, facts=facts, known_symbol_files=known_symbol_files,
+    ):
+        return None
     return AffectedBoundary(
         id=f"boundary:inferred:{kind}:{repo}:{symbol or label}:{position}",
         kind=kind,
@@ -497,6 +570,7 @@ def _parse_boundary(
 
 def parse_inferred_boundaries(
     raw: dict[str, Any], *, repo: str, deterministic: list[AffectedBoundary],
+    facts: StructuralFacts,
     packet: dict[str, Any] | None = None,
 ) -> list[AffectedBoundary]:
     """Parse, validate and de-duplicate one boundary-reasoning response.
@@ -509,11 +583,13 @@ def parse_inferred_boundaries(
     """
     established = _deterministic_keys(deterministic)
     grounded_tokens = _grounded_evidence_tokens(packet or {})
+    known_symbol_files = _known_symbol_files(packet or {})
     out: list[AffectedBoundary] = []
     seen: set[tuple[str, str]] = set()
     for position, item in enumerate(raw.get("inferred_boundaries") or []):
         boundary = _parse_boundary(
             item, repo=repo, position=position, grounded_tokens=grounded_tokens,
+            facts=facts, known_symbol_files=known_symbol_files,
         )
         if boundary is None:
             continue
@@ -586,7 +662,7 @@ def infer_boundaries(
         return [], ["boundary_reasoning unavailable: model output was not valid JSON."]
 
     boundaries = parse_inferred_boundaries(
-        raw, repo=repo, deterministic=deterministic_boundaries, packet=packet,
+        raw, repo=repo, deterministic=deterministic_boundaries, facts=facts, packet=packet,
     )
     return boundaries, [
         f"boundary_reasoning: candidates={len(packet['boundary_candidates'])} "

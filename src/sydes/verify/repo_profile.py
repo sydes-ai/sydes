@@ -272,25 +272,51 @@ class RepoProfile:
         nothing at all are omitted rather than padding the result, and the
         result is de-duplicated by `key` so one package cannot contribute
         the same fact twice.
+
+        Two precision rules on top of that scoring, both budget-motivated —
+        the retrieval budget (`limit`) is small, so unrelated facts must not
+        consume it:
+
+        - A path-scoped fact earns relevance ONLY through real path
+          containment (exact match or the query file living inside it).
+          Token/concept overlap alone never surfaces a path-scoped fact:
+          sibling packages routinely share lexical tokens (a parent
+          directory name, a common word in their manifests) with zero
+          genuine relationship to the change.
+        - A fact whose path is itself a test/tooling area (by the package's
+          own recorded role, or — since a nested fixture package can
+          legitimately declare itself "library" in its own manifest while
+          still living under a recognized test/tooling root — by the same
+          `classify_candidate_file_role`/tooling-directory convention used
+          when this profile was built) is excluded unless the query's own
+          files are themselves in a test/tooling area. A change under
+          `packages/core` must not spend its small retrieval budget on
+          `packages/dashboard/vite/tests/fixtures-esm`; a change to a file
+          inside that fixtures package may still see its own facts.
         """
         files = [item for item in (files or []) if item]
         query_tokens = _tokens(" ".join((symbols or []) + (concepts or [])))
+        query_touches_test_or_tooling = any(
+            _looks_like_test_or_tooling_path(file) for file in files
+        )
 
         scored: list[tuple[float, int, RepoFact]] = []
         for position, fact in enumerate(self.all_facts()):
-            score = 0.0
-            # A path-scoped fact earns relevance only through real path
-            # containment. Incidental token overlap deliberately does not
-            # count here: sibling packages share their parent directory's
-            # name (`packages/core` vs `packages/admin-ui`), so token
-            # overlap on a path would make every sibling look relevant to
-            # every change.
+            containment = 0.0
             if fact.path:
                 for file in files:
                     if file == fact.path:
-                        score += 10.0  # exact file match
+                        containment = max(containment, 10.0)  # exact file match
                     elif file.startswith(fact.path.rstrip("/") + "/"):
-                        score += 6.0  # containing package/workspace
+                        containment = max(containment, 6.0)  # containing package/workspace
+                if containment <= 0:
+                    continue  # no genuine containment — never rank on lexical overlap alone
+                if (
+                    not query_touches_test_or_tooling
+                    and _is_test_or_tooling_area(fact.path, self.packages)
+                ):
+                    continue  # small budget must not go to unrelated test/tooling facts
+            score = containment
             # Symbol/concept overlap against the fact's own text — this is
             # what lets a non-path fact (a framework) match at all.
             score += 1.5 * len(_tokens(f"{fact.value} {fact.key}") & query_tokens)
@@ -312,6 +338,45 @@ class RepoProfile:
             if len(out) >= limit:
                 break
         return out
+
+
+def _looks_like_test_or_tooling_path(path: str) -> bool:
+    """Path-shape check reusing the exact same conventions `build_repo_profile`
+    already applies (the shared file-role classifier, and the tooling
+    directory-name vocabulary) — no new blacklist, just applied to a full
+    path's segments rather than only a folder's own name."""
+    if not path:
+        return False
+    if classify_candidate_file_role(f"{path.rstrip('/')}/x") == FILE_ROLE_TEST_USAGE_CANDIDATE:
+        return True
+    return any(part.lower() in _TOOLING_DIR_NAMES for part in Path(path).parts)
+
+
+def _package_role_for_path(packages: list["RepoPackage"], path: str) -> str:
+    """The role of the most specific known package containing `path`, or
+    `unknown` if none does."""
+    best_role = ROLE_UNKNOWN
+    best_len = -1
+    for package in packages:
+        if not package.path:
+            continue
+        if path == package.path or path.startswith(package.path.rstrip("/") + "/"):
+            if len(package.path) > best_len:
+                best_len = len(package.path)
+                best_role = package.role
+    return best_role
+
+
+def _is_test_or_tooling_area(path: str, packages: list["RepoPackage"]) -> bool:
+    """Whether `path` belongs to a test/tooling area — by the owning
+    package's own recorded role first (the strongest signal, from its
+    manifest or layout), falling back to path-shape when no package's role
+    says so. A nested fixture package can declare itself "library" in its
+    own manifest while still living under a recognized test/tooling root;
+    the fallback catches that without needing extraction changes."""
+    if _package_role_for_path(packages, path) in (ROLE_TESTS, ROLE_TOOLING):
+        return True
+    return _looks_like_test_or_tooling_path(path)
 
 
 def _tokens(text: str) -> frozenset[str]:

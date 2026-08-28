@@ -25,6 +25,7 @@ from sydes.verify.repo_profile import (
     ROLE_FRONTEND,
     ROLE_LIBRARY,
     ROLE_TESTS,
+    ROLE_TOOLING,
     ROLE_UNKNOWN,
     RepoFact,
     RepoPackage,
@@ -437,6 +438,107 @@ def test_lookup_omits_unknown_roles_and_respects_the_cap_without_duplicates() ->
 
 def test_lookup_returns_nothing_when_no_fact_is_relevant() -> None:
     profile = _profile_with_packages()
+
+    assert profile.lookup(files=["totally/unrelated/path.rb"], limit=5) == []
+
+
+# --------------------------------------------------------------------------
+# Precision hardening: lookup() must not spend its small retrieval budget on
+# unrelated test/tooling/fixture facts, and sibling packages must not rank
+# via lexical overlap alone.
+# --------------------------------------------------------------------------
+
+def _profile_with_test_and_tooling_packages() -> RepoProfile:
+    return RepoProfile(
+        repo_identity=REPO,
+        packages=[
+            RepoPackage(path="packages/core", name="core", role=ROLE_BACKEND,
+                        manifest="packages/core/package.json"),
+            RepoPackage(path="packages/dashboard", name="dashboard", role=ROLE_FRONTEND,
+                        manifest="packages/dashboard/package.json"),
+            # A nested fixture package that declares itself "library" in its
+            # own manifest despite living under a recognized test root —
+            # the case existing package-role data alone would get wrong.
+            RepoPackage(path="packages/dashboard/vite/tests/fixtures-esm", name="fixtures-esm",
+                        role=ROLE_LIBRARY, kind="publishable",
+                        manifest="packages/dashboard/vite/tests/fixtures-esm/package.json"),
+            RepoPackage(path="packages/tools/lint", name="lint", role=ROLE_TOOLING,
+                        manifest="packages/tools/lint/package.json"),
+        ],
+        public_surface_hints=[
+            RepoFact(key="public_surface:packages/core", value="is a publishable library package",
+                     source="manifest", confidence=CONFIDENCE_STRONG, path="packages/core"),
+        ],
+    )
+
+
+def test_production_file_returns_containing_package_role_first() -> None:
+    profile = _profile_with_test_and_tooling_packages()
+
+    found = profile.lookup(files=["packages/core/src/service/foo.ts"], limit=5)
+
+    assert found
+    assert found[0].path == "packages/core"
+    assert "backend" in found[0].value
+
+
+def test_unrelated_test_fixture_package_is_not_returned() -> None:
+    profile = _profile_with_test_and_tooling_packages()
+
+    found = profile.lookup(files=["packages/core/src/service/foo.ts"], limit=5)
+
+    assert all("fixtures-esm" not in item.path for item in found)
+
+
+def test_unrelated_tooling_package_is_not_returned() -> None:
+    profile = _profile_with_test_and_tooling_packages()
+
+    found = profile.lookup(files=["packages/core/src/service/foo.ts"], limit=5)
+
+    assert all("tools/lint" not in item.path for item in found)
+
+
+def test_queried_test_file_can_retrieve_its_own_test_package_facts() -> None:
+    profile = _profile_with_test_and_tooling_packages()
+
+    found = profile.lookup(
+        files=["packages/dashboard/vite/tests/fixtures-esm/index.ts"], limit=5,
+    )
+
+    assert any("fixtures-esm" in item.path for item in found)
+
+
+def test_sibling_package_without_containment_does_not_outrank_containing_package() -> None:
+    profile = _profile_with_test_and_tooling_packages()
+
+    found = profile.lookup(
+        files=["packages/core/src/service/foo.ts"], concepts=["dashboard frontend"], limit=5,
+    )
+
+    assert found[0].path == "packages/core"
+    assert all(item.path != "packages/dashboard" for item in found)
+
+
+def test_public_surface_fact_for_containing_package_survives() -> None:
+    profile = _profile_with_test_and_tooling_packages()
+
+    found = profile.lookup(files=["packages/core/src/api.py"], limit=5)
+
+    assert any(item.key == "public_surface:packages/core" for item in found)
+
+
+def test_limit_and_dedup_are_unchanged_by_the_new_filtering() -> None:
+    profile = _profile_with_test_and_tooling_packages()
+
+    found = profile.lookup(
+        files=["packages/core/a.py", "packages/core/b.py"], limit=1,
+    )
+
+    assert len(found) == 1
+
+
+def test_zero_result_behavior_remains_conservative_with_new_filtering() -> None:
+    profile = _profile_with_test_and_tooling_packages()
 
     assert profile.lookup(files=["totally/unrelated/path.rb"], limit=5) == []
 
