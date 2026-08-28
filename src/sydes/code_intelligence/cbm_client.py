@@ -575,6 +575,60 @@ class CBMClient:
             columns=4, order_by="a.qualified_name, b.qualified_name",
         )
 
+    # -- bounded, seed-scoped sweeps ---------------------------------------
+    #
+    # `all_call_edges`/`all_usage_edges` above sweep the *entire* repository's
+    # graph — the right choice for a full structural build, but on a large
+    # repository the SKIP/LIMIT pagination it requires is expensive per page
+    # and the page count itself grows with repository size (see the D.2
+    # graph-slice prototype notes). These two methods are the bounded
+    # alternative: scoped to an explicit seed set via a Cypher `IN` list,
+    # so the result is proportional to the *neighborhood*, not the repository.
+    # A single call already batches every seed in `seed_qualified_names`
+    # together — CBM's `query_graph` has no native multi-seed primitive, but
+    # nothing stops Sydes from writing the `WHERE ... IN [...]` itself.
+
+    def call_edges_for_seeds(
+        self, project: str, seed_qualified_names: list[str], *, limit: int = 1000,
+    ) -> list[list[str]]:
+        """CALLS edges where either endpoint's qualified name is in
+        `seed_qualified_names` — a bounded, seed-scoped alternative to
+        `all_call_edges`. Single page, capped by `limit`; the caller (typically
+        `graph_slice.build_graph_slice`) is responsible for hop budgeting."""
+        if not seed_qualified_names:
+            return []
+        seeds = _qualified_list_literal(seed_qualified_names)
+        query = (
+            "MATCH (a)-[:CALLS]->(b) WHERE a.file_path <> '' AND b.file_path <> '' "
+            f"AND (a.qualified_name IN {seeds} OR b.qualified_name IN {seeds}) "
+            "RETURN a.qualified_name, a.file_path, a.start_line, "
+            "b.qualified_name, b.file_path, b.start_line "
+            f"ORDER BY a.qualified_name, a.start_line, b.qualified_name LIMIT {int(limit)}"
+        )
+        rows, malformed = parse_rows(self._query_graph(project, query), columns=6)
+        self.malformed_rows += malformed
+        return rows
+
+    def usage_edges_for_seeds(
+        self, project: str, seed_qualified_names: list[str], *, limit: int = 1000,
+    ) -> list[list[str]]:
+        """USAGE edges where either endpoint's qualified name is in
+        `seed_qualified_names` — the bounded, seed-scoped alternative to
+        `all_usage_edges`. Same single-page/caller-budgets-hops contract as
+        `call_edges_for_seeds`."""
+        if not seed_qualified_names:
+            return []
+        seeds = _qualified_list_literal(seed_qualified_names)
+        query = (
+            "MATCH (a)-[:USAGE]->(b) WHERE a.file_path <> '' AND b.file_path <> '' "
+            f"AND (a.qualified_name IN {seeds} OR b.qualified_name IN {seeds}) "
+            "RETURN a.qualified_name, a.file_path, b.qualified_name, b.file_path "
+            f"ORDER BY a.qualified_name, b.qualified_name LIMIT {int(limit)}"
+        )
+        rows, malformed = parse_rows(self._query_graph(project, query), columns=4)
+        self.malformed_rows += malformed
+        return rows
+
     def decorated_symbols(self, project: str, *, page_size: int = 500) -> list[dict[str, Any]]:
         """Symbols carrying route metadata or decorator source.
 
@@ -650,6 +704,13 @@ class CBMClient:
 def _escape(value: str) -> str:
     """Neutralise quotes in an identifier interpolated into a query."""
     return value.replace("\\", "\\\\").replace("'", "\\'")
+
+
+def _qualified_list_literal(values: list[str]) -> str:
+    """A Cypher list literal for a seed set, e.g. `['a.b', 'c.d']` — this is
+    what lets one `query_graph` call batch every seed together rather than
+    issuing one call per seed."""
+    return "[" + ", ".join(f"'{_escape(str(value))}'" for value in values) + "]"
 
 
 def _search_rows(payload: dict[str, Any]) -> tuple[list[dict[str, Any]], bool]:

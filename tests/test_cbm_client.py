@@ -234,6 +234,75 @@ def test_malformed_rows_are_counted_on_the_client() -> None:
 
 
 # --------------------------------------------------------------------------
+# Bounded, seed-scoped sweeps (the graph-slice prototype)
+# --------------------------------------------------------------------------
+
+
+def test_call_edges_for_seeds_batches_every_seed_into_one_query() -> None:
+    """One call, not one per seed — the seed list becomes a Cypher IN list."""
+    session = FakeSession({"query_graph": {"rows": []}})
+    client = CBMClient(session)
+
+    client.call_edges_for_seeds("proj", ["app.a", "app.b", "app.c"], limit=50)
+
+    assert len(session.calls) == 1
+    query = session.calls[0][1]["query"]
+    assert "app.a" in query and "app.b" in query and "app.c" in query
+    assert "LIMIT 50" in query
+
+
+def test_call_edges_for_seeds_matches_either_endpoint() -> None:
+    payload = {"rows": [["app.caller", "app/a.py", "1", "app.b", "app/b.py", "2"]]}
+    session = FakeSession({"query_graph": payload})
+    client = CBMClient(session)
+
+    rows = client.call_edges_for_seeds("proj", ["app.b"])
+
+    assert rows == [["app.caller", "app/a.py", "1", "app.b", "app/b.py", "2"]]
+
+
+def test_call_edges_for_seeds_with_no_seeds_makes_no_call() -> None:
+    session = FakeSession({"query_graph": {"rows": []}})
+    client = CBMClient(session)
+
+    rows = client.call_edges_for_seeds("proj", [])
+
+    assert rows == []
+    assert session.calls == []
+
+
+def test_usage_edges_for_seeds_batches_every_seed_into_one_query() -> None:
+    session = FakeSession({"query_graph": {"rows": []}})
+    client = CBMClient(session)
+
+    client.usage_edges_for_seeds("proj", ["app.x", "app.y"], limit=25)
+
+    assert len(session.calls) == 1
+    query = session.calls[0][1]["query"]
+    assert "USAGE" in query
+    assert "app.x" in query and "app.y" in query
+    assert "LIMIT 25" in query
+
+
+def test_usage_edges_for_seeds_with_no_seeds_makes_no_call() -> None:
+    session = FakeSession({"query_graph": {"rows": []}})
+    client = CBMClient(session)
+
+    assert client.usage_edges_for_seeds("proj", []) == []
+    assert session.calls == []
+
+
+def test_seed_scoped_queries_escape_quotes_in_seed_names() -> None:
+    session = FakeSession({"query_graph": {"rows": []}})
+    client = CBMClient(session)
+
+    client.call_edges_for_seeds("proj", ["app.o'brien"])
+
+    query = session.calls[0][1]["query"]
+    assert "app.o\\'brien" in query
+
+
+# --------------------------------------------------------------------------
 # Higher-level tools are preferred over raw Cypher
 # --------------------------------------------------------------------------
 

@@ -30,6 +30,7 @@ Output shape written under `SYDES_TRACE_DIR`::
     impact_decisions.jsonl        one line per impact candidate/finding decision
     verification_decisions.jsonl  one line per obligation/flow verification-modeling decision
     test_decisions.jsonl          one line per obligation's test-execution outcome
+    graph_slices.jsonl            one line per bounded GraphSlice build (seeds/calls/caps/truncation)
     raw/llm/<call_id>.json        full prompt+response for one LLM call
     raw/cbm/<call_id>.json        full raw CBM response for one CBM call
 
@@ -56,9 +57,11 @@ _CBM_CALLS = "cbm_calls.jsonl"
 _IMPACT_DECISIONS = "impact_decisions.jsonl"
 _VERIFICATION_DECISIONS = "verification_decisions.jsonl"
 _TEST_DECISIONS = "test_decisions.jsonl"
+_GRAPH_SLICES = "graph_slices.jsonl"
 
 _JSONL_FILES = (
     _LLM_CALLS, _CBM_CALLS, _IMPACT_DECISIONS, _VERIFICATION_DECISIONS, _TEST_DECISIONS,
+    _GRAPH_SLICES,
 )
 
 
@@ -294,6 +297,31 @@ def record_cbm_call(
         "error": error,
         "result_summary": _sanitize(result_summary),
         "raw_path": raw_path,
+    })
+
+
+def record_graph_slice(
+    *, seed_symbols: list[str], graph_calls_used: int, node_count: int, edge_count: int,
+    truncated: bool, truncation_reason: str | None, depth_reached: int,
+    remote_calls_avoided: int | None = None,
+) -> None:
+    """One bounded `GraphSlice` build (`code_intelligence.graph_slice`): how
+    many seeds it started from, how many CBM `query_graph` calls it actually
+    spent, the resulting node/edge counts, whether a cap was hit, and — when
+    computable — an estimate of the whole-repository-sweep calls this avoided.
+    Purely descriptive: never influences the slice itself."""
+    if not is_enabled():
+        return
+    _append_jsonl(_GRAPH_SLICES, {
+        "timestamp": _now_iso(),
+        "seed_symbols": _sanitize(seed_symbols),
+        "graph_calls_used": graph_calls_used,
+        "node_count": node_count,
+        "edge_count": edge_count,
+        "truncated": truncated,
+        "truncation_reason": truncation_reason,
+        "depth_reached": depth_reached,
+        "remote_calls_avoided": remote_calls_avoided,
     })
 
 
