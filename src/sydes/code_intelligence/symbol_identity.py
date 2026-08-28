@@ -32,6 +32,8 @@ from dataclasses import dataclass, field
 from typing import Any
 
 __all__ = [
+    "SEED_KIND_CHANGED",
+    "SEED_KIND_ROUTE",
     "SeedRequest",
     "SeedResolution",
     "build_symbol_identity_index",
@@ -45,6 +47,15 @@ __all__ = [
 MAX_IDENTITIES_PER_SEED = 4
 
 
+#: A seed that is part of the change itself. Failing to resolve one is a
+#: genuine hole in what was explored.
+SEED_KIND_CHANGED = "changed"
+#: An auxiliary seed offered to widen route-flow tracing. Failing to resolve
+#: one costs some outbound route coverage but does not bound the change's own
+#: impact analysis.
+SEED_KIND_ROUTE = "route"
+
+
 @dataclass(frozen=True)
 class SeedRequest:
     """One thing to seed a graph slice from, with whatever identity evidence
@@ -55,6 +66,9 @@ class SeedRequest:
     file: str | None = None
     #: Sydes' display-qualified form (`Class.method`), when it has one.
     qualified_name: str | None = None
+    #: Why this seed exists. Only affects how an unresolved seed is
+    #: *reported* — never how it is resolved.
+    kind: str = SEED_KIND_CHANGED
 
 
 @dataclass
@@ -63,6 +77,14 @@ class SeedResolution:
 
     canonical: list[str] = field(default_factory=list)
     unresolved: list[str] = field(default_factory=list)
+    #: The subset of `unresolved` that came from the change itself. Kept
+    #: apart from auxiliary route seeds because the two mean different
+    #: things: an unresolved changed symbol is a hole in what was explored,
+    #: while an unresolved route alias only costs some outbound route
+    #: coverage. Conflating them made a run whose changed symbols all
+    #: resolved look degraded.
+    unresolved_changed: list[str] = field(default_factory=list)
+    unresolved_auxiliary: list[str] = field(default_factory=list)
     #: seed label -> the identities it expanded to, when more than one.
     ambiguous: dict[str, list[str]] = field(default_factory=dict)
 
@@ -213,5 +235,9 @@ def resolve_seed_identities(
                 _accept(label, matches)
             else:
                 resolution.unresolved.append(label)
+                if seed.kind == SEED_KIND_CHANGED:
+                    resolution.unresolved_changed.append(label)
+                else:
+                    resolution.unresolved_auxiliary.append(label)
 
     return resolution

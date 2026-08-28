@@ -85,6 +85,11 @@ class BoundedEdgeOutcome:
     #: Seed labels no canonical identity could be found for. Distinct from
     #: "resolved but no edges": this one means Sydes could not look.
     unresolved_seeds: list[str] = field(default_factory=list)
+    #: Split of the above. An unresolved CHANGED symbol bounds what was
+    #: explored; an unresolved auxiliary route alias only costs some
+    #: outbound route coverage.
+    unresolved_changed_seeds: list[str] = field(default_factory=list)
+    unresolved_auxiliary_seeds: list[str] = field(default_factory=list)
     #: Seed label -> the several identities it legitimately matched.
     ambiguous_seeds: dict[str, list[str]] = field(default_factory=dict)
     limits: GraphSliceLimits | None = None
@@ -342,10 +347,14 @@ class CBMCodeIntelligence:
         seeds = resolution.canonical
         outcome.canonical_seed_count = len(seeds)
         outcome.unresolved_seeds = list(resolution.unresolved)
+        outcome.unresolved_changed_seeds = list(resolution.unresolved_changed)
+        outcome.unresolved_auxiliary_seeds = list(resolution.unresolved_auxiliary)
         outcome.ambiguous_seeds = dict(resolution.ambiguous)
         _trace.record_seed_resolution(
             requested=len(requests), canonical=len(seeds),
             unresolved=resolution.unresolved, ambiguous=resolution.ambiguous,
+            unresolved_changed=resolution.unresolved_changed,
+            unresolved_auxiliary=resolution.unresolved_auxiliary,
             canonical_seeds=seeds,
         )
 

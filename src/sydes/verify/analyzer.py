@@ -42,7 +42,11 @@ from sydes.discover.endpoints import discover_endpoints
 from sydes.code_intelligence import get_code_intelligence
 from sydes.code_intelligence.base import StructuralFacts
 from sydes.code_intelligence.cbm import CBM_BACKEND
-from sydes.code_intelligence.symbol_identity import SeedRequest
+from sydes.code_intelligence.symbol_identity import (
+    SEED_KIND_CHANGED,
+    SEED_KIND_ROUTE,
+    SeedRequest,
+)
 from sydes.impact import (
     COMPLETENESS_COMPLETE,
     ENTRYPOINT_HTTP,
@@ -1095,6 +1099,7 @@ def _select_graph_slice_seeds(
     for symbol in change.symbols:
         if _add(SeedRequest(
             name=symbol.name, file=symbol.file, qualified_name=symbol.qualified_name,
+            kind=SEED_KIND_CHANGED,
         )):
             changed_count += 1
 
@@ -1118,6 +1123,7 @@ def _select_graph_slice_seeds(
         relevant_routes.append(SeedRequest(
             name=short, file=file,
             qualified_name=str(handler) if "." in str(handler) else None,
+            kind=SEED_KIND_ROUTE,
         ))
 
     route_count = 0
@@ -1175,6 +1181,8 @@ def _attach_bounded_graph_edges(
         f"graph_slice: used={outcome.used_slice} seeds={outcome.seed_count} "
         f"canonical_seeds={outcome.canonical_seed_count} "
         f"unresolved_seeds={len(outcome.unresolved_seeds)} "
+        f"unresolved_changed={len(outcome.unresolved_changed_seeds)} "
+        f"unresolved_auxiliary={len(outcome.unresolved_auxiliary_seeds)} "
         f"graph_calls={outcome.graph_calls} nodes={outcome.node_count} "
         f"call_edges={outcome.call_edge_count} usage_edges={outcome.usage_edge_count} "
         f"truncated={outcome.truncated} fell_back={outcome.fell_back}"
@@ -1186,12 +1194,11 @@ def _attach_bounded_graph_edges(
     # categorically different from a resolved seed that genuinely has no
     # edges. Reported only when a CHANGED symbol is affected, since an
     # unresolvable route handler does not bound the change's own impact.
-    changed_names = {item.name for item in change.symbols} | {
-        item.qualified_name for item in change.symbols if item.qualified_name
-    }
-    unresolved_changed = [
-        label for label in outcome.unresolved_seeds if label in changed_names
-    ]
+    # The resolver already knows which unresolved seeds came from the
+    # change and which were auxiliary route aliases; re-deriving that by
+    # name matching would mis-attribute a route handler that happens to
+    # share a short name with a changed symbol.
+    unresolved_changed = list(getattr(outcome, "unresolved_changed_seeds", []))
     if unresolved_changed and not any(
         item.startswith(_UNRESOLVED_IDENTITY_NOTE_PREFIX) for item in result.analysis_notes
     ):

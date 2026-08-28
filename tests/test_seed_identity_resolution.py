@@ -10,6 +10,8 @@ matching could never hit.
 from __future__ import annotations
 
 from sydes.code_intelligence.symbol_identity import (
+    SEED_KIND_CHANGED,
+    SEED_KIND_ROUTE,
     SeedRequest,
     resolve_seed_identities,
 )
@@ -236,3 +238,91 @@ def test_an_empty_symbol_index_resolves_nothing_and_claims_nothing() -> None:
 
     assert resolution.canonical == []
     assert resolution.unresolved == ["anything"]
+
+
+# --------------------------------------------------------------------------
+# Auxiliary route aliases are accounted for separately
+# --------------------------------------------------------------------------
+
+
+def test_an_unresolved_route_alias_is_not_counted_as_an_unresolved_change() -> None:
+    """The observed Gitea shape: all 10 changed symbols resolved, while 3
+    auxiliary route aliases (`repo.MergePullRequest` and friends) did not.
+    Conflating the two made a healthy run read as a recall failure."""
+    canonical = "code.example.io/services/pull.MergePullRequest"
+    index = _index({"services/pull/merge.go": [
+        _symbol("MergePullRequest", canonical=canonical),
+    ]})
+
+    resolution = resolve_seed_identities(index, [
+        SeedRequest(name="MergePullRequest", file="services/pull/merge.go",
+                    kind=SEED_KIND_CHANGED),
+        # The route table declares the handler in a different file, and that
+        # handler is a genuinely different Go function.
+        SeedRequest(name="MergePullRequest", file="routers/web/web.go",
+                    qualified_name="repo.MergePullRequest", kind=SEED_KIND_ROUTE),
+    ])
+
+    assert resolution.canonical == [canonical]
+    assert resolution.unresolved_changed == []
+    assert resolution.unresolved_auxiliary == ["repo.MergePullRequest"]
+
+
+def test_an_unresolved_changed_symbol_is_still_reported_as_such() -> None:
+    """The alias split must never hide a real hole in the change itself."""
+    index = _index({"svc.go": [_symbol("known", canonical="mod.known")]})
+
+    resolution = resolve_seed_identities(index, [
+        SeedRequest(name="missing", file="svc.go", kind=SEED_KIND_CHANGED),
+        SeedRequest(name="alias", file="routes.go", kind=SEED_KIND_ROUTE),
+    ])
+
+    assert resolution.unresolved_changed == ["missing"]
+    assert resolution.unresolved_auxiliary == ["alias"]
+    assert set(resolution.unresolved) == {"missing", "alias"}
+
+
+def test_a_route_alias_that_does_resolve_is_not_reported_unresolved() -> None:
+    canonical = "code.example.io/routers/web/repo.MergePullRequest"
+    index = _index({"routers/web/repo/pull.go": [
+        _symbol("MergePullRequest", canonical=canonical),
+    ]})
+
+    resolution = resolve_seed_identities(index, [
+        SeedRequest(name="MergePullRequest", file="routers/web/repo/pull.go",
+                    qualified_name="repo.MergePullRequest", kind=SEED_KIND_ROUTE),
+    ])
+
+    assert resolution.canonical == [canonical]
+    assert resolution.unresolved_auxiliary == []
+
+
+def test_seed_kind_never_changes_which_identity_is_resolved() -> None:
+    """Kind affects reporting only. The same seed must resolve identically
+    whichever bucket it is in."""
+    canonical = "mod.thing"
+    index = _index({"svc.go": [_symbol("thing", canonical=canonical)]})
+
+    as_changed = resolve_seed_identities(
+        index, [SeedRequest(name="thing", file="svc.go", kind=SEED_KIND_CHANGED)])
+    as_route = resolve_seed_identities(
+        index, [SeedRequest(name="thing", file="svc.go", kind=SEED_KIND_ROUTE)])
+
+    assert as_changed.canonical == as_route.canonical == [canonical]
+
+
+def test_an_ambiguous_auxiliary_alias_remains_unresolved() -> None:
+    """Ambiguity rules are untouched: a route alias matching two symbols is
+    still refused, not guessed."""
+    index = _index({
+        "a/svc.go": [_symbol("handle", canonical="mod/a.handle")],
+        "b/svc.go": [_symbol("handle", canonical="mod/b.handle")],
+    })
+
+    resolution = resolve_seed_identities(index, [
+        SeedRequest(name="handle", file="routes.go", kind=SEED_KIND_ROUTE),
+    ])
+
+    assert resolution.canonical == []
+    assert resolution.unresolved_auxiliary == ["handle"]
+    assert set(resolution.ambiguous["handle"]) == {"mod/a.handle", "mod/b.handle"}
