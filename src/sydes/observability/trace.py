@@ -325,6 +325,26 @@ def record_graph_slice(
     })
 
 
+def record_graph_slice_fallback(
+    *, reason: str, seed_count: int, call_edges: int, usage_edges: int,
+) -> None:
+    """One fall-back from bounded slice retrieval to the repository-wide
+    CALLS/USAGE sweep, with the failure that caused it. Written to the same
+    `graph_slices.jsonl` stream so a reader sees slice activity and its
+    fallbacks in one place."""
+    if not is_enabled():
+        return
+    _append_jsonl(_GRAPH_SLICES, {
+        "timestamp": _now_iso(),
+        "event": "fallback_to_full_graph",
+        "reason": reason,
+        "seed_symbols": [],
+        "seed_count": seed_count,
+        "call_edges": call_edges,
+        "usage_edges": usage_edges,
+    })
+
+
 def record_impact_decision(
     *, changed_symbol: str, candidate_label: str, kind: str, source: str,
     status: str, accepted: bool, rejection_reason: str, corroborated: bool | None,

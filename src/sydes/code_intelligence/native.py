@@ -31,8 +31,13 @@ class NativeCodeIntelligence:
         *,
         workspace_id: str | None = None,
         root: Path | None = None,
+        defer_edges: bool = False,
     ) -> StructuralFacts:
-        """Build or incrementally update the native structural index."""
+        """Build or incrementally update the native structural index.
+
+        `defer_edges` is accepted for interface parity and ignored: the native
+        backend supplies no call graph, so it has no edge work to defer.
+        """
         index = build_structural_index(repos, workspace_id=workspace_id, root=root)
         return StructuralFacts(
             repo_map=index.repo_map_batch,

@@ -40,6 +40,7 @@ from sydes.core.models import (
 )
 from sydes.discover.endpoints import discover_endpoints
 from sydes.code_intelligence import get_code_intelligence
+from sydes.code_intelligence.base import StructuralFacts
 from sydes.code_intelligence.cbm import CBM_BACKEND
 from sydes.impact import (
     COMPLETENESS_COMPLETE,
@@ -89,6 +90,7 @@ from sydes.verify.models import (
     AffectedBoundary,
     AffectedFlow,
     ChangedSymbol,
+    ChangeSet,
     ChangeSummary,
     ChangeVerificationResult,
     CiSuiteRun,
@@ -1013,6 +1015,84 @@ def _select_via_impact_interpreter(
     return selected, impact_result, guide_notes
 
 
+#: Prefix for the one analysis note a bounded/truncated structural
+#: exploration produces. Used to keep that note unique per run.
+_BOUNDED_EXPLORATION_NOTE_PREFIX = "Structural exploration was bounded"
+
+
+def _graph_slice_seeds(change: ChangeSet, routes: Any) -> list[str]:
+    """Seed symbols for the bounded slice: the changed symbols, plus the
+    route handlers whose outbound calls flow tracing follows.
+
+    Both consumers of the edge tables are represented. Missing either would
+    change existing behavior rather than only its cost: the impact
+    interpreter walks inbound from changed symbols, while
+    `build_layered_trace_expansion` walks outbound from a route handler.
+    Qualified and short names are both offered because CBM edges carry
+    qualified names while a changed symbol often has only a short one.
+    """
+    seeds: list[str] = []
+    for symbol in change.symbols:
+        if symbol.qualified_name:
+            seeds.append(symbol.qualified_name)
+        if symbol.name:
+            seeds.append(symbol.name)
+    for route in getattr(routes, "routes", []) or []:
+        handler = getattr(route, "handler", None)
+        if handler:
+            seeds.append(str(handler))
+    return list(dict.fromkeys(item for item in seeds if item))
+
+
+def _attach_bounded_graph_edges(
+    *,
+    code_intelligence: Any,
+    structural: StructuralFacts,
+    change: ChangeSet,
+    routes: Any,
+    result: ChangeVerificationResult,
+) -> None:
+    """Populate `structural.call_edges`/`usage_edges` from a bounded
+    neighborhood, and record what that exploration could and could not see.
+
+    A no-op for a backend that supplies no call graph or no bounded fetch
+    (the native backend), which keeps its existing behavior exactly.
+    """
+    attach = getattr(code_intelligence, "attach_bounded_edges", None)
+    if attach is None or not structural.provides_call_graph:
+        return
+
+    seeds = _graph_slice_seeds(change, routes)
+    outcome = attach(structural, seed_symbols=seeds)
+
+    result.diagnostics.append(
+        f"graph_slice: used={outcome.used_slice} seeds={outcome.seed_count} "
+        f"graph_calls={outcome.graph_calls} nodes={outcome.node_count} "
+        f"call_edges={outcome.call_edge_count} usage_edges={outcome.usage_edge_count} "
+        f"truncated={outcome.truncated} fell_back={outcome.fell_back}"
+    )
+    if outcome.reason:
+        result.diagnostics.append(f"graph_slice_reason: {outcome.reason}")
+
+    if not outcome.truncated:
+        return
+
+    # A bounded exploration means "nothing further was ESTABLISHED within
+    # what was explored" — never "nothing further exists". Everything
+    # already discovered stands unchanged; this only records that absence
+    # of a further finding is not evidence of absence here.
+    note = (
+        f"{_BOUNDED_EXPLORATION_NOTE_PREFIX} for this change "
+        f"({outcome.truncation_reason or 'a structural limit was reached'}); "
+        "boundaries beyond the explored neighborhood are not established "
+        "either way."
+    )
+    if not any(
+        item.startswith(_BOUNDED_EXPLORATION_NOTE_PREFIX) for item in result.analysis_notes
+    ):
+        result.analysis_notes.append(note)
+
+
 def _impact_diagnostics(impact_result: ImpactResult) -> list[str]:
     """Compact diagnostic lines summarising one impact-interpreter run."""
     metrics = impact_result.metrics
@@ -1157,8 +1237,15 @@ def analyze_change(
     # Route, symbol, and graph facts all come from one incremental index; the
     # analysis below is unchanged and simply reads from it.
     workspace_id = compute_workspace_id(normalized_repos)
-    structural = get_code_intelligence().build_or_update(
-        normalized_repos, workspace_id=workspace_id
+    # Edges are deliberately NOT materialized here. A repository-wide
+    # CALLS/USAGE sweep costs in proportion to total repository edge count
+    # rather than change size, and every consumer of those edges starts from
+    # a symbol this call has not resolved yet — `change.symbols` below needs
+    # this call's own symbol index first. They are fetched as a bounded
+    # neighborhood once the seeds are known (`_attach_bounded_graph_edges`).
+    code_intelligence = get_code_intelligence()
+    structural = code_intelligence.build_or_update(
+        normalized_repos, workspace_id=workspace_id, defer_edges=True
     )
     result.diagnostics.extend(structural.diagnostics)
     handler_index = structural.symbol_index
@@ -1234,6 +1321,15 @@ def analyze_change(
             "Route composition is unresolved in this repository; some routes may be missing."
         )
         result.analysis_status = ANALYSIS_PARTIAL
+
+    # --- bounded structural neighborhood ---------------------------------
+    # Both seed sets are now known: the changed symbols (resolved above from
+    # the symbol index) and the route handlers (just discovered). Fetch only
+    # their neighborhood rather than the whole repository's edge tables.
+    _attach_bounded_graph_edges(
+        code_intelligence=code_intelligence, structural=structural,
+        change=change, routes=routes, result=result,
+    )
 
     # Which entrypoints the change reaches: the impact interpreter is the
     # primary source when CBM supplied a call graph, since it resolves

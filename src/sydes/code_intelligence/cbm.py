@@ -24,22 +24,59 @@ backend the operator did not choose.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
 import sys
 import time
 from typing import Any
 
-from sydes.code_intelligence.base import StructuralFacts
+from sydes.code_intelligence.base import CodeIntelligenceError, StructuralFacts
 from sydes.code_intelligence.cbm_client import (
     CBM_EXECUTABLE_ENV_VAR,
     CBMClient,
     resolve_executable,
 )
+from sydes.code_intelligence.graph_slice import (
+    GraphQueryCache,
+    GraphSliceLimits,
+    build_graph_slice,
+    graph_slice_call_edges,
+    graph_slice_usage_edges,
+)
 from sydes.core.models import RepoRef
+from sydes.observability import trace as _trace
 
 CBM_BACKEND = "cbm"
 
-__all__ = ["CBM_BACKEND", "CBM_EXECUTABLE_ENV_VAR", "CBMCodeIntelligence"]
+__all__ = [
+    "CBM_BACKEND",
+    "CBM_EXECUTABLE_ENV_VAR",
+    "BoundedEdgeOutcome",
+    "CBMCodeIntelligence",
+]
+
+
+@dataclass
+class BoundedEdgeOutcome:
+    """What one bounded edge acquisition actually did.
+
+    Reported so an operator can tell, for any run, whether the bounded path
+    was used, how much of the graph it saw, whether it was cut short, and
+    whether it had to fall back to a repository-wide sweep — without
+    inferring any of that from timings.
+    """
+
+    seed_count: int = 0
+    used_slice: bool = False
+    fell_back: bool = False
+    reason: str | None = None
+    truncated: bool = False
+    truncation_reason: str | None = None
+    graph_calls: int = 0
+    node_count: int = 0
+    call_edge_count: int = 0
+    usage_edge_count: int = 0
+    limits: GraphSliceLimits | None = None
 
 #: CBM node labels mapped onto the symbol kinds Sydes already consumes.
 _KIND_BY_LABEL = {"Function": "function", "Method": "class_method", "Class": "class"}
@@ -86,6 +123,14 @@ class CBMCodeIntelligence:
         self._owns_client = client is None
         self._executable = None if client is not None else resolve_executable(executable)
         self._version = "session"
+        # repo name -> CBM project id, recorded during `build_or_update` so a
+        # later bounded slice fetch can address the same index without
+        # re-indexing. Only populated for repos this adapter actually indexed.
+        self._projects: dict[str, str] = {}
+        # One cache per adapter instance, and an adapter lives exactly as long
+        # as one `verify-change` run — so memoization is run-local by
+        # construction and never spans repos or commits.
+        self._graph_cache = GraphQueryCache()
 
     def _ensure_client(self) -> CBMClient:
         if self._client is None:
@@ -237,6 +282,84 @@ class CBMCodeIntelligence:
             })
         return entrypoints
 
+    # -- bounded edge acquisition -----------------------------------------
+
+    def attach_bounded_edges(
+        self,
+        facts: StructuralFacts,
+        *,
+        seed_symbols: list[str],
+        limits: GraphSliceLimits | None = None,
+    ) -> BoundedEdgeOutcome:
+        """Populate `facts.call_edges`/`facts.usage_edges` from a bounded
+        neighborhood around `seed_symbols`, in place.
+
+        The counterpart to `build_or_update(defer_edges=True)`. Produces the
+        exact same edge dict shapes the repository-wide sweep produces, so
+        `ImpactInterpreter`/`_FactIndex` and boundary discovery consume this
+        completely unchanged.
+
+        Fallback is deliberately narrow. A slice that succeeds but finds
+        nothing is a real, valid answer ("no edges touch these symbols") and
+        is kept as-is — falling back to a repository-wide sweep there would
+        reintroduce exactly the cost this exists to avoid, for a query that
+        already answered correctly. Only an actual CBM/transport failure
+        (`CodeIntelligenceError`) falls back to the full sweep, and that is
+        recorded on the outcome rather than passing silently.
+        """
+        limits = limits or GraphSliceLimits()
+        seeds = [item for item in dict.fromkeys(seed_symbols) if item]
+        outcome = BoundedEdgeOutcome(seed_count=len(seeds), limits=limits)
+        if not seeds:
+            # Nothing to seed from. A repository-wide sweep would cost the
+            # most and tell impact analysis nothing it can use, since every
+            # consumer of these edges starts from a changed symbol.
+            outcome.used_slice = False
+            outcome.reason = "no seed symbols to build a bounded slice from"
+            return outcome
+
+        client = self._ensure_client()
+        call_edges: list[dict[str, Any]] = []
+        usage_edges: list[dict[str, Any]] = []
+
+        for repo_name, project in sorted(self._projects.items()):
+            try:
+                graph_slice = build_graph_slice(
+                    client, project, repo_name, seeds,
+                    limits=limits, cache=self._graph_cache,
+                )
+            except CodeIntelligenceError as exc:
+                # A genuine tool/protocol failure — not merely an empty
+                # result. Fall back to the repository-wide sweep so this
+                # validation phase never loses analysis to a transient CBM
+                # problem, and say so out loud.
+                outcome.used_slice = False
+                outcome.fell_back = True
+                outcome.reason = f"bounded graph slice failed: {exc}"
+                facts.call_edges = self._call_edges_for(client, project, repo_name)
+                facts.usage_edges = self._usage_edges_for(client, project, repo_name)
+                _trace.record_graph_slice_fallback(
+                    reason=outcome.reason, seed_count=len(seeds),
+                    call_edges=len(facts.call_edges), usage_edges=len(facts.usage_edges),
+                )
+                return outcome
+
+            call_edges.extend(graph_slice_call_edges(graph_slice))
+            usage_edges.extend(graph_slice_usage_edges(graph_slice))
+            outcome.graph_calls += graph_slice.source_call_count
+            outcome.node_count += graph_slice.node_count()
+            if graph_slice.truncated:
+                outcome.truncated = True
+                if graph_slice.truncation_reason and not outcome.truncation_reason:
+                    outcome.truncation_reason = graph_slice.truncation_reason
+
+        facts.call_edges = call_edges
+        facts.usage_edges = usage_edges
+        outcome.used_slice = True
+        outcome.call_edge_count = len(call_edges)
+        outcome.usage_edge_count = len(usage_edges)
+        return outcome
+
     # -- interface --------------------------------------------------------
 
     def build_or_update(
@@ -245,8 +368,19 @@ class CBMCodeIntelligence:
         *,
         workspace_id: str | None = None,
         root: Path | None = None,
+        defer_edges: bool = False,
     ) -> StructuralFacts:
-        """Index each repository through CBM and translate its facts for Sydes."""
+        """Index each repository through CBM and translate its facts for Sydes.
+
+        `defer_edges=True` skips the repository-wide CALLS/USAGE sweeps
+        (`all_call_edges`/`all_usage_edges`), whose paginated `query_graph`
+        cost scales with total repository edge count rather than change size.
+        The caller then supplies the changed symbols it has since resolved to
+        `attach_bounded_edges`, which fetches only their bounded neighborhood.
+        Everything else — symbols, imports, entrypoints, route semantics —
+        is unaffected and stays repository-wide, because those are cheap and
+        are needed before any changed symbol can be identified at all.
+        """
         started = time.perf_counter()
         client = self._ensure_client()
 
@@ -263,13 +397,15 @@ class CBMCodeIntelligence:
             index_started = time.perf_counter()
             index_payload = client.index_repository(repo.root)
             project = str(index_payload["project"])
+            self._projects[repo.name] = project
             index_ms += (time.perf_counter() - index_started) * 1000.0
 
             query_started = time.perf_counter()
             symbols_by_file = self._symbols_for(client, project)
             imports_by_file = self._imports_for(client, project)
-            call_edges.extend(self._call_edges_for(client, project, repo.name))
-            usage_edges.extend(self._usage_edges_for(client, project, repo.name))
+            if not defer_edges:
+                call_edges.extend(self._call_edges_for(client, project, repo.name))
+                usage_edges.extend(self._usage_edges_for(client, project, repo.name))
             entrypoints.extend(self._entrypoints_for(client, project, repo.name))
             query_ms += (time.perf_counter() - query_started) * 1000.0
 
@@ -323,7 +459,13 @@ class CBMCodeIntelligence:
             "route composition is computed by Sydes, not CBM: CBM reports "
             "uncomposed route paths and models no persistence sinks"
         )
-        if not call_edges:
+        if defer_edges:
+            gaps.append(
+                "CALLS/USAGE edges deferred: they are fetched as a bounded "
+                "neighborhood around the changed symbols instead of a "
+                "repository-wide sweep"
+            )
+        elif not call_edges:
             gaps.append("CBM returned no CALLS edges for this repository set")
         if client.malformed_rows:
             gaps.append(

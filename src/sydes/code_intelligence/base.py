@@ -141,6 +141,13 @@ class CodeIntelligence(Protocol):
         *,
         workspace_id: str | None = None,
         root: Path | None = None,
+        defer_edges: bool = False,
     ) -> StructuralFacts:
-        """Produce current structural facts, reusing prior work where possible."""
+        """Produce current structural facts, reusing prior work where possible.
+
+        `defer_edges` asks a backend that supplies a call graph to skip any
+        repository-wide edge materialization, because the caller intends to
+        request a bounded, seed-scoped neighborhood once changed symbols are
+        known. A backend that supplies no call graph ignores it.
+        """
         ...
