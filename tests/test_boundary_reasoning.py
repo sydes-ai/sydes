@@ -551,6 +551,40 @@ def test_grouped_boundary_with_production_symbols_survives() -> None:
     assert boundaries[0].changed_symbols == ["helper", "helper_two"]
 
 
+def test_go_test_go_file_test_symbol_is_rejected_even_when_grounded() -> None:
+    """The exact real-PR generic failure shape: a Go test file identified
+    purely by its own `_test.go` basename convention (no `tests/`
+    directory), with a bare CamelCase symbol the LLM proposes as an api/
+    route_registration boundary and grounds via a real changed symbol."""
+    boundaries, _notes = run(
+        CountingClient(_response(_boundary(
+            "api", subtype="route_registration", symbol="TestLogout",
+            file="selfservice/flow/logout/handler_test.go",
+            changed_symbols=["TestLogout"],
+            label="logout route",
+        ))),
+        change=change_set("TestLogout", file="selfservice/flow/logout/handler_test.go"),
+    )
+
+    assert boundaries == []
+
+
+def test_go_neighboring_production_route_registration_still_survives() -> None:
+    """Paired positive case for the same fix: a real handler in the
+    neighboring, non-test Go file must still be inferable."""
+    boundaries, _notes = run(
+        CountingClient(_response(_boundary(
+            "api", subtype="route_registration", symbol="RegisterPublicRoutes",
+            file="selfservice/flow/logout/handler.go",
+            changed_symbols=["RegisterPublicRoutes"],
+        ))),
+        change=change_set("RegisterPublicRoutes", file="selfservice/flow/logout/handler.go"),
+    )
+
+    assert len(boundaries) == 1
+    assert boundaries[0].symbol == "RegisterPublicRoutes"
+
+
 def test_grouped_boundary_whose_only_concrete_symbols_are_tests_is_rejected() -> None:
     """A grouped/label-only boundary must not survive by hiding a test
     symbol behind `changed_symbols` instead of `symbol`/`file`."""

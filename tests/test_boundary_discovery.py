@@ -19,7 +19,7 @@ from __future__ import annotations
 
 from sydes.code_intelligence.base import StructuralFacts
 from sydes.impact import ImpactInterpreter
-from sydes.impact.boundary_discovery import BoundaryBudget
+from sydes.impact.boundary_discovery import BoundaryBudget, is_production_boundary_candidate
 from sydes.impact.boundary_evidence import build_boundary_evidence
 from sydes.impact.models import (
     BOUNDARY_API,
@@ -259,6 +259,25 @@ def test_c_inline_test_function_excluded_by_name_convention_alone() -> None:
     result = interpret(changed("delete_user", file="app/svc.py"), f)
 
     assert result.boundaries == []
+
+
+def test_c_go_test_file_basename_excludes_bare_camelcase_test_symbol() -> None:
+    """The real-PR failure shape this fix targets: a Go test file recognized
+    purely by its own `_test.go` basename convention (no `tests/` directory
+    involved at all), with a bare CamelCase `TestX` symbol that the older
+    `test_`/`_test` English-word convention would have missed entirely."""
+    f = facts(
+        call_edges=[call_edge("TestLogout", "logoutHandler",
+                              caller_file="selfservice/flow/logout/handler_test.go",
+                              callee_file="selfservice/flow/logout/handler.go")],
+        files=[symbol_file("selfservice/flow/logout/handler_test.go",
+                            [sym("TestLogout", exported=True)])],
+    )
+    result = interpret(
+        changed("logoutHandler", file="selfservice/flow/logout/handler.go"), f,
+    )
+
+    assert all(item.symbol != "TestLogout" for item in result.boundaries)
 
 
 def test_d_traversal_continues_through_a_test_caller_to_a_real_boundary() -> None:
@@ -613,6 +632,63 @@ def test_normalization_reads_no_semantic_input_and_needs_no_repo() -> None:
 
     parameters = set(inspect.signature(build_boundary_evidence).parameters)
     assert parameters == {"facts", "repo"}
+
+
+# --------------------------------------------------------------------------
+# Precision hardening: Go's own `_test.go` basename convention and its
+# `TestFoo`/`BenchmarkFoo`/`FuzzFoo` naming convention, on the shared
+# `is_production_boundary_candidate` predicate directly.
+# --------------------------------------------------------------------------
+
+def test_go_test_file_basename_alone_excludes_the_symbol_no_directory_needed() -> None:
+    """`selfservice/flow/logout/handler_test.go` has no `tests/`-named
+    directory anywhere in its path — only Go's own `_test.go` basename
+    convention identifies it, and that must be enough on its own."""
+    identity = _identity("selfservice/flow/logout/handler_test.go", "TestLogout")
+
+    assert is_production_boundary_candidate(identity, facts()) is False
+
+
+def test_go_benchmark_and_fuzz_functions_are_excluded_by_the_same_file_convention() -> None:
+    for name in ("BenchmarkLogout", "FuzzLogout"):
+        identity = _identity("selfservice/flow/logout/handler_test.go", name)
+        assert is_production_boundary_candidate(identity, facts()) is False
+
+
+def test_go_bare_test_function_name_is_excluded_when_file_context_establishes_go() -> None:
+    """Fallback for when file evidence is incomplete (e.g. a grouped
+    boundary resolved by symbol name alone) but the language context is
+    still known to be Go — the name convention alone must still exclude it."""
+    for name in ("TestLogout", "BenchmarkLogout", "FuzzLogout", "Test", "Benchmark", "Fuzz"):
+        identity = _identity("selfservice/flow/logout/other.go", name)
+        assert is_production_boundary_candidate(identity, facts()) is False
+
+
+def test_go_neighboring_production_symbol_still_survives() -> None:
+    """The paired positive case: a real handler/route-registration symbol
+    in the neighboring, non-test Go file must not be caught by this fix."""
+    identity = _identity("selfservice/flow/logout/handler.go", "RegisterPublicRoutes")
+
+    assert is_production_boundary_candidate(identity, facts()) is True
+
+
+def test_go_style_name_outside_go_file_context_is_not_excluded_by_this_rule() -> None:
+    """Requirement: no broad `/^Test/` rule — an ordinary production symbol
+    that merely starts with the English word "Test" survives when there is
+    no Go file evidence to establish test-code context at all."""
+    identity = _identity("app/handler.py", "TestConnectionPool")
+
+    assert is_production_boundary_candidate(identity, facts()) is True
+
+
+def test_go_production_file_with_similar_but_non_matching_name_survives() -> None:
+    """Within Go file context, only the exact convention (prefix followed
+    by a non-lowercase rune, or an exact bare prefix) excludes a symbol —
+    `Testing`/`Fuzzy`-shaped names are ordinary identifiers to `go test`
+    itself and must not be excluded."""
+    for name in ("Testing", "Fuzzy", "BenchmarkingSuite"):
+        identity = _identity("selfservice/flow/logout/handler.go", name)
+        assert is_production_boundary_candidate(identity, facts()) is True
 
 
 def test_callable_and_async_boundaries_survive_serialization_and_reporting() -> None:

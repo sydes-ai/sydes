@@ -224,6 +224,25 @@ def _is_exported(facts: "StructuralFacts", identity: SymbolIdentity) -> bool:
 _TEST_NAME_PREFIXES = ("test_",)
 _TEST_NAME_SUFFIXES = ("_test",)
 
+#: Go's own `testing` package convention: `go test` recognizes a function
+#: as a test/benchmark/fuzz target only when its name is exactly one of
+#: these prefixes or the prefix followed by a non-lowercase rune (so
+#: `TestFoo`/`BenchmarkFoo`/`FuzzFoo` qualify, but `Testing`/`Fuzzy` do
+#: not — Go itself treats a lowercase letter there as "not a test name").
+#: Gated on the identity's own file having a `.go` extension so this can
+#: never fire against an unrelated language's ordinary "Test..."-named
+#: production function (see `_is_test_identity`).
+_GO_TEST_NAME_PREFIXES = ("Test", "Benchmark", "Fuzz")
+
+
+def _is_go_test_function_name(name: str) -> bool:
+    for prefix in _GO_TEST_NAME_PREFIXES:
+        if name == prefix:
+            return True
+        if name.startswith(prefix) and len(name) > len(prefix) and not name[len(prefix)].islower():
+            return True
+    return False
+
 #: Executable-entrypoint names that must never be classified `callable` —
 #: see the module docstring. Kept to the one universal, unambiguous case
 #: rather than a broader "is this a main-like function" heuristic.
@@ -238,6 +257,13 @@ def _is_test_identity(identity: SymbolIdentity, facts: "StructuralFacts") -> boo
     ordinary source file rather than a separate test file."""
     if identity.file and classify_candidate_file_role(identity.file) == FILE_ROLE_TEST_USAGE_CANDIDATE:
         return True
+    if identity.file and identity.file.lower().endswith(".go"):
+        # Go test/benchmark/fuzz function names are only ever legal inside
+        # `_test.go` files (already caught above); this only helps when the
+        # file evidence is incomplete but its language is still known to be
+        # Go, e.g. a grouped boundary resolved by name alone.
+        if _is_go_test_function_name(identity.short_name):
+            return True
     name = identity.short_name.lower()
     return name.startswith(_TEST_NAME_PREFIXES) or name.endswith(_TEST_NAME_SUFFIXES)
 

@@ -61,6 +61,11 @@ def classify_candidate_file_role(path: str) -> str:
         return FILE_ROLE_TEST_USAGE_CANDIDATE
     if filename.endswith("_test.py"):
         return FILE_ROLE_TEST_USAGE_CANDIDATE
+    # Go's own toolchain convention: `go test` only ever considers a file
+    # whose basename ends in `_test.go` — this is the language's own rule,
+    # not a heuristic, so it applies regardless of directory.
+    if filename.endswith("_test.go"):
+        return FILE_ROLE_TEST_USAGE_CANDIDATE
     if any(filename.endswith(suffix) for suffix in TEST_SUFFIXES):
         return FILE_ROLE_TEST_USAGE_CANDIDATE
 
