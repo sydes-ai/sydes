@@ -42,6 +42,7 @@ from sydes.discover.endpoints import discover_endpoints
 from sydes.code_intelligence import get_code_intelligence
 from sydes.code_intelligence.base import StructuralFacts
 from sydes.code_intelligence.cbm import CBM_BACKEND
+from sydes.code_intelligence.symbol_identity import SeedRequest
 from sydes.impact import (
     COMPLETENESS_COMPLETE,
     ENTRYPOINT_HTTP,
@@ -1019,8 +1020,14 @@ def _select_via_impact_interpreter(
 #: exploration produces. Used to keep that note unique per run.
 _BOUNDED_EXPLORATION_NOTE_PREFIX = "Structural exploration was bounded"
 
+#: Prefix for the note a changed symbol with no resolvable CBM graph
+#: identity produces. Kept unique per run, like the bounded note above.
+_UNRESOLVED_IDENTITY_NOTE_PREFIX = (
+    "No structural graph identity could be resolved"
+)
 
-def _graph_slice_seeds(change: ChangeSet, routes: Any) -> list[str]:
+
+def _graph_slice_seeds(change: ChangeSet, routes: Any) -> list[SeedRequest]:
     """Seed symbols for the bounded slice: the changed symbols, plus the
     route handlers whose outbound calls flow tracing follows.
 
@@ -1028,20 +1035,33 @@ def _graph_slice_seeds(change: ChangeSet, routes: Any) -> list[str]:
     change existing behavior rather than only its cost: the impact
     interpreter walks inbound from changed symbols, while
     `build_layered_trace_expansion` walks outbound from a route handler.
-    Qualified and short names are both offered because CBM edges carry
-    qualified names while a changed symbol often has only a short one.
+
+    Each seed carries its file, because that is the strongest disambiguator
+    the canonical-identity resolver has. These are display names, not CBM
+    graph identities — `attach_bounded_edges` canonicalizes them before any
+    edge query, since matching a display name against CBM's fully qualified
+    edge keys returns nothing.
     """
-    seeds: list[str] = []
+    seeds: list[SeedRequest] = []
     for symbol in change.symbols:
-        if symbol.qualified_name:
-            seeds.append(symbol.qualified_name)
-        if symbol.name:
-            seeds.append(symbol.name)
+        seeds.append(SeedRequest(
+            name=symbol.name, file=symbol.file, qualified_name=symbol.qualified_name,
+        ))
     for route in getattr(routes, "routes", []) or []:
         handler = getattr(route, "handler", None)
         if handler:
-            seeds.append(str(handler))
-    return list(dict.fromkeys(item for item in seeds if item))
+            # Route handlers need canonicalizing too: `repo.MergePullRequest`
+            # is as unmatchable against CBM's edge keys as a bare short name.
+            seeds.append(SeedRequest(
+                name=str(handler).rsplit(".", 1)[-1],
+                file=getattr(route, "file", None),
+                qualified_name=str(handler) if "." in str(handler) else None,
+            ))
+    unique: dict[tuple[str, str | None, str | None], SeedRequest] = {}
+    for seed in seeds:
+        if seed.name or seed.qualified_name:
+            unique.setdefault((seed.name, seed.file, seed.qualified_name), seed)
+    return list(unique.values())
 
 
 def _attach_bounded_graph_edges(
@@ -1067,12 +1087,35 @@ def _attach_bounded_graph_edges(
 
     result.diagnostics.append(
         f"graph_slice: used={outcome.used_slice} seeds={outcome.seed_count} "
+        f"canonical_seeds={outcome.canonical_seed_count} "
+        f"unresolved_seeds={len(outcome.unresolved_seeds)} "
         f"graph_calls={outcome.graph_calls} nodes={outcome.node_count} "
         f"call_edges={outcome.call_edge_count} usage_edges={outcome.usage_edge_count} "
         f"truncated={outcome.truncated} fell_back={outcome.fell_back}"
     )
     if outcome.reason:
         result.diagnostics.append(f"graph_slice_reason: {outcome.reason}")
+
+    # A seed with no canonical identity is a hole in what was *looked at* —
+    # categorically different from a resolved seed that genuinely has no
+    # edges. Reported only when a CHANGED symbol is affected, since an
+    # unresolvable route handler does not bound the change's own impact.
+    changed_names = {item.name for item in change.symbols} | {
+        item.qualified_name for item in change.symbols if item.qualified_name
+    }
+    unresolved_changed = [
+        label for label in outcome.unresolved_seeds if label in changed_names
+    ]
+    if unresolved_changed and not any(
+        item.startswith(_UNRESOLVED_IDENTITY_NOTE_PREFIX) for item in result.analysis_notes
+    ):
+        shown = ", ".join(f"`{item}`" for item in sorted(unresolved_changed)[:5])
+        result.analysis_notes.append(
+            f"{_UNRESOLVED_IDENTITY_NOTE_PREFIX} for {shown}; their structural "
+            "relationships were not explored, so downstream effects of those "
+            "symbols are not established either way."
+        )
+        result.analysis_status = ANALYSIS_PARTIAL
 
     if not outcome.truncated:
         return

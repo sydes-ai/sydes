@@ -66,7 +66,32 @@ class SpyCBMClient:
         return {"project": "spy-project", "nodes": 10, "edges": 4}
 
     def all_symbols(self, project: str, label: str) -> list[list[str]]:
-        return self._symbol_rows.get(label, [])
+        if self._symbol_rows:
+            return self._symbol_rows.get(label, [])
+        # Derived from the graph itself when a test does not care about the
+        # symbol table specifically: every edge endpoint is a real symbol
+        # whose canonical identity is exactly the name the edge is keyed by.
+        # `all_symbols` returns 7 columns; the last is CBM's own
+        # `qualified_name`, which is what seed canonicalization resolves to.
+        if label != "Function":
+            return []
+        rows: list[list[str]] = []
+        seen: set[str] = set()
+        for row in self._call_rows:
+            for qualified, path in ((row[0], row[1]), (row[3], row[4])):
+                if qualified not in seen:
+                    seen.add(qualified)
+                    rows.append([
+                        qualified.rsplit(".", 1)[-1], path, "1", "2", "", "true", qualified,
+                    ])
+        for row in self._usage_rows:
+            for qualified, path in ((row[0], row[1]), (row[2], row[3])):
+                if qualified not in seen:
+                    seen.add(qualified)
+                    rows.append([
+                        qualified.rsplit(".", 1)[-1], path, "1", "2", "", "true", qualified,
+                    ])
+        return rows
 
     def all_imports(self, project: str) -> list[list[str]]:
         return []
@@ -204,12 +229,22 @@ def test_empty_successful_slice_does_not_trigger_a_full_sweep(tmp_path: Path) ->
     """The critical fallback rule. A slice that legitimately finds nothing
     must be kept as a valid empty answer, never escalated into the
     repository-wide sweep this work exists to avoid."""
-    client = SpyCBMClient(call_rows=[call_row("app.unrelated", "app.other")])
+    client = SpyCBMClient(
+        call_rows=[call_row("app.unrelated", "app.other")],
+        # `app.changed` is a real, resolvable symbol that simply has no
+        # edges — the case that must NOT escalate to a full sweep. (A seed
+        # with no canonical identity at all is a different condition, and
+        # has its own test below.)
+        symbol_rows={"Function": [
+            ["changed", "svc.py", "1", "2", "", "true", "app.changed"],
+        ]},
+    )
     backend = CBMCodeIntelligence(client=client)
     facts = backend.build_or_update([RepoRef(name=REPO, root=str(tmp_path))], defer_edges=True)
 
     outcome = backend.attach_bounded_edges(facts, seed_symbols=["app.changed"])
 
+    assert outcome.canonical_seed_count == 1, "the seed must genuinely resolve"
     assert outcome.used_slice is True
     assert outcome.fell_back is False
     assert facts.call_edges == []
@@ -464,8 +499,8 @@ def test_the_real_analysis_path_never_sweeps_the_repository_edge_tables(
     """The headline production invariant: a normal change with resolvable
     symbols must not reach `all_call_edges`/`all_usage_edges` at all."""
     client = SpyCBMClient(
-        call_rows=[call_row("app.views.handle", "changed", caller_file="views.py")],
-        symbol_rows={"Function": [["changed", "svc.py", "1", "2", "", "true"]]},
+        call_rows=[call_row("app.views.handle", "app.svc.changed", caller_file="views.py")],
+        symbol_rows={"Function": [["changed", "svc.py", "1", "2", "", "true", "app.svc.changed"]]},
     )
     backend = _SpyBackend(client)
 
@@ -483,15 +518,18 @@ def test_the_changed_symbol_is_actually_among_the_slice_seeds(
     git_repo: Path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     client = SpyCBMClient(
-        call_rows=[call_row("app.views.handle", "changed", caller_file="views.py")],
-        symbol_rows={"Function": [["changed", "svc.py", "1", "2", "", "true"]]},
+        call_rows=[call_row("app.views.handle", "app.svc.changed", caller_file="views.py")],
+        symbol_rows={"Function": [["changed", "svc.py", "1", "2", "", "true", "app.svc.changed"]]},
     )
     backend = _SpyBackend(client)
 
     _analyze(git_repo, backend, monkeypatch)
 
     seeded = {name for request in client.seed_call_requests for name in request}
-    assert "changed" in seeded
+    # The changed symbol reaches CBM under its CANONICAL identity, not the
+    # short display name the diff produced — that substitution is the fix.
+    assert "app.svc.changed" in seeded
+    assert "changed" not in seeded
 
 
 def test_a_truncated_slice_adds_one_bounded_exploration_note(
@@ -499,10 +537,10 @@ def test_a_truncated_slice_adds_one_bounded_exploration_note(
 ) -> None:
     client = SpyCBMClient(
         call_rows=[
-            call_row("app.a", "changed"), call_row("app.b", "changed"),
-            call_row("app.c", "changed"),
+            call_row("app.a", "app.svc.changed"), call_row("app.b", "app.svc.changed"),
+            call_row("app.c", "app.svc.changed"),
         ],
-        symbol_rows={"Function": [["changed", "svc.py", "1", "2", "", "true"]]},
+        symbol_rows={"Function": [["changed", "svc.py", "1", "2", "", "true", "app.svc.changed"]]},
     )
     backend = _SpyBackend(client)
     monkeypatch.setattr(
@@ -517,12 +555,89 @@ def test_a_truncated_slice_adds_one_bounded_exploration_note(
     assert "max_edges reached" in bounded[0]
 
 
+def test_regression_short_display_name_reaches_the_canonical_graph_node(
+    git_repo: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The exact observed production failure, end to end.
+
+    Real runs reported `node_count: 0, edge_count: 0, truncated: false` on
+    repositories whose changed symbols plainly had callers. The diff yields
+    a short display name (`changed`), while CBM's graph node and its edges
+    are keyed by a fully module-qualified name — so the pre-fix exact `IN`
+    match on the display name returned nothing at all.
+    """
+    canonical = "code.example.io/services/svc.changed"
+    caller = "code.example.io/routers/repo.HandleChanged"
+    user = "code.example.io/services/other.Uses"
+    client = SpyCBMClient(
+        call_rows=[call_row(caller, canonical, caller_file="routers/repo.go")],
+        usage_rows=[usage_row(user, canonical, user_file="services/other.go")],
+        symbol_rows={"Function": [
+            ["changed", "svc.py", "1", "2", "", "true", canonical],
+            ["HandleChanged", "routers/repo.go", "1", "2", "", "true", caller],
+            ["Uses", "services/other.go", "1", "2", "", "true", user],
+        ]},
+    )
+    backend = _SpyBackend(client)
+
+    result = _analyze(git_repo, backend, monkeypatch)
+
+    # The pre-fix behavior: the short display name never appears in a query.
+    seeded = {name for request in client.seed_call_requests for name in request}
+    assert "changed" not in seeded, "the un-canonicalized display name must not be queried"
+    assert canonical in seeded
+
+    # Recall is restored: real CALLS and USAGE edges come back, and the node
+    # accounting reflects the merged slice rather than the zeros observed.
+    assert len(result.change.symbols) == 1
+    assert any("graph_slice:" in line for line in result.diagnostics)
+    slice_line = next(line for line in result.diagnostics if line.startswith("graph_slice:"))
+    assert "call_edges=1" in slice_line
+    assert "usage_edges=1" in slice_line
+    assert "nodes=0" not in slice_line
+    assert "canonical_seeds=0" not in slice_line
+    assert "unresolved_seeds=0" in slice_line
+
+    # And the acquisition path is still bounded — no repository-wide sweep.
+    assert client.all_call_edges_calls == 0
+    assert client.all_usage_edges_calls == 0
+    assert client.graph_query_calls <= GraphSliceLimits().max_graph_calls
+
+
+def test_an_unresolved_changed_symbol_is_reported_and_never_sweeps(
+    git_repo: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """An identity Sydes could not map is a hole in what was looked at — it
+    must be said out loud, and must NOT escalate to a full-repo sweep."""
+    client = SpyCBMClient(
+        call_rows=[call_row("mod.a", "mod.b")],
+        symbol_rows={"Function": [
+            # `changed` is indexed for attribution but carries no canonical
+            # identity, so it cannot be resolved to a graph node.
+            ["changed", "svc.py", "1", "2", "", "true", ""],
+        ]},
+    )
+    backend = _SpyBackend(client)
+
+    result = _analyze(git_repo, backend, monkeypatch)
+
+    notes = [
+        n for n in result.analysis_notes
+        if n.startswith("No structural graph identity could be resolved")
+    ]
+    assert len(notes) == 1, "reported exactly once, never duplicated"
+    assert "`changed`" in notes[0]
+    # Crucially: no repository-wide fallback just to avoid the uncertainty.
+    assert client.all_call_edges_calls == 0
+    assert client.all_usage_edges_calls == 0
+
+
 def test_a_complete_slice_adds_no_bounded_exploration_note(
     git_repo: Path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     client = SpyCBMClient(
-        call_rows=[call_row("app.views.handle", "changed", caller_file="views.py")],
-        symbol_rows={"Function": [["changed", "svc.py", "1", "2", "", "true"]]},
+        call_rows=[call_row("app.views.handle", "app.svc.changed", caller_file="views.py")],
+        symbol_rows={"Function": [["changed", "svc.py", "1", "2", "", "true", "app.svc.changed"]]},
     )
     backend = _SpyBackend(client)
 

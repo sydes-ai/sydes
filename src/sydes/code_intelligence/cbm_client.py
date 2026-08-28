@@ -535,12 +535,23 @@ class CBMClient:
     # -- bulk fact sweeps -------------------------------------------------
 
     def all_symbols(self, project: str, label: str) -> list[list[str]]:
-        """Every definition of one label, with span and export flag."""
+        """Every definition of one label, with span, export flag and CBM's own
+        canonical `qualified_name`.
+
+        `qualified_name` is the identity CBM's *edges* are keyed by, and it
+        carries the full module/package prefix (`code.example/svc/pull.Merge`,
+        `com.example.Resource.method`). Sydes' own display-qualified name is
+        deliberately shorter (bare class + method), so the two are not
+        interchangeable: a bounded edge query that matches on the display form
+        finds nothing. Fetched here — one extra column on a sweep already
+        being made, never an extra round trip — so seed canonicalization has a
+        real source to resolve against.
+        """
         return self._rows(
             project,
             f"MATCH (n:{label}) WHERE n.file_path <> '' RETURN n.name, n.file_path, "
-            "n.start_line, n.end_line, n.parent_class, n.is_exported",
-            columns=6, order_by="n.file_path, n.name, n.start_line",
+            "n.start_line, n.end_line, n.parent_class, n.is_exported, n.qualified_name",
+            columns=7, order_by="n.file_path, n.name, n.start_line",
         )
 
     def all_imports(self, project: str) -> list[list[str]]:

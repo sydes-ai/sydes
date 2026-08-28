@@ -325,6 +325,34 @@ def record_graph_slice(
     })
 
 
+#: How many canonical seed identities to name in a trace record. Enough to
+#: debug an identity mismatch, far short of dumping a symbol table.
+_MAX_TRACED_SEEDS = 20
+
+
+def record_seed_resolution(
+    *, requested: int, canonical: int, unresolved: list[str],
+    ambiguous: dict[str, list[str]], canonical_seeds: list[str],
+) -> None:
+    """How display seed names mapped onto CBM's canonical graph identities.
+
+    The check that catches an identity mismatch: a run where `requested` is
+    healthy but `canonical` is 0 explains a zero-edge slice, and the two are
+    otherwise indistinguishable from the slice record alone."""
+    if not is_enabled():
+        return
+    _append_jsonl(_GRAPH_SLICES, {
+        "timestamp": _now_iso(),
+        "event": "seed_resolution",
+        "requested_seed_count": requested,
+        "canonical_seed_count": canonical,
+        "unresolved_seed_count": len(unresolved),
+        "unresolved_seeds": _sanitize(unresolved[:_MAX_TRACED_SEEDS]),
+        "ambiguous_seed_count": len(ambiguous),
+        "canonical_seeds": _sanitize(canonical_seeds[:_MAX_TRACED_SEEDS]),
+    })
+
+
 def record_graph_slice_fallback(
     *, reason: str, seed_count: int, call_edges: int, usage_edges: int,
 ) -> None:

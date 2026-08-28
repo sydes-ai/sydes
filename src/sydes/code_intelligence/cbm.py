@@ -24,7 +24,7 @@ backend the operator did not choose.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 import sys
 import time
@@ -35,6 +35,10 @@ from sydes.code_intelligence.cbm_client import (
     CBM_EXECUTABLE_ENV_VAR,
     CBMClient,
     resolve_executable,
+)
+from sydes.code_intelligence.symbol_identity import (
+    SeedRequest,
+    resolve_seed_identities,
 )
 from sydes.code_intelligence.graph_slice import (
     GraphQueryCache,
@@ -76,6 +80,13 @@ class BoundedEdgeOutcome:
     node_count: int = 0
     call_edge_count: int = 0
     usage_edge_count: int = 0
+    #: Seeds that resolved to a CBM canonical graph identity.
+    canonical_seed_count: int = 0
+    #: Seed labels no canonical identity could be found for. Distinct from
+    #: "resolved but no edges": this one means Sydes could not look.
+    unresolved_seeds: list[str] = field(default_factory=list)
+    #: Seed label -> the several identities it legitimately matched.
+    ambiguous_seeds: dict[str, list[str]] = field(default_factory=dict)
     limits: GraphSliceLimits | None = None
 
 #: CBM node labels mapped onto the symbol kinds Sydes already consumes.
@@ -161,7 +172,9 @@ class CBMCodeIntelligence:
         by_file: dict[str, list[dict[str, Any]]] = {}
         for label, kind in _KIND_BY_LABEL.items():
             for row in client.all_symbols(project, label):
-                name, path, start, end, parent, exported = (row + [None] * 6)[:6]
+                name, path, start, end, parent, exported, cbm_qualified = (
+                    (row + [None] * 7)[:7]
+                )
                 if not isinstance(name, str) or not _is_repository_path(path):
                     continue
                 # CBM qualifies a parent class with the whole project prefix;
@@ -179,6 +192,12 @@ class CBMCodeIntelligence:
                     "export_kind": None,
                     "source": CBM_BACKEND,
                 }
+                # CBM's own canonical graph identity, kept under a distinct key.
+                # `qualified_name` below stays Sydes' shorter display form,
+                # which identity matching elsewhere already depends on;
+                # overwriting it would change unrelated behavior.
+                if isinstance(cbm_qualified, str) and cbm_qualified:
+                    symbol["cbm_qualified_name"] = cbm_qualified
                 if kind == "class_method" and parent_name:
                     symbol["parent"] = parent_name
                     symbol["qualified_name"] = f"{parent_name}.{name}"
@@ -288,7 +307,7 @@ class CBMCodeIntelligence:
         self,
         facts: StructuralFacts,
         *,
-        seed_symbols: list[str],
+        seed_symbols: list[SeedRequest] | list[str],
         limits: GraphSliceLimits | None = None,
     ) -> BoundedEdgeOutcome:
         """Populate `facts.call_edges`/`facts.usage_edges` from a bounded
@@ -308,14 +327,37 @@ class CBMCodeIntelligence:
         recorded on the outcome rather than passing silently.
         """
         limits = limits or GraphSliceLimits()
-        seeds = [item for item in dict.fromkeys(seed_symbols) if item]
-        outcome = BoundedEdgeOutcome(seed_count=len(seeds), limits=limits)
+        requests = [
+            item if isinstance(item, SeedRequest) else SeedRequest(name=str(item))
+            for item in seed_symbols
+        ]
+        requests = [item for item in requests if item.name or item.qualified_name]
+        outcome = BoundedEdgeOutcome(seed_count=len(requests), limits=limits)
+
+        # Display names are not CBM graph identities. Resolve them against
+        # the symbol index already loaded, so the bounded edge query matches
+        # the names CBM's own edges are keyed by rather than returning zero
+        # rows against a shorter display form.
+        resolution = resolve_seed_identities(facts.symbol_index, requests)
+        seeds = resolution.canonical
+        outcome.canonical_seed_count = len(seeds)
+        outcome.unresolved_seeds = list(resolution.unresolved)
+        outcome.ambiguous_seeds = dict(resolution.ambiguous)
+        _trace.record_seed_resolution(
+            requested=len(requests), canonical=len(seeds),
+            unresolved=resolution.unresolved, ambiguous=resolution.ambiguous,
+            canonical_seeds=seeds,
+        )
+
         if not seeds:
-            # Nothing to seed from. A repository-wide sweep would cost the
-            # most and tell impact analysis nothing it can use, since every
-            # consumer of these edges starts from a changed symbol.
+            # Nothing addressable to seed from. A repository-wide sweep would
+            # cost the most and tell impact analysis nothing it can use,
+            # since every consumer of these edges starts from a symbol.
             outcome.used_slice = False
-            outcome.reason = "no seed symbols to build a bounded slice from"
+            outcome.reason = (
+                "no seed symbol resolved to a CBM graph identity"
+                if requests else "no seed symbols to build a bounded slice from"
+            )
             return outcome
 
         client = self._ensure_client()

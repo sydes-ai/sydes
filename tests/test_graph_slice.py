@@ -487,3 +487,52 @@ def test_before_after_call_count_on_a_synthetic_large_repository() -> None:
     assert "app.mid" in _node_names(result)
     assert "app.top" in _node_names(result)
     assert "app.util_user" in _node_names(result)
+
+
+# --------------------------------------------------------------------------
+# Canonical identity is preserved across hops
+# --------------------------------------------------------------------------
+
+
+def test_hop_two_expands_using_canonical_identities_not_short_names() -> None:
+    """The frontier must carry CBM's fully qualified names forward. If hop 2
+    regressed to short/display names it would match nothing, silently
+    capping every slice at one hop."""
+    client = FakeGraphClient(call_rows=[
+        call_row("code.example.io/svc/pull.Merge", "code.example.io/svc/pull.Changed"),
+        call_row("code.example.io/routers/repo.Handle", "code.example.io/svc/pull.Merge"),
+    ])
+
+    result = build_graph_slice(
+        client, "proj", REPO, ["code.example.io/svc/pull.Changed"],
+        limits=GraphSliceLimits(max_depth=2),
+    )
+
+    # Hop 2's request must use the canonical name discovered at hop 1.
+    hop2_seeds = set(client.call_edges_for_seeds_calls[1][1])
+    assert "code.example.io/svc/pull.Merge" in hop2_seeds
+    assert "Merge" not in hop2_seeds
+    assert "code.example.io/routers/repo.Handle" in _node_names(result)
+
+
+def test_node_and_edge_counts_reflect_the_merged_deduplicated_slice() -> None:
+    """The counts reported in tracing must be the real merged totals — the
+    observed `node_count: 0, edge_count: 0` was the symptom that started
+    this investigation."""
+    client = FakeGraphClient(
+        call_rows=[
+            call_row("mod.caller_a", "mod.changed"),
+            call_row("mod.caller_b", "mod.changed"),
+        ],
+        usage_rows=[usage_row("mod.user", "mod.changed")],
+    )
+
+    result = build_graph_slice(
+        client, "proj", REPO, ["mod.changed"], limits=GraphSliceLimits(max_depth=1),
+    )
+
+    assert result.edge_count() == 3  # 2 CALLS + 1 USAGE
+    # changed + caller_a + caller_b + user, each counted once.
+    assert result.node_count() == 4
+    assert len(graph_slice_call_edges(result)) == 2
+    assert len(graph_slice_usage_edges(result)) == 1
