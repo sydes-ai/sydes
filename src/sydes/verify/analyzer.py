@@ -1027,41 +1027,114 @@ _UNRESOLVED_IDENTITY_NOTE_PREFIX = (
 )
 
 
-def _graph_slice_seeds(change: ChangeSet, routes: Any) -> list[SeedRequest]:
-    """Seed symbols for the bounded slice: the changed symbols, plus the
-    route handlers whose outbound calls flow tracing follows.
+#: The most route handlers worth seeding a graph slice with. Derived, not
+#: arbitrary: `candidate_endpoints` below is already `selected[:MAX_FLOWS * 3]`,
+#: so no more than this many routes can ever be traced in one run — seeding
+#: beyond it cannot help flow tracing and only spends slice budget.
+MAX_AUXILIARY_ROUTE_SEEDS = MAX_FLOWS * 3
 
-    Both consumers of the edge tables are represented. Missing either would
-    change existing behavior rather than only its cost: the impact
-    interpreter walks inbound from changed symbols, while
-    `build_layered_trace_expansion` walks outbound from a route handler.
 
-    Each seed carries its file, because that is the strongest disambiguator
-    the canonical-identity resolver has. These are display names, not CBM
-    graph identities — `attach_bounded_edges` canonicalizes them before any
-    edge query, since matching a display name against CBM's fully qualified
-    edge keys returns nothing.
+@dataclass(frozen=True)
+class _SeedSelection:
+    """Seeds chosen for one slice, with the counts worth tracing."""
+
+    seeds: list[SeedRequest] = field(default_factory=list)
+    changed_symbol_count: int = 0
+    route_handler_count: int = 0
+    dropped_auxiliary_count: int = 0
+
+
+def _seed_identity(seed: SeedRequest) -> tuple[str | None, str, str | None]:
+    """Stable identity for deduplication.
+
+    Keyed on file plus the strongest name available, so two spellings of one
+    symbol (`MergePullRequest` and `repo.MergePullRequest` in the same file)
+    collapse, while two genuinely different symbols sharing a short name in
+    different files stay distinct.
     """
+    return (seed.file, seed.name, None)
+
+
+def _select_graph_slice_seeds(
+    change: ChangeSet, routes: Any, candidate_files: set[str] | None = None,
+) -> _SeedSelection:
+    """Choose a bounded, change-local seed set for the bounded slice.
+
+    Changed symbols are always primary and never dropped: they are the
+    change itself, and the impact interpreter walks inbound from them.
+
+    Route handlers are auxiliary. `build_layered_trace_expansion` walks
+    *outbound* from a route handler, so route tracing genuinely needs them
+    — but only for routes this change could plausibly reach. Seeding every
+    route in the repository (what this previously did) put hundreds of
+    unrelated handlers into a query whose first page then filled with
+    structure belonging to no part of the change.
+
+    A route handler is kept only on deterministic evidence tying it to the
+    change: its file was edited, it *is* a changed symbol, or its file is in
+    the reverse-reach closure `_candidate_route_files` already computed.
+    """
+    changed_files = {item.path for item in change.files}
+    changed_names = {item.name for item in change.symbols}
+    relevant_files = set(candidate_files or set())
+
     seeds: list[SeedRequest] = []
+    seen: set[tuple[str | None, str, str | None]] = set()
+
+    def _add(seed: SeedRequest) -> bool:
+        if not (seed.name or seed.qualified_name):
+            return False
+        key = _seed_identity(seed)
+        if key in seen:
+            return False
+        seen.add(key)
+        seeds.append(seed)
+        return True
+
+    changed_count = 0
     for symbol in change.symbols:
-        seeds.append(SeedRequest(
+        if _add(SeedRequest(
             name=symbol.name, file=symbol.file, qualified_name=symbol.qualified_name,
-        ))
+        )):
+            changed_count += 1
+
+    # Auxiliary route handlers, change-local only.
+    relevant_routes: list[SeedRequest] = []
     for route in getattr(routes, "routes", []) or []:
         handler = getattr(route, "handler", None)
-        if handler:
-            # Route handlers need canonicalizing too: `repo.MergePullRequest`
-            # is as unmatchable against CBM's edge keys as a bare short name.
-            seeds.append(SeedRequest(
-                name=str(handler).rsplit(".", 1)[-1],
-                file=getattr(route, "file", None),
-                qualified_name=str(handler) if "." in str(handler) else None,
-            ))
-    unique: dict[tuple[str, str | None, str | None], SeedRequest] = {}
-    for seed in seeds:
-        if seed.name or seed.qualified_name:
-            unique.setdefault((seed.name, seed.file, seed.qualified_name), seed)
-    return list(unique.values())
+        if not handler:
+            continue
+        file = getattr(route, "file", None)
+        short = str(handler).rsplit(".", 1)[-1]
+        related = (
+            (file is not None and file in changed_files)
+            or short in changed_names
+            or (file is not None and file in relevant_files)
+        )
+        if not related:
+            continue
+        # Route handlers need canonicalizing too: `repo.MergePullRequest` is
+        # as unmatchable against CBM's edge keys as a bare short name.
+        relevant_routes.append(SeedRequest(
+            name=short, file=file,
+            qualified_name=str(handler) if "." in str(handler) else None,
+        ))
+
+    route_count = 0
+    dropped = 0
+    for seed in relevant_routes:
+        if route_count >= MAX_AUXILIARY_ROUTE_SEEDS:
+            dropped += 1
+            continue
+        if _add(seed):
+            route_count += 1
+
+    return _SeedSelection(
+        seeds=seeds,
+        changed_symbol_count=changed_count,
+        route_handler_count=route_count,
+        dropped_auxiliary_count=dropped,
+    )
 
 
 def _attach_bounded_graph_edges(
@@ -1071,6 +1144,7 @@ def _attach_bounded_graph_edges(
     change: ChangeSet,
     routes: Any,
     result: ChangeVerificationResult,
+    candidate_files: set[str] | None = None,
 ) -> None:
     """Populate `structural.call_edges`/`usage_edges` from a bounded
     neighborhood, and record what that exploration could and could not see.
@@ -1082,9 +1156,21 @@ def _attach_bounded_graph_edges(
     if attach is None or not structural.provides_call_graph:
         return
 
-    seeds = _graph_slice_seeds(change, routes)
-    outcome = attach(structural, seed_symbols=seeds)
+    selection = _select_graph_slice_seeds(change, routes, candidate_files)
+    outcome = attach(structural, seed_symbols=selection.seeds)
 
+    _trace.record_seed_selection(
+        changed_symbol_seeds=selection.changed_symbol_count,
+        route_handler_seeds=selection.route_handler_count,
+        deduplicated_seeds=len(selection.seeds),
+        dropped_auxiliary_seeds=selection.dropped_auxiliary_count,
+    )
+    result.diagnostics.append(
+        f"graph_slice_seeds: changed={selection.changed_symbol_count} "
+        f"routes={selection.route_handler_count} "
+        f"dropped_auxiliary={selection.dropped_auxiliary_count} "
+        f"total={len(selection.seeds)}"
+    )
     result.diagnostics.append(
         f"graph_slice: used={outcome.used_slice} seeds={outcome.seed_count} "
         f"canonical_seeds={outcome.canonical_seed_count} "
@@ -1372,6 +1458,7 @@ def analyze_change(
     _attach_bounded_graph_edges(
         code_intelligence=code_intelligence, structural=structural,
         change=change, routes=routes, result=result,
+        candidate_files=candidate_files,
     )
 
     # Which entrypoints the change reaches: the impact interpreter is the

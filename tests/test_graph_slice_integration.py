@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import subprocess
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -647,3 +648,47 @@ def test_a_complete_slice_adds_no_bounded_exploration_note(
         note.startswith("Structural exploration was bounded")
         for note in result.analysis_notes
     )
+
+
+def test_hundreds_of_repository_routes_do_not_explode_the_seed_set(
+    git_repo: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The production-path regression for the observed seed explosion: a
+    repository with hundreds of routes must still seed the slice with the
+    change plus only the handful of handlers tied to it."""
+    from sydes.core.models import EndpointCandidate
+
+    client = SpyCBMClient(
+        call_rows=[call_row("app.views.handle", "app.svc.changed", caller_file="views.py")],
+        symbol_rows={"Function": [
+            ["changed", "svc.py", "1", "2", "", "true", "app.svc.changed"],
+            ["handle", "views.py", "1", "2", "", "true", "app.views.handle"],
+        ]},
+    )
+    backend = _SpyBackend(client)
+
+    unrelated = [
+        EndpointCandidate(method="GET", path=f"/r{i}", handler=f"repo.Handler{i}",
+                          file=f"routers/r{i}.go", repo=REPO)
+        for i in range(300)
+    ]
+    related = EndpointCandidate(
+        method="GET", path="/x", handler="app.views.handle", file="svc.py", repo=REPO,
+    )
+    monkeypatch.setattr(
+        "sydes.verify.analyzer.discover_endpoints",
+        lambda *a, **k: SimpleNamespace(routes=[*unrelated, related], notes=[]),
+    )
+
+    result = _analyze(git_repo, backend, monkeypatch)
+
+    line = next(l for l in result.diagnostics if l.startswith("graph_slice_seeds:"))
+    assert "changed=1" in line
+    assert "routes=1" in line, f"only the change-local handler should seed: {line}"
+    assert "total=2" in line
+    # Every seed actually sent to CBM stays in the low tens.
+    for request in client.seed_call_requests:
+        assert len(request) < 30, "seed set must not regress toward hundreds"
+    # And the acquisition path is still bounded.
+    assert client.all_call_edges_calls == 0
+    assert client.all_usage_edges_calls == 0

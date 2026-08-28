@@ -330,6 +330,26 @@ def record_graph_slice(
 _MAX_TRACED_SEEDS = 20
 
 
+def record_seed_selection(
+    *, changed_symbol_seeds: int, route_handler_seeds: int,
+    deduplicated_seeds: int, dropped_auxiliary_seeds: int,
+) -> None:
+    """How the seed set for one bounded slice was chosen, before any
+    canonicalization. Counts only: enough to tell a change-local seed set
+    from a repository-wide one without listing hundreds of handlers."""
+    if not is_enabled():
+        return
+    _append_jsonl(_GRAPH_SLICES, {
+        "timestamp": _now_iso(),
+        "event": "seed_selection",
+        "changed_symbol_seed_count": changed_symbol_seeds,
+        "route_handler_seed_count": route_handler_seeds,
+        "deduplicated_seed_count": deduplicated_seeds,
+        "dropped_auxiliary_seed_count": dropped_auxiliary_seeds,
+        "final_requested_seed_count": deduplicated_seeds,
+    })
+
+
 def record_seed_resolution(
     *, requested: int, canonical: int, unresolved: list[str],
     ambiguous: dict[str, list[str]], canonical_seeds: list[str],
