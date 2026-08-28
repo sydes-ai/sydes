@@ -170,6 +170,79 @@ def test_pattern_3_missing_handler_is_reported_not_swallowed(tmp_path: Path) -> 
 
 
 # --------------------------------------------------------------------------
+# The Python baseline is Python-only — a non-Python anchor file must be
+# skipped cleanly rather than fed to `ast.parse`.
+# --------------------------------------------------------------------------
+
+
+def test_a_java_file_does_not_invoke_or_report_python_parse_failed(tmp_path: Path) -> None:
+    """The exact regression shape: a real `.java` handler must never produce
+    `python_parse_failed` — the file was never eligible for Python parsing
+    in the first place, so its Java syntax is not a parse failure."""
+    root = tmp_path / "repo"
+    _write(
+        root,
+        "src/main/java/org/example/OwnerController.java",
+        "package org.example;\n\n"
+        "public class OwnerController {\n"
+        "    public String processFindForm() {\n"
+        "        return \"owners\";\n"
+        "    }\n"
+        "}\n",
+    )
+
+    steps, sinks, notes = _baseline(
+        root, "src/main/java/org/example/OwnerController.java", "processFindForm",
+    )
+
+    assert not any("python_parse_failed" in note for note in notes)
+    assert steps == [] and sinks == []
+    assert any("python_baseline_skipped" in note for note in notes)
+
+
+def test_a_python_syntax_failure_still_reports_python_parse_failed(tmp_path: Path) -> None:
+    """The Java skip must not swallow a genuine Python parse failure — this
+    is `test_pattern_3_parse_failure_is_reported_not_swallowed`'s exact
+    assertion, repeated here to pin it as unaffected by the language guard."""
+    root = tmp_path / "repo"
+    _write(root, "app/routes.py", "def create_student(payload):\n    return save(\n")
+
+    steps, sinks, notes = _baseline(root, "app/routes.py", "create_student")
+
+    assert steps == [] and sinks == []
+    assert any("python_parse_failed" in note for note in notes)
+    assert not any("python_baseline_skipped" in note for note in notes)
+
+
+def test_normal_python_flow_extraction_is_unaffected_by_the_language_guard(
+    tmp_path: Path,
+) -> None:
+    """A real `.py` handler must extract exactly as it did before — the
+    language guard is a no-op on the path Python always took."""
+    root = tmp_path / "repo"
+    _write(root, "app/routes.py", _SHORT_HANDLER)
+    _write(root, "app/repository.py", _REPOSITORY)
+
+    steps, _sinks, notes = _baseline(root, "app/routes.py", "create_student")
+
+    assert steps, f"a valid Python handler produced no steps; notes={notes}"
+    assert not any("python_parse_failed" in note for note in notes)
+    assert not any("python_baseline_skipped" in note for note in notes)
+
+
+def test_an_unrecognized_extension_is_also_skipped_cleanly(tmp_path: Path) -> None:
+    """Conservative default: an extension the language table does not know
+    is treated as non-Python (skip), never assumed to be Python."""
+    root = tmp_path / "repo"
+    _write(root, "app/handler.unknown", "def create_student(payload):\n    return save(\n")
+
+    steps, sinks, notes = _baseline(root, "app/handler.unknown", "create_student")
+
+    assert not any("python_parse_failed" in note for note in notes)
+    assert steps == [] and sinks == []
+
+
+# --------------------------------------------------------------------------
 # Patterns 4 & 5 — call following through the shared symbol machinery
 # --------------------------------------------------------------------------
 

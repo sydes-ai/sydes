@@ -28,7 +28,11 @@ import time
 from typing import Any, Iterable
 
 from sydes.code_intelligence.base import StructuralFacts
-from sydes.impact.boundary_discovery import BoundaryBudget, discover_boundaries
+from sydes.impact.boundary_discovery import (
+    BoundaryBudget,
+    discover_boundaries,
+    is_production_boundary_candidate,
+)
 from sydes.impact.guide import GuideError, ImpactGuide
 from sydes.impact.investigate import InvestigationExecutor, source_preview
 from sydes.impact.models import (
@@ -209,24 +213,24 @@ class ImpactInterpreter:
             dead_ends: list[tuple[SymbolIdentity, tuple[ImpactStep, ...]]] = []
 
             for path, target in self._direct(symbol, index):
-                self._record(found, target, name, path)
+                self._record(found, target, name, path, index)
                 reached = True
 
             for path, target, hit_limit in self._reachability(symbol, index, dead_ends=dead_ends):
                 truncated = truncated or hit_limit
                 if target is not None and path is not None:
-                    self._record(found, target, name, path)
+                    self._record(found, target, name, path, index)
                     reached = True
 
             for path, target in self._decorator_references(symbol, index):
-                self._record(found, target, name, path)
+                self._record(found, target, name, path, index)
                 reached = True
 
             for path, target in self._signature_references(symbol, index):
                 # Weakest evidence this module produces — see `_record`'s
                 # docstring. Never PROVEN on the strength of a signature
                 # reference alone.
-                self._record(found, target, name, path, status=IMPACT_STATUS_INFERRED)
+                self._record(found, target, name, path, index, status=IMPACT_STATUS_INFERRED)
                 reached = True
 
             if not reached:
@@ -539,7 +543,7 @@ class ImpactInterpreter:
                 newly_resolved = False
                 for path, entry, _hit_limit in self._reachability_extended(symbol, index, fresh_dead_ends):
                     if entry is not None and path is not None:
-                        self._record(found, entry, name, path)
+                        self._record(found, entry, name, path, index)
                         newly_resolved = True
                 if newly_resolved:
                     symbol_resolved = True
@@ -1011,6 +1015,7 @@ class ImpactInterpreter:
         entry: dict[str, Any],
         changed_symbol: str,
         path: ImpactPath,
+        index: "_FactIndex",
         *,
         status: str = IMPACT_STATUS_PROVEN,
     ) -> None:
@@ -1026,7 +1031,26 @@ class ImpactInterpreter:
         changed symbol), it upgrades an existing weak record to PROVEN —
         never the reverse: nothing here ever downgrades an already-PROVEN
         entry.
+
+        This is the one place every deterministic strategy (`_direct`,
+        `_reachability`, `_decorator_references`, `_signature_references`,
+        and the guide loop's structural confirmations) funnels an entrypoint
+        through before it becomes an affected impact — so it is also the
+        narrowest point to enforce that an entrypoint must be a *production*
+        one. `is_production_boundary_candidate` is the exact predicate C.1
+        boundary discovery already applies to exclude test symbols and bare
+        executable entrypoints (`main`); reused verbatim rather than
+        reimplemented, so the two layers can never drift apart on what counts
+        as "test code". A test-only entrypoint (CBM can annotate a test
+        method with route-looking decorator metadata just as readily as a
+        production handler) is silently skipped here — it never enters
+        `found`, so it can never surface as a proven affected impact. It
+        remains fully visible to everything else: `facts`/CBM edges,
+        semantic evidence, and test-mapping/verification are untouched.
         """
+        identity = _identity_of_entry(entry, index._repo)
+        if not is_production_boundary_candidate(identity, index.facts):
+            return
         key = entry.get("qualified_name") or entry["symbol"]
         entrypoint = found.get(key)
         if entrypoint is None:

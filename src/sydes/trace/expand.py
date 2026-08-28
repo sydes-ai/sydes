@@ -19,6 +19,7 @@ from sydes.core.models import (
     SinkCandidate,
     TraceStep,
 )
+from sydes.discover.route_index import LANGUAGE_BY_EXT
 from sydes.ingest.inventory import build_repo_inventory
 from sydes.ingest.readers import (
     read_complete_source_for_parsing,
@@ -358,6 +359,21 @@ def _extract_python_handler_baseline(
     indistinguishable from a handler that genuinely does nothing.
     """
     notes: list[str] = []
+    if LANGUAGE_BY_EXT.get(Path(context.anchor_file).suffix.lower()) != "python":
+        # This baseline is Python-specific by construction (`ast.parse`
+        # below) — for any other language, or an unrecognized extension,
+        # there is nothing to parse, not a parse failure. Reusing the same
+        # extension table CBM's own language tagging uses (`LANGUAGE_BY_EXT`)
+        # rather than inventing a second one. LLM-based flow expansion, this
+        # function's caller, is the language-general path and still runs
+        # regardless of this skip — so a non-Python file is never silently
+        # treated as fully analyzed, only as not eligible for this one
+        # deterministic baseline.
+        notes.append(
+            f"python_baseline_skipped: {context.anchor_file} is not Python "
+            "source; deterministic Python baseline extraction does not apply."
+        )
+        return [], [], notes
     anchor = next(
         (
             item

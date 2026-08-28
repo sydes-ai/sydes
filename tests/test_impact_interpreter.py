@@ -382,3 +382,117 @@ def test_multiple_reasons_for_one_entrypoint_are_all_kept() -> None:
     strategies = result.affected[0].strategies
     assert STRATEGY_CALL_REACHABILITY in strategies
     assert STRATEGY_SIGNATURE_REFERENCE in strategies
+
+
+# --------------------------------------------------------------------------
+# Test-only entrypoints must never become production affected impacts
+#
+# The spring-petclinic#2589 shape: CBM's `decorated_symbols` can annotate a
+# JUnit test method with the same route-looking metadata it reports for a
+# real handler. Every deterministic strategy funnels through `_record`, so
+# one check there — reusing C.1's own `is_production_boundary_candidate`,
+# not a second test-detection rule — must keep all of them out.
+# --------------------------------------------------------------------------
+
+
+def test_a_changed_test_method_reached_via_direct_entrypoint_is_not_a_proven_impact() -> None:
+    """The exact bug: `OwnerControllerTests.processFindFormIgnoresSurrounding
+    Whitespace` is itself both the changed symbol and an "entrypoint" CBM
+    reported — DIRECT_ENTRYPOINT must not accept it."""
+    result = ImpactInterpreter().interpret(
+        changed("processFindFormIgnoresSurroundingWhitespace",
+                file="src/test/java/org/example/owner/OwnerControllerTests.java"),
+        facts(entrypoints=[
+            entrypoint("processFindFormIgnoresSurroundingWhitespace",
+                       file="src/test/java/org/example/owner/OwnerControllerTests.java"),
+        ]),
+    )
+
+    assert result.affected == []
+
+
+def test_a_production_entrypoint_reached_via_direct_entrypoint_is_unaffected() -> None:
+    """The paired positive case: a real production handler must still be
+    accepted exactly as before."""
+    result = ImpactInterpreter().interpret(
+        changed("processFindForm", file="src/main/java/org/example/owner/OwnerController.java"),
+        facts(entrypoints=[
+            entrypoint("processFindForm", method="GET", path="/owners",
+                       file="src/main/java/org/example/owner/OwnerController.java"),
+        ]),
+    )
+
+    assert len(result.affected) == 1
+    assert result.affected[0].symbol == "processFindForm"
+    assert result.affected[0].route_path == "/owners"
+
+
+def test_a_test_file_entrypoint_reached_via_call_reachability_is_excluded() -> None:
+    result = ImpactInterpreter().interpret(
+        changed("helper"),
+        facts(
+            call_edges=[call_edge("test_uses_helper", "helper",
+                                   caller_file="app/tests/views_test.py")],
+            entrypoints=[entrypoint("test_uses_helper", file="app/tests/views_test.py")],
+        ),
+    )
+
+    assert result.affected == []
+
+
+def test_a_test_file_entrypoint_reached_via_decorator_reference_is_excluded() -> None:
+    result = ImpactInterpreter().interpret(
+        changed("Dependency"),
+        facts(entrypoints=[
+            {"repo": REPO, "qualified_name": "app.tests.test_handler", "symbol": "test_handler",
+             "file": "app/tests/views_test.py", "line": 1, "route_method": "GET", "route_path": "/x",
+             "decorators": "@router.get('/x', dependencies=[Depends(Dependency)])", "signature": "()"},
+        ]),
+    )
+
+    assert result.affected == []
+
+
+def test_a_test_file_entrypoint_reached_via_signature_reference_is_excluded() -> None:
+    result = ImpactInterpreter().interpret(
+        changed("Payload"),
+        facts(entrypoints=[
+            entrypoint("test_handler", file="app/tests/views_test.py",
+                       signature="(item: Payload)"),
+        ]),
+    )
+
+    assert result.affected == []
+
+
+def test_main_remains_excluded_as_a_direct_entrypoint_via_the_same_predicate() -> None:
+    """Consistency check: `_record` reuses the exact C.1 predicate, so `main`
+    is excluded here for the same reason it is excluded from boundary
+    discovery — not a second, independent rule."""
+    result = ImpactInterpreter().interpret(
+        changed("main", file="app/cmd/bin.py"),
+        facts(entrypoints=[entrypoint("main", file="app/cmd/bin.py")]),
+    )
+
+    assert result.affected == []
+
+
+def test_a_test_entrypoint_does_not_contaminate_a_real_entrypoint_in_the_same_result() -> None:
+    """One changed symbol reaching both a test method and a production
+    handler must keep the production one and drop only the test one."""
+    result = ImpactInterpreter().interpret(
+        changed("shared_helper"),
+        facts(
+            call_edges=[
+                call_edge("test_calls_helper", "shared_helper", caller_file="app/tests/views_test.py"),
+                call_edge("real_handler", "shared_helper", caller_file="app/views.py"),
+            ],
+            entrypoints=[
+                entrypoint("test_calls_helper", file="app/tests/views_test.py"),
+                entrypoint("real_handler", method="GET", path="/real", file="app/views.py"),
+            ],
+        ),
+    )
+
+    labels = {item.symbol for item in result.affected}
+    assert labels == {"real_handler"}
