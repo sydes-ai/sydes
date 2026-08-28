@@ -128,6 +128,73 @@ def _is_repository_path(path: Any) -> bool:
     return isinstance(path, str) and bool(path) and not path.startswith(_SYNTHETIC_PATH_PREFIX)
 
 
+# -- fast-mode exclusion detection -----------------------------------------
+#
+# CBM's `mode="fast"` index can exclude entire directories from a repository
+# (observed on spring-petclinic: `src/main/java/org/springframework/samples`
+# came back in `excluded.dirs`, silently omitting the changed production
+# file it contained — GraphSlice then requested seeds that could never
+# resolve). This is read from whatever `index_repository()` already
+# returned; it costs no extra CBM call to detect.
+
+
+def _excluded_dirs_from_index_payload(payload: dict[str, Any]) -> list[str]:
+    """`excluded.dirs` from an `index_repository` payload, read defensively.
+
+    Any shape other than `{"excluded": {"dirs": [str, ...]}}` — the key
+    absent, `excluded` not a dict, `dirs` not a list, a non-string entry —
+    yields an empty list rather than raising. A payload shape Sydes cannot
+    read is not evidence that indexing was incomplete.
+    """
+    excluded = payload.get("excluded")
+    if not isinstance(excluded, dict):
+        return []
+    dirs = excluded.get("dirs")
+    if not isinstance(dirs, list):
+        return []
+    return [item for item in dirs if isinstance(item, str) and item]
+
+
+def _path_segments(path: str) -> tuple[str, ...]:
+    return tuple(part for part in path.replace("\\", "/").strip("/").split("/") if part)
+
+
+def _is_under_excluded_dir(changed_path: str, excluded_dir: str) -> bool:
+    """Whether `changed_path` is inside `excluded_dir`, by path SEGMENT —
+    never by raw string prefix.
+
+    A naive `changed_path.startswith(excluded_dir)` would treat
+    `src/main/java/foobar/X.java` as being inside `src/main/java/foo`,
+    because the character sequence matches even though the directory does
+    not. Comparing segment tuples instead makes `foo` and `foobar` the
+    distinct path components they are.
+    """
+    excluded_parts = _path_segments(excluded_dir)
+    if not excluded_parts:
+        return False
+    changed_parts = _path_segments(changed_path)
+    return changed_parts[: len(excluded_parts)] == excluded_parts
+
+
+def _changed_files_under_excluded_dirs(
+    changed_files: list[str], excluded_dirs: list[str],
+) -> list[str]:
+    """Changed files that fall under any excluded directory, in input order,
+    de-duplicated. Empty in the (normal) case where nothing was excluded or
+    nothing changed there — never guessed at."""
+    if not changed_files or not excluded_dirs:
+        return []
+    hits: list[str] = []
+    seen: set[str] = set()
+    for changed_path in changed_files:
+        if not isinstance(changed_path, str) or not changed_path or changed_path in seen:
+            continue
+        if any(_is_under_excluded_dir(changed_path, excluded_dir) for excluded_dir in excluded_dirs):
+            seen.add(changed_path)
+            hits.append(changed_path)
+    return hits
+
+
 class CBMCodeIntelligence:
     """Structural facts from a Codebase Memory persistent index."""
 
@@ -420,6 +487,7 @@ class CBMCodeIntelligence:
         workspace_id: str | None = None,
         root: Path | None = None,
         defer_edges: bool = False,
+        changed_files_by_repo: dict[str, list[str]] | None = None,
     ) -> StructuralFacts:
         """Index each repository through CBM and translate its facts for Sydes.
 
@@ -431,6 +499,13 @@ class CBMCodeIntelligence:
         Everything else — symbols, imports, entrypoints, route semantics —
         is unaffected and stays repository-wide, because those are cheap and
         are needed before any changed symbol can be identified at all.
+
+        `changed_files_by_repo` guards against a `mode="fast"` index that
+        excluded a directory the change actually touches: when any changed
+        file for a repo falls under one of that repo's `excluded.dirs`, this
+        indexes that repo again with `mode="full"` — once — and continues
+        with the full result. A repository whose fast index excluded nothing
+        relevant to this change is indexed exactly as before.
         """
         started = time.perf_counter()
         client = self._ensure_client()
@@ -443,10 +518,43 @@ class CBMCodeIntelligence:
         usage_edges: list[dict[str, Any]] = []
         entrypoints: list[dict[str, Any]] = []
         gaps: list[str] = []
+        index_mode_notes: list[str] = []
 
         for repo in repos:
             index_started = time.perf_counter()
             index_payload = client.index_repository(repo.root)
+            index_mode = "fast"
+            retried = False
+            retry_reason: str | None = None
+            triggering_files: list[str] = []
+
+            excluded_dirs = _excluded_dirs_from_index_payload(index_payload)
+            repo_changed_files = (changed_files_by_repo or {}).get(repo.name, [])
+            triggering_files = _changed_files_under_excluded_dirs(
+                repo_changed_files, excluded_dirs,
+            )
+            if triggering_files:
+                # One retry, never more: a full index either covers the
+                # excluded directory or it does not, and CBM's own failure
+                # semantics (raise, no silent degrade) apply exactly as they
+                # would to the original fast-mode call — no fallback to the
+                # incomplete fast graph is attempted here.
+                index_payload = client.index_repository(repo.root, mode="full")
+                index_mode = "full"
+                retried = True
+                retry_reason = "changed_file_under_excluded_dir"
+                index_mode_notes.append(
+                    f"{repo.name}: cbm_index_mode retried fast->full "
+                    f"({len(triggering_files)} changed file(s) under an excluded "
+                    "directory; see trace for detail)"
+                )
+
+            _trace.record_index_mode_decision(
+                repo=repo.name, initial_mode="fast", retried=retried,
+                retry_reason=retry_reason, excluded_dir_count=len(excluded_dirs),
+                triggering_changed_files=triggering_files, decided_mode=index_mode,
+            )
+
             project = str(index_payload["project"])
             self._projects[repo.name] = project
             index_ms += (time.perf_counter() - index_started) * 1000.0
@@ -538,6 +646,7 @@ class CBMCodeIntelligence:
             "  sydes_semantics=route_index,route_graph,repo_map",
         ]
         diagnostics.extend(f"cbm_gap: {gap}" for gap in gaps)
+        diagnostics.extend(index_mode_notes)
 
         return StructuralFacts(
             repo_map=repo_map,

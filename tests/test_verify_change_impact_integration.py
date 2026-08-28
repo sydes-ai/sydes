@@ -134,7 +134,7 @@ class _CBMLabelledWrapper:
     def __init__(self, real):
         self._real = real
 
-    def build_or_update(self, repos, *, workspace_id=None, root=None, defer_edges=False):
+    def build_or_update(self, repos, *, workspace_id=None, root=None, defer_edges=False, changed_files_by_repo=None):
         facts = self._real.build_or_update(repos, workspace_id=workspace_id, root=root)
         repo_name = repos[0].name
         return replace(

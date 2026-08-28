@@ -472,10 +472,14 @@ class _SpyBackend:
         self._real = CBMCodeIntelligence(client=client)
         self.defer_edges_seen: list[bool] = []
 
-    def build_or_update(self, repos, *, workspace_id=None, root=None, defer_edges=False):
+    def build_or_update(
+        self, repos, *, workspace_id=None, root=None, defer_edges=False,
+        changed_files_by_repo=None,
+    ):
         self.defer_edges_seen.append(defer_edges)
         return self._real.build_or_update(
             repos, workspace_id=workspace_id, root=root, defer_edges=defer_edges,
+            changed_files_by_repo=changed_files_by_repo,
         )
 
     def attach_bounded_edges(self, facts, **kwargs):

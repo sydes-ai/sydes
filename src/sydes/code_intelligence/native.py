@@ -32,11 +32,13 @@ class NativeCodeIntelligence:
         workspace_id: str | None = None,
         root: Path | None = None,
         defer_edges: bool = False,
+        changed_files_by_repo: dict[str, list[str]] | None = None,
     ) -> StructuralFacts:
         """Build or incrementally update the native structural index.
 
-        `defer_edges` is accepted for interface parity and ignored: the native
-        backend supplies no call graph, so it has no edge work to defer.
+        `defer_edges` and `changed_files_by_repo` are accepted for interface
+        parity and ignored: the native backend supplies no call graph and no
+        fast/full indexing mode split, so neither applies here.
         """
         index = build_structural_index(repos, workspace_id=workspace_id, root=root)
         return StructuralFacts(

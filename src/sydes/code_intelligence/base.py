@@ -142,6 +142,7 @@ class CodeIntelligence(Protocol):
         workspace_id: str | None = None,
         root: Path | None = None,
         defer_edges: bool = False,
+        changed_files_by_repo: dict[str, list[str]] | None = None,
     ) -> StructuralFacts:
         """Produce current structural facts, reusing prior work where possible.
 
@@ -149,5 +150,10 @@ class CodeIntelligence(Protocol):
         repository-wide edge materialization, because the caller intends to
         request a bounded, seed-scoped neighborhood once changed symbols are
         known. A backend that supplies no call graph ignores it.
+
+        `changed_files_by_repo` (repo name -> changed file paths) lets a
+        backend whose fast indexing mode can exclude part of a repository
+        notice when a changed file fell inside an excluded directory and
+        recover. A backend with no such mode ignores it.
         """
         ...

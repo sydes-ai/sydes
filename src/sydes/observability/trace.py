@@ -31,6 +31,7 @@ Output shape written under `SYDES_TRACE_DIR`::
     verification_decisions.jsonl  one line per obligation/flow verification-modeling decision
     test_decisions.jsonl          one line per obligation's test-execution outcome
     graph_slices.jsonl            one line per bounded GraphSlice build (seeds/calls/caps/truncation)
+    index_decisions.jsonl         one line per repository index-mode decision (fast vs. retried full)
     raw/llm/<call_id>.json        full prompt+response for one LLM call
     raw/cbm/<call_id>.json        full raw CBM response for one CBM call
 
@@ -58,10 +59,11 @@ _IMPACT_DECISIONS = "impact_decisions.jsonl"
 _VERIFICATION_DECISIONS = "verification_decisions.jsonl"
 _TEST_DECISIONS = "test_decisions.jsonl"
 _GRAPH_SLICES = "graph_slices.jsonl"
+_INDEX_DECISIONS = "index_decisions.jsonl"
 
 _JSONL_FILES = (
     _LLM_CALLS, _CBM_CALLS, _IMPACT_DECISIONS, _VERIFICATION_DECISIONS, _TEST_DECISIONS,
-    _GRAPH_SLICES,
+    _GRAPH_SLICES, _INDEX_DECISIONS,
 )
 
 
@@ -394,6 +396,35 @@ def record_graph_slice_fallback(
         "seed_count": seed_count,
         "call_edges": call_edges,
         "usage_edges": usage_edges,
+    })
+
+
+def record_index_mode_decision(
+    *, repo: str, initial_mode: str, retried: bool, retry_reason: str | None,
+    excluded_dir_count: int, triggering_changed_files: list[str], decided_mode: str,
+) -> None:
+    """One repository's fast/full index-mode decision.
+
+    CBM's `mode="fast"` index can exclude entire directories; when a changed
+    file falls inside one, `CBMCodeIntelligence.build_or_update` retries that
+    repository once with `mode="full"`. Recorded unconditionally (not only
+    on retry) so an aggregate view can answer "how often does this happen"
+    across many runs, not just spot it in the one run that hit it.
+    `triggering_changed_files` is bounded to the files that actually caused
+    the retry — inherently small, since a real change touches few files —
+    never a dump of the exclusion or symbol tables.
+    """
+    if not is_enabled():
+        return
+    _append_jsonl(_INDEX_DECISIONS, {
+        "timestamp": _now_iso(),
+        "repo": repo,
+        "initial_mode": initial_mode,
+        "retried": retried,
+        "retry_reason": retry_reason,
+        "excluded_dir_count": excluded_dir_count,
+        "triggering_changed_files": _sanitize(triggering_changed_files[:_MAX_TRACED_SEEDS]),
+        "decided_mode": decided_mode,
     })
 
 

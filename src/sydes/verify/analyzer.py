@@ -1380,8 +1380,12 @@ def analyze_change(
     # this call's own symbol index first. They are fetched as a bounded
     # neighborhood once the seeds are known (`_attach_bounded_graph_edges`).
     code_intelligence = get_code_intelligence()
+    changed_files_by_repo: dict[str, list[str]] = {}
+    for changed_file in change.files:
+        changed_files_by_repo.setdefault(changed_file.repo, []).append(changed_file.path)
     structural = code_intelligence.build_or_update(
-        normalized_repos, workspace_id=workspace_id, defer_edges=True
+        normalized_repos, workspace_id=workspace_id, defer_edges=True,
+        changed_files_by_repo=changed_files_by_repo,
     )
     result.diagnostics.extend(structural.diagnostics)
     handler_index = structural.symbol_index
