@@ -348,6 +348,7 @@ def test_whole_change_turn_can_yield_a_reviewer_grade_pr_wide_semantic_finding()
                     entrypoint_label="Several data/configuration HTTP views are now explicitly non-cacheable",
                     confidence=0.7,
                     reason="both changed views now apply a never-cache decorator to their responses",
+                    based_on_changed_symbols=("device_render_config_view", "device_config_tab_view"),
                 ),
             ),
         ),

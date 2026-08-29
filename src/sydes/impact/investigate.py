@@ -404,6 +404,37 @@ class InvestigationExecutor:
 
     # -- semantic-candidate corroboration ------------------------------------
 
+    def reaches_from_changed(self, candidate_symbol: str, changed_names: frozenset[str]) -> bool:
+        """Whether any already-loaded call or usage edge connects one of this
+        PR's changed symbols to `candidate_symbol`, by bare short name — the
+        same identity granularity `ImpactCandidate.entrypoint_symbol` is ever
+        offered at (see its own docstring: the guide is shown bare short
+        names only, never a qualified name or file).
+
+        Scans `self._facts.call_edges`/`usage_edges` — already loaded for
+        this run by the deterministic pass, the same lists `_FactIndex`
+        itself was built from — so this adds no new query, no new traversal,
+        and no new source read. A real edge from a changed symbol is
+        structural corroboration in its own right, distinct from (and
+        reused alongside) `corroborate_candidates`'s narrower route/entrypoint
+        match.
+        """
+        if not candidate_symbol or not changed_names:
+            return False
+        for edge in self._facts.call_edges:
+            if (
+                str(edge.get("caller_symbol") or "") in changed_names
+                and str(edge.get("callee_symbol") or "") == candidate_symbol
+            ):
+                return True
+        for edge in self._facts.usage_edges:
+            if (
+                str(edge.get("user_symbol") or "") in changed_names
+                and str(edge.get("used_symbol") or "") == candidate_symbol
+            ):
+                return True
+        return False
+
     def corroborate_candidates(
         self, candidates: tuple[ImpactCandidate, ...],
     ) -> list[dict[str, Any]]:
@@ -482,6 +513,7 @@ class InvestigationExecutor:
                 "file": str(match.get("file") or ""),
                 "repo": str(match.get("repo") or ""),
                 "kind": ENTRYPOINT_HTTP if route_method and route_path else ENTRYPOINT_DECORATED,
+                "ambiguous": False,
             }
 
         route_method, route_path = parsed_route if parsed_route else (None, None)
@@ -498,4 +530,11 @@ class InvestigationExecutor:
             "symbol": candidate.entrypoint_symbol or candidate.entrypoint_label,
             "qualified_name": "", "file": "", "repo": "",
             "kind": ENTRYPOINT_HTTP if parsed_route else ENTRYPOINT_UNKNOWN,
+            #: True only when `entrypoint_symbol` matched *more than one*
+            #: already-known entrypoint — the symbol is genuinely known to
+            #: Sydes, just not uniquely resolvable to one record. Distinct
+            #: from a plain no-match: the grounding gate in `interpreter.py`
+            #: treats this as evidence the guide named something real, not a
+            #: symbol pulled from nowhere the structural facts ever indexed.
+            "ambiguous": bool(ambiguous_symbol_count),
         }

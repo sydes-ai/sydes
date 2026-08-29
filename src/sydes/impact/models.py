@@ -726,6 +726,16 @@ class ImpactCandidate:
     reason: str = ""
     inference_type: str = ""
     uncertainty: str = ""
+    #: Which of this PR's own changed symbols this candidate's claim is
+    #: synthesized from — meaningful (and, for a whole-change/blank-symbol
+    #: candidate, deterministically required) only when `entrypoint_symbol`
+    #: names nothing itself: the whole-change turn has no single anchor
+    #: symbol the way a per-symbol turn does, so a symbol-less candidate
+    #: proposed there needs its own explicit tie back to changed code. Never
+    #: required, and never checked, when `entrypoint_symbol` is set — see
+    #: `interpreter._apply_inferred_candidates`. Default empty for backward
+    #: compatibility with any guide response that predates this field.
+    based_on_changed_symbols: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "confidence", _clamp_confidence(self.confidence))
@@ -738,6 +748,7 @@ class ImpactCandidate:
             "reason": self.reason,
             "inference_type": self.inference_type,
             "uncertainty": self.uncertainty,
+            "based_on_changed_symbols": list(self.based_on_changed_symbols),
         }
 
 

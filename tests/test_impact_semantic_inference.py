@@ -111,6 +111,7 @@ def test_uncorroborated_candidate_is_preserved_as_inferred() -> None:
                     confidence=0.4, reason="plausible shared dependency",
                     inference_type="semantic_indirect_dependency",
                     uncertainty="no route matches this description",
+                    based_on_changed_symbols=("leaf",),
                 ),
             ),
         ),
@@ -220,7 +221,10 @@ def test_no_hardcoded_action_selection_does_not_block_infer_impact() -> None:
         InvestigationDecision(
             action=ACTION_INFER_IMPACT,
             candidates=(
-                ImpactCandidate(entrypoint_label="some behavior", confidence=0.3, reason="plausible dependency"),
+                ImpactCandidate(
+                    entrypoint_label="some behavior", confidence=0.3, reason="plausible dependency",
+                    based_on_changed_symbols=("leaf",),
+                ),
             ),
         ),
         InvestigationDecision(action=ACTION_STOP_UNRESOLVED),
@@ -320,6 +324,7 @@ def test_non_http_inferred_entrypoint_is_not_silently_discarded() -> None:
                     entrypoint_label="the nightly digest scheduled job",
                     confidence=0.55, reason="reads leaf's cached output",
                     inference_type="semantic_indirect_dependency",
+                    based_on_changed_symbols=("leaf",),
                 ),
             ),
         ),
@@ -350,6 +355,7 @@ def test_uncorroborated_inferred_impact_keeps_the_changed_symbols_own_repo() -> 
                 ImpactCandidate(
                     entrypoint_label="process_chat_response", confidence=0.4,
                     reason="shares a formatting helper",
+                    based_on_changed_symbols=("leaf",),
                 ),
             ),
         ),
@@ -397,3 +403,426 @@ def test_confidence_outside_zero_one_is_clamped_not_trusted_verbatim() -> None:
     candidate_low = ImpactCandidate(entrypoint_label="x", confidence=-3.0, reason="y")
     assert candidate_high.confidence == 1.0
     assert candidate_low.confidence == 0.0
+
+
+# --- Grounding gate for a candidate that names a specific symbol -----------
+#
+# Regression coverage for the Gitea go-gitea/gitea#39062 manual review: Sydes
+# emitted a discrete "notification handling for pull request reads" inferred
+# impact whose only support was `SetIssueReadBy` — a real function the guide
+# saw only because it appears, unchanged, in the surrounding source of a
+# changed function. `SetIssueReadBy` was never touched by that diff and had
+# no known structural path from anything that was.
+#
+# The fix only ever gates a candidate that names a specific
+# `entrypoint_symbol` — a candidate naming none (a pure cross-symbol or
+# whole-change hypothesis, M4's core value) is untouched by these tests and
+# stays covered by `test_uncorroborated_candidate_is_preserved_as_inferred`
+# and `test_whole_change_turn_can_yield_a_reviewer_grade_pr_wide_semantic_finding`
+# above/in `test_impact_primary_semantic_loop.py`.
+
+def test_candidate_naming_a_symbol_only_seen_in_unchanged_context_is_rejected() -> None:
+    """The exact Gitea #39062 shape: a candidate names a real, otherwise
+    unrelated symbol as its `entrypoint_symbol` and justifies itself by
+    citing an invocation the guide saw in unchanged surrounding source —
+    not evidence that *this* change affects it, and must be rejected."""
+    f = facts(call_edges=[call_edge("orphan_caller", "leaf")])
+    guide = ScriptedGuide([
+        InvestigationDecision(action=ACTION_STOP_UNRESOLVED),  # the whole-change turn, harmless
+        InvestigationDecision(
+            action=ACTION_INFER_IMPACT,
+            candidates=(
+                ImpactCandidate(
+                    entrypoint_label="notification handling for related reads",
+                    entrypoint_symbol="SetIssueReadBy",
+                    confidence=0.6,
+                    reason=(
+                        "the changed function shows invocation of SetIssueReadBy, "
+                        "which could affect notification read state"
+                    ),
+                ),
+            ),
+        ),
+        InvestigationDecision(action=ACTION_STOP_UNRESOLVED),
+    ])
+    interpreter = ImpactInterpreter(guide=guide, guide_policy=GUIDE_AUTO)
+    result = interpreter.interpret(changed("leaf"), f, repo=REPO)
+
+    assert result.affected == []
+    assert result.metrics["llm_candidates_ungrounded"] == 1
+    assert result.metrics["llm_candidates_accepted"] == 0
+    log_entry = result.llm_candidate_log[0]
+    assert log_entry["accepted"] is False
+    assert "ungrounded" in log_entry["rejection_reason"]
+
+
+def test_candidate_naming_a_symbol_reached_by_a_changed_symbol_is_accepted() -> None:
+    """Structural corroboration must still work: a real call edge from the
+    changed symbol to the candidate's named symbol is deterministic
+    evidence, even though the target symbol itself was never touched by
+    this PR — exactly the "preserve legitimate impact discovery" case."""
+    f = facts(call_edges=[
+        call_edge("orphan_caller", "leaf"),
+        call_edge("leaf", "downstream_notifier"),
+    ])
+    guide = ScriptedGuide([
+        InvestigationDecision(action=ACTION_STOP_UNRESOLVED),
+        InvestigationDecision(
+            action=ACTION_INFER_IMPACT,
+            candidates=(
+                ImpactCandidate(
+                    entrypoint_label="downstream notification dispatch",
+                    entrypoint_symbol="downstream_notifier",
+                    confidence=0.6,
+                    reason="leaf calls downstream_notifier directly",
+                ),
+            ),
+        ),
+        InvestigationDecision(action=ACTION_STOP_UNRESOLVED),
+    ])
+    interpreter = ImpactInterpreter(guide=guide, guide_policy=GUIDE_AUTO)
+    result = interpreter.interpret(changed("leaf"), f, repo=REPO)
+
+    assert len(result.affected) == 1
+    assert result.affected[0].status == IMPACT_STATUS_INFERRED
+    assert result.metrics["llm_candidates_ungrounded"] == 0
+    assert result.metrics["llm_candidates_accepted"] == 1
+
+
+def test_candidate_naming_a_symbol_known_elsewhere_in_the_repo_but_unconnected_is_rejected() -> None:
+    """A symbol Sydes' facts do know about — it has its own call edges
+    elsewhere in the repo — is still rejected as grounding for *this*
+    change when none of those edges originate from a changed symbol. Being
+    known to the repo in general is not the same as being reached by the
+    change under review."""
+    f = facts(call_edges=[
+        call_edge("orphan_caller", "leaf"),
+        call_edge("some_unrelated_caller", "repo_context_symbol"),
+    ])
+    guide = ScriptedGuide([
+        InvestigationDecision(action=ACTION_STOP_UNRESOLVED),
+        InvestigationDecision(
+            action=ACTION_INFER_IMPACT,
+            candidates=(
+                ImpactCandidate(
+                    entrypoint_label="unrelated repo behavior",
+                    entrypoint_symbol="repo_context_symbol",
+                    confidence=0.5,
+                    reason="repo_context_symbol is part of the same codebase",
+                ),
+            ),
+        ),
+        InvestigationDecision(action=ACTION_STOP_UNRESOLVED),
+    ])
+    interpreter = ImpactInterpreter(guide=guide, guide_policy=GUIDE_AUTO)
+    result = interpreter.interpret(changed("leaf"), f, repo=REPO)
+
+    assert result.affected == []
+    assert result.metrics["llm_candidates_ungrounded"] == 1
+
+
+def test_candidate_naming_another_changed_symbol_in_the_same_pr_is_accepted() -> None:
+    """Direct grounding: a candidate's `entrypoint_symbol` naming a
+    *different* symbol this same PR also changed is accepted with no route
+    corroboration and no call/usage edge between the two at all — it is
+    grounded directly in changed code, not in a structural inference."""
+    f = facts(call_edges=[call_edge("orphan_caller", "leaf")])
+    guide = ScriptedGuide([
+        InvestigationDecision(action=ACTION_STOP_UNRESOLVED),  # whole-change turn
+        InvestigationDecision(
+            action=ACTION_INFER_IMPACT,
+            candidates=(
+                ImpactCandidate(
+                    entrypoint_label="companion update behavior",
+                    entrypoint_symbol="sibling_changed_symbol",
+                    confidence=0.7,
+                    reason="sibling_changed_symbol is part of the same PR and shares this logic",
+                ),
+            ),
+        ),
+        InvestigationDecision(action=ACTION_STOP_UNRESOLVED),  # leaf's turn ends here
+        InvestigationDecision(action=ACTION_STOP_UNRESOLVED),  # sibling_changed_symbol's own turn
+    ])
+    interpreter = ImpactInterpreter(guide=guide, guide_policy=GUIDE_AUTO)
+    changed_symbols = changed("leaf") + [
+        {"name": "sibling_changed_symbol", "file": "app/other.py", "repo": REPO},
+    ]
+    result = interpreter.interpret(changed_symbols, f, repo=REPO)
+
+    accepted = [e for e in result.affected if e.symbol == "sibling_changed_symbol"]
+    assert len(accepted) == 1
+    assert accepted[0].status == IMPACT_STATUS_INFERRED
+    assert accepted[0].llm_reason.startswith("sibling_changed_symbol is part of the same PR")
+
+
+def test_test_only_changed_symbol_does_not_ground_a_production_candidate() -> None:
+    """A changed symbol that is itself test code (per
+    `is_production_boundary_candidate`, the same predicate `_record` already
+    applies to deterministic impacts) must not be usable to ground an LLM
+    candidate — neither by naming it directly nor via a call edge
+    attributed to it. Test code is evidence a change happened; it is not a
+    production boundary the change can be said to reach."""
+    f = facts(call_edges=[
+        call_edge("orphan_caller", "leaf"),
+        call_edge("test_something", "helper_only_used_by_tests"),
+    ])
+    changed_symbols = changed("leaf") + [
+        {"name": "test_something", "file": "tests/test_leaf.py", "repo": REPO},
+    ]
+    guide = ScriptedGuide([
+        InvestigationDecision(action=ACTION_STOP_UNRESOLVED),  # whole-change turn
+        InvestigationDecision(action=ACTION_STOP_UNRESOLVED),  # leaf's turn
+        InvestigationDecision(
+            action=ACTION_INFER_IMPACT,
+            candidates=(
+                ImpactCandidate(
+                    entrypoint_label="helper behavior used by tests",
+                    entrypoint_symbol="helper_only_used_by_tests",
+                    confidence=0.5,
+                    reason="test_something calls helper_only_used_by_tests",
+                ),
+            ),
+        ),
+        InvestigationDecision(action=ACTION_STOP_UNRESOLVED),  # test_something's turn ends here
+    ])
+    interpreter = ImpactInterpreter(guide=guide, guide_policy=GUIDE_AUTO)
+    result = interpreter.interpret(changed_symbols, f, repo=REPO)
+
+    assert result.affected == []
+    assert result.metrics["llm_candidates_ungrounded"] == 1
+
+
+def test_grounding_gate_does_not_affect_a_coexisting_proven_deterministic_impact() -> None:
+    """An ungrounded LLM candidate for one changed symbol must not disturb a
+    real, deterministic PROVEN result for a different changed symbol in the
+    same run — the two evidence tiers stay fully independent."""
+    f = facts(
+        call_edges=[
+            call_edge("handler", "helper"),
+            call_edge("orphan_caller", "leaf"),
+        ],
+        entrypoints=[entrypoint("handler")],
+    )
+    guide = ScriptedGuide([
+        InvestigationDecision(action=ACTION_STOP_UNRESOLVED),  # whole-change turn
+        InvestigationDecision(
+            action=ACTION_INFER_IMPACT,
+            candidates=(
+                ImpactCandidate(
+                    entrypoint_label="unrelated notification behavior",
+                    entrypoint_symbol="SetIssueReadBy",
+                    confidence=0.6,
+                    reason="seen only in unchanged surrounding source",
+                ),
+            ),
+        ),
+        InvestigationDecision(action=ACTION_STOP_UNRESOLVED),
+    ])
+    interpreter = ImpactInterpreter(guide=guide, guide_policy=GUIDE_AUTO)
+    changed_symbols = changed("helper") + [{"name": "leaf", "file": "app/svc.py", "repo": REPO}]
+    result = interpreter.interpret(changed_symbols, f, repo=REPO)
+
+    proven = [e for e in result.affected if e.status == IMPACT_STATUS_PROVEN]
+    assert len(proven) == 1
+    assert proven[0].route_path == "/x"
+    assert result.metrics["llm_candidates_ungrounded"] == 1
+    assert not any(e.label == "unrelated notification behavior" for e in result.affected)
+
+
+def test_grounding_check_reads_only_already_loaded_edges_no_new_query() -> None:
+    """Architectural proof, not just behavior: grounding a candidate reads
+    only `facts.call_edges`/`usage_edges`. Passing them in as plain,
+    immutable tuples — no `.query()`, no lazy fetch, no method beyond
+    ordinary iteration — must work identically; if grounding needed
+    anything beyond what the deterministic pass already loaded, a plain
+    tuple could not satisfy it."""
+    f = facts(call_edges=tuple([call_edge("leaf", "downstream_notifier")]))
+    guide = ScriptedGuide([
+        InvestigationDecision(action=ACTION_STOP_UNRESOLVED),
+        InvestigationDecision(
+            action=ACTION_INFER_IMPACT,
+            candidates=(
+                ImpactCandidate(
+                    entrypoint_label="downstream notification dispatch",
+                    entrypoint_symbol="downstream_notifier",
+                    confidence=0.6,
+                    reason="leaf calls downstream_notifier directly",
+                ),
+            ),
+        ),
+        InvestigationDecision(action=ACTION_STOP_UNRESOLVED),
+    ])
+    interpreter = ImpactInterpreter(guide=guide, guide_policy=GUIDE_AUTO)
+    result = interpreter.interpret(changed("leaf"), f, repo=REPO)
+
+    assert len(result.affected) == 1
+    assert result.affected[0].status == IMPACT_STATUS_INFERRED
+
+
+# --- The residual blank-`entrypoint_symbol` hole: `based_on_changed_symbols` -
+#
+# The entrypoint_symbol-based grounding gate above cannot see a candidate
+# that never names a symbol at all. The real Gitea #39062 candidate was
+# exactly this shape: `entrypoint_symbol=""` on the whole-change turn, a
+# plausible `reason` citing `SetIssueReadBy` — a real function the guide saw
+# only in unchanged surrounding source — with nothing structured to check it
+# against. These tests recreate that exact shape and its legitimate
+# counterpart.
+
+def test_whole_change_candidate_with_blank_symbol_and_no_based_on_is_rejected() -> None:
+    """Recreates the EXACT original failure: `entrypoint_symbol=""`, a
+    plausible non-empty `reason` naming an unchanged downstream symbol, no
+    structural corroboration, and no `based_on_changed_symbols` at all. This
+    is the shape the entrypoint_symbol-based gate alone could never catch —
+    it must now be rejected too."""
+    f = facts(call_edges=[call_edge("orphan_caller", "leaf")])
+    guide = ScriptedGuide([
+        InvestigationDecision(
+            action=ACTION_INFER_IMPACT,
+            candidates=(
+                ImpactCandidate(
+                    entrypoint_label="notification handling for related reads",
+                    entrypoint_symbol="",
+                    confidence=0.6,
+                    reason=(
+                        "the changed function shows invocation of SetIssueReadBy, "
+                        "which could affect notification read state"
+                    ),
+                ),
+            ),
+        ),
+        InvestigationDecision(action=ACTION_STOP_UNRESOLVED),
+    ])
+    interpreter = ImpactInterpreter(guide=guide, guide_policy=GUIDE_AUTO)
+    result = interpreter.interpret(changed("leaf"), f, repo=REPO)
+
+    assert result.affected == []
+    assert result.metrics["llm_candidates_whole_change_unanchored"] == 1
+    assert result.metrics["llm_candidates_accepted"] == 0
+    log_entry = result.llm_candidate_log[0]
+    assert log_entry["accepted"] is False
+    assert "whole_change_unanchored" in log_entry["rejection_reason"]
+
+
+def test_whole_change_candidate_with_based_on_production_changed_symbols_is_accepted() -> None:
+    """The legitimate counterpart: no single symbol names the claim, but the
+    guide lists which of this PR's own changed symbols it is synthesized
+    from — the M4 whole-change capability this fix must not disable."""
+    f = facts(call_edges=[call_edge("orphan_caller", "leaf")])
+    guide = ScriptedGuide([
+        InvestigationDecision(
+            action=ACTION_INFER_IMPACT,
+            candidates=(
+                ImpactCandidate(
+                    entrypoint_label=(
+                        "Merge operations now survive caller cancellation across "
+                        "several entrypoints"
+                    ),
+                    entrypoint_symbol="",
+                    confidence=0.8,
+                    reason="both changed symbols now run detached from the caller's request context",
+                    based_on_changed_symbols=("leaf", "sibling_changed_symbol"),
+                ),
+            ),
+        ),
+        InvestigationDecision(action=ACTION_STOP_UNRESOLVED),  # leaf's own turn
+        InvestigationDecision(action=ACTION_STOP_UNRESOLVED),  # sibling_changed_symbol's own turn
+    ])
+    interpreter = ImpactInterpreter(guide=guide, guide_policy=GUIDE_AUTO)
+    changed_symbols = changed("leaf") + [
+        {"name": "sibling_changed_symbol", "file": "app/other.py", "repo": REPO},
+    ]
+    result = interpreter.interpret(changed_symbols, f, repo=REPO)
+
+    assert len(result.affected) == 1
+    assert result.affected[0].status == IMPACT_STATUS_INFERRED
+    assert result.metrics["llm_candidates_whole_change_unanchored"] == 0
+    assert result.metrics["llm_candidates_accepted"] == 1
+
+
+def test_whole_change_candidate_with_one_valid_and_one_unknown_symbol_is_rejected() -> None:
+    """`based_on_changed_symbols` is checked exactly, not partially: naming
+    one real changed symbol alongside one that was never part of this PR
+    must not let the whole claim through — that would let a false claim
+    smuggle in behind a true one."""
+    f = facts(call_edges=[call_edge("orphan_caller", "leaf")])
+    guide = ScriptedGuide([
+        InvestigationDecision(
+            action=ACTION_INFER_IMPACT,
+            candidates=(
+                ImpactCandidate(
+                    entrypoint_label="notification handling for related reads",
+                    entrypoint_symbol="",
+                    confidence=0.6,
+                    reason="leaf and an unrelated symbol both affect notification state",
+                    based_on_changed_symbols=("leaf", "SetIssueReadBy"),
+                ),
+            ),
+        ),
+        InvestigationDecision(action=ACTION_STOP_UNRESOLVED),
+    ])
+    interpreter = ImpactInterpreter(guide=guide, guide_policy=GUIDE_AUTO)
+    result = interpreter.interpret(changed("leaf"), f, repo=REPO)
+
+    assert result.affected == []
+    assert result.metrics["llm_candidates_whole_change_unanchored"] == 1
+
+
+def test_whole_change_candidate_based_on_only_a_test_only_changed_symbol_is_rejected() -> None:
+    """`based_on_changed_symbols` is checked against *production* changed
+    symbols only (`is_production_boundary_candidate`, the same predicate
+    `_record` already applies to deterministic impacts) — naming only a
+    changed test file must not ground a production behavioral claim."""
+    f = facts(call_edges=[call_edge("orphan_caller", "leaf")])
+    changed_symbols = changed("leaf") + [
+        {"name": "test_something", "file": "tests/test_leaf.py", "repo": REPO},
+    ]
+    guide = ScriptedGuide([
+        InvestigationDecision(
+            action=ACTION_INFER_IMPACT,
+            candidates=(
+                ImpactCandidate(
+                    entrypoint_label="some downstream behavior",
+                    entrypoint_symbol="",
+                    confidence=0.5,
+                    reason="test_something's change implies this behavior shifted",
+                    based_on_changed_symbols=("test_something",),
+                ),
+            ),
+        ),
+        InvestigationDecision(action=ACTION_STOP_UNRESOLVED),  # leaf's turn
+        InvestigationDecision(action=ACTION_STOP_UNRESOLVED),  # test_something's turn
+    ])
+    interpreter = ImpactInterpreter(guide=guide, guide_policy=GUIDE_AUTO)
+    result = interpreter.interpret(changed_symbols, f, repo=REPO)
+
+    assert result.affected == []
+    assert result.metrics["llm_candidates_whole_change_unanchored"] == 1
+
+
+def test_populated_entrypoint_symbol_on_whole_change_turn_still_uses_the_original_grounding_gate() -> None:
+    """`based_on_changed_symbols` is only ever checked when `entrypoint_symbol`
+    is blank — a whole-change candidate that *does* name a symbol remains
+    governed exactly by the earlier entrypoint_symbol grounding gate,
+    unmodified by this change."""
+    f = facts(call_edges=[call_edge("orphan_caller", "leaf")])
+    guide = ScriptedGuide([
+        InvestigationDecision(
+            action=ACTION_INFER_IMPACT,
+            candidates=(
+                ImpactCandidate(
+                    entrypoint_label="notification handling for related reads",
+                    entrypoint_symbol="SetIssueReadBy",
+                    confidence=0.6,
+                    reason="the changed function shows invocation of SetIssueReadBy",
+                ),
+            ),
+        ),
+        InvestigationDecision(action=ACTION_STOP_UNRESOLVED),
+    ])
+    interpreter = ImpactInterpreter(guide=guide, guide_policy=GUIDE_AUTO)
+    result = interpreter.interpret(changed("leaf"), f, repo=REPO)
+
+    assert result.affected == []
+    assert result.metrics["llm_candidates_ungrounded"] == 1
+    assert result.metrics["llm_candidates_whole_change_unanchored"] == 0

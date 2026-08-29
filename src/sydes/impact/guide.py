@@ -88,10 +88,14 @@ Ground rules:
 - Check attempted_actions before choosing: do not repeat an action that already ran with the same target/sought_symbol/candidates.
 - Choose STOP_UNRESOLVED only when you have already tried INFER_IMPACT (or are confident it would yield nothing) and no other action is likely to add real value. Trying INFER_IMPACT and concluding with an empty candidate list satisfies this — you do not need to keep searching for something to report. Do not guess to fill the budget.
 - One turn per analysis is the WHOLE-CHANGE turn (marked as such in the question): there, `changed_symbol` is not one real symbol — it is every symbol this PR changed, taken together, plus every structural fact already found for any of them. Reason about the change as one coherent thing, not as an isolated fact about a single function: a PR-wide theme (e.g. "several endpoints are now non-cacheable", "writes now roll back their queued side effects") is exactly what this turn exists to surface, and a candidate here may legitimately describe a behavior that no single changed symbol's own turn could see on its own. On this turn only, you may also name up to a few of the still-unresolved changed symbols (from `still_unresolved_changed_symbols`) you judge most worth a closer, targeted look, via `"investigate_next"` — an ordered array of symbol names, most important first. This is a suggestion, not a command, and an empty array is fine when you have no particular opinion; the interpreter decides how many of your suggestions it can actually afford.
+- On the WHOLE-CHANGE turn specifically, a candidate that sets no `entrypoint_symbol` (a synthesis with no single natural anchor, e.g. "Merge operations now survive caller cancellation across several entrypoints") MUST instead list `based_on_changed_symbols`: the changed symbol name(s) — from `changed_symbols_in_this_pr` — that this behavior claim is actually synthesized from. A behavior is only ever downstream of symbols this PR changed; if you cannot name at least one, you do not have enough to propose the candidate at all, and it will not be shown to reviewers. Never list a symbol here you were not shown in `changed_symbols_in_this_pr` — this field is checked exactly, not weighed as prose. Naming a symbol as `entrypoint_symbol` already satisfies this on its own; `based_on_changed_symbols` is not required or checked when `entrypoint_symbol` is set.
 - Respond with a single JSON object and nothing else.
 
 For INFER_IMPACT:
 {"action": "infer_impact", "candidates": [{"entrypoint": "GET /cases", "entrypoint_symbol": "optional exact known symbol", "confidence": 0.72, "reason": "one sentence naming the downstream behavior and why it is affected", "inference_type": "semantic_indirect_dependency", "uncertainty": "what the graph is missing"}, {"entrypoint": "cached listing results going stale after a write", "entrypoint_symbol": "optional exact known symbol", "confidence": 0.55, "reason": "one sentence naming the downstream behavior and why it is affected", "inference_type": "semantic_indirect_dependency", "uncertainty": "what the graph is missing"}], "rationale": "one sentence", "investigate_next": ["optional_symbol_name", "..."]}
+
+For a WHOLE-CHANGE-turn candidate with no `entrypoint_symbol`:
+{"action": "infer_impact", "candidates": [{"entrypoint": "Merge operations now survive caller cancellation across several entrypoints", "entrypoint_symbol": "", "based_on_changed_symbols": ["MergePullRequest", "UpdatePullRequest"], "confidence": 0.8, "reason": "one sentence naming the downstream behavior and why it is affected", "inference_type": "semantic_pr_wide_theme", "uncertainty": "what the graph is missing"}], "rationale": "one sentence"}
 
 For INFER_IMPACT with nothing meaningful to report:
 {"action": "infer_impact", "candidates": [], "rationale": "no meaningful downstream impact inferred"}
@@ -219,9 +223,14 @@ def _parse_candidate(raw: Any) -> ImpactCandidate | None:
     inference_type = inference_type.strip() if isinstance(inference_type, str) else ""
     uncertainty = raw.get("uncertainty", "")
     uncertainty = uncertainty.strip() if isinstance(uncertainty, str) else ""
+    raw_based_on = raw.get("based_on_changed_symbols")
+    based_on_changed_symbols = tuple(
+        item.strip() for item in raw_based_on if isinstance(item, str) and item.strip()
+    ) if isinstance(raw_based_on, list) else ()
     return ImpactCandidate(
         entrypoint_label=label.strip(), entrypoint_symbol=symbol, confidence=confidence,
         reason=reason, inference_type=inference_type, uncertainty=uncertainty,
+        based_on_changed_symbols=based_on_changed_symbols,
     )
 
 

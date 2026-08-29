@@ -133,6 +133,13 @@ class GuideBudget:
 #: shown to every guide turn is a short list, not a second diff dump.
 _WHOLE_CHANGE_CONTEXT_CAP = 15
 
+#: The `name` sentinel `_apply_inferred_candidates`/`llm_candidate_log` use
+#: for the one whole-change `ACTION_INFER_IMPACT` turn — never a real changed
+#: symbol's own name (see `_run_whole_change_pass`). Named once so the
+#: grounding gate's whole-change check and the call site that sets it can
+#: never drift apart on the literal string.
+_WHOLE_CHANGE_SYMBOL_NAME = "(whole change)"
+
 
 class ImpactInterpreter:
     """Interprets structural facts as reachable entrypoints.
@@ -249,9 +256,23 @@ class ImpactInterpreter:
                 if self._guide_policy != GUIDE_OFF and self._guide is not None:
                     guide_candidates.append((symbol, name, index.identity_of(symbol), dead_ends))
 
+        # Bare names of every changed symbol that is itself a production
+        # boundary candidate — reuses the exact C.1 test/executable-entrypoint
+        # exclusion `_record` already applies, so a test-only changed symbol
+        # (a helper only present because a test file changed) can never
+        # ground an inferred production impact by name or by an edge
+        # attributed to it. Test-only changed symbols still appear in
+        # `all_changed_names` (whole-change context shown to the guide) —
+        # only their eligibility to *ground* a candidate is narrower.
+        production_changed_names = frozenset(
+            str(item["name"]) for item in changed
+            if is_production_boundary_candidate(index.identity_of(item), facts)
+        )
+
         guide_metrics = self._run_guide_loop(
             guide_candidates, index, found, result, truncated_globally=truncated,
             all_changed_names=tuple(str(item["name"]) for item in changed),
+            production_changed_names=production_changed_names,
         )
 
         # Deterministic ordering: identical facts must produce an identical
@@ -321,6 +342,7 @@ class ImpactInterpreter:
         *,
         truncated_globally: bool,
         all_changed_names: tuple[str, ...] = (),
+        production_changed_names: frozenset[str] = frozenset(),
     ) -> dict[str, Any]:
         """Ask the guide about unresolved symbols, bounded on every axis.
 
@@ -366,6 +388,19 @@ class ImpactInterpreter:
             #: A candidate with no causal reason at all, rejected before
             #: corroboration/merge — an accepted inference must say why.
             "llm_candidates_missing_reason": 0,
+            #: A candidate that named a specific `entrypoint_symbol` neither
+            #: itself changed nor reachable from a changed symbol via a known
+            #: call/usage edge — see `_apply_inferred_candidates`. A
+            #: candidate naming no symbol at all is never counted here.
+            "llm_candidates_ungrounded": 0,
+            #: A whole-change-turn candidate that named no `entrypoint_symbol`
+            #: *and* supplied no `based_on_changed_symbols` (or one naming
+            #: something other than a production symbol this PR actually
+            #: changed) — the residual "unchanged surrounding context, free
+            #: text only" shape the entrypoint_symbol-based check above
+            #: cannot see at all. Exclusive of `llm_candidates_ungrounded`:
+            #: this is a distinct rejection reason, not a subset of it.
+            "llm_candidates_whole_change_unanchored": 0,
             #: An INFER_IMPACT turn that explicitly proposed zero candidates —
             #: a legitimate, encouraged outcome ("no meaningful downstream
             #: impact"), never counted toward `guide_errors`.
@@ -377,6 +412,14 @@ class ImpactInterpreter:
         unresolved_by_name = {item.symbol: item for item in result.unresolved}
         total_budget = self._guide_budget.max_turns_total
         resolved_count = 0
+        # Every *production* changed symbol, by bare short name — the
+        # grounding gate's own direct-change/structural checks (see
+        # `_is_directly_change_grounded`/`InvestigationExecutor.reaches_from_changed`).
+        # Deliberately narrower than `all_changed_names`: a test-only changed
+        # symbol must not ground a production inferred impact, by name or by
+        # an edge attributed to it. Computed once; reused by every
+        # INFER_IMPACT turn this loop runs.
+        changed_name_set = production_changed_names
 
         # M4.2: one whole-change semantic turn before any per-symbol turn —
         # see `_run_whole_change_pass`. It always consumes exactly one call
@@ -386,7 +429,7 @@ class ImpactInterpreter:
         follow_up_symbols: tuple[str, ...] = ()
         if total_budget > 0:
             follow_up_symbols = self._run_whole_change_pass(
-                candidates, index, found, result, metrics,
+                candidates, index, found, result, metrics, changed_names=changed_name_set,
             )
             total_budget -= 1
         if follow_up_symbols:
@@ -505,6 +548,7 @@ class ImpactInterpreter:
                         result=result, name=name, turn=turn_number, metrics=metrics,
                         changed_qualified_name=start_identity.qualified_name,
                         changed_repo=index.repo_of(symbol),
+                        changed_names=changed_name_set,
                     )
                     continue
 
@@ -575,6 +619,8 @@ class ImpactInterpreter:
         found: dict[str, AffectedEntrypoint],
         result: ImpactResult,
         metrics: dict[str, Any],
+        *,
+        changed_names: frozenset[str] = frozenset(),
     ) -> tuple[str, ...]:
         """One INFER_IMPACT turn about the whole change, before any
         per-symbol turn — the fix for a loop that used to reason about
@@ -605,7 +651,7 @@ class ImpactInterpreter:
                 previews.append(f"# {name}\n{preview}")
         question = ImpactQuestion(
             repo=index.repo_of({}),
-            changed_symbol="(whole change)",
+            changed_symbol=_WHOLE_CHANGE_SYMBOL_NAME,
             qualified_name="",
             file="",
             reason=(
@@ -657,7 +703,8 @@ class ImpactInterpreter:
         # `changed_symbols` attribution.
         self._apply_inferred_candidates(
             decision.candidates, executor=executor, found=found, result=result,
-            name="(whole change)", turn=1, metrics=metrics, changed_repo=index.repo_of({}),
+            name=_WHOLE_CHANGE_SYMBOL_NAME, turn=1, metrics=metrics, changed_repo=index.repo_of({}),
+            changed_names=changed_names,
         )
         return decision.follow_up_symbols
 
@@ -697,6 +744,7 @@ class ImpactInterpreter:
         metrics: dict[str, Any],
         changed_qualified_name: str = "",
         changed_repo: str = "",
+        changed_names: frozenset[str] = frozenset(),
     ) -> None:
         """Corroborate and merge every candidate from one INFER_IMPACT turn.
 
@@ -708,7 +756,7 @@ class ImpactInterpreter:
         proposed here is silently dropped, which is the exact failure mode
         this action exists to fix.
 
-        Two things *are* rejected before any of that:
+        Four things *are* rejected before any of that:
         - a candidate that is obviously the changed symbol itself (see
           `_is_self_referential`) — that is not a downstream impact, it is
           the guide restating its own input, and M4's "never drop a
@@ -716,7 +764,34 @@ class ImpactInterpreter:
         - a candidate with no causal reason at all — an accepted inference
           with nothing explaining *why* it might be affected is not
           meaningfully different from a guess, and a reviewer reading
-          AFFECTED BEHAVIOR needs the "why" more than the "what."
+          AFFECTED BEHAVIOR needs the "why" more than the "what.";
+        - a candidate that *does* name a specific `entrypoint_symbol` but
+          that symbol is neither one of this PR's own changed symbols nor
+          reachable from one via an already-known call/usage edge (see
+          `_is_directly_change_grounded`/`InvestigationExecutor.reaches_from_changed`).
+          This closes the gap the two checks above never covered: a named
+          symbol the guide picked up only from unchanged surrounding source
+          context (e.g. a pre-existing call inside the changed function's
+          body) is not itself evidence that *this change* affects it. A
+          candidate that names no symbol at all is unaffected by this check —
+          M4's whole-change, cross-symbol synthesis (a genuine "no single
+          symbol names this" behavioral hypothesis) is exactly the case
+          `entrypoint_symbol` is optional for;
+        - but on the whole-change turn specifically, a symbol-less candidate
+          is not left entirely unchecked either: it must instead list one or
+          more of this PR's own changed symbols in `based_on_changed_symbols`
+          (see `ImpactCandidate`). A per-symbol turn needs no such check — it
+          is already, by construction, anchored to the one changed symbol the
+          turn is about — but the whole-change turn has no such anchor, and a
+          blank `entrypoint_symbol` there gives the entrypoint_symbol check
+          above nothing to see at all. This is the exact residual shape the
+          real Gitea #39062 false positive took: a blank `entrypoint_symbol`
+          with a plausible `reason` citing a symbol only unchanged
+          surrounding source context ever showed the guide. Absence of
+          `based_on_changed_symbols` — or a claim naming something that is
+          not actually a production changed symbol — fails closed, precisely
+          because it is the *model's own silence or overreach*, not a text
+          heuristic on `reason`, that triggers rejection.
         """
         corroborations = executor.corroborate_candidates(candidates)
         metrics["llm_candidates"] += len(candidates)
@@ -764,6 +839,84 @@ class ImpactInterpreter:
                 metrics["llm_candidates_corroborated"] += 1
             else:
                 metrics["llm_candidates_uncorroborated"] += 1
+
+            named_symbol = candidate.entrypoint_symbol.strip()
+            if named_symbol and not (
+                corroboration["corroborated"]
+                # An ambiguous match (the name collides across more than one
+                # already-known entrypoint) still names something real in
+                # Sydes' own facts — a resolvability problem, not evidence of
+                # a symbol invented from unchanged context. See
+                # `InvestigationExecutor._corroborate_one`.
+                or corroboration.get("ambiguous", False)
+                or _is_directly_change_grounded(named_symbol, changed_names)
+                or executor.reaches_from_changed(named_symbol, changed_names)
+            ):
+                # The candidate names something concrete but that name is not
+                # itself changed and has no known structural path from
+                # anything that is — exactly the shape of a symbol the guide
+                # picked up from unchanged surrounding source context (see
+                # this method's docstring) rather than from the change.
+                metrics["llm_candidates_ungrounded"] += 1
+                result.llm_candidate_log.append({
+                    "changed_symbol": name,
+                    "turn": turn,
+                    "candidate_entrypoint": candidate.entrypoint_label,
+                    "candidate_symbol": candidate.entrypoint_symbol,
+                    "confidence": candidate.confidence,
+                    "rationale": candidate.reason,
+                    "inference_type": candidate.inference_type,
+                    "uncertainty": candidate.uncertainty,
+                    "corroborated": False,
+                    "corroboration_evidence": corroboration["detail"],
+                    "accepted": False,
+                    "rejection_reason": (
+                        f"ungrounded: candidate names {named_symbol!r}, which is "
+                        "neither one of this PR's changed symbols nor reachable "
+                        "from one via a known call/usage edge"
+                    ),
+                })
+                continue
+
+            if not named_symbol and name == _WHOLE_CHANGE_SYMBOL_NAME:
+                # No `entrypoint_symbol` to check above, and no single
+                # changed symbol anchors this turn the way a per-symbol turn
+                # does — the guide's own claim of which changed symbols this
+                # synthesis rests on (`based_on_changed_symbols`) is the only
+                # thing left to check it against. Absence of that claim, or a
+                # claim naming something that is not actually a production
+                # changed symbol, fails closed: this is exactly the shape
+                # (blank symbol, a plausible reason citing something only
+                # unchanged surrounding context ever showed the guide) the
+                # original Gitea #39062 false positive took, and which a
+                # blank `entrypoint_symbol` alone gives no way to check.
+                based_on = tuple(
+                    item.strip() for item in candidate.based_on_changed_symbols if item.strip()
+                )
+                if not based_on or not all(
+                    _is_directly_change_grounded(item, changed_names) for item in based_on
+                ):
+                    metrics["llm_candidates_whole_change_unanchored"] += 1
+                    result.llm_candidate_log.append({
+                        "changed_symbol": name,
+                        "turn": turn,
+                        "candidate_entrypoint": candidate.entrypoint_label,
+                        "candidate_symbol": candidate.entrypoint_symbol,
+                        "confidence": candidate.confidence,
+                        "rationale": candidate.reason,
+                        "inference_type": candidate.inference_type,
+                        "uncertainty": candidate.uncertainty,
+                        "corroborated": False,
+                        "corroboration_evidence": corroboration["detail"],
+                        "accepted": False,
+                        "rejection_reason": (
+                            "whole_change_unanchored: a symbol-less whole-change "
+                            "candidate must name one or more of this PR's own changed "
+                            "production symbols in based_on_changed_symbols; got "
+                            f"{list(candidate.based_on_changed_symbols)!r}"
+                        ),
+                    })
+                    continue
 
             is_new = ImpactInterpreter._record_inferred(found, candidate, corroboration, name, changed_repo)
             key = corroboration["qualified_name"] or corroboration["symbol"] or candidate.entrypoint_label
@@ -1223,6 +1376,22 @@ def _is_self_referential(candidate: ImpactCandidate, changed_name: str, changed_
 
     label_norm = _normalize_for_self_reference(candidate.entrypoint_label)
     return bool(label_norm) and label_norm in changed
+
+
+def _is_directly_change_grounded(entrypoint_symbol: str, changed_names: frozenset[str]) -> bool:
+    """Whether a candidate's own `entrypoint_symbol` names a symbol this PR
+    actually changed.
+
+    Bare-name membership, not a full `SymbolIdentity` comparison: the guide
+    is only ever shown bare short names (`ImpactQuestion.candidate_entrypoints`/
+    `known_entrypoints`/`other_changed_symbols` are all built from
+    `SymbolIdentity.short_name` or `changed_symbols[*]["name"]`), so bare-name
+    membership is the exact granularity the guide's own claim can be checked
+    against — matching a qualified name here would reject a well-formed
+    candidate for a distinction the guide was never shown.
+    """
+    name = entrypoint_symbol.strip()
+    return bool(name) and name in changed_names
 
 
 def _classify_unresolved_reason(

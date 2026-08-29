@@ -234,3 +234,32 @@ def test_llm_guide_still_parses_a_reviewer_grade_label_candidate() -> None:
     decision = guide.investigate(_question())
     assert len(decision.candidates) == 1
     assert decision.candidates[0].entrypoint_label == "cached listing results going stale after a write"
+
+
+def test_candidate_based_on_changed_symbols_parses_from_a_json_array() -> None:
+    """`based_on_changed_symbols` — the whole-change/blank-symbol grounding
+    field — parses a JSON array of strings into a tuple, stripped."""
+    client = _FakeLLMClient(
+        '{"action": "infer_impact", "candidates": [{"entrypoint": '
+        '"Merge operations now survive caller cancellation across several entrypoints", '
+        '"confidence": 0.8, "reason": "both changed symbols run detached from the request context", '
+        '"based_on_changed_symbols": ["MergePullRequest", " UpdatePullRequest "]}]}'
+    )
+    guide = LLMImpactGuide(client)
+    decision = guide.investigate(_question())
+    assert len(decision.candidates) == 1
+    assert decision.candidates[0].based_on_changed_symbols == ("MergePullRequest", "UpdatePullRequest")
+
+
+def test_candidate_without_based_on_changed_symbols_defaults_to_empty() -> None:
+    """Backward compatibility: a guide response predating this field (or one
+    that simply omits it) must still parse — the field defaults to `()`,
+    never a parse failure."""
+    client = _FakeLLMClient(
+        '{"action": "infer_impact", "candidates": [{"entrypoint": "GET /cases", '
+        '"confidence": 0.6, "reason": "shares a query helper"}]}'
+    )
+    guide = LLMImpactGuide(client)
+    decision = guide.investigate(_question())
+    assert len(decision.candidates) == 1
+    assert decision.candidates[0].based_on_changed_symbols == ()
