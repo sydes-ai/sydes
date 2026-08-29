@@ -1267,6 +1267,13 @@ class ImpactInterpreter:
                 file=corroboration["file"], kind=corroboration["kind"],
                 route_method=corroboration["route_method"], route_path=corroboration["route_path"],
                 status=IMPACT_STATUS_INFERRED,
+                # The candidate's own reviewer-facing behavior description,
+                # preserved rather than discarded. `symbol` above is the
+                # grounding anchor and stays exactly what it was; this is the
+                # separate, complementary "what behavior could now differ"
+                # text, and losing it is what made reports read as bare
+                # implementation identifiers.
+                behavior_label=candidate.entrypoint_label,
             )
             found[key] = entrypoint
         else:
@@ -1278,6 +1285,10 @@ class ImpactInterpreter:
         entrypoint.llm_inference_type = entrypoint.llm_inference_type or candidate.inference_type
         entrypoint.llm_uncertainty = entrypoint.llm_uncertainty or candidate.uncertainty
         entrypoint.corroborated = entrypoint.corroborated or corroboration["corroborated"]
+        # Same conservative first-non-empty-wins merge as `llm_reason` above:
+        # a later candidate merging onto this key can fill an empty label but
+        # never overwrite one a reviewer would already have found useful.
+        entrypoint.behavior_label = entrypoint.behavior_label or candidate.entrypoint_label
 
         step = ImpactStep(
             symbol=symbol, qualified_name=qualified_name, file=corroboration["file"],

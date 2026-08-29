@@ -388,6 +388,16 @@ class AcceptedImpact(BaseModel):
     #: already-known fact. `False` does not remove the impact from this
     #: list — an uncorroborated inference is still shown, never dropped.
     corroborated: bool | None = None
+    #: The reviewer-facing behavior description an inferred impact carried,
+    #: preserved explicitly and separately from `label`. `label` above is the
+    #: *resolved display value* (route, else this, else the anchor symbol);
+    #: this field is the semantic label alone, so a consumer can always tell
+    #: whether the displayed text describes a behavior or is falling back to
+    #: an identifier. Empty for every deterministic (PROVEN) impact.
+    #: The grounding anchor itself remains recoverable from `id`
+    #: (`impact:{repo}:{qualified_name or symbol}`) — no separate anchor
+    #: field is introduced here.
+    behavior_label: str = ""
     #: "modeled": this impact reached a full `AffectedFlow` with obligations
     #: (an HTTP route that could be reconciled). "unsupported_or_partial":
     #: accepted by the impact layer but not yet representable as a full

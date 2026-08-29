@@ -635,17 +635,26 @@ def _build_accepted_impacts(
             else f"impact:{entry.repo}:{entry.qualified_name or entry.symbol}"
         )
         is_inferred = entry.status == IMPACT_STATUS_INFERRED
-        # A human-facing label prefers the route, then the short symbol name
+        # A human-facing label prefers the route, then the model's own
+        # reviewer-facing behavior description, then the short symbol name
         # — never the raw qualified_name CBM produces, which carries a
         # checkout-path-derived project prefix (e.g.
         # "Users-name-repos-project.pkg.module.symbol") that means nothing
         # to a reader. `entry.label` (used for diagnostics/internal logging)
         # falls back to that full qualified_name; the product-facing report
         # deliberately does not.
+        #
+        # `behavior_label` sits between route and symbol on purpose: a real
+        # route is still the most precise thing a reviewer can be told, and a
+        # deterministic (PROVEN) impact never carries a behavior label at all,
+        # so this changes nothing for either. It only stops an INFERRED
+        # impact's concrete grounding anchor — which stays intact in
+        # `entry.symbol`, in `id`, and in the evidence path — from silently
+        # standing in for the behavior description the model already wrote.
         label = (
             f"{entry.route_method} {entry.route_path}"
             if entry.route_method and entry.route_path
-            else (entry.symbol or entry.label)
+            else (entry.behavior_label or entry.symbol or entry.label)
         )
         existing = by_id.get(impact_id)
         if existing is not None and existing.status == IMPACT_STATUS_PROVEN:
@@ -662,6 +671,7 @@ def _build_accepted_impacts(
             llm_inference_type=(entry.llm_inference_type or None) if is_inferred else None,
             llm_uncertainty=(entry.llm_uncertainty or None) if is_inferred else None,
             corroborated=entry.corroborated if is_inferred else None,
+            behavior_label=entry.behavior_label if is_inferred else "",
             verification_model_status="modeled" if modeled_flow is not None else "unsupported_or_partial",
         )
     accepted_impacts = list(by_id.values())

@@ -404,6 +404,20 @@ class AffectedEntrypoint:
     #: not proof; still `IMPACT_STATUS_INFERRED`. See
     #: `PROVENANCE_LLM_INFERRED_CORROBORATED`.
     corroborated: bool = False
+    #: The reviewer-facing behavior description an inferred candidate carried
+    #: (`ImpactCandidate.entrypoint_label`) — "what existing behavior could now
+    #: differ", in domain language. Deliberately a *separate* field from
+    #: `symbol`/`qualified_name`: those are the grounding anchor that proves
+    #: the claim, and a concrete anchor symbol must never silently become the
+    #: behavior description a reviewer reads. Empty for every deterministic
+    #: (PROVEN) impact, which has no such model-authored label — there the
+    #: route/symbol IS the honest description of what was reached.
+    #:
+    #: Not part of `label` below: that property feeds diagnostics, the guide's
+    #: own `accepted_impacts_so_far` context, and `boundary_reasoning`'s
+    #: grounding-token set, none of which may change here. Reviewer-facing
+    #: resolution happens once, in `analyzer._build_accepted_impacts`.
+    behavior_label: str = ""
 
     @property
     def strategies(self) -> list[str]:
@@ -436,6 +450,7 @@ class AffectedEntrypoint:
             "llm_inference_type": self.llm_inference_type,
             "llm_uncertainty": self.llm_uncertainty,
             "corroborated": self.corroborated,
+            "behavior_label": self.behavior_label,
         }
 
 
