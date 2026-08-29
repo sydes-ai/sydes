@@ -37,6 +37,10 @@ from sydes.impact.models import (
     SymbolIdentity,
 )
 from sydes.trace.function_body_slicer import slice_resolved_handler_body
+from sydes.verify.symbol_attribution_span import (
+    language_for_attribution,
+    symbol_attribution_span,
+)
 
 _IDENTIFIER_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 #: A candidate's `entrypoint_label` is free text, but when it looks like an
@@ -129,30 +133,186 @@ def _symbol_dict_for(identity: SymbolIdentity, facts: Any) -> dict[str, Any] | N
 #: while still giving the model *some* real code to reason from.
 _PREVIEW_MAX_STATEMENTS = 6
 _PREVIEW_MAX_CHARS = 400
+#: Raw source lines kept on each side of a changed line, when change
+#: positions are known. Small on purpose: enough to read the change in
+#: context, never enough to re-show the symbol.
+_PREVIEW_CONTEXT_LINES = 3
+#: Upper bound on raw lines emitted for the diff-aware path, before the
+#: character cap. Keeps several changed regions representable without any
+#: one of them expanding the prompt.
+_PREVIEW_MAX_LINES = 14
+#: Marks a preview that does not begin at the symbol's first line, so a
+#: reader (and the model) can tell selected evidence from a head-of-body
+#: read. Language-independent by construction.
+_PREVIEW_ELISION = "..."
 
 
-def source_preview(identity: SymbolIdentity, facts: Any, repo_root: Path | None) -> str:
-    """A short, bounded preview of one symbol's current source, or "".
+def _normalized_ranges(raw: Any) -> list[tuple[int, int]]:
+    """`[(start, end), ...]` of positive, ordered line ranges, or `[]`.
+
+    Tolerant of the shapes a caller may already hold (tuples, lists, or
+    `Hunk`-like objects with `start_line`/`end_line`) so this stage never
+    forces a new model on the change layer.
+    """
+    ranges: list[tuple[int, int]] = []
+    for item in raw or ():
+        start = end = None
+        if isinstance(item, (tuple, list)) and len(item) >= 2:
+            start, end = item[0], item[1]
+        else:
+            start = getattr(item, "start_line", None)
+            end = getattr(item, "end_line", None)
+        if not isinstance(start, int) or not isinstance(end, int):
+            continue
+        if start <= 0 or end <= 0:
+            continue
+        ranges.append((min(start, end), max(start, end)))
+    return sorted(set(ranges))
+
+
+def _merge_windows(windows: list[tuple[int, int]]) -> list[tuple[int, int]]:
+    """Collapse overlapping/adjacent line windows, ascending."""
+    merged: list[tuple[int, int]] = []
+    for low, high in sorted(windows):
+        if merged and low <= merged[-1][1] + 1:
+            merged[-1] = (merged[-1][0], max(merged[-1][1], high))
+        else:
+            merged.append((low, high))
+    return merged
+
+
+def source_preview(
+    identity: SymbolIdentity,
+    facts: Any,
+    repo_root: Path | None,
+    *,
+    changed_line_ranges: Any = None,
+) -> str:
+    """A short, bounded preview of one symbol's source, or "".
 
     Used only to seed `ImpactQuestion.source_context` with concrete code
-    before the guide's first turn — not a general-purpose reader. Reuses the
-    same span resolution and slicer the source-confirming actions use, so
-    there is exactly one way Sydes turns an identity into source text.
+    before the guide's first turn — not a general-purpose reader.
+
+    `changed_line_ranges` (the diff hunks covering this symbol's file) makes
+    the preview show *the region that actually changed* rather than the
+    opening of the symbol. That distinction is not cosmetic: on a large
+    symbol the change can sit far past the declaration, and an opening-of-
+    body preview then presents unchanged neighbouring code as if it were the
+    change — evidence a model will faithfully, and wrongly, reason from.
+    Observed doing exactly that on a real PR whose only change was ~19 lines
+    into a 64-line handler.
+
+    The diff-aware path reads raw lines rather than the statement slicer's
+    output, deliberately: the slicer normalizes and can merge tens of raw
+    lines into a single "statement" (a Go `if` block became one 19-line
+    statement in the case above), which is fine for identifier matching but
+    has too little resolution to isolate a change. Raw lines also make the
+    attached-declaration-metadata case fall out for free — a changed
+    decorator or attribute above the declaration is simply a changed line
+    inside the symbol's attribution span, needing no separate handling.
+
+    Falls back to exactly the previous behavior — the first
+    `_PREVIEW_MAX_STATEMENTS` sliced statements — when no usable range
+    information is supplied, or when the supplied ranges do not touch this
+    symbol at all. Bounded in every path: never more than
+    `_PREVIEW_MAX_LINES` lines or `_PREVIEW_MAX_CHARS` characters.
     """
     if repo_root is None:
         return ""
     span = _symbol_dict_for(identity, facts)
     if span is None:
         return ""
-    sliced = slice_resolved_handler_body(
-        repo_root=repo_root, handler_name=identity.short_name, symbol=span,
-        language=span.get("language"),
-    )
-    if sliced is None:
+
+    def _head_of_body() -> str:
+        sliced = slice_resolved_handler_body(
+            repo_root=repo_root, handler_name=identity.short_name, symbol=span,
+            language=span.get("language"),
+        )
+        if sliced is None:
+            return ""
+        texts = [
+            str(s.get("text") or "")
+            for s in sliced.get("statements", [])[:_PREVIEW_MAX_STATEMENTS]
+        ]
+        return " ".join(text for text in texts if text)[:_PREVIEW_MAX_CHARS]
+
+    ranges = _normalized_ranges(changed_line_ranges)
+    if not ranges:
+        return _head_of_body()
+    changed_preview = _changed_region_preview(span, ranges, repo_root=repo_root)
+    return changed_preview if changed_preview else _head_of_body()
+
+
+def _changed_region_preview(
+    span: dict[str, Any], ranges: list[tuple[int, int]], *, repo_root: Path,
+) -> str:
+    """Raw source around every changed line inside this symbol, or "".
+
+    Returns "" (so the caller falls back) whenever the symbol's own bounds
+    are unknown or the supplied ranges touch none of its lines — the
+    per-file hunks legitimately cover sibling symbols too, and presenting an
+    arbitrary window would be worse than the head-of-body default.
+
+    The symbol's lower bound is `symbol_attribution_span`, the same function
+    that decided this symbol counts as changed at all, so attached
+    declaration metadata (a decorator, a Rust outer attribute) is inside the
+    window and an unrelated change merely *somewhere* above the declaration
+    is not. One definition of "belongs to this symbol", reused rather than
+    re-guessed.
+    """
+    file = str(span.get("file") or "")
+    declaration_line = span.get("start_line")
+    if not file or not isinstance(declaration_line, int) or declaration_line <= 0:
         return ""
-    texts = [str(s.get("text") or "") for s in sliced.get("statements", [])[:_PREVIEW_MAX_STATEMENTS]]
-    preview = " ".join(text for text in texts if text)
-    return preview[:_PREVIEW_MAX_CHARS]
+    try:
+        lines = (repo_root / file).read_text(encoding="utf-8", errors="replace").splitlines()
+    except OSError:
+        return ""
+
+    attribution_start, _ = symbol_attribution_span(
+        start_line=declaration_line, end_line=span.get("end_line"),
+        file_lines=lines, language=language_for_attribution(file),
+    )
+    low_bound = attribution_start if isinstance(attribution_start, int) else declaration_line
+    end_line = span.get("end_line")
+    high_bound = end_line if isinstance(end_line, int) and end_line >= declaration_line else len(lines)
+    high_bound = min(high_bound, len(lines))
+    if low_bound > high_bound:
+        return ""
+
+    windows: list[tuple[int, int]] = []
+    for low, high in ranges:
+        start = max(low, low_bound)
+        stop = min(high, high_bound)
+        if start > stop:
+            continue  # this hunk belongs to a different symbol in the file
+        windows.append((
+            max(start - _PREVIEW_CONTEXT_LINES, low_bound),
+            min(stop + _PREVIEW_CONTEXT_LINES, high_bound),
+        ))
+    if not windows:
+        return ""
+
+    merged = _merge_windows(windows)
+    parts: list[str] = []
+    emitted = 0
+    for index, (low, high) in enumerate(merged):
+        if emitted >= _PREVIEW_MAX_LINES:
+            break
+        if index == 0 and low > low_bound:
+            parts.append(_PREVIEW_ELISION)
+        elif index > 0:
+            parts.append(_PREVIEW_ELISION)
+        for number in range(low, high + 1):
+            if emitted >= _PREVIEW_MAX_LINES:
+                break
+            text = lines[number - 1].strip()
+            if text:
+                parts.append(text)
+                emitted += 1
+    if emitted == 0:
+        return ""
+    return " ".join(parts)[:_PREVIEW_MAX_CHARS]
 
 
 def _locate_exact_line(

@@ -908,7 +908,21 @@ def _link_runtime_blockers(execution, dependencies: list[RuntimeDependency]) -> 
 
 
 def _changed_symbols_for_impact(change: Any) -> list[dict[str, Any]]:
-    """`ChangedSymbol` models, in the mapping shape `ImpactInterpreter` reads."""
+    """`ChangedSymbol` models, in the mapping shape `ImpactInterpreter` reads.
+
+    `changed_line_ranges` carries this symbol's file's diff hunks through to
+    the impact layer, where `source_preview` uses them to show the region
+    that actually changed instead of the head of a possibly-large symbol.
+    Per-file rather than pre-intersected per-symbol on purpose: the preview
+    already resolves each symbol's own (attribution-widened) span and
+    intersects there, so exactly one place decides which lines belong to a
+    symbol and the two cannot drift apart.
+    """
+    hunks_by_file: dict[tuple[str, str], list[tuple[int, int]]] = {}
+    for changed_file in change.files:
+        hunks_by_file.setdefault((changed_file.repo, changed_file.path), []).extend(
+            (hunk.start_line, hunk.end_line) for hunk in changed_file.hunks
+        )
     return [
         {
             "name": item.name,
@@ -916,6 +930,7 @@ def _changed_symbols_for_impact(change: Any) -> list[dict[str, Any]]:
             "repo": item.repo,
             "qualified_name": item.qualified_name or "",
             "start_line": item.start_line,
+            "changed_line_ranges": hunks_by_file.get((item.repo, item.file), []),
         }
         for item in change.symbols
     ]

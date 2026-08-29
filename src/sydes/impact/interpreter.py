@@ -480,7 +480,10 @@ class ImpactInterpreter:
             symbol_resolved = False
             # Computed once: the changed symbol's own source never changes
             # mid-loop, so there is no reason to re-read it every turn.
-            preview = source_preview(start_identity, index.facts, self._repo_root)
+            preview = source_preview(
+                start_identity, index.facts, self._repo_root,
+                changed_line_ranges=symbol.get("changed_line_ranges"),
+            )
 
             while per_symbol_budget > 0 and total_budget > 0 and not symbol_resolved:
                 origin_names = sorted(
@@ -645,8 +648,11 @@ class ImpactInterpreter:
         # the same per-symbol preview machinery, just sampled across symbols
         # instead of read once per turn.
         previews = []
-        for _symbol, name, start_identity, _dead_ends in candidates[:5]:
-            preview = source_preview(start_identity, index.facts, self._repo_root)
+        for symbol, name, start_identity, _dead_ends in candidates[:5]:
+            preview = source_preview(
+                start_identity, index.facts, self._repo_root,
+                changed_line_ranges=symbol.get("changed_line_ranges"),
+            )
             if preview:
                 previews.append(f"# {name}\n{preview}")
         question = ImpactQuestion(
