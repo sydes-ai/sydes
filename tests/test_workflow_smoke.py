@@ -199,14 +199,20 @@ class _ScriptedLLMClient:
         return LLMResponse(text=self._responses.pop(0))
 
 
-def _infer_impact_response(entrypoint: str, *, confidence: float, reason: str, uncertainty: str) -> str:
+def _infer_impact_response(
+    entrypoint: str, *, confidence: float, reason: str, uncertainty: str,
+    entrypoint_symbol: str | None = None,
+) -> str:
+    candidate: dict[str, object] = {
+        "entrypoint": entrypoint, "confidence": confidence,
+        "reason": reason, "inference_type": "semantic_indirect_dependency",
+        "uncertainty": uncertainty,
+    }
+    if entrypoint_symbol is not None:
+        candidate["entrypoint_symbol"] = entrypoint_symbol
     return json.dumps({
         "action": "infer_impact",
-        "candidates": [{
-            "entrypoint": entrypoint, "confidence": confidence,
-            "reason": reason, "inference_type": "semantic_indirect_dependency",
-            "uncertainty": uncertainty,
-        }],
+        "candidates": [candidate],
         "rationale": "reporting my best inference",
     })
 
@@ -239,11 +245,20 @@ def test_workflow_b_llm_inferred_candidate_survives_to_obligation_and_report(
 ) -> None:
     """`orphan_helper` is unreachable by any deterministic strategy — the
     guide is the only path from it to anything. It proposes `/y`, a real,
-    already-known route nothing else in this diff touches."""
+    already-known route nothing else in this diff touches, anchored to
+    `orphan_helper` (a genuinely changed production symbol).
+
+    This is the positive half of the grounding invariant: a *grounded* LLM
+    inference — one whose anchor is a real changed production symbol, and
+    whose route additionally corroborates against the known-entrypoint
+    index — must survive all the way to an obligation and the report.
+    Grounding rejects unsupported candidates (see the companion test
+    below); it must never reject supported ones."""
     _write(repo, "service.py", _SERVICE_V2)
     fake_client = _ScriptedLLMClient([
         _infer_impact_response(
             "GET /y", confidence=0.72,
+            entrypoint_symbol="orphan_helper",
             reason="orphan_helper participates in the same query-shaping path as handle_y",
             uncertainty="no direct call or usage edge connects them in the current graph",
         ),
@@ -270,12 +285,24 @@ def test_workflow_b_llm_inferred_candidate_survives_to_obligation_and_report(
     assert "LLM confidence" in report
 
 
-def test_workflow_b_uncorroborated_candidate_still_survives_when_it_names_no_real_route(
+def test_workflow_b_unanchored_candidate_naming_no_real_route_is_rejected(
     repo: Path, tmp_path: Path, fake_cbm_backend: None, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """An inference naming a behavior with no HTTP shape (and no match in
-    the known-entrypoint index) must still appear — never silently dropped
-    for lacking corroboration or a route."""
+    """An inference that names no route, no `entrypoint_symbol`, and no
+    `based_on_changed_symbols` is free-floating: nothing deterministic ties
+    its claim to this change. Grounding rejects it rather than reporting it.
+
+    This test previously asserted the opposite ("must still appear — never
+    silently dropped"), which was correct under the pre-grounding contract
+    where the guarantee was "never drop a meaningful inference". Grounding
+    hardening deliberately replaced that with "never report an unsupported
+    one": an impact a reviewer cannot trace back to the change is noise at
+    best and a false lead at worst. The expectation here is stale, not the
+    behavior — so the assertions are inverted rather than the rule relaxed.
+
+    The candidate is still fully visible in `llm_candidate_log` with its
+    rejection reason, so nothing becomes invisible — only unreported.
+    """
     _write(repo, "service.py", _SERVICE_V2)
     fake_client = _ScriptedLLMClient([
         _infer_impact_response(
@@ -288,17 +315,14 @@ def test_workflow_b_uncorroborated_candidate_still_survives_when_it_names_no_rea
 
     result, report = _run_cli(repo, tmp_path, "--llm-policy", "never", "--impact-guide", "always")
 
+    assert fake_client.calls >= 1, "the guide must actually have been consulted"
     inferred = [i for i in result.accepted_impacts if i.status == IMPACT_STATUS_INFERRED]
-    assert len(inferred) == 1
-    assert inferred[0].corroborated is False
-    assert inferred[0].verification_model_status == "unsupported_or_partial"
-    assert "background cache warm" in report
-    # Task item 7: an uncorroborated candidate has no matched entrypoint to
-    # take a repo from, but it must still carry the changed symbol's own
-    # real repo — never collapse the id to "impact::<label>".
-    assert inferred[0].repo == "app"
-    assert inferred[0].id.startswith("impact:app:")
-    assert "impact::" not in inferred[0].id
+    assert inferred == [], "an unanchored candidate must not become an accepted impact"
+    assert "background cache warm" not in report
+    assert result.summary.counts.impacts_inferred == 0
+    # Deterministic analysis is untouched by the rejection: the change's own
+    # proven impact is still reported exactly as in Workflow A.
+    assert any(i.route_path == "/x" for i in result.accepted_impacts)
 
 
 # --- Workflow C: provider failure -------------------------------------------
