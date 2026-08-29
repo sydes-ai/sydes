@@ -111,6 +111,7 @@ from sydes.verify.pr_semantic_analysis import generate_pr_semantic_analysis
 from sydes.verify.repo_profile import get_or_build_repo_profile
 from sydes.verify.runtime import infer_runtime_dependencies
 from sydes.verify.source_files import load_repo_files
+from sydes.verify.symbol_attribution_span import language_for_attribution, symbol_attribution_span
 from sydes.verify.test_execution import ExecutionSettings, run_ci_suite
 from sydes.verify.test_index import build_test_index
 from sydes.verify.test_mapping import map_tests_to_obligation
@@ -176,8 +177,18 @@ def _symbols_by_file(handler_index: dict) -> dict[str, list[dict]]:
     return by_file
 
 
-def attribute_changed_symbols(change, handler_index: dict) -> list[ChangedSymbol]:
-    """Attribute diff hunks to symbols from the shared handler-symbol index."""
+def attribute_changed_symbols(
+    change, handler_index: dict, *, repo_root: Path | None = None,
+) -> list[ChangedSymbol]:
+    """Attribute diff hunks to symbols from the shared handler-symbol index.
+
+    `repo_root`, when given, lets each candidate's attribution span widen
+    upward across syntactically attached leading declaration metadata (a
+    Python/TypeScript decorator, a Rust outer attribute) that CBM's own span
+    excludes — see `symbol_attribution_span`. Omitted, or a file that
+    cannot be read, attribution falls back to CBM's raw span exactly as
+    before this existed.
+    """
     by_file = _symbols_by_file(handler_index)
     changed: dict[str, ChangedSymbol] = {}
 
@@ -188,9 +199,23 @@ def attribute_changed_symbols(change, handler_index: dict) -> list[ChangedSymbol
         if not candidates:
             continue
 
+        attribution_language = language_for_attribution(changed_file.path)
+        file_lines: list[str] | None = None
+        if repo_root is not None and attribution_language != "unknown":
+            try:
+                file_lines = (repo_root / changed_file.path).read_text(
+                    encoding="utf-8", errors="replace",
+                ).splitlines()
+            except OSError:
+                file_lines = None
+
         def _overlaps(symbol: dict) -> int:
-            start = symbol.get("start_line")
-            end = symbol.get("end_line") or start
+            raw_start = symbol.get("start_line")
+            raw_end = symbol.get("end_line") or raw_start
+            start, end = symbol_attribution_span(
+                start_line=raw_start, end_line=raw_end,
+                file_lines=file_lines, language=attribution_language,
+            )
             if not isinstance(start, int) or not isinstance(end, int):
                 return 0
             if changed_file.change_type == CHANGE_ADDED:
@@ -1394,7 +1419,7 @@ def analyze_change(
         + ", ".join(f"{key}={value}" for key, value in sorted(handler_index.get("summary", {}).items()))
     )
 
-    change.symbols = attribute_changed_symbols(change, handler_index)
+    change.symbols = attribute_changed_symbols(change, handler_index, repo_root=primary_root)
     indexed_files = {
         file_item.get("path")
         for repo_index in handler_index.get("repos", []) or []
