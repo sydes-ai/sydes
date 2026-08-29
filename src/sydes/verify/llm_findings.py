@@ -16,7 +16,10 @@ from __future__ import annotations
 import json
 from typing import Any
 
+from pathlib import Path
+
 from sydes.core.models import EvidenceRef
+from sydes.impact.investigate import changed_region_source
 from sydes.llm.client import (
     LLMClient,
     LLMClientError,
@@ -38,7 +41,26 @@ MAX_NODES_PER_FLOW = 14
 MAX_FINDINGS = 10
 MAX_GAPS = 8
 
+#: Code review gets a larger per-symbol source window than the impact guide's
+#: 400-char preview: judging whether a change is *defective* needs to see the
+#: whole changed construct, where judging what it *affects* only needs to see
+#: which construct moved. Still explicitly bounded, and still the same
+#: selection algorithm — only the budget differs.
+CODE_REVIEW_REGION_CONTEXT_LINES = 4
+CODE_REVIEW_REGION_MAX_LINES = 40
+CODE_REVIEW_REGION_MAX_CHARS = 1_600
+#: How many changed symbols carry a source region. Beyond this the symbol is
+#: still listed (file/name/kind/lines), just without its own region — the raw
+#: diff still covers it.
+MAX_CODE_REVIEW_REGIONS = 12
+
 _SEVERITIES = {"P0", "P1", "P2", "P3"}
+#: Conservative fallback for an unrecognized severity. Lowest actionable
+#: rank on purpose: a model that could not name a severity has not earned a
+#: reviewer's urgent attention, and silently promoting it to P2 (as this
+#: previously did, without recording anything) overstates it.
+_DEFAULT_SEVERITY = "P3"
+_SEVERITY_ORDER = {"P0": 0, "P1": 1, "P2": 2, "P3": 3}
 
 
 def _strip_fences(text: str) -> str:
@@ -137,6 +159,80 @@ def build_change_context(
     }
 
 
+def build_code_review_context(
+    *,
+    change: ChangeSet,
+    diff_text: str,
+    repo_root: Path | None = None,
+) -> dict[str, Any]:
+    """Deterministic-only context for the independent code-review branch.
+
+    Structurally incapable of carrying a system-analysis conclusion: it takes
+    no flows, no impacts, no boundaries, no semantic analysis, no verification
+    and no verdict, so independence is enforced by this signature rather than
+    by reviewer discipline. Code review answers "does this patch introduce a
+    defect?" — a question about the changed code itself — and a semantic
+    conclusion from the other branch could only bias that judgement or, worse,
+    launder an inferred impact into something that reads like a defect.
+
+    Every field is a deterministic fact: git's own diff and hunks, and the
+    changed-symbol attribution the impact branch also consumes. `changed_region`
+    reuses `changed_region_source`, so the model sees the source that actually
+    changed rather than the head of a large symbol, and a change in attached
+    declaration metadata (a decorator, a Rust outer attribute) is inside the
+    region exactly as attribution defined it.
+    """
+    files: list[dict[str, Any]] = []
+    hunks_by_file: dict[str, list[tuple[int, int]]] = {}
+    for item in change.files[:40]:
+        ranges = [(hunk.start_line, hunk.end_line) for hunk in item.hunks]
+        hunks_by_file.setdefault(item.path, []).extend(ranges)
+        files.append({
+            "path": item.path,
+            "change_type": item.change_type,
+            "role": item.role,
+            "added_lines": item.added_lines,
+            "removed_lines": item.removed_lines,
+            "changed_ranges": [[low, high] for low, high in ranges],
+        })
+
+    symbols: list[dict[str, Any]] = []
+    for position, item in enumerate(change.symbols[:40]):
+        ranges = hunks_by_file.get(item.file, [])
+        entry: dict[str, Any] = {
+            "file": item.file,
+            "name": item.qualified_name or item.name,
+            "kind": item.kind,
+            "language": item.language or "",
+            "start_line": item.start_line,
+            "end_line": item.end_line,
+            "changed_line_ranges": [[low, high] for low, high in ranges],
+        }
+        if repo_root is not None and position < MAX_CODE_REVIEW_REGIONS and ranges:
+            region = changed_region_source(
+                {
+                    "file": item.file,
+                    "start_line": item.start_line,
+                    "end_line": item.end_line,
+                    "language": item.language or "",
+                },
+                ranges,
+                repo_root=repo_root,
+                context_lines=CODE_REVIEW_REGION_CONTEXT_LINES,
+                max_lines=CODE_REVIEW_REGION_MAX_LINES,
+                max_chars=CODE_REVIEW_REGION_MAX_CHARS,
+            )
+            if region:
+                entry["changed_region"] = region
+        symbols.append(entry)
+
+    return {
+        "version": "v1",
+        "change": {"base": change.base, "files": files, "symbols": symbols},
+        "diff": diff_text[:MAX_DIFF_CHARS],
+    }
+
+
 def _bounded_prompt(header: str, context: dict[str, Any]) -> str:
     """Serialize a prompt, shrinking the diff first when over budget."""
     payload = dict(context)
@@ -157,17 +253,41 @@ def _bounded_prompt(header: str, context: dict[str, Any]) -> str:
 
 
 _CODE_FINDINGS_HEADER = (
-    "You are reviewing a backend code change. Sydes has already computed the diff and "
-    "the affected system flows; do not restate them.\n"
-    "Report only concrete defects introduced or exposed by this diff.\n"
+    "You are reviewing a backend code change for concrete implementation defects.\n"
+    "The one question you answer is: does this patch introduce a defect?\n"
+    "You are given only the change itself — the diff, the changed files and symbols, and the "
+    "source of the changed regions. Reason from that alone.\n"
+    "Report a finding only for a defect in one of these classes:\n"
+    "- null/nil/undefined failure\n"
+    "- wrong conditional or inverted branch\n"
+    "- off-by-one or bounds error\n"
+    "- incorrect arithmetic or units\n"
+    "- loop that may not terminate, or runs away\n"
+    "- missing or incorrect error handling\n"
+    "- resource lifecycle error (leak, use-after-close, missing cleanup)\n"
+    "- concurrency or locking defect visible in the supplied evidence\n"
+    "- async ordering error\n"
+    "- transaction misuse\n"
+    "- state-machine inconsistency\n"
+    "- authorization or security weakening\n"
+    "- incorrect API usage visible in the supplied code\n"
+    "Never report: style, naming, formatting, documentation, cleanup or refactor suggestions, "
+    "generic performance speculation, 'add tests', 'handle edge cases', or any risk you cannot "
+    "tie to a concrete failure scenario.\n"
     "Rules:\n"
-    "- Every finding MUST cite a `file` that appears in change.files and a `line` inside the diff.\n"
-    "- Do not invent files, symbols, or behavior that is not visible in the provided context.\n"
-    "- Do not report style, formatting, naming, or 'add more tests' suggestions.\n"
-    "- If the diff contains no real defect, return an empty findings list.\n"
+    "- Every finding MUST cite a `file` from change.files and a `line` that is inside one of that "
+    "file's changed ranges. A defect in unchanged code is out of scope unless this change is what "
+    "makes it fail.\n"
+    "- `impact` must state a concrete failure scenario: the input or state, and the resulting "
+    "wrong behavior. Not 'this could be risky'.\n"
+    "- `evidence_snippet` must be copied verbatim from the supplied diff or changed region.\n"
+    "- Do not invent files, symbols, or behavior not visible in the provided context.\n"
+    "Default to silence. Most changes contain no defect; returning an empty list is the correct, "
+    "expected answer, not a failure.\n"
     "Return strict JSON only:\n"
     '{"version":"v1","findings":[{"severity":"P0|P1|P2|P3","title":"...","file":"...","line":123,'
-    '"explanation":"...","impact":"...","suggested_fix":"...","evidence_snippet":"..."}]}'
+    '"explanation":"...","impact":"...","suggested_fix":"...","evidence_snippet":"..."}]}\n'
+    'With nothing to report: {"version":"v1","findings":[]}'
 )
 
 _GAPS_HEADER = (
@@ -188,13 +308,77 @@ _GAPS_HEADER = (
 )
 
 
+def _normalize_for_containment(text: str) -> str:
+    """Collapse whitespace so a snippet quoted with different indentation
+    still matches its source exactly. Deliberately not fuzzy: this only
+    removes formatting variance, never allows a near-match."""
+    return " ".join(text.split())
+
+
+def _changed_ranges_by_file(context: dict[str, Any]) -> dict[str, list[tuple[int, int]]]:
+    """Per-file changed line ranges, from the code-review context.
+
+    Falls back to a symbol's own `changed_line_ranges` so a context built by
+    an older/other builder (which carries no per-file `changed_ranges`) still
+    yields the same attributable set rather than silently admitting every line.
+    """
+    ranges: dict[str, list[tuple[int, int]]] = {}
+    change = context.get("change", {})
+    for item in change.get("files", []) or []:
+        if not isinstance(item, dict):
+            continue
+        path = str(item.get("path") or "")
+        for pair in item.get("changed_ranges", []) or []:
+            if isinstance(pair, (list, tuple)) and len(pair) >= 2:
+                ranges.setdefault(path, []).append((int(pair[0]), int(pair[1])))
+    for item in change.get("symbols", []) or []:
+        if not isinstance(item, dict):
+            continue
+        path = str(item.get("file") or "")
+        for pair in item.get("changed_line_ranges", []) or []:
+            if isinstance(pair, (list, tuple)) and len(pair) >= 2:
+                ranges.setdefault(path, []).append((int(pair[0]), int(pair[1])))
+    return ranges
+
+
 def _validate_findings(raw: dict[str, Any], context: dict[str, Any]) -> tuple[list[CodeFinding], list[str]]:
-    """Validate LLM code findings against the supplied change context."""
+    """Validate LLM code findings against the supplied change context.
+
+    Three deterministic gates, in order of how much they protect a reader:
+
+    - **file** must be one this change touched (pre-existing rule);
+    - **line** must fall inside a changed range for that file. Code review's
+      whole question is "does this *patch* introduce a defect", so a finding
+      on unchanged code elsewhere in the file is out of scope by construction,
+      not merely unlikely. The ranges come from the diff's own hunks, widened
+      by the same attribution span that decided a symbol changed — so a defect
+      introduced by a changed decorator or attribute still lands;
+    - **evidence_snippet** must be verbatim-present (whitespace-normalized) in
+      the diff or a changed region. A snippet is a quotation; an unverifiable
+      one is dropped rather than rendered as `diff_hunk`, which would present
+      invented text as if it came from the patch. The finding itself survives,
+      because the snippet is optional supporting detail, not the grounding.
+
+    Sorting happens before the `MAX_FINDINGS` cap so a late P0 is never
+    discarded in favour of an earlier P3.
+    """
     warnings: list[str] = []
+    change = context.get("change", {})
     known_files = {
-        item["path"] for item in context.get("change", {}).get("files", []) if isinstance(item, dict)
+        item["path"] for item in change.get("files", []) if isinstance(item, dict) and "path" in item
     }
-    findings: list[CodeFinding] = []
+    ranges_by_file = _changed_ranges_by_file(context)
+    haystack = _normalize_for_containment(
+        " ".join([
+            str(context.get("diff") or ""),
+            *(
+                str(item.get("changed_region") or "")
+                for item in change.get("symbols", []) or []
+                if isinstance(item, dict)
+            ),
+        ])
+    )
+    candidates: list[CodeFinding] = []
 
     for position, item in enumerate(raw.get("findings", [])):
         if not isinstance(item, dict):
@@ -207,13 +391,43 @@ def _validate_findings(raw: dict[str, Any], context: dict[str, Any]) -> tuple[li
         if not title:
             warnings.append("Rejected code finding with no title.")
             continue
-        severity = str(item.get("severity") or "P2").upper()
-        if severity not in _SEVERITIES:
-            severity = "P2"
+
         line = item.get("line")
         line_value = int(line) if isinstance(line, int | float) and int(line) > 0 else None
+        file_ranges = ranges_by_file.get(file_path, [])
+        if file_ranges:
+            if line_value is None:
+                warnings.append(
+                    f"Rejected code finding with no line in a changed file: {title[:80]!r}"
+                )
+                continue
+            if not any(low <= line_value <= high for low, high in file_ranges):
+                warnings.append(
+                    f"Rejected code finding at {file_path}:{line_value} — outside every "
+                    "changed range for that file."
+                )
+                continue
+
+        severity = str(item.get("severity") or "").upper()
+        if severity not in _SEVERITIES:
+            warnings.append(
+                f"Code finding {title[:80]!r} supplied invalid severity "
+                f"{item.get('severity')!r}; normalized to {_DEFAULT_SEVERITY}."
+            )
+            severity = _DEFAULT_SEVERITY
+
         snippet = item.get("evidence_snippet")
-        findings.append(
+        snippet_text: str | None = None
+        if isinstance(snippet, str) and snippet.strip():
+            if _normalize_for_containment(snippet) in haystack:
+                snippet_text = snippet[:300]
+            else:
+                warnings.append(
+                    f"Dropped unverifiable evidence snippet on code finding {title[:80]!r}: "
+                    "not found verbatim in the diff or changed regions."
+                )
+
+        candidates.append(
             CodeFinding(
                 id=f"finding-{position + 1}",
                 severity=severity,
@@ -224,21 +438,16 @@ def _validate_findings(raw: dict[str, Any], context: dict[str, Any]) -> tuple[li
                 impact=str(item.get("impact") or "").strip() or None,
                 suggested_fix=str(item.get("suggested_fix") or "").strip() or None,
                 source="llm",
-                evidence=[
-                    EvidenceRef(
-                        file=file_path,
-                        label="diff_hunk",
-                        snippet=str(snippet)[:300] if isinstance(snippet, str) else None,
-                    )
-                ],
+                evidence=[EvidenceRef(file=file_path, label="diff_hunk", snippet=snippet_text)],
             )
         )
-        if len(findings) >= MAX_FINDINGS:
-            break
 
-    severity_order = {"P0": 0, "P1": 1, "P2": 2, "P3": 3}
-    findings.sort(key=lambda item: severity_order.get(item.severity, 9))
-    return findings, warnings
+    candidates.sort(key=lambda finding: _SEVERITY_ORDER.get(finding.severity, 9))
+    if len(candidates) > MAX_FINDINGS:
+        warnings.append(
+            f"Truncated {len(candidates)} code finding(s) to the {MAX_FINDINGS} most severe."
+        )
+    return candidates[:MAX_FINDINGS], warnings
 
 
 _GENERIC_GAP_MARKERS = (

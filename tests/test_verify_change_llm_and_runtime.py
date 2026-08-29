@@ -65,14 +65,20 @@ def test_code_findings_reject_files_outside_the_change() -> None:
 
 
 def test_code_findings_normalize_unknown_severity() -> None:
-    """An out-of-range severity falls back to P2 rather than being trusted."""
+    """An out-of-range severity is normalized conservatively, with a warning.
+
+    Falls back to the LOWEST actionable rank, not a mid one: a model that
+    could not name a severity has not earned a reviewer's urgent attention,
+    and silently promoting it would overstate the finding. The coercion is
+    also now recorded rather than silent."""
     stub = _StubLLM(
         {"findings": [{"severity": "CRITICAL", "title": "x", "file": "src/refund/service.py"}]}
     )
 
-    findings, _ = generate_code_findings(context=_context(), llm_client=stub)
+    findings, warnings = generate_code_findings(context=_context(), llm_client=stub)
 
-    assert findings[0].severity == "P2"
+    assert findings[0].severity == "P3"
+    assert any("invalid severity" in item for item in warnings)
 
 
 def test_verification_gaps_require_a_known_graph_node() -> None:

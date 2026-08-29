@@ -239,14 +239,28 @@ def source_preview(
     ranges = _normalized_ranges(changed_line_ranges)
     if not ranges:
         return _head_of_body()
-    changed_preview = _changed_region_preview(span, ranges, repo_root=repo_root)
+    changed_preview = changed_region_source(span, ranges, repo_root=repo_root)
     return changed_preview if changed_preview else _head_of_body()
 
 
-def _changed_region_preview(
-    span: dict[str, Any], ranges: list[tuple[int, int]], *, repo_root: Path,
+def changed_region_source(
+    span: dict[str, Any],
+    ranges: list[tuple[int, int]],
+    *,
+    repo_root: Path,
+    context_lines: int = _PREVIEW_CONTEXT_LINES,
+    max_lines: int = _PREVIEW_MAX_LINES,
+    max_chars: int = _PREVIEW_MAX_CHARS,
 ) -> str:
     """Raw source around every changed line inside this symbol, or "".
+
+    Public because two independent branches need the same answer to "which
+    source does this change actually touch": the impact guide's preview and
+    the code-review context builder. The budgets are parameters rather than
+    constants so a caller may show more per symbol without either branch
+    re-implementing the selection — there must be exactly one definition of
+    a changed region, not one per consumer. Defaults reproduce the impact
+    guide's original bounds exactly.
 
     Returns "" (so the caller falls back) whenever the symbol's own bounds
     are unknown or the supplied ranges touch none of its lines — the
@@ -287,8 +301,8 @@ def _changed_region_preview(
         if start > stop:
             continue  # this hunk belongs to a different symbol in the file
         windows.append((
-            max(start - _PREVIEW_CONTEXT_LINES, low_bound),
-            min(stop + _PREVIEW_CONTEXT_LINES, high_bound),
+            max(start - context_lines, low_bound),
+            min(stop + context_lines, high_bound),
         ))
     if not windows:
         return ""
@@ -297,14 +311,14 @@ def _changed_region_preview(
     parts: list[str] = []
     emitted = 0
     for index, (low, high) in enumerate(merged):
-        if emitted >= _PREVIEW_MAX_LINES:
+        if emitted >= max_lines:
             break
         if index == 0 and low > low_bound:
             parts.append(_PREVIEW_ELISION)
         elif index > 0:
             parts.append(_PREVIEW_ELISION)
         for number in range(low, high + 1):
-            if emitted >= _PREVIEW_MAX_LINES:
+            if emitted >= max_lines:
                 break
             text = lines[number - 1].strip()
             if text:
@@ -312,7 +326,7 @@ def _changed_region_preview(
                 emitted += 1
     if emitted == 0:
         return ""
-    return " ".join(parts)[:_PREVIEW_MAX_CHARS]
+    return " ".join(parts)[:max_chars]
 
 
 def _locate_exact_line(

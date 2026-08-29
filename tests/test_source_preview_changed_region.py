@@ -311,14 +311,14 @@ def test_preview_stays_bounded_in_every_path(tmp_path: Path) -> None:
 def test_selection_never_exceeds_the_line_budget(tmp_path: Path) -> None:
     """Even with every line changed, the window respects the line cap —
     verified structurally, not just by the character bound."""
-    from sydes.impact.investigate import _PREVIEW_MAX_LINES, _changed_region_preview
+    from sydes.impact.investigate import _PREVIEW_MAX_LINES, changed_region_source
 
     _write_large_function(tmp_path)
     span = {
         "file": "handler.py", "start_line": 10, "end_line": 61,
         "language": "python", "name": "handle",
     }
-    preview = _changed_region_preview(
+    preview = changed_region_source(
         span, [(n, n) for n in range(10, 62)], repo_root=tmp_path,
     )
     # Elision markers are not source lines; count only real content.

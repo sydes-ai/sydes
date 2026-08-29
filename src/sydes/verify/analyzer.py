@@ -71,7 +71,8 @@ from sydes.trace.function_body_slicer import slice_resolved_handler_body
 from sydes.trace.handler_resolver import resolve_handler_reference
 from sydes.trace.layered_contract import build_layered_trace_contract
 from sydes.trace.sinks import normalize_sink_candidates
-from sydes.verify.git_change import resolve_change_set
+from sydes.verify.git_change import read_unified_diff, resolve_change_set
+from sydes.verify.llm_findings import build_code_review_context, generate_code_findings
 from sydes.verify.models import (
     ANALYSIS_COMPLETE,
     ANALYSIS_PARTIAL,
@@ -1470,6 +1471,41 @@ def analyze_change(
                 f"Changed source file `{path}` yielded no symbols: {reason}. "
                 "Downstream effects of this file are not established."
             )
+
+    # --- code review: an independent branch -------------------------------
+    # Placed here, immediately after deterministic change resolution and
+    # attribution, because that is everything it is allowed to see. It runs
+    # before the semantic/impact/boundary/verification pipeline below and
+    # reads none of it — the ordering makes the independence checkable rather
+    # than merely intended. `result.code_findings` is the only thing it
+    # writes, and nothing downstream reads that field, so a finding cannot
+    # reach impact discovery, grounding, boundaries, obligations, test
+    # mapping, risk, or the verdict. The report/JSON is the sole merge point.
+    #
+    # Advisory by construction: a provider failure records a diagnostic and
+    # leaves `code_findings` empty rather than failing the run, matching the
+    # optional-stage pattern PR semantic analysis already uses below.
+    if options.code_review:
+        try:
+            code_context = build_code_review_context(
+                change=change,
+                diff_text=read_unified_diff(repo_root=primary_root, base_rev=options.base),
+                repo_root=primary_root,
+            )
+            findings, finding_notes = generate_code_findings(
+                context=code_context,
+                model_spec=options.model_spec,
+                llm_client=options.llm_client,
+            )
+            result.code_findings = findings
+            result.diagnostics.extend(finding_notes)
+        except LLMClientError as exc:
+            result.diagnostics.append(f"code_review_unavailable: {exc}")
+            result.analysis_notes.append(
+                "Code review was requested but its provider call failed; no code findings "
+                "were produced. Verification is unaffected — code findings never enter the verdict."
+            )
+
     # --- PR-level semantic analysis (Increment A) -------------------------
     # A separate, complementary read of the change as a whole — never a
     # replacement for the structural analysis below, and never able to
