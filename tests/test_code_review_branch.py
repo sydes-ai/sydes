@@ -23,6 +23,7 @@ from sydes.llm.client import LLMClientError, LLMRequest, LLMResponse
 from sydes.verify.analyzer import VerifyChangeOptions, analyze_change
 from sydes.verify.llm_findings import (
     MAX_FINDINGS,
+    _CODE_FINDINGS_HEADER,
     build_code_review_context,
     generate_code_findings,
 )
@@ -408,3 +409,146 @@ def test_code_review_provider_failure_does_not_fail_the_run(repo: Path, tmp_path
     # The verdict and impacts are exactly what they were without code review.
     assert result.summary.verdict == baseline.summary.verdict
     assert [i.id for i in result.accepted_impacts] == [i.id for i in baseline.accepted_impacts]
+
+
+# --- Calibration: a defect must be demonstrated, not merely plausible -------
+#
+# Root cause this pins (ory/kratos#4277, manually tested): the code-review
+# branch emitted "[P1] Incorrect JSON patch path restriction allows
+# unauthorized credential password update" for a diff that narrows a JSON
+# Patch deny-list from `/credentials/**` to `/credentials/oidc/**`, with its
+# own accompanying test intentionally flipped from expecting failure to
+# expecting success. Nothing in the supplied evidence showed that
+# authorization was actually absent elsewhere — the system-analysis branch
+# correctly called this a risk/uncertainty; code review promoted it to a
+# concrete defect it could not actually demonstrate.
+#
+# The fix is prompt-level calibration, not new validation: `_validate_findings`
+# is deterministic (file/line/snippet/severity) and has no way to judge
+# whether a *security* claim is actually supported — that judgement has to
+# happen before the model writes the finding. These tests therefore pin two
+# things: (a) the prompt itself carries the calibration language for exactly
+# the scenarios that were miscalibrated, and (b) the deterministic pipeline
+# still passes through a well-formed, *actually* grounded finding of every
+# type this task requires to remain reportable — proving the fix narrows
+# what the model is told to claim, not what the pipeline is able to accept.
+
+
+# 1. Security-sensitive change with no demonstrated missing authorization.
+def test_prompt_forbids_inferring_missing_authorization_from_sensitivity_alone() -> None:
+    header = _CODE_FINDINGS_HEADER
+    assert "do not infer" in header.lower()
+    assert "merely because" in header.lower()
+    assert "security-sensitive" in header.lower()
+    # The exact unsupported phrasing the Kratos finding used must be named
+    # as invalid, not just described abstractly.
+    assert "may allow unauthorized access" in header
+    assert "should probably have validation" in header
+    assert "not automatically a vulnerability" in header.lower() or "not a defect on its own" in header.lower()
+
+
+def test_kratos_pattern_context_carries_the_calibration_guidance(tmp_path: Path) -> None:
+    """Reconstructs the actual shape that produced the false finding: a JSON
+    Patch deny-list narrowed from a broad path to a specific subpath, with
+    the accompanying test flipped from expecting failure to expecting
+    success — and no evidence anywhere showing an authorization control was
+    removed. The prompt actually built for this exact context must carry the
+    calibration language, not just the header constant in isolation."""
+    (tmp_path / "handler.go").write_text(
+        "func (h *Handler) patch(w http.ResponseWriter, r *http.Request) {\n"
+        "\tpatchedIdentity := WithAdminMetadataInJSON(*identity)\n"
+        '\tif err := jsonx.ApplyJSONPatch(requestBody, &patchedIdentity, "/id", '
+        '"/credentials/oidc/**"); err != nil {\n'
+        "\t\treturn\n"
+        "\t}\n"
+        "}\n",
+        encoding="utf-8",
+    )
+    change = ChangeSet(
+        base="main", files=[ChangedFile(
+            repo=REPO, path="handler.go", change_type="modified",
+            hunks=[Hunk(start_line=3, end_line=3)],
+        )],
+        symbols=[ChangedSymbol(
+            id="s", repo=REPO, file="handler.go", name="patch", kind="function",
+            language="go", start_line=1, end_line=6,
+        )],
+    )
+    context = build_code_review_context(
+        change=change,
+        diff_text=(
+            "diff --git a/handler.go b/handler.go\n"
+            '-\tif err := jsonx.ApplyJSONPatch(requestBody, &patchedIdentity, "/id", "/credentials/**")\n'
+            '+\tif err := jsonx.ApplyJSONPatch(requestBody, &patchedIdentity, "/id", "/credentials/oidc/**")\n'
+        ),
+        repo_root=tmp_path,
+    )
+    stub = _StubLLM({"version": "v1", "findings": []})
+    findings, warnings = generate_code_findings(context=context, llm_client=stub)
+
+    assert findings == []
+    assert not any("Rejected" in w for w in warnings)
+    prompt = stub.prompts[0]
+    assert "do not infer" in prompt.lower()
+    assert "security-sensitive" in prompt.lower()
+    assert "/credentials/oidc/**" in prompt  # the real change is in the packet the rule applies to
+
+
+# 2. Visible authorization bypass remains a valid, reportable finding.
+def test_visible_authorization_bypass_remains_a_valid_category(tmp_path: Path) -> None:
+    header = _CODE_FINDINGS_HEADER
+    assert "visibly deleted or bypassed" in header
+
+    stub = _StubLLM({"version": "v1", "findings": [_finding(
+        title="permission check removed before privileged update",
+        explanation="the isAdmin check that gated this branch was deleted in this diff",
+        impact="any authenticated user reaches the privileged update with no role check",
+        evidence_snippet="result = apply_policy(request, DENY_ALL)",
+    )]})
+    findings, warnings = generate_code_findings(context=_context(tmp_path), llm_client=stub)
+
+    assert len(findings) == 1, "a genuinely demonstrated bypass must still be accepted"
+    assert not any("Rejected" in w for w in warnings)
+
+
+# 3. Speculative race language with no demonstrated concurrent execution.
+def test_speculative_race_language_is_named_as_invalid_in_the_prompt() -> None:
+    header = _CODE_FINDINGS_HEADER
+    assert "this could introduce a race" in header.lower()
+    assert "no concurrent execution shown" in header.lower()
+
+
+# 4. Concrete null/bounds/arithmetic defects remain valid categories.
+def test_concrete_defect_categories_remain_valid_and_acceptable(tmp_path: Path) -> None:
+    header = _CODE_FINDINGS_HEADER
+    for category in ("null/nil/undefined", "off-by-one or bounds", "incorrect arithmetic"):
+        assert category in header
+
+    stub = _StubLLM({"version": "v1", "findings": [_finding(
+        title="denominator can be zero",
+        explanation="quantity_per_unit divides the total with no zero check",
+        impact="a variant with quantity_per_unit=0 raises a division error on this request path",
+    )]})
+    findings, warnings = generate_code_findings(context=_context(tmp_path), llm_client=stub)
+
+    assert len(findings) == 1
+    assert not any("Rejected" in w for w in warnings)
+
+
+# 5. Vendure-style "could be risky under concurrency" reasoning stays silence
+# unless the supplied code proves a defect.
+def test_generic_concurrency_risk_language_is_named_as_invalid_in_the_prompt() -> None:
+    header = _CODE_FINDINGS_HEADER
+    assert "this could break transactions" in header.lower()
+    assert "evidentiary standard" in header.lower()
+    assert "concurrency or locking defect visible in the supplied evidence" in header.lower()
+
+
+def test_vendure_style_silence_still_passes_cleanly(tmp_path: Path) -> None:
+    """Calibrated silence (the real Vendure result) must never itself be
+    treated as a validation problem."""
+    stub = _StubLLM({"version": "v1", "findings": []})
+    findings, warnings = generate_code_findings(context=_context(tmp_path), llm_client=stub)
+
+    assert findings == []
+    assert not any("Rejected" in w or "Dropped" in w for w in warnings)
