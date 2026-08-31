@@ -1,49 +1,403 @@
 # Sydes
 
-## What is Sydes?
+**Know what a code change can break — and what still hasn't been verified.**
 
-Sydes uses code-graph evidence and AI reasoning to show what a backend change could affect — and what still hasn't been verified.
+Sydes follows backend changes beyond the diff across services, APIs, libraries, and other system boundaries. It combines structural code intelligence with AI reasoning to show what is established, what is inferred, and what remains unverified.
 
-It reconstructs routes, follows internal calls (even across services), and surfaces side effects like database writes — without manually reading hundreds of files. For a specific code change, `sydes verify-change` (below) reports what it could prove reaches an affected behavior, what it could only infer, and what remains unverified — it does not guarantee complete coverage, full system testing, or universal framework support.
+> **Structural analysis provides evidence. AI interprets semantics.**
 
-## Quickstart
+## Quick start
 
-1. Install Ollama and start the local server:
-   - `ollama serve`
-2. Pull a local model (example):
-   - `ollama pull llama3.1:8b`
-3. Optionally set env vars (defaults shown):
-   - `SYDES_LLM_PROVIDER=ollama`
-   - `SYDES_LLM_MODEL=llama3.1:8b`
-   - `SYDES_LLM_BASE_URL=http://localhost:11434`
-4. Run Sydes:
+> **PyPI package coming next.** Until the package is published, install Sydes directly from GitHub. Its runtime dependencies — including `codebase-memory-mcp` — are installed with it.
+
+### 1. Install Sydes
+
+Using `pip`:
 
 ```bash
-sydes routes --repo api=./api
+python -m pip install "git+https://github.com/sydes-ai/sydes.git"
 ```
-Works best on multi-service backends (API + worker + gateway).
+
+Or, if you use `uv`:
+
+```bash
+uv tool install "git+https://github.com/sydes-ai/sydes.git"
+```
+
+### 2. Add an LLM key
+
+For OpenAI:
+
+```bash
+export OPENAI_API_KEY=...
+```
+
+Sydes also supports Anthropic and local Ollama models. See [Model providers](#model-providers).
+
+### 3. Run Sydes in your repository
+
+From the repository you want to analyze:
+
+```bash
+sydes verify-change \
+  --base origin/main \
+  --repo app=. \
+  --llm-policy auto \
+  --impact-guide auto
+```
+
+On first use, Sydes prepares its code-intelligence backend automatically. The first run can take longer while the Codebase Memory runtime is bootstrapped and the repository is indexed.
+
+### 4. Read the result
+
+A result looks roughly like:
+
+```text
+SYDES CHANGE VERIFICATION
+
+Risk:     MEDIUM
+Verdict:  VERIFICATION INCOMPLETE
+Analysis: PARTIAL
+
+AFFECTED BEHAVIOR
+
+PROVEN
+  structurally established impact
+
+INFERRED
+  plausible downstream semantic impact
+
+VERIFICATION
+  some affected behavior still lacks verification evidence
+```
+
+The important labels are:
+
+| Sydes says | Meaning |
+| --- | --- |
+| **PROVEN** | Sydes found structural evidence for the relationship or impact. |
+| **INFERRED** | AI reasoning identified a plausible impact that structural evidence does not fully establish. |
+| **VERIFICATION INCOMPLETE** | Some affected behavior still lacks sufficient verification evidence. |
+
+`PROVEN` does **not** mean the code is correct. `VERIFICATION INCOMPLETE` is an intentional conservative result, not a crash.
+
+---
+
+## Run Sydes on every pull request
+
+Sydes is non-interactive, so it can run directly in GitHub Actions.
+
+Create:
+
+```text
+.github/workflows/sydes.yml
+```
+
+with:
+
+```yaml
+name: Sydes
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Sydes
+        run: |
+          python -m pip install "git+https://github.com/sydes-ai/sydes.git"
+
+      - name: Analyze PR impact
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          sydes verify-change \
+            --base "origin/${{ github.base_ref }}" \
+            --repo app=. \
+            --llm-policy auto \
+            --impact-guide auto \
+            --no-run-tests \
+            --json sydes-result.json
+
+      - name: Upload Sydes result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sydes-result
+          path: sydes-result.json
+```
+
+Then add your model key once:
+
+**Repository → Settings → Secrets and variables → Actions → New repository secret**
+
+Name it:
+
+```text
+OPENAI_API_KEY
+```
+
+### Why `--no-run-tests` in the example?
+
+Sydes should not try to recreate an arbitrary repository's CI environment. Your existing CI already knows how to provision dependencies, databases, queues, secrets, and services.
+
+The workflow above uses Sydes for **impact analysis** and leaves real test execution to your existing CI.
+
+The intended split is:
+
+```text
+Sydes
+  → what changed?
+  → what else could it affect?
+  → what is structurally established?
+  → what does AI infer?
+  → what still lacks verification evidence?
+
+Your CI
+  → runs the repository's real tests in its real environment
+```
+
+A richer PR-comment/check integration can consume CI evidence later. The workflow above is the minimal GitHub Actions integration available today.
+
+> After Sydes is published on PyPI, the install step becomes simply `pip install sydes`.
+
+---
+
+## What Sydes does
+
+Sydes starts from a code change and asks:
+
+1. What behavior changed?
+2. What other parts of the backend system can it affect?
+3. Which impacts are structurally established?
+4. Which additional impacts are plausible from semantics?
+5. What verification evidence exists?
+6. What remains unresolved or unverified?
+
+```text
+change
+  ↓
+structural evidence
+  ↓
+semantic impact
+  ↓
+system boundaries
+  ↓
+verification evidence
+```
+
+The goal is not to ask an LLM to read an entire repository. Sydes uses code intelligence to narrow the investigation first, then uses AI where semantic judgment is useful.
+
+---
+
+## Why
+
+Passing tests or reviewing a diff does not establish everything a backend change may affect.
+
+A local edit can propagate through:
+
+- services
+- APIs
+- shared/internal libraries
+- authentication and authorization logic
+- queues and events
+- persistence
+- background processing
+
+Sydes reconstructs enough system context to reason about the change instead of reviewing modified lines in isolation.
+
+---
+
+## Evidence model
+
+### `PROVEN`
+
+A relationship or impact is established by structural evidence Sydes traced.
+
+This means the relationship is structurally grounded — **not** that the affected behavior is correct.
+
+### `INFERRED`
+
+AI reasoning identifies a plausible semantic impact that is not fully established by the structural path.
+
+Inferred findings retain their uncertainty. They are evidence to investigate, not proof.
+
+### `VERIFICATION INCOMPLETE`
+
+Sydes does not have enough verification evidence to claim that all affected behavior has been verified.
+
+This is deliberately conservative.
+
+When Sydes maps verification obligations to affected behavior, individual obligations may be:
+
+| State | Meaning |
+| --- | --- |
+| `passed` | A mapped test was executed and succeeded. |
+| `failed` | A mapped test was executed and failed. |
+| `unverified` | No existing test was found that verifies this behavior. |
+| `unknown` | Relevant execution evidence could not be established, for example because of a missing dependency, unsupported runner, collection error, or timeout. |
+
+A test merely existing is never reported as `passed`.
+
+At a high level:
+
+```text
+affected behavior failed               → ACTION REQUIRED
+anything remains unverified / unknown → VERIFICATION INCOMPLETE
+all modeled affected behavior passed  → VERIFIED
+```
+
+Sydes does not guarantee complete coverage, full system testing, or universal framework support.
+
+---
+
+## Common usage
+
+### Compare the current branch with `origin/main`
+
+```bash
+sydes verify-change \
+  --base origin/main \
+  --repo app=. \
+  --llm-policy auto \
+  --impact-guide auto
+```
+
+### Write a machine-readable result
+
+```bash
+sydes verify-change \
+  --base origin/main \
+  --repo app=. \
+  --llm-policy auto \
+  --impact-guide auto \
+  --json sydes-result.json
+```
+
+### Analyze without executing local tests
+
+```bash
+sydes verify-change \
+  --base origin/main \
+  --repo app=. \
+  --llm-policy auto \
+  --impact-guide auto \
+  --no-run-tests
+```
+
+### Analyze across multiple repositories
+
+Repeat `--repo name=path`. The first repository is the changed repository.
+
+```bash
+sydes verify-change \
+  --base main \
+  --repo service2=~/repos/service2 \
+  --repo service1=~/repos/service1 \
+  --llm-policy auto \
+  --impact-guide auto
+```
+
+### See all options
+
+```bash
+sydes verify-change --help
+```
+
+Uncommitted work is included by default. Use `--no-working-tree` when you want committed changes only.
+
+---
+
+## Tests and CI
+
+Sydes determines what behavior matters; your existing CI provides the real execution evidence.
+
+When local execution is enabled, Sydes only attempts tests it has mapped to affected behavior and only when the repository environment is already prepared.
+
+Sydes does **not**:
+
+- install the target repository's dependencies
+- provision databases, queues, caches, or external services
+- recreate arbitrary CI environments
+- silently mock runtime dependencies
+
+If the necessary environment is unavailable, Sydes reports the missing evidence conservatively rather than pretending the behavior was verified.
+
+For most teams, the clean production model is:
+
+```text
+Sydes impact analysis
+        +
+existing CI execution
+        ↓
+verification evidence for the change
+```
+
+---
+
+## System boundaries
+
+A backend change does not necessarily terminate at an HTTP route.
+
+Sydes is designed to investigate affected behavior across boundaries including:
+
+- HTTP / APIs
+- GraphQL / RPC
+- shared and internal libraries
+- authentication / authorization paths
+- queues and events
+- persistence
+- background workers and scheduled jobs
+
+Support depth varies by language, framework, and boundary. See [Current limitations](#current-limitations).
+
+---
+
+## Repository and code intelligence
+
+Sydes uses repository/code intelligence so AI reasoning operates over a relevant slice of the codebase instead of blindly consuming the entire repository.
+
+The default code-intelligence path uses `codebase-memory-mcp`, which is installed as a Sydes runtime dependency.
+
+On first use, Sydes bootstraps the Codebase Memory native runtime into a local cache. This can take a noticeable moment once; subsequent runs reuse the local runtime/cache where possible.
+
+The guiding principle is:
+
+> **Make the model reason about less of the repository — but the right parts.**
+
+Structural context can include:
+
+- symbols and spans
+- imports and exports
+- call and usage relationships
+- entrypoints
+- nearby repository facts
+
+AI then interprets what that evidence means for the change.
+
+---
 
 ## Model providers
 
-Sydes supports local and hosted LLM providers. You can select a model per command with `--model`, or set environment defaults.
+Sydes supports hosted and local LLM providers.
 
-CLI override examples:
-
-```bash
-sydes routes --repo api=./api --model ollama:llama3.1:8b
-sydes trace "/checkout" --method POST --repo api=./api --model openai:gpt-4.1-mini
-sydes trace "/checkout" --method POST --repo api=./api --model anthropic:claude-3-5-sonnet-latest
-```
-
-### Ollama (local)
-
-```bash
-export SYDES_LLM_PROVIDER=ollama
-export SYDES_LLM_MODEL=llama3.1:8b
-export SYDES_LLM_BASE_URL=http://localhost:11434
-```
-
-### OpenAI (hosted)
+### OpenAI
 
 ```bash
 export SYDES_LLM_PROVIDER=openai
@@ -51,7 +405,17 @@ export SYDES_LLM_MODEL=gpt-4.1-mini
 export OPENAI_API_KEY=...
 ```
 
-### Anthropic (hosted)
+Or choose a model per command:
+
+```bash
+sydes verify-change \
+  --base origin/main \
+  --repo app=. \
+  --model openai:gpt-4.1-mini \
+  --impact-guide auto
+```
+
+### Anthropic
 
 ```bash
 export SYDES_LLM_PROVIDER=anthropic
@@ -59,221 +423,151 @@ export SYDES_LLM_MODEL=claude-3-5-sonnet-latest
 export ANTHROPIC_API_KEY=...
 ```
 
-If a hosted provider key is missing, Sydes returns a friendly setup error before making API calls.
-
-Hosted providers (OpenAI/Anthropic) are paid APIs and consume tokens; usage and cost depend on your selected model and prompt size.
-
-## Example 1: single-repo API flow
-
-Trace `POST /users` in a FastAPI-style repo:
+### Ollama
 
 ```bash
-sydes trace "/users" --method POST --repo api=./api
+ollama serve
+ollama pull llama3.1:8b
+
+export SYDES_LLM_PROVIDER=ollama
+export SYDES_LLM_MODEL=llama3.1:8b
+export SYDES_LLM_BASE_URL=http://localhost:11434
 ```
 
-Example output (abridged):
+Hosted providers consume paid API tokens. Local model quality varies by model and hardware.
 
-```text
-Flow:
-  1. endpoint: /users
-  2. step: db.add
-  3. step: db.commit
-  4. step: db.refresh
+---
 
-Sinks:
-  - database: write
+## Advanced usage
 
-Test Matrix:
-  Happy Path:
-    - post_users_creates_resource
-  Validation:
-    - post_users_rejects_missing_required_field
-  Side Effects:
-    - post_users_writes_to_database
-```
+The primary user workflow is `verify-change`. Sydes also exposes lower-level commands for inspecting route and flow structure directly.
 
-## Example 2: cross-repo API link
-
-Trace a route in one service and link an internal call to another repo endpoint:
+### Trace a route
 
 ```bash
-sydes trace "/goodreads/books" --method GET \
+sydes trace "/users" \
+  --method POST \
+  --repo api=./api
+```
+
+### Discover routes
+
+```bash
+sydes routes --repo api=./api
+```
+
+### Cross-repository route tracing
+
+```bash
+sydes trace "/goodreads/books" \
+  --method GET \
   --repo service1=~/sample_repos/microservices-level6/service1 \
   --repo service2=~/sample_repos/microservices-level6/service2
 ```
 
-Expected cross-repo section (abridged):
+These commands are useful for deeper investigation, but they are not required for the normal PR/change-verification workflow.
+
+### Additional `verify-change` controls
+
+```bash
+# Optional advisory AI code-review findings.
+sydes verify-change --base main --repo app=. --code-review
+
+# Disable model calls.
+sydes verify-change --base main --repo app=. --llm-policy never
+
+# More detailed evidence and diagnostics.
+sydes verify-change --base main --repo app=. --verbose
+
+# Set per-test execution timeout.
+sydes verify-change --base main --repo app=. --test-timeout 30
+```
+
+### Output artifacts
+
+`verify-change --json result.json` writes the same structured `ChangeVerificationResult` represented by the terminal renderer.
+
+Sydes also stores local artifacts under:
 
 ```text
-Cross-Repo Links:
-  - service2 -> service1::GET /db/books
+~/.sydes/
 ```
-This shows that a request to `/goodreads/books` in service2 calls `/db/books` in service1.
 
-## Change verification
+---
 
-Analyze what a backend change actually touches, against a base branch:
+## Current limitations
+
+Sydes is under active development.
+
+Current limitations include:
+
+- System-boundary discovery is still expanding beyond route-centric flows.
+- Support depth varies across languages and frameworks.
+- Large repositories are explored selectively rather than exhaustively.
+- Cross-repository linking is currently shallow and depends on detectable structural/API relationships.
+- AI-inferred impacts are hypotheses with explicit uncertainty; they are not proof.
+- Test execution depends on an already prepared repository environment.
+- Sydes reports runtime requirements but does not provision, mock, or contact them.
+- Generalized end-to-end system verification is not solved; Sydes returns `VERIFICATION INCOMPLETE` when the evidence is insufficient.
+
+---
+
+## Development
+
+You only need this section if you want to work on Sydes itself.
+
+### Clone
 
 ```bash
-sydes verify-change --base main
+git clone https://github.com/sydes-ai/sydes.git
+cd sydes
 ```
 
-By default the current directory is the changed repo; pass `--repo name=path` to point elsewhere, and repeat it to let Sydes resolve calls that cross a service boundary:
+### Install development dependencies
 
 ```bash
-sydes verify-change --base main \
-  --repo service2=~/repos/service2 \
-  --repo service1=~/repos/service1
+uv sync
 ```
 
-Sydes reports:
-
-- the changed files and the **symbols** the diff hunks actually land in
-- **affected system flows** — the routes and event consumers that reach those symbols, and the databases, outbound clients, and events they reach in turn, each edge carrying the source line it was inferred from
-- **verification** — for each affected behavior, the existing tests that cover it are **executed**, and the behavior is reported as `passed`, `failed`, `unverified`, or `unknown`
-- **verification gaps** — system behaviors the change may alter with no located evidence
-- **runtime requirements** — what would have to be running to exercise the flow (Sydes does not provision, mock, or contact anything)
-- **cross-repo impact** — outbound boundaries, resolved to a sibling repo when one is configured
-
-### Verification states
-
-| State | Meaning |
-| --- | --- |
-| `passed` | A mapped test was executed and succeeded. |
-| `failed` | A mapped test was executed and failed. |
-| `unverified` | No existing test was found that can verify this behavior. |
-| `unknown` | A test exists but could not be run or interpreted — missing dependency, absent runner, unsupported framework, collection error, or timeout. |
-
-A test being present is never reported as `passed`. Infrastructure problems are
-never reported as `failed`; they become `unknown` with a named blocker, linked
-to the runtime dependency behind them where one was discovered.
-
-### PROVEN vs. INFERRED impact
-
-Separately from test-verification state, each affected behavior Sydes reports
-carries how it was found:
-
-| Status | Meaning |
-| --- | --- |
-| `PROVEN` | Reached by a deterministic call/route path Sydes actually traced. |
-| `INFERRED` | Proposed by an AI reasoning pass over code-graph evidence, with no traced deterministic path. Shown with a confidence score and a reason. |
-
-`INFERRED` findings are evidence to investigate, not proof — they can never by
-themselves produce a `VERIFIED` verdict. This AI pass (`--impact-guide`) is
-optional and requires the `cbm` code-intelligence backend
-(`SYDES_CODE_INTELLIGENCE=cbm`); on its first use, Sydes bootstraps the
-`codebase-memory-mcp` native runtime into a local cache, which can take a
-noticeable moment the very first time.
-
-The verdict follows directly:
-
-```text
-any behavior failed                       -> ACTION REQUIRED
-anything unverified or unknown            -> VERIFICATION INCOMPLETE
-every affected behavior passed            -> VERIFIED
-```
-
-Only tests already mapped to affected behavior are executed. Sydes targets a
-single case where it can (`pytest tests/test_app.py::test_add_item`), widens to
-the file when it cannot, and records which granularity it achieved. It runs no
-suite-wide command, installs nothing, and loads no `.env` file.
-
-Supported runners: pytest, unittest, jest, mocha, and `node --test` — each only
-when a repository file (`pyproject.toml`, `pytest.ini`, `setup.cfg`,
-`package.json`, …) proves it is configured. An unidentifiable setup is `unknown`,
-never a guessed command.
-
-Useful flags:
+### Run Sydes from the source checkout
 
 ```bash
-sydes verify-change --base main --json result.json   # structured artifact for CI/PR tooling
-sydes verify-change --base main --code-review        # also run the advisory LLM code-findings pass (off by default)
-sydes verify-change --base main --llm-policy never   # deterministic analysis only, no model calls
-sydes verify-change --base main --impact-guide auto  # AI semantic impact inference for unresolved impact (cbm backend only)
-sydes verify-change --base main --verbose            # per-edge evidence, runner output, diagnostics
-sydes verify-change --base main --no-run-tests       # map tests but do not execute them
-sydes verify-change --base main --test-timeout 30    # per-test process timeout (default 120s)
+uv run sydes verify-change \
+  --base origin/main \
+  --repo app=. \
+  --llm-policy auto \
+  --impact-guide auto
 ```
 
-The command runs non-interactively and reads no terminal state, so it works unchanged inside GitHub Actions. `--json` writes the same `ChangeVerificationResult` model the terminal renderer consumes; a run is also saved as a `change_verification` artifact under `~/.sydes/`.
-
-Uncommitted work is included by default so a change can be analyzed before it is committed; pass `--no-working-tree` for committed changes only.
-
-## What Sydes outputs
-
-- API route → flow reconstruction (what actually happens inside a request)
-- Internal steps and side-effect signals (e.g. database writes)
-- Cross-repo API links (when one service calls another)
-- Structured API test matrix suggestions
-- Sydes-native JSON export for further analysis
+### Run tests
 
 ```bash
-sydes export ~/.sydes/workspaces/<workspace-id>/artifacts/<run-id>/trace_result.json
+uv run python -m pytest
 ```
 
-Artifacts are stored locally under `~/.sydes/`.
-
-## Output path contract
-
-`--output` supports either an explicit file path or an artifact directory.
-
-Routes:
-- `--output path/to/routes.json` writes that file.
-- `--output path/to/run_dir` writes `path/to/run_dir/routes.json`.
-
-Trace:
-- `--output path/to/run_dir` writes:
-  - `trace_result.json`
-  - `trace_graph.json`
-  - `test_matrix.json` (when generated)
-  - `flow_expansion.json` (when generated)
-- `--output path/to/trace.json` writes a single trace result JSON file.
-
-## Build outputs
-
-Build Python package artifacts:
+### Build package artifacts
 
 ```bash
 uv build
 ```
 
-This produces:
-- `dist/sydes-*.whl`
-- `dist/sydes-*.tar.gz`
+This produces the wheel and source distribution under `dist/`.
 
-Build a standalone executable for the current OS/arch:
-
-```bash
-uv run python scripts/build_binary.py
-```
-
-This produces:
-- `dist/binaries/<platform-key>/sydes`
-- on Windows: `dist/binaries/<platform-key>/sydes.exe`
-
-Platform keys follow:
-- `darwin-arm64`
-- `darwin-x64`
-- `linux-x64`
-- `win32-x64`
-
-Cross-platform binaries should be built on the target OS/architecture (or via CI runners for each target).
-
-## Current limitations
-
-- Local model quality can vary by model choice, prompt fit, and hardware/runtime conditions.
-- Flow traces are inferred from code context, not runtime traces or full execution capture.
-- Large repositories are explored selectively (bounded candidate ranking and file reads), not exhaustively.
-- Framework-specific behavior is not guaranteed in V1.
-- Cross-repo linking currently works for detectable internal API-call patterns and remains shallow.
-- OSS export format is Sydes-native JSON for now; GraphML is not exported yet.
-- `verify-change` attributes changes to symbols for Python and JavaScript/TypeScript only; other languages fall back to the enclosing route declaration region.
-- `verify-change` executes only the tests it already mapped to affected behavior; it never runs the full suite, and a behavior with no mapped test stays `unverified`.
-- Test execution uses a repository virtualenv or `node_modules/.bin` when present and otherwise `python3`; it never installs dependencies, so an unprepared environment yields `unknown`.
-- `verify-change` reports runtime requirements but never provisions, mocks, or contacts them.
+---
 
 ## Roadmap
 
-- Generate runnable integration tests from inferred flows
-- Deeper cross-service tracing (recursive API chains)
-- Graph-based system analysis over exported artifacts
+Near-term work includes:
+
+- broader system-boundary discovery
+- deeper caller / service / library impact analysis
+- richer GitHub PR and CI evidence integration
+- deeper cross-service tracing
+- stronger reuse of repository intelligence across changes
+
+---
+
+## License
+
+MIT — see `LICENSE`.
+
