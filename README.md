@@ -87,35 +87,34 @@ The important labels are:
 
 Sydes is non-interactive, so it can run directly in GitHub Actions.
 
-Create:
-
-```text
-.github/workflows/sydes.yml
-```
-
-with:
+Create `.github/workflows/sydes.yml`:
 
 ```yaml
 name: Sydes
 
 on:
   pull_request:
+    branches: [ "main" ]   # match your default branch
 
 permissions:
   contents: read
+  pull-requests: write   # only needed to post/update the PR comment below
 
 jobs:
-  analyze:
-    runs-on: ubuntu-latest
+  verify-change:
+    runs-on: ubuntu-24.04
 
     steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
+      # Sydes resolves the change with `git merge-base <base> HEAD`, so both
+      # the PR head and the PR base commit must be present locally.
+      - name: Check out PR head
+        uses: actions/checkout@v5
         with:
+          ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.12"
 
@@ -123,21 +122,28 @@ jobs:
         run: |
           python -m pip install "git+https://github.com/sydes-ai/sydes.git"
 
-      - name: Analyze PR impact
+      - name: Run Sydes verify-change
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          # The impact guide needs the Codebase Memory backend. The default
+          # backend is `native`, which would silently skip semantic
+          # inference if this were left unset.
+          SYDES_CODE_INTELLIGENCE: cbm
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
           sydes verify-change \
-            --base "origin/${{ github.base_ref }}" \
+            --base "$BASE_SHA" \
             --repo app=. \
             --llm-policy auto \
             --impact-guide auto \
+            --code-review \
+            --model openai:gpt-4.1-mini \
             --no-run-tests \
             --json sydes-result.json
 
       - name: Upload Sydes result
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: sydes-result
           path: sydes-result.json
@@ -145,13 +151,13 @@ jobs:
 
 Then add your model key once:
 
-**Repository → Settings → Secrets and variables → Actions → New repository secret**
+**Repository → Settings → Secrets and variables → Actions → New repository secret**, named `OPENAI_API_KEY`.
 
-Name it:
+This is the minimal integration: it runs the analysis and uploads the JSON result as a build artifact. It does not post a PR comment or write a job summary — see [PR comments and job summaries](#pr-comments-and-job-summaries) to add those.
 
-```text
-OPENAI_API_KEY
-```
+### The check reports execution, not the verdict
+
+The GitHub check above (`verify-change`) passing means **Sydes ran successfully** — it says nothing about whether the change is fully verified. A `VERIFICATION INCOMPLETE` verdict alongside a green check is the expected, common case, not a contradiction: `verify-change` exits non-zero only on a real error (a git problem, a backend failure, a bad `--repo` value), never because of what the verdict says. Read the verdict from the uploaded JSON (`summary.verdict`) or, if you add the presentation layer below, from the PR comment.
 
 ### Why `--no-run-tests` in the example?
 
@@ -173,9 +179,23 @@ Your CI
   → runs the repository's real tests in its real environment
 ```
 
-A richer PR-comment/check integration can consume CI evidence later. The workflow above is the minimal GitHub Actions integration available today.
-
 > After Sydes is published on PyPI, the install step becomes simply `pip install sydes`.
+
+### PR comments and job summaries
+
+The example above only uploads a JSON artifact. To also get a persistent, human-readable PR comment and a populated Actions job summary, render `sydes-result.json` to Markdown and post it yourself — add a step after `verify-change` that:
+
+1. runs a renderer script against `sydes-result.json` to produce a Markdown file,
+2. appends that Markdown to `$GITHUB_STEP_SUMMARY`,
+3. lists existing PR comments via the GitHub API, finds one containing a hidden marker comment (e.g. `<!-- sydes-verification-comment -->`), and updates it if found or creates it if not — so reruns update the same comment instead of piling up duplicates.
+
+Sydes does not ship this renderer today; the JSON schema (`ChangeVerificationResult`) is stable and documented enough to build one against. For a complete, working reference — a renderer script, the full workflow wiring, and a reusable `workflow_call` version of it — see [sydes-examples/.github](https://github.com/sydes-examples/.github), used by Sydes's own public example repositories (e.g. [sydes-examples/Kokoro-FastAPI](https://github.com/sydes-examples/Kokoro-FastAPI)). It is a demo scaffold, not a published/versioned dependency, so treat it as a reference to copy from rather than something to depend on directly in your own repository today.
+
+### A note on external-fork pull requests
+
+The workflow above assumes same-repository PRs. A `pull_request` triggered by a PR from an external fork runs with a **read-only** token, so a step that tries to post a PR comment will fail there — expected, not a bug.
+
+Do not reach for `pull_request_target` to work around this without care: it runs with the base repository's permissions against the fork's (untrusted) code, and needs a deliberate secure design — typically, running the untrusted analysis in one permission-less job and only posting the comment from a separate, trusted job that never checks out or executes fork code. That split is not provided here.
 
 ---
 
@@ -268,6 +288,8 @@ Sydes does not guarantee complete coverage, full system testing, or universal fr
 ---
 
 ## Common usage
+
+Every example below passes `--impact-guide auto`. That flag requires the `cbm` backend (see [Repository and code intelligence](#repository-and-code-intelligence)) — set `export SYDES_CODE_INTELLIGENCE=cbm` first, or it silently does nothing.
 
 ### Compare the current branch with `origin/main`
 
@@ -373,9 +395,9 @@ Support depth varies by language, framework, and boundary. See [Current limitati
 
 Sydes uses repository/code intelligence so AI reasoning operates over a relevant slice of the codebase instead of blindly consuming the entire repository.
 
-The default code-intelligence path uses `codebase-memory-mcp`, which is installed as a Sydes runtime dependency.
+Sydes ships two code-intelligence backends: `native` (Sydes' own lightweight parser, the default) and `cbm` (the fuller `codebase-memory-mcp` code-graph backend, installed as a Sydes runtime dependency). **`--impact-guide` requires the `cbm` backend** — set `SYDES_CODE_INTELLIGENCE=cbm` to enable it; on the default `native` backend, `--impact-guide` has nothing to consult and is a no-op.
 
-On first use, Sydes bootstraps the Codebase Memory native runtime into a local cache. This can take a noticeable moment once; subsequent runs reuse the local runtime/cache where possible.
+On first use with `cbm`, Sydes bootstraps the Codebase Memory native runtime into a local cache. This can take a noticeable moment once; subsequent runs reuse the local runtime/cache where possible.
 
 The guiding principle is:
 
