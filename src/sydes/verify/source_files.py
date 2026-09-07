@@ -85,7 +85,9 @@ def _is_relevant(path: str) -> bool:
     if suffix in SOURCE_EXTENSIONS or suffix in CONFIG_EXTENSIONS:
         return True
     name = Path(path).name.lower()
-    return name.startswith(".env") or name in {"dockerfile", "makefile", "procfile"}
+    return name.startswith(".env") or name in {
+        "dockerfile", "makefile", "procfile", "go.mod", "go.sum",
+    }
 
 
 def load_repo_files(repo_name: str, repo_root: Path | str, *, max_files: int = 8_000) -> RepoFiles:

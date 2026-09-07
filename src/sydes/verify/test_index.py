@@ -23,6 +23,11 @@ _PY_TEST_CLASS = re.compile(r"^\s*class\s+(?P<name>Test\w+)\s*[\(:]")
 _JS_TEST_CASE = re.compile(r"^\s*(?:it|test)\s*(?:\.\w+)?\s*\(\s*[`'\"](?P<name>[^`'\"]+)[`'\"]")
 _JS_SUITE = re.compile(r"^\s*describe\s*(?:\.\w+)?\s*\(\s*[`'\"](?P<name>[^`'\"]+)[`'\"]")
 _JAVA_TEST = re.compile(r"^\s*(?:public\s+)?void\s+(?P<name>\w*[Tt]est\w*)\s*\(")
+# Go's own exported-test rule: a top-level `func` whose name is `Test`
+# followed by a capitalized (or non-lowercase) rune. The parameter is not
+# constrained to a literal `t *testing.T` — Go itself does not require that
+# either, only the name shape and that it is a package-level func.
+_GO_TEST_DEF = re.compile(r"^\s*func\s+(?P<name>Test[^a-z]\w*)\s*\(")
 
 _ROUTE_LITERAL = re.compile(r"[`'\"](?P<path>/[A-Za-z0-9_\-{}:./$]*)[`'\"]")
 _HTTP_VERB = re.compile(
@@ -96,7 +101,7 @@ def _extract_cases_from_file(scanned: SourceFile) -> list[LocatedTest]:
         if suite_match:
             current_suite = suite_match.group("name")
             continue
-        for pattern in (_PY_TEST_DEF, _JS_TEST_CASE, _JAVA_TEST):
+        for pattern in (_PY_TEST_DEF, _JS_TEST_CASE, _JAVA_TEST, _GO_TEST_DEF):
             match = pattern.match(line)
             if match:
                 if not pending_fixture:

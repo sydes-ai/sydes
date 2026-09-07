@@ -108,6 +108,9 @@ _LANGUAGE_BY_SUFFIX = {
     ".py": "python",
     ".js": "javascript", ".jsx": "javascript", ".mjs": "javascript", ".cjs": "javascript",
     ".ts": "typescript", ".tsx": "typescript",
+    ".go": "go",
+    ".java": "java",
+    ".rs": "rust",
 }
 
 
@@ -603,6 +606,10 @@ class CBMCodeIntelligence:
         # demonstrably gets wrong. Sydes' route parser is retained here purely
         # for that enrichment.
         from sydes.discover.repo_map import build_repo_map_batch
+        from sydes.discover.route_entrypoints import (
+            entrypoints_from_route_graph,
+            merge_entrypoints,
+        )
         from sydes.discover.route_graph import (
             build_route_graph_facts_from_route_index_batch,
         )
@@ -614,10 +621,33 @@ class CBMCodeIntelligence:
         route_graph = build_route_graph_facts_from_route_index_batch(route_index)
         semantics_ms = (time.perf_counter() - semantics_started) * 1000.0
 
+        # Structural entrypoints from two independent sources: CBM's own
+        # decorator/annotation model (`entrypoints`, already collected above)
+        # and Sydes' own deterministic route composition, which recognizes
+        # handler-by-reference registration (Go/Gin and any framework shaped
+        # like it) that no decorator model can see. Neither replaces the
+        # other; a route already known through both is kept once.
+        route_derived_entrypoints = entrypoints_from_route_graph(
+            route_graph, [repo.name for repo in repos],
+        )
+        entrypoints_before_merge = len(entrypoints)
+        entrypoints = merge_entrypoints(entrypoints, route_derived_entrypoints)
+        route_entrypoints_added = len(entrypoints) - entrypoints_before_merge
+
         gaps.append(
             "route composition is computed by Sydes, not CBM: CBM reports "
             "uncomposed route paths and models no persistence sinks"
         )
+        for repo in repos:
+            repo_graph = next(
+                (item for item in route_graph.get("repos", []) or [] if item.get("repo") == repo.name),
+                None,
+            )
+            if isinstance(repo_graph, dict) and repo_graph.get("summary", {}).get("composition_unresolved"):
+                gaps.append(
+                    f"{repo.name}: route composition is unresolved for some containers; "
+                    "route-derived entrypoint paths from this repo may be incomplete"
+                )
         if defer_edges:
             gaps.append(
                 "CALLS/USAGE edges deferred: they are fetched as a bounded "
@@ -644,6 +674,7 @@ class CBMCodeIntelligence:
             f" sydes_route_semantics_ms={semantics_ms:.1f} total_ms={total_ms:.1f}",
             "cbm_supplied=symbols,spans,imports,exports,call_edges,usage_edges,entrypoints"
             "  sydes_semantics=route_index,route_graph,repo_map",
+            f"route_derived_entrypoints_added={route_entrypoints_added}",
         ]
         diagnostics.extend(f"cbm_gap: {gap}" for gap in gaps)
         diagnostics.extend(index_mode_notes)

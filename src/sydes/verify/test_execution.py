@@ -23,6 +23,7 @@ from dataclasses import dataclass, field
 import json
 from pathlib import Path
 import re
+import shutil
 import subprocess
 import time
 
@@ -52,6 +53,7 @@ FRAMEWORK_UNITTEST = "unittest"
 FRAMEWORK_JEST = "jest"
 FRAMEWORK_MOCHA = "mocha"
 FRAMEWORK_NODE_TEST = "node:test"
+FRAMEWORK_GO_TEST = "go_test"
 FRAMEWORK_UNKNOWN = "unknown"
 
 DEFAULT_TIMEOUT_SECONDS = 120.0
@@ -318,9 +320,48 @@ def _detect_node(files: RepoFiles) -> list[FrameworkDetection]:
     return detections
 
 
+def _detect_go(files: RepoFiles) -> list[FrameworkDetection]:
+    """Detect Go's standard `go test` runner from `go.mod` plus test files.
+
+    Go has exactly one test runner in practice — there is no dependency
+    declaration to look for the way pytest/jest have; `go.mod` proves the
+    module, and at least one `_test.go` file proves there is something for
+    `go test` to run. Detection only; selecting and invoking a narrow `go
+    test` target for a specific mapped test is a separate, unimplemented
+    concern (see `_select_detection`, which does not yet route `.go` files
+    anywhere) — this only stops `test_frameworks_detected` from reporting
+    `none` when Go's own runner is demonstrably the relevant one.
+    """
+    detections: list[FrameworkDetection] = []
+    for working_dir in _manifest_dirs(files, ("go.mod",)):
+        manifest_path = _in_dir(working_dir, "go.mod")
+        has_go_tests = any(
+            scanned.extension == ".go" and scanned.is_test for scanned in files.files
+        )
+        if not has_go_tests:
+            continue
+        go_binary = shutil.which("go")
+        detections.append(
+            FrameworkDetection(
+                framework=FRAMEWORK_GO_TEST,
+                language="go",
+                runner_argv=["go", "test"],
+                working_dir=working_dir,
+                runner_available=go_binary is not None,
+                unavailable_reason=None if go_binary else "`go` executable not found on PATH",
+                evidence=EvidenceRef(
+                    file=manifest_path,
+                    label="test_framework",
+                    snippet=f"`go.mod` present in {working_dir} with Go test files",
+                ),
+            )
+        )
+    return detections
+
+
 def detect_frameworks(files: RepoFiles) -> list[FrameworkDetection]:
     """Detect every test framework a repository demonstrably configures."""
-    return [*_detect_python(files), *_detect_node(files)]
+    return [*_detect_python(files), *_detect_node(files), *_detect_go(files)]
 
 
 def _select_detection(
