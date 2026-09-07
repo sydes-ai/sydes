@@ -27,7 +27,15 @@ from sydes.verify.llm_findings import (
     build_code_review_context,
     generate_code_findings,
 )
-from sydes.verify.models import ChangedFile, ChangedSymbol, ChangeSet, Hunk
+from sydes.verify.models import (
+    CODE_REVIEW_COMPLETED,
+    CODE_REVIEW_NOT_REQUESTED,
+    CODE_REVIEW_UNAVAILABLE,
+    ChangedFile,
+    ChangedSymbol,
+    ChangeSet,
+    Hunk,
+)
 
 REPO = "svc"
 
@@ -354,6 +362,7 @@ def test_code_review_disabled_makes_zero_calls(repo: Path, tmp_path: Path) -> No
 
     assert stub.calls == 0, "code review must not run unless explicitly enabled"
     assert result.code_findings == []
+    assert result.code_review_status == CODE_REVIEW_NOT_REQUESTED
 
 
 def test_code_review_enabled_invokes_the_stage_and_populates_findings(
@@ -369,6 +378,7 @@ def test_code_review_enabled_invokes_the_stage_and_populates_findings(
     assert stub.calls == 1
     assert len(result.code_findings) == 1
     assert result.code_findings[0].title == "return value changed"
+    assert result.code_review_status == CODE_REVIEW_COMPLETED
 
 
 def test_code_findings_do_not_alter_any_system_analysis_output(
@@ -405,10 +415,38 @@ def test_code_review_provider_failure_does_not_fail_the_run(repo: Path, tmp_path
 
     assert failing.calls == 1
     assert result.code_findings == []
+    assert result.code_review_status == CODE_REVIEW_UNAVAILABLE
     assert any("code_review_unavailable" in d for d in result.diagnostics)
     # The verdict and impacts are exactly what they were without code review.
     assert result.summary.verdict == baseline.summary.verdict
     assert [i.id for i in result.accepted_impacts] == [i.id for i in baseline.accepted_impacts]
+
+
+def test_code_review_completed_with_no_findings_is_distinct_from_not_requested_and_unavailable(
+    repo: Path, tmp_path: Path,
+) -> None:
+    """The bug this pins: `code_findings == []` means something different in
+    each of these three cases, and collapsing them into one "no findings"
+    message renders absence of evidence as evidence of absence. All three
+    must be reachable and mutually distinguishable through `code_review_status`
+    alone — never by inspecting `code_findings` emptiness or by parsing
+    `diagnostics`/`analysis_notes` text."""
+    not_requested = _run(repo, tmp_path / "a", code_review=False)
+    completed_empty = _run(
+        repo, tmp_path / "b", code_review=True,
+        client=_StubLLM({"version": "v1", "findings": []}),
+    )
+    unavailable = _run(repo, tmp_path / "c", code_review=True, client=_FailingLLM())
+
+    assert not_requested.code_findings == []
+    assert completed_empty.code_findings == []
+    assert unavailable.code_findings == []
+
+    assert not_requested.code_review_status == CODE_REVIEW_NOT_REQUESTED
+    assert completed_empty.code_review_status == CODE_REVIEW_COMPLETED
+    assert unavailable.code_review_status == CODE_REVIEW_UNAVAILABLE
+    assert len({not_requested.code_review_status, completed_empty.code_review_status,
+                unavailable.code_review_status}) == 3
 
 
 # --- Calibration: a defect must be demonstrated, not merely plausible -------
