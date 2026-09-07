@@ -363,6 +363,23 @@ _JAVA_CLASS_NAME_RE = re.compile(
 #: distinguishing shape.
 _SPRING_ROUTE_ANNOTATIONS = ("@GetMapping", "@PostMapping", "@PutMapping", "@DeleteMapping", "@PatchMapping", "@RequestMapping")
 
+_JAVA_INTERFACE_NAME_RE = re.compile(r"^\s*(?:public\s+)?interface\s+(?P<name>[A-Za-z_$][\w$]*)")
+_JAVA_IMPLEMENTS_RE = re.compile(r"\bimplements\s+(?P<names>[^{]+)")
+
+
+def _java_implemented_names(line: str) -> list[str]:
+    """Bare interface names from a class declaration's `implements` clause,
+    generics stripped (`implements Comparable<Foo>` -> `Comparable`)."""
+    match = _JAVA_IMPLEMENTS_RE.search(line)
+    if not match:
+        return []
+    names = []
+    for raw in match.group("names").split(","):
+        name = re.sub(r"<.*>", "", raw).strip()
+        if name:
+            names.append(name)
+    return names
+
 
 def _extract_index_for_file(relative_path: str, text: str, role: str) -> dict:
     ext = Path(relative_path).suffix.lower()
@@ -396,6 +413,12 @@ def _extract_index_for_file(relative_path: str, text: str, role: str) -> dict:
     java_pending_annotations: list[str] = []
     java_current_class: str | None = None
     java_class_prefix: str = ""
+    #: This file's own top-level type, if a Java class or interface
+    #: declaration has been seen — first one wins (nested types are not
+    #: modeled). Used to bridge a call to an interface method to its sole
+    #: known implementation (see interface_bridge.py); has nothing to do
+    #: with route composition above.
+    java_type: dict[str, Any] | None = None
 
     joined_lines = _join_open_calls(text).splitlines()
     for idx, raw_line in enumerate(joined_lines, start=1):
@@ -451,9 +474,20 @@ def _extract_index_for_file(relative_path: str, text: str, role: str) -> dict:
         if line.startswith("@"):
             java_pending_annotations.append(line)
 
+        if java_type is None:
+            java_interface_match = _JAVA_INTERFACE_NAME_RE.match(line)
+            if java_interface_match:
+                java_type = {"kind": "interface", "name": java_interface_match.group("name"), "implements": []}
+
         java_class_match = _JAVA_CLASS_NAME_RE.match(line)
         if java_class_match:
             java_current_class = java_class_match.group("name")
+            if java_type is None:
+                java_type = {
+                    "kind": "class",
+                    "name": java_current_class,
+                    "implements": _java_implemented_names(line),
+                }
             class_ann = next(
                 (ann for ann in java_pending_annotations if ann.startswith("@RequestMapping")), None,
             )
@@ -611,6 +645,7 @@ def _extract_index_for_file(relative_path: str, text: str, role: str) -> dict:
         "imports": imports,
         "exports": exports,
         "path_literals": path_literals,
+        "java_type": java_type,
     }
 
 

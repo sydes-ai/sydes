@@ -39,6 +39,7 @@ from sydes.core.models import (
     TraceSummary,
 )
 from sydes.discover.endpoints import discover_endpoints
+from sydes.discover.interface_bridge import bridge_interface_call_edges
 from sydes.code_intelligence import get_code_intelligence
 from sydes.code_intelligence.base import StructuralFacts
 from sydes.code_intelligence.cbm import CBM_BACKEND
@@ -1217,6 +1218,17 @@ def _attach_bounded_graph_edges(
 
     selection = _select_graph_slice_seeds(change, routes, candidate_files)
     outcome = attach(structural, seed_symbols=selection.seeds)
+
+    # A call through a Java interface-typed field resolves, in any purely
+    # static call graph, to the interface's own method — never to the
+    # concrete class actually run. This adds a synthetic edge alongside each
+    # such edge, straight to the sole known implementation, whenever the
+    # interface has exactly one; more than one is left alone rather than
+    # guessed at. See interface_bridge.py.
+    bridged_edges = bridge_interface_call_edges(structural.route_index, structural.call_edges)
+    if bridged_edges:
+        structural.call_edges.extend(bridged_edges)
+        result.diagnostics.append(f"interface_bridge_edges_added={len(bridged_edges)}")
 
     _trace.record_seed_selection(
         changed_symbol_seeds=selection.changed_symbol_count,
