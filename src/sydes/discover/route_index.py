@@ -14,6 +14,8 @@ from typing import Any
 
 from sydes.core.models import RepoRef
 from sydes.discover.deterministic_routes import (
+    _SPRING_METHOD_RE,
+    _SPRING_STATEMENT_KEYWORDS,
     _TS_CLASS_RE,
     _TS_CONTAINER_DECORATORS,
     _TS_METHOD_RE,
@@ -21,6 +23,7 @@ from sydes.discover.deterministic_routes import (
     _TS_VERB_DECORATORS,
     _decorator_name,
     _decorator_path_arg,
+    _parse_spring_mapping,
 )
 from sydes.discover.repo_map import IGNORED_DIRS, build_repo_map
 from sydes.ingest.file_roles import (
@@ -350,6 +353,32 @@ def _handler_below_declaration(lines: list[str], start_index: int) -> str | None
 
 
 _TS_CLASS_NAME_RE = re.compile(r"^\s*(?:export\s+)?(?:abstract\s+)?class\s+(?P<name>[A-Za-z_$][\w$]*)")
+_JAVA_CLASS_NAME_RE = re.compile(
+    r"^\s*(?:public\s+|private\s+|protected\s+)?(?:abstract\s+|final\s+)?class\s+(?P<name>[A-Za-z_$][\w$]*)"
+)
+#: Annotations `_extract_spring_routes` (deterministic_routes.py) already
+#: recognizes as route-verb declarations. Kept in sync with that function's
+#: own check rather than re-derived from `_SPRING_METHOD_RE`/mapping tables,
+#: since a route annotation and an ordinary Java annotation share no other
+#: distinguishing shape.
+_SPRING_ROUTE_ANNOTATIONS = ("@GetMapping", "@PostMapping", "@PutMapping", "@DeleteMapping", "@PatchMapping", "@RequestMapping")
+
+_JAVA_INTERFACE_NAME_RE = re.compile(r"^\s*(?:public\s+)?interface\s+(?P<name>[A-Za-z_$][\w$]*)")
+_JAVA_IMPLEMENTS_RE = re.compile(r"\bimplements\s+(?P<names>[^{]+)")
+
+
+def _java_implemented_names(line: str) -> list[str]:
+    """Bare interface names from a class declaration's `implements` clause,
+    generics stripped (`implements Comparable<Foo>` -> `Comparable`)."""
+    match = _JAVA_IMPLEMENTS_RE.search(line)
+    if not match:
+        return []
+    names = []
+    for raw in match.group("names").split(","):
+        name = re.sub(r"<.*>", "", raw).strip()
+        if name:
+            names.append(name)
+    return names
 
 
 def _extract_index_for_file(relative_path: str, text: str, role: str) -> dict:
@@ -375,6 +404,21 @@ def _extract_index_for_file(relative_path: str, text: str, role: str) -> dict:
     # container/mount composition already used for call-based frameworks.
     ts_pending_decorators: list[str] = []
     ts_current_class: str | None = None
+
+    # Spring MVC is the same shape again (class-level `@RequestMapping` names
+    # a prefix, method-level `@GetMapping`/etc. names a verb) but with Java
+    # annotation/method syntax, so it needs its own parallel state rather
+    # than sharing the TS tracking above — `@Controller` alone, for one,
+    # means something different in each vocabulary.
+    java_pending_annotations: list[str] = []
+    java_current_class: str | None = None
+    java_class_prefix: str = ""
+    #: This file's own top-level type, if a Java class or interface
+    #: declaration has been seen — first one wins (nested types are not
+    #: modeled). Used to bridge a call to an interface method to its sole
+    #: known implementation (see interface_bridge.py); has nothing to do
+    #: with route composition above.
+    java_type: dict[str, Any] | None = None
 
     joined_lines = _join_open_calls(text).splitlines()
     for idx, raw_line in enumerate(joined_lines, start=1):
@@ -426,6 +470,63 @@ def _extract_index_for_file(relative_path: str, text: str, role: str) -> dict:
             ts_pending_decorators = []
         elif ts_pending_decorators and not line.startswith("@"):
             ts_pending_decorators = []
+
+        if line.startswith("@"):
+            java_pending_annotations.append(line)
+
+        if java_type is None:
+            java_interface_match = _JAVA_INTERFACE_NAME_RE.match(line)
+            if java_interface_match:
+                java_type = {"kind": "interface", "name": java_interface_match.group("name"), "implements": []}
+
+        java_class_match = _JAVA_CLASS_NAME_RE.match(line)
+        if java_class_match:
+            java_current_class = java_class_match.group("name")
+            if java_type is None:
+                java_type = {
+                    "kind": "class",
+                    "name": java_current_class,
+                    "implements": _java_implemented_names(line),
+                }
+            class_ann = next(
+                (ann for ann in java_pending_annotations if ann.startswith("@RequestMapping")), None,
+            )
+            if class_ann and java_current_class not in {item["symbol"] for item in containers}:
+                _, prefix = _parse_spring_mapping(class_ann)
+                java_class_prefix = _normalize_prefix(prefix)
+                containers.append(
+                    {"symbol": java_current_class, "prefix": java_class_prefix, "callee": "spring_controller"},
+                )
+                router_symbols.append(java_current_class)
+                signals.add("route_container:spring_controller")
+            java_pending_annotations = []
+
+        java_method_match = _SPRING_METHOD_RE.match(line)
+        if java_method_match and java_method_match.group("type") in _SPRING_STATEMENT_KEYWORDS:
+            java_method_match = None
+        if java_pending_annotations and java_method_match and java_current_class:
+            handler = java_method_match.group("name")
+            for ann in java_pending_annotations:
+                if not ann.startswith(_SPRING_ROUTE_ANNOTATIONS):
+                    continue
+                methods, route_path = _parse_spring_mapping(ann)
+                if route_path is None:
+                    route_path = ""
+                for method in methods:
+                    route_calls.append(
+                        {
+                            "receiver": java_current_class,
+                            "method": method.lower(),
+                            "path": route_path,
+                            "handler_hint": handler,
+                            "line": idx,
+                            "snippet": _trim(f"{ann} {raw_line.strip()}"),
+                        }
+                    )
+                    signals.add(f"route_call:{method.lower()}")
+            java_pending_annotations = []
+        elif java_pending_annotations and not line.startswith("@"):
+            java_pending_annotations = []
 
         for match in _ROUTER_DECL_RE.finditer(line):
             symbol = match.group("symbol")
@@ -544,6 +645,7 @@ def _extract_index_for_file(relative_path: str, text: str, role: str) -> dict:
         "imports": imports,
         "exports": exports,
         "path_literals": path_literals,
+        "java_type": java_type,
     }
 
 

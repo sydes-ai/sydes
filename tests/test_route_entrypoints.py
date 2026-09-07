@@ -161,6 +161,48 @@ def test_routing_controllers_decorator_route_becomes_an_entrypoint_end_to_end(tm
     assert create["source"] == ROUTE_INDEX_SOURCE
 
 
+def test_spring_controller_route_becomes_an_entrypoint_end_to_end(tmp_path: Path) -> None:
+    """The same generic gap, once more, for Spring MVC: `deterministic_routes.py`
+    already recognized `@GetMapping`/`@PostMapping`/etc. for the app-level
+    route list (`sydes routes`), but that never fed the route_index/route_graph
+    model this bridge reads from — JAVA-S-01 (spring-boot-demo) exposed this
+    exactly the way TS-S-02 exposed the TypeScript gap above. No class-level
+    `@RequestMapping` here (each method's path is already absolute), the
+    common real-world shape."""
+    repo_root = tmp_path / "repo"
+    (repo_root / "src").mkdir(parents=True)
+    (repo_root / "src" / "UserController.java").write_text(
+        "\n".join(
+            [
+                "package com.example.controller;",
+                "",
+                "@RestController",
+                "public class UserController {",
+                '    @PostMapping("/user")',
+                "    public Dict save(@RequestBody User user) {",
+                "        return userService.save(user);",
+                "    }",
+                "}",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    repos = [RepoRef(name="app", root=str(repo_root))]
+    route_index = build_route_index_batch(repos)
+    route_graph = build_route_graph_facts_from_route_index_batch(route_index)
+    entrypoints = entrypoints_from_route_graph(route_graph, ["app"])
+
+    by_symbol = {item["symbol"]: item for item in entrypoints}
+    assert "save" in by_symbol
+    save = by_symbol["save"]
+    assert save["route_method"] == "POST"
+    assert save["route_path"] == "/user"
+    assert save["file"] == "src/UserController.java"
+    assert save["source"] == ROUTE_INDEX_SOURCE
+
+
 def test_a_repo_not_present_in_the_route_graph_yields_no_entrypoints() -> None:
     route_graph = build_route_graph_facts_from_route_index_batch(_go_style_route_index_batch())
     assert entrypoints_from_route_graph(route_graph, ["other_repo"]) == []
