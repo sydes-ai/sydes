@@ -402,3 +402,170 @@ def test_resolver_supports_wrapped_index_payload_shape() -> None:
     resolved = resolve_handler_reference(_endpoint("AttachmentController.createTaskAttachment"), wrapped_index)
     assert resolved["resolved"] is True
     assert resolved["primary_handler"]["symbol"]["qualified_name"] == "AttachmentController.createTaskAttachment"
+
+
+# --------------------------------------------------------------------------
+# Receiver/method handler resolution — the GO-S-01 flow-blocker fix.
+#
+# `server.createTransfer` names a receiver *instance* (the call site's
+# variable name), never the symbol's own identity: CBM's `name` is the bare
+# method ("createTransfer") and its `qualified_name` uses the receiver
+# *type*, not the instance ("Server.createTransfer" — capitalized, and
+# frequently a different string than the lowercase receiver variable in the
+# call). Neither matches "server.createTransfer" literally, so the handler
+# never resolved at all, even though the real repository-wide symbol
+# (correct file, correct line) was sitting right there in the index.
+# --------------------------------------------------------------------------
+
+
+def test_receiver_prefixed_handler_resolves_via_bare_method_name_repo_wide() -> None:
+    """The exact GO-S-01 shape: the route is declared in one file
+    (`api/server.go`, referencing `server.createTransfer`), the method is
+    defined in a different file (`api/transfer.go`) with kind `class_method`
+    and a capitalized qualified name the lowercase receiver never matches."""
+    index = {
+        "files": [
+            {
+                "path": "api/server.go",
+                "imports": [],
+                "exports": [],
+                "symbols": [],
+            },
+            {
+                "path": "api/transfer.go",
+                "imports": [],
+                "exports": [],
+                "symbols": [
+                    {
+                        "name": "createTransfer",
+                        "qualified_name": "Server.createTransfer",
+                        "kind": "class_method",
+                        "parent": "Server",
+                        "file": "api/transfer.go",
+                        "line": 20,
+                        "start_line": 20,
+                        "end_line": 61,
+                    },
+                ],
+            },
+        ]
+    }
+    resolved = resolve_handler_reference(
+        _endpoint("server.createTransfer", file="api/server.go"), index
+    )
+    assert resolved["resolved"] is True
+    symbol = resolved["primary_handler"]["symbol"]
+    assert symbol["qualified_name"] == "Server.createTransfer"
+    assert symbol["file"] == "api/transfer.go"
+
+
+def test_capitalized_receiver_also_resolves_via_bare_method_name() -> None:
+    index = {
+        "files": [
+            {"path": "a.go", "imports": [], "exports": [], "symbols": []},
+            {
+                "path": "b.go",
+                "imports": [],
+                "exports": [],
+                "symbols": [{
+                    "name": "createUser", "qualified_name": "Server.createUser",
+                    "kind": "class_method", "parent": "Server", "file": "b.go",
+                    "line": 1, "start_line": 1, "end_line": 5,
+                }],
+            },
+        ]
+    }
+    resolved = resolve_handler_reference(_endpoint("Server.createUser", file="a.go"), index)
+    assert resolved["resolved"] is True
+    assert resolved["primary_handler"]["symbol"]["file"] == "b.go"
+
+
+def test_a_direct_qualified_name_match_is_still_preferred_over_the_bare_fallback() -> None:
+    """If the dotted handler string genuinely IS the qualified name (the
+    TypeScript/Java shape this resolver already supported), that exact match
+    must still win — the bare-name retry only fires when nothing matched."""
+    index = {
+        "files": [
+            {"path": "router.ts", "imports": [], "exports": [], "symbols": []},
+            {
+                "path": "controller.ts",
+                "imports": [],
+                "exports": [],
+                "symbols": [
+                    {
+                        "name": "create", "qualified_name": "UserController.create",
+                        "kind": "class_method", "parent": "UserController", "file": "controller.ts",
+                        "line": 1, "start_line": 1, "end_line": 5,
+                    },
+                    # A different class with a same-named method — if the bare-name
+                    # fallback fired here instead of the exact qualified match, this
+                    # would introduce a real ambiguity that does not actually exist.
+                    {
+                        "name": "create", "qualified_name": "AdminController.create",
+                        "kind": "class_method", "parent": "AdminController", "file": "controller.ts",
+                        "line": 20, "start_line": 20, "end_line": 25,
+                    },
+                ],
+            },
+        ]
+    }
+    resolved = resolve_handler_reference(
+        _endpoint("UserController.create", file="router.ts"), index
+    )
+    assert resolved["resolved"] is True
+    assert resolved["primary_handler"]["symbol"]["qualified_name"] == "UserController.create"
+
+
+def test_ambiguous_bare_method_name_across_two_receivers_stays_unresolved() -> None:
+    """Two distinct types both expose a same-named method and the call site
+    gives no way to disambiguate them structurally — this must not guess."""
+    index = {
+        "files": [
+            {"path": "server.go", "imports": [], "exports": [], "symbols": []},
+            {
+                "path": "impl.go",
+                "imports": [],
+                "exports": [],
+                "symbols": [
+                    {
+                        "name": "handle", "qualified_name": "AccountServer.handle",
+                        "kind": "class_method", "parent": "AccountServer", "file": "impl.go",
+                        "line": 1, "start_line": 1, "end_line": 5,
+                    },
+                    {
+                        "name": "handle", "qualified_name": "TransferServer.handle",
+                        "kind": "class_method", "parent": "TransferServer", "file": "impl.go",
+                        "line": 10, "start_line": 10, "end_line": 15,
+                    },
+                ],
+            },
+        ]
+    }
+    resolved = resolve_handler_reference(_endpoint("srv.handle", file="server.go"), index)
+    assert resolved["resolved"] is False
+    assert resolved["unresolved_handlers"]
+    assert resolved["unresolved_handlers"][0]["reason"] == "ambiguous"
+
+
+def test_bare_function_handler_resolution_is_unaffected_by_the_receiver_fallback() -> None:
+    """A plain function handler (no receiver at all — the case that already
+    worked) must resolve exactly as before; the new fallback only ever
+    engages when the direct lookup found nothing."""
+    index = {
+        "files": [
+            {
+                "path": "router.py",
+                "imports": [],
+                "exports": [],
+                "symbols": [
+                    {
+                        "name": "index", "qualified_name": "index", "kind": "function",
+                        "file": "router.py", "line": 1, "start_line": 1, "end_line": 3,
+                    },
+                ],
+            },
+        ]
+    }
+    resolved = resolve_handler_reference(_endpoint("index", file="router.py"), index)
+    assert resolved["resolved"] is True
+    assert resolved["primary_handler"]["symbol"]["file"] == "router.py"

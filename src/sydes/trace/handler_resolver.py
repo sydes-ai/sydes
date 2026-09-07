@@ -6,6 +6,14 @@ from pathlib import Path
 import re
 
 from sydes.core.models import EndpointCandidate
+from sydes.discover.route_entrypoints import bare_handler_symbol
+
+#: Symbol kinds that are actually invocable as a route handler. A "class" is
+#: never itself a handler; excluding it here (rather than checking equality
+#: against "function" alone) is what lets a receiver-method handler —
+#: Go's `class_method` kind, and analogous instance-method kinds in any
+#: other language — resolve at all.
+_INVOCABLE_SYMBOL_KINDS = {"function", "class_method"}
 
 
 def _split_args(expr: str) -> list[str]:
@@ -303,7 +311,7 @@ def resolve_handler_reference(
             # Same file function
             for local_symbol in route_file_payload.get("symbols", []):
                 if (
-                    local_symbol.get("kind") == "function"
+                    local_symbol.get("kind") in _INVOCABLE_SYMBOL_KINDS
                     and local_symbol.get("name") == normalized
                 ):
                     symbol = local_symbol
@@ -325,6 +333,21 @@ def resolve_handler_reference(
             matches = symbols_by_name.get(normalized, [])
             if "." in normalized:
                 matches = [item for item in matches if item.get("qualified_name") == normalized]
+            if not matches and "." in normalized:
+                # A receiver/method handler reference (`server.createTransfer`)
+                # names the receiver instance, not the symbol's own identity —
+                # `name`/`qualified_name` never carry the call site's receiver
+                # variable name, only the method's own name and its declaring
+                # type. Retrying by bare method name is what lets a call-based
+                # registration (Go method values, and anything shaped like
+                # them) resolve at all; an exact dotted match is still tried
+                # first, so this never overrides a real qualified-name hit.
+                bare = bare_handler_symbol(normalized)
+                if bare and bare != normalized:
+                    matches = [
+                        item for item in symbols_by_name.get(bare, [])
+                        if item.get("kind") in _INVOCABLE_SYMBOL_KINDS
+                    ]
             if len(matches) == 1:
                 symbol = matches[0]
                 chain.append({"kind": "symbol_match", "qualified_name": normalized})

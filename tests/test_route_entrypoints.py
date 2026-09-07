@@ -9,7 +9,7 @@ from __future__ import annotations
 from sydes.core.models import EndpointCandidate
 from sydes.discover.route_entrypoints import (
     ROUTE_INDEX_SOURCE,
-    _bare_handler_symbol,
+    bare_handler_symbol,
     entrypoints_from_route_graph,
     merge_entrypoints,
 )
@@ -66,29 +66,29 @@ def _go_style_route_index_batch() -> dict:
 
 
 # --------------------------------------------------------------------------
-# _bare_handler_symbol
+# bare_handler_symbol
 # --------------------------------------------------------------------------
 
 
 def test_bare_handler_symbol_strips_a_go_style_receiver() -> None:
-    assert _bare_handler_symbol("server.createTransfer") == "createTransfer"
+    assert bare_handler_symbol("server.createTransfer") == "createTransfer"
 
 
 def test_bare_handler_symbol_strips_a_capitalized_receiver() -> None:
-    assert _bare_handler_symbol("Server.createTransfer") == "createTransfer"
+    assert bare_handler_symbol("Server.createTransfer") == "createTransfer"
 
 
 def test_bare_handler_symbol_handles_a_bare_identifier() -> None:
-    assert _bare_handler_symbol("createUser") == "createUser"
+    assert bare_handler_symbol("createUser") == "createUser"
 
 
 def test_bare_handler_symbol_takes_the_last_segment_of_a_deeper_chain() -> None:
-    assert _bare_handler_symbol("self.controller.create_transfer") == "create_transfer"
+    assert bare_handler_symbol("self.controller.create_transfer") == "create_transfer"
 
 
 def test_bare_handler_symbol_of_empty_string_is_empty() -> None:
-    assert _bare_handler_symbol("") == ""
-    assert _bare_handler_symbol("   ") == ""
+    assert bare_handler_symbol("") == ""
+    assert bare_handler_symbol("   ") == ""
 
 
 # --------------------------------------------------------------------------

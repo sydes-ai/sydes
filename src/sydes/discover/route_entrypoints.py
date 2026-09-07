@@ -34,7 +34,7 @@ from typing import Any
 ROUTE_INDEX_SOURCE = "route_index"
 
 
-def _bare_handler_symbol(handler: str) -> str:
+def bare_handler_symbol(handler: str) -> str:
     """The callable name a handler reference actually names.
 
     Generic across languages: a handler is either a bare identifier
@@ -79,7 +79,7 @@ def entrypoints_from_route_graph(
             file = getattr(candidate, "file", None)
             if not handler or not file:
                 continue
-            symbol = _bare_handler_symbol(str(handler))
+            symbol = bare_handler_symbol(str(handler))
             if not symbol:
                 continue
             entrypoints.append({
