@@ -95,3 +95,47 @@ def test_route_index_skips_ignored_dirs(tmp_path: Path) -> None:
     payload = build_route_index(RepoRef(name="demo", root=str(repo_root)))
     indexed_paths = {item["path"] for item in payload["files"]}
     assert all(not path.startswith("node_modules/") for path in indexed_paths)
+
+
+def test_route_index_recognizes_decorator_based_controllers(tmp_path: Path) -> None:
+    """TS decorator routing (NestJS, routing-controllers) declares routes with
+    a class-prefix decorator and per-method verb decorators rather than a
+    call on a receiver — a shape the container/mount regexes above cannot
+    see at all. The class itself becomes a container (its decorator's string
+    argument is the `own_prefix`); each decorated method becomes a
+    `route_calls` entry whose receiver is the class name."""
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    (repo_root / "src").mkdir()
+    (repo_root / "src" / "PetController.ts").write_text(
+        "\n".join(
+            [
+                "@Authorized()",
+                "@JsonController('/pets')",
+                "export class PetController {",
+                "    constructor(private petService: PetService) { }",
+                "    @Post()",
+                "    @ResponseSchema(PetResponse)",
+                "    public create(@Body() body: CreatePetBody): Promise<Pet> {",
+                "        return this.petService.create(body);",
+                "    }",
+                "}",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    payload = build_route_index(RepoRef(name="demo", root=str(repo_root)))
+    files = {item["path"]: item for item in payload["files"]}
+    controller = files["src/PetController.ts"]
+
+    assert "PetController" in controller["router_symbols"]
+    assert any(
+        item["symbol"] == "PetController" and item["prefix"] == "/pets"
+        for item in controller["containers"]
+    )
+    assert any(
+        call["receiver"] == "PetController" and call["method"] == "post" and call["handler_hint"] == "create"
+        for call in controller["route_calls"]
+    )

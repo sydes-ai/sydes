@@ -104,6 +104,120 @@ def _extract_python_decorator_routes(
     return endpoints
 
 
+#: Class-level decorators that carry an optional path prefix for the routes
+#: declared inside them. Shared across TypeScript decorator-routing
+#: frameworks (NestJS's `@Controller`, `routing-controllers`' `@Controller`/
+#: `@JsonController`, tsoa's `@Route`) rather than tied to any single library
+#: — they all use the same "class decorator names a prefix, method decorator
+#: names a verb" shape.
+_TS_CONTAINER_DECORATORS = {"Controller", "JsonController", "RestController", "Route"}
+
+#: Method-level decorators naming an HTTP verb, same shape across those
+#: frameworks.
+_TS_VERB_DECORATORS = {
+    "Get": "GET", "Post": "POST", "Put": "PUT", "Patch": "PATCH",
+    "Delete": "DELETE", "Head": "HEAD", "Options": "OPTIONS", "All": "ALL",
+}
+
+_TS_DECORATOR_NAME_RE = re.compile(r"^@(?P<name>[A-Za-z_$][\w$]*)")
+_TS_DECORATOR_STRING_ARG_RE = re.compile(r"^@[A-Za-z_$][\w$]*\s*\(\s*['\"]([^'\"]*)['\"]")
+_TS_CLASS_RE = re.compile(r"^\s*(?:export\s+)?(?:abstract\s+)?class\s+[A-Za-z_$]")
+_TS_METHOD_RE = re.compile(
+    r"^\s*(?:(?:public|private|protected|static|abstract|readonly|async)\s+)*"
+    r"(?P<name>[A-Za-z_$][\w$]*)\s*\("
+)
+_TS_STATEMENT_KEYWORDS = {
+    "if", "for", "while", "switch", "catch", "constructor", "return", "new", "else", "throw", "super",
+}
+
+
+def _decorator_name(annotation: str) -> str:
+    match = _TS_DECORATOR_NAME_RE.match(annotation)
+    return match.group("name") if match else ""
+
+
+def _decorator_path_arg(annotation: str) -> str | None:
+    match = _TS_DECORATOR_STRING_ARG_RE.match(annotation)
+    return match.group(1) if match else None
+
+
+def _compose_ts_path(class_prefix: str, route_path: str) -> str:
+    if class_prefix:
+        combined = f"{class_prefix.rstrip('/')}/{route_path.lstrip('/')}" if route_path else class_prefix
+    else:
+        combined = route_path
+    return _normalize_express_path(combined)
+
+
+def _extract_typescript_decorator_routes(
+    repo: str,
+    relative_path: str,
+    text: str,
+) -> list[EndpointCandidate]:
+    lines = text.splitlines()
+    endpoints: list[EndpointCandidate] = []
+    pending_decorators: list[str] = []
+    class_prefix = ""
+
+    for line in lines:
+        stripped = line.strip()
+        if stripped.startswith("@"):
+            pending_decorators.append(stripped)
+            continue
+
+        if pending_decorators and _TS_CLASS_RE.match(stripped):
+            container_ann = next(
+                (ann for ann in pending_decorators if _decorator_name(ann) in _TS_CONTAINER_DECORATORS),
+                None,
+            )
+            if container_ann:
+                prefix = _decorator_path_arg(container_ann) or ""
+                class_prefix = _normalize_basic_path(prefix) if prefix else ""
+                if class_prefix == "/":
+                    class_prefix = ""
+            pending_decorators = []
+            continue
+
+        method_match = _TS_METHOD_RE.match(stripped)
+        if method_match and method_match.group("name") in _TS_STATEMENT_KEYWORDS:
+            method_match = None
+        if pending_decorators and method_match:
+            handler = method_match.group("name")
+            handler_signature = stripped
+            for ann in pending_decorators:
+                verb = _TS_VERB_DECORATORS.get(_decorator_name(ann))
+                if not verb:
+                    continue
+                route_path = _decorator_path_arg(ann) or ""
+                full_path = _compose_ts_path(class_prefix, route_path)
+                endpoints.append(
+                    EndpointCandidate(
+                        method=verb,
+                        path=full_path,
+                        handler=handler,
+                        file=relative_path,
+                        repo=repo,
+                        evidence=[
+                            EvidenceRef(
+                                file=relative_path,
+                                symbol=handler,
+                                label=ann,
+                                snippet=f"{ann}\n{handler_signature}",
+                            )
+                        ],
+                        confidence=1.0,
+                        status="deterministic",
+                    )
+                )
+            pending_decorators = []
+            continue
+
+        if stripped:
+            pending_decorators = []
+
+    return endpoints
+
+
 def _extract_express_routes(repo: str, relative_path: str, text: str) -> list[EndpointCandidate]:
     line_re = re.compile(
         r"(?<![\w.])(?P<obj>app|router)\.(?P<method>get|post|put|patch|delete|options|head|all)\s*"
@@ -290,5 +404,10 @@ def extract_deterministic_routes(
         if spring_routes:
             frameworks.add("spring")
             endpoints.extend(spring_routes)
+
+        ts_decorator_routes = _extract_typescript_decorator_routes(candidate.repo, file_path, text)
+        if ts_decorator_routes:
+            frameworks.add("ts_decorators")
+            endpoints.extend(ts_decorator_routes)
 
     return endpoints, frameworks

@@ -6,7 +6,9 @@ function-reference argument rather than decorating it.
 
 from __future__ import annotations
 
-from sydes.core.models import EndpointCandidate
+from pathlib import Path
+
+from sydes.core.models import EndpointCandidate, RepoRef
 from sydes.discover.route_entrypoints import (
     ROUTE_INDEX_SOURCE,
     bare_handler_symbol,
@@ -14,6 +16,7 @@ from sydes.discover.route_entrypoints import (
     merge_entrypoints,
 )
 from sydes.discover.route_graph import build_route_graph_facts_from_route_index_batch
+from sydes.discover.route_index import build_route_index_batch
 
 
 def _go_style_route_index_batch() -> dict:
@@ -111,6 +114,51 @@ def test_go_style_routes_become_entrypoint_dicts_with_full_route_evidence() -> N
     assert transfer["source"] == ROUTE_INDEX_SOURCE
     # No qualified_name is invented — matching is left to (file, bare name).
     assert transfer["qualified_name"] == ""
+
+
+def test_routing_controllers_decorator_route_becomes_an_entrypoint_end_to_end(tmp_path: Path) -> None:
+    """The same generic gap Go/Gin exposed (a route registration style the
+    decorator-only entrypoint model can't see) also applies to any TypeScript
+    framework that declares routes purely via class + method decorators
+    (NestJS, routing-controllers, tsoa) rather than a call on a receiver.
+    This exercises the real pipeline end to end: raw source text ->
+    `build_route_index_batch` -> `build_route_graph_facts_from_route_index_batch`
+    -> `entrypoints_from_route_graph`, mirroring the Go-style test above but
+    starting from actual TypeScript source instead of a hand-built route index.
+    """
+    repo_root = tmp_path / "repo"
+    (repo_root / "src").mkdir(parents=True)
+    (repo_root / "src" / "PetController.ts").write_text(
+        "\n".join(
+            [
+                "@Authorized()",
+                "@JsonController('/pets')",
+                "export class PetController {",
+                "    constructor(private petService: PetService) { }",
+                "    @Post()",
+                "    @ResponseSchema(PetResponse)",
+                "    public create(@Body() body: CreatePetBody): Promise<Pet> {",
+                "        return this.petService.create(body);",
+                "    }",
+                "}",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    repos = [RepoRef(name="app", root=str(repo_root))]
+    route_index = build_route_index_batch(repos)
+    route_graph = build_route_graph_facts_from_route_index_batch(route_index)
+    entrypoints = entrypoints_from_route_graph(route_graph, ["app"])
+
+    by_symbol = {item["symbol"]: item for item in entrypoints}
+    assert "create" in by_symbol
+    create = by_symbol["create"]
+    assert create["route_method"] == "POST"
+    assert create["route_path"] == "/pets"
+    assert create["file"] == "src/PetController.ts"
+    assert create["source"] == ROUTE_INDEX_SOURCE
 
 
 def test_a_repo_not_present_in_the_route_graph_yields_no_entrypoints() -> None:

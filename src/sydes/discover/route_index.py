@@ -13,6 +13,15 @@ from pathlib import Path
 from typing import Any
 
 from sydes.core.models import RepoRef
+from sydes.discover.deterministic_routes import (
+    _TS_CLASS_RE,
+    _TS_CONTAINER_DECORATORS,
+    _TS_METHOD_RE,
+    _TS_STATEMENT_KEYWORDS,
+    _TS_VERB_DECORATORS,
+    _decorator_name,
+    _decorator_path_arg,
+)
 from sydes.discover.repo_map import IGNORED_DIRS, build_repo_map
 from sydes.ingest.file_roles import (
     FILE_ROLE_SOURCE_ROUTE_CANDIDATE,
@@ -340,6 +349,9 @@ def _handler_below_declaration(lines: list[str], start_index: int) -> str | None
     return None
 
 
+_TS_CLASS_NAME_RE = re.compile(r"^\s*(?:export\s+)?(?:abstract\s+)?class\s+(?P<name>[A-Za-z_$][\w$]*)")
+
+
 def _extract_index_for_file(relative_path: str, text: str, role: str) -> dict:
     ext = Path(relative_path).suffix.lower()
     language = LANGUAGE_BY_EXT.get(ext, "unknown")
@@ -353,6 +365,17 @@ def _extract_index_for_file(relative_path: str, text: str, role: str) -> dict:
     path_literals: list[str] = []
     signals: set[str] = set()
 
+    # Decorator-routing frameworks (NestJS, routing-controllers, tsoa) declare
+    # routes as class + method decorators rather than as calls on a receiver,
+    # so they need their own bit of state carried across lines: which class a
+    # decorated method belongs to, and what path prefix that class declared
+    # for itself. Each decorated method becomes a `route_calls` entry whose
+    # `receiver` is the class name; the class itself becomes a container with
+    # that prefix as its `own_prefix`. Both then flow through the same
+    # container/mount composition already used for call-based frameworks.
+    ts_pending_decorators: list[str] = []
+    ts_current_class: str | None = None
+
     joined_lines = _join_open_calls(text).splitlines()
     for idx, raw_line in enumerate(joined_lines, start=1):
         line = raw_line.strip()
@@ -360,6 +383,49 @@ def _extract_index_for_file(relative_path: str, text: str, role: str) -> dict:
             continue
         if line.startswith("//") or line.startswith("#"):
             continue
+
+        if line.startswith("@"):
+            ts_pending_decorators.append(line)
+
+        class_name_match = _TS_CLASS_NAME_RE.match(line)
+        if class_name_match:
+            ts_current_class = class_name_match.group("name")
+            container_ann = next(
+                (ann for ann in ts_pending_decorators if _decorator_name(ann) in _TS_CONTAINER_DECORATORS),
+                None,
+            )
+            if container_ann and ts_current_class not in {item["symbol"] for item in containers}:
+                prefix = _decorator_path_arg(container_ann) or ""
+                containers.append(
+                    {"symbol": ts_current_class, "prefix": prefix, "callee": "ts_decorator_controller"},
+                )
+                router_symbols.append(ts_current_class)
+                signals.add("route_container:ts_decorator_controller")
+            ts_pending_decorators = []
+
+        ts_method_match = _TS_METHOD_RE.match(line)
+        if ts_method_match and ts_method_match.group("name") in _TS_STATEMENT_KEYWORDS:
+            ts_method_match = None
+        if ts_pending_decorators and ts_method_match and ts_current_class:
+            handler = ts_method_match.group("name")
+            for ann in ts_pending_decorators:
+                verb = _TS_VERB_DECORATORS.get(_decorator_name(ann))
+                if not verb:
+                    continue
+                route_calls.append(
+                    {
+                        "receiver": ts_current_class,
+                        "method": verb.lower(),
+                        "path": _decorator_path_arg(ann) or "",
+                        "handler_hint": handler,
+                        "line": idx,
+                        "snippet": _trim(f"{ann} {raw_line.strip()}"),
+                    }
+                )
+                signals.add(f"route_call:{verb.lower()}")
+            ts_pending_decorators = []
+        elif ts_pending_decorators and not line.startswith("@"):
+            ts_pending_decorators = []
 
         for match in _ROUTER_DECL_RE.finditer(line):
             symbol = match.group("symbol")

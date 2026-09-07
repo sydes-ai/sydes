@@ -135,3 +135,54 @@ def test_extract_spring_routes_with_class_prefix() -> None:
     spring_get = next(item for item in endpoints if item.method == "GET" and item.path == "/db/books")
     assert "@GetMapping(\"/books\")" in (spring_get.evidence[0].snippet or "")
     assert "spring" in frameworks
+
+
+def test_extract_nestjs_decorator_routes_with_class_prefix() -> None:
+    source = _candidate(
+        "api",
+        "src/users/users.controller.ts",
+        "\n".join(
+            [
+                "@Controller('/users')",
+                "export class UsersController {",
+                "    @Get('/:id')",
+                "    getUser(@Param('id') id: string) { return id; }",
+                "    @Post()",
+                "    createUser(@Body() body: CreateUserDto) { return body; }",
+                "}",
+            ]
+        ),
+    )
+    endpoints, frameworks = extract_deterministic_routes([source])
+    keys = {(item.method, item.path, item.handler) for item in endpoints}
+    assert ("GET", "/users/{id}", "getUser") in keys
+    assert ("POST", "/users", "createUser") in keys
+    assert "ts_decorators" in frameworks
+
+
+def test_extract_routing_controllers_decorator_routes_with_stacked_decorators() -> None:
+    source = _candidate(
+        "api",
+        "src/api/controllers/PetController.ts",
+        "\n".join(
+            [
+                "@Authorized()",
+                "@JsonController('/pets')",
+                "@OpenAPI({ security: [{ basicAuth: [] }] })",
+                "export class PetController {",
+                "    constructor(private petService: PetService) { }",
+                "    @Post()",
+                "    @ResponseSchema(PetResponse)",
+                "    public create(@Body({ required: true }) body: CreatePetBody): Promise<Pet> {",
+                "        return this.petService.create(body);",
+                "    }",
+                "}",
+            ]
+        ),
+    )
+    endpoints, frameworks = extract_deterministic_routes([source])
+    keys = {(item.method, item.path, item.handler) for item in endpoints}
+    assert ("POST", "/pets", "create") in keys
+    assert "ts_decorators" in frameworks
+    post_pets = next(item for item in endpoints if item.method == "POST" and item.path == "/pets")
+    assert "@Post()" in (post_pets.evidence[0].snippet or "")
