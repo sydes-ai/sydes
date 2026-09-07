@@ -81,6 +81,8 @@ from sydes.verify.models import (
     BLOCKER_MISSING_DEPENDENCY,
     CHANGE_ADDED,
     CHANGE_DELETED,
+    CODE_REVIEW_COMPLETED,
+    CODE_REVIEW_UNAVAILABLE,
     RISK_HIGH,
     RISK_LOW,
     RISK_MEDIUM,
@@ -1485,6 +1487,9 @@ def analyze_change(
     # Advisory by construction: a provider failure records a diagnostic and
     # leaves `code_findings` empty rather than failing the run, matching the
     # optional-stage pattern PR semantic analysis already uses below.
+    # `code_review_status` records which of these happened explicitly —
+    # `code_findings` being empty must never stand in for it, since an empty
+    # list means something different in each branch below.
     if options.code_review:
         try:
             code_context = build_code_review_context(
@@ -1498,8 +1503,10 @@ def analyze_change(
                 llm_client=options.llm_client,
             )
             result.code_findings = findings
+            result.code_review_status = CODE_REVIEW_COMPLETED
             result.diagnostics.extend(finding_notes)
         except LLMClientError as exc:
+            result.code_review_status = CODE_REVIEW_UNAVAILABLE
             result.diagnostics.append(f"code_review_unavailable: {exc}")
             result.analysis_notes.append(
                 "Code review was requested but its provider call failed; no code findings "

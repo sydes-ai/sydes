@@ -91,6 +91,16 @@ ANALYSIS_COMPLETE = "complete"
 ANALYSIS_PARTIAL = "partial"
 ANALYSIS_UNKNOWN = "unknown"
 
+# Whether the advisory code-review pass ran, and what it produced. Kept
+# separate from `code_findings`: an empty findings list means something
+# different under each of these, and collapsing them into one "no findings"
+# message would render absence of evidence (the pass never ran, or its
+# provider call failed) as evidence of absence (the pass ran and found
+# nothing).
+CODE_REVIEW_NOT_REQUESTED = "not_requested"
+CODE_REVIEW_COMPLETED = "completed"
+CODE_REVIEW_UNAVAILABLE = "unavailable"
+
 # How precisely the executed command targets the mapped test.
 GRANULARITY_CASE = "case"
 GRANULARITY_FILE = "file"
@@ -611,6 +621,15 @@ class ChangeVerificationResult(BaseModel):
     generated_at: str | None = None
     change: ChangeSet
     summary: ChangeSummary = Field(default_factory=ChangeSummary)
+    #: `CODE_REVIEW_NOT_REQUESTED` when `--code-review` was off (`code_findings`
+    #: is always empty here — this is the default, not an error).
+    #: `CODE_REVIEW_COMPLETED` once the pass has run to completion, findings
+    #: or not: an empty `code_findings` here means the review looked and
+    #: found nothing, not that it never looked.
+    #: `CODE_REVIEW_UNAVAILABLE` when it was requested but the provider call
+    #: failed — `code_findings` stays empty, but that emptiness carries no
+    #: information; see `analysis_notes`/`diagnostics` for why.
+    code_review_status: str = CODE_REVIEW_NOT_REQUESTED
     code_findings: list[CodeFinding] = Field(default_factory=list)
     #: The one canonical merged impact set (PROVEN + INFERRED) — see
     #: `AcceptedImpact`. Always populated, regardless of backend: `affected_flows`
