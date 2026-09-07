@@ -139,3 +139,79 @@ def test_route_index_recognizes_decorator_based_controllers(tmp_path: Path) -> N
         call["receiver"] == "PetController" and call["method"] == "post" and call["handler_hint"] == "create"
         for call in controller["route_calls"]
     )
+
+
+def test_route_index_recognizes_spring_controllers_without_a_class_prefix(tmp_path: Path) -> None:
+    """Spring MVC is the same class-decorator/method-decorator shape again,
+    just with Java syntax and no class-level `@RequestMapping` in this
+    (common) case — each method's own path is already absolute. No container
+    should be declared (there is no prefix to declare), but the route call
+    must still be captured against the class as receiver."""
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    (repo_root / "src").mkdir()
+    (repo_root / "src" / "UserController.java").write_text(
+        "\n".join(
+            [
+                "package com.example.controller;",
+                "",
+                "@RestController",
+                "public class UserController {",
+                '    @PostMapping("/user")',
+                "    public Dict save(@RequestBody User user) {",
+                "        return userService.save(user);",
+                "    }",
+                "}",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    payload = build_route_index(RepoRef(name="demo", root=str(repo_root)))
+    files = {item["path"]: item for item in payload["files"]}
+    controller = files["src/UserController.java"]
+
+    assert controller["containers"] == []
+    assert any(
+        call["receiver"] == "UserController" and call["method"] == "post"
+        and call["path"] == "/user" and call["handler_hint"] == "save"
+        for call in controller["route_calls"]
+    )
+
+
+def test_route_index_recognizes_spring_controllers_with_a_class_prefix(tmp_path: Path) -> None:
+    """The class-level `@RequestMapping` prefix case, mirroring the existing
+    `_extract_spring_routes` test in test_deterministic_route_extractors.py
+    but through the route_index/route_graph container model instead."""
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    (repo_root / "src").mkdir()
+    (repo_root / "src" / "BookController.java").write_text(
+        "\n".join(
+            [
+                '@RequestMapping("/db")',
+                "public class BookController {",
+                '    @GetMapping("/books")',
+                "    public List<Book> getBooks() { return List.of(); }",
+                "}",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    payload = build_route_index(RepoRef(name="demo", root=str(repo_root)))
+    files = {item["path"]: item for item in payload["files"]}
+    controller = files["src/BookController.java"]
+
+    assert "BookController" in controller["router_symbols"]
+    assert any(
+        item["symbol"] == "BookController" and item["prefix"] == "/db"
+        for item in controller["containers"]
+    )
+    assert any(
+        call["receiver"] == "BookController" and call["method"] == "get"
+        and call["path"] == "/books" and call["handler_hint"] == "getBooks"
+        for call in controller["route_calls"]
+    )

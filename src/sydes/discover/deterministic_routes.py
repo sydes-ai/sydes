@@ -297,20 +297,24 @@ def _parse_spring_mapping(annotation: str) -> tuple[list[str], str | None]:
     return methods, path_value
 
 
+#: Access modifiers are optional: package-private handlers are legal Java and
+#: common in single-file Spring samples. A return type is still required, so
+#: statements such as `return foo(` do not look like declarations. Shared with
+#: `route_index.py`'s Java route-declaration recognizer, which needs the same
+#: shape to tell a real method declaration from a statement.
+_SPRING_METHOD_RE = re.compile(
+    r"^\s*(?:(?:public|private|protected|static|final|abstract|synchronized|default)\s+)*"
+    r"(?P<type>[A-Za-z_][\w.]*(?:\s*<[^>]*>)?(?:\s*\[\s*\])?)\s+"
+    r"(?P<name>[A-Za-z_]\w*)\s*\("
+)
+_SPRING_STATEMENT_KEYWORDS = {"return", "new", "if", "while", "for", "switch", "catch", "throw", "else", "assert"}
+
+
 def _extract_spring_routes(repo: str, relative_path: str, text: str) -> list[EndpointCandidate]:
     lines = text.splitlines()
     endpoints: list[EndpointCandidate] = []
     pending_annotations: list[str] = []
     class_prefix = ""
-    # Access modifiers are optional: package-private handlers are legal Java and
-    # common in single-file Spring samples. A return type is still required, so
-    # statements such as `return foo(` do not look like declarations.
-    method_re = re.compile(
-        r"^\s*(?:(?:public|private|protected|static|final|abstract|synchronized|default)\s+)*"
-        r"(?P<type>[A-Za-z_][\w.]*(?:\s*<[^>]*>)?(?:\s*\[\s*\])?)\s+"
-        r"(?P<name>[A-Za-z_]\w*)\s*\("
-    )
-    statement_keywords = {"return", "new", "if", "while", "for", "switch", "catch", "throw", "else", "assert"}
 
     for line in lines:
         stripped = line.strip()
@@ -328,8 +332,8 @@ def _extract_spring_routes(repo: str, relative_path: str, text: str) -> list[End
             pending_annotations = []
             continue
 
-        method_match = method_re.match(stripped)
-        if method_match and method_match.group("type") in statement_keywords:
+        method_match = _SPRING_METHOD_RE.match(stripped)
+        if method_match and method_match.group("type") in _SPRING_STATEMENT_KEYWORDS:
             method_match = None
         if pending_annotations and method_match:
             handler = method_match.group("name")
