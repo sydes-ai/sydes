@@ -28,6 +28,13 @@ _JAVA_TEST = re.compile(r"^\s*(?:public\s+)?void\s+(?P<name>\w*[Tt]est\w*)\s*\("
 # constrained to a literal `t *testing.T` — Go itself does not require that
 # either, only the name shape and that it is a package-level func.
 _GO_TEST_DEF = re.compile(r"^\s*func\s+(?P<name>Test[^a-z]\w*)\s*\(")
+# Rust's own rule: `cargo test` collects a function by its `#[test]` (or an
+# async-runtime variant like `#[tokio::test]`) attribute, never by a naming
+# convention — a case name carries no signal of its own the way `test_*`/
+# `Test*` do elsewhere, so the attribute line must be tracked as state across
+# the line it appears on and the `fn` line it applies to.
+_RUST_TEST_ATTR = re.compile(r"^\s*#\[\s*(?:\w+::)*test(?:\s*\(.*\))?\s*\]\s*$")
+_RUST_FN_DEF = re.compile(r"^\s*(?:pub(?:\([^)]*\))?\s+)?(?:async\s+)?fn\s+(?P<name>[A-Za-z_]\w*)\s*\(")
 
 _ROUTE_LITERAL = re.compile(r"[`'\"](?P<path>/[A-Za-z0-9_\-{}:./$]*)[`'\"]")
 _HTTP_VERB = re.compile(
@@ -92,10 +99,26 @@ def _extract_cases_from_file(scanned: SourceFile) -> list[LocatedTest]:
     starts: list[tuple[int, str, str | None]] = []
     current_suite: str | None = None
     pending_fixture = False
+    pending_rust_test = False
 
     for line_no, line in enumerate(lines, start=1):
         if _FIXTURE_DECORATOR_RE.match(line):
             pending_fixture = True
+            continue
+        if _RUST_TEST_ATTR.match(line):
+            pending_rust_test = True
+            continue
+        if pending_rust_test:
+            # A test function commonly carries more than one attribute
+            # (`#[test]` plus `#[should_panic]`, `#[ignore]`, etc.) — any
+            # further attribute line must not cancel the pending state before
+            # the `fn` line it actually applies to is reached.
+            if line.lstrip().startswith("#["):
+                continue
+            fn_match = _RUST_FN_DEF.match(line)
+            if fn_match:
+                starts.append((line_no, fn_match.group("name"), current_suite))
+            pending_rust_test = False
             continue
         suite_match = _JS_SUITE.match(line)
         if suite_match:

@@ -203,6 +203,48 @@ def test_spring_controller_route_becomes_an_entrypoint_end_to_end(tmp_path: Path
     assert save["source"] == ROUTE_INDEX_SOURCE
 
 
+def test_rocket_route_becomes_an_entrypoint_end_to_end(tmp_path: Path) -> None:
+    """RS-S-01 (Rocket's `examples/pastebin`) exposed this: a route attribute
+    on a free function has no container to compose a prefix from at all
+    (unlike every framework recognized so far, which at least has a class),
+    and — separately — `.rs` was entirely absent from every extension gate a
+    file must pass through before route_index.py even looks at it."""
+    repo_root = tmp_path / "repo"
+    (repo_root / "src").mkdir(parents=True)
+    (repo_root / "src" / "main.rs").write_text(
+        "\n".join(
+            [
+                "#[macro_use] extern crate rocket;",
+                "",
+                '#[post("/", data = "<paste>")]',
+                "async fn upload(paste: Data<'_>) -> io::Result<String> {",
+                "    Ok(String::new())",
+                "}",
+                "",
+                "#[launch]",
+                "fn rocket() -> _ {",
+                '    rocket::build().mount("/", routes![upload])',
+                "}",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    repos = [RepoRef(name="app", root=str(repo_root))]
+    route_index = build_route_index_batch(repos)
+    route_graph = build_route_graph_facts_from_route_index_batch(route_index)
+    entrypoints = entrypoints_from_route_graph(route_graph, ["app"])
+
+    by_symbol = {item["symbol"]: item for item in entrypoints}
+    assert "upload" in by_symbol
+    upload = by_symbol["upload"]
+    assert upload["route_method"] == "POST"
+    assert upload["route_path"] == "/"
+    assert upload["file"] == "src/main.rs"
+    assert upload["source"] == ROUTE_INDEX_SOURCE
+
+
 def test_a_repo_not_present_in_the_route_graph_yields_no_entrypoints() -> None:
     route_graph = build_route_graph_facts_from_route_index_batch(_go_style_route_index_batch())
     assert entrypoints_from_route_graph(route_graph, ["other_repo"]) == []

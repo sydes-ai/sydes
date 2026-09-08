@@ -25,6 +25,7 @@ SOURCE_ROUTE_SUFFIXES = {
     ".php",
     ".cs",
     ".kt",
+    ".rs",
 }
 DOC_SUFFIXES = {".md", ".rst", ".adoc"}
 TEST_SUFFIXES = {
@@ -67,6 +68,14 @@ def classify_candidate_file_role(path: str) -> str:
     if filename.endswith("_test.go"):
         return FILE_ROLE_TEST_USAGE_CANDIDATE
     if any(filename.endswith(suffix) for suffix in TEST_SUFFIXES):
+        return FILE_ROLE_TEST_USAGE_CANDIDATE
+    # Rust's dominant test convention is an inline `#[cfg(test)] mod tests`
+    # in the same file as the code it tests — invisible to a path-only
+    # classifier by construction. `tests.rs`/`test.rs` is the common naming
+    # convention when that module is split into its own file instead (as
+    # Rust's own `mod tests;`/`mod test;` declaration would reference), the
+    # same kind of filename-only rule already applied to Python above.
+    if filename in {"tests.rs", "test.rs"}:
         return FILE_ROLE_TEST_USAGE_CANDIDATE
 
     if p.suffix.lower() in SOURCE_ROUTE_SUFFIXES:

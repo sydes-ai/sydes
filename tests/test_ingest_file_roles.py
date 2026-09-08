@@ -53,3 +53,30 @@ def test_go_production_file_beside_a_test_file_is_still_source() -> None:
         classify_candidate_file_role("selfservice/flow/logout/handler.go")
         == FILE_ROLE_SOURCE_ROUTE_CANDIDATE
     )
+
+
+def test_rust_source_files_are_source_route_candidates() -> None:
+    assert (
+        classify_candidate_file_role("examples/pastebin/src/paste_id.rs")
+        == FILE_ROLE_SOURCE_ROUTE_CANDIDATE
+    )
+    assert classify_candidate_file_role("src/main.rs") == FILE_ROLE_SOURCE_ROUTE_CANDIDATE
+
+
+def test_rust_tests_rs_basename_is_a_test_candidate() -> None:
+    """`tests.rs`/`test.rs` is the common convention when a `mod tests;`
+    module (Rust's own dominant style is an inline `#[cfg(test)] mod tests`,
+    invisible to a path-only classifier) is split into its own file."""
+    assert (
+        classify_candidate_file_role("examples/pastebin/src/tests.rs")
+        == FILE_ROLE_TEST_USAGE_CANDIDATE
+    )
+    assert classify_candidate_file_role("src/test.rs") == FILE_ROLE_TEST_USAGE_CANDIDATE
+
+
+def test_rust_integration_test_under_tests_dir_is_a_test_candidate() -> None:
+    """Cargo's own convention: any `.rs` file directly under a crate's
+    `tests/` directory is compiled as a separate integration-test binary —
+    already covered by the generic `TEST_DIR_MARKERS` check, no Rust-specific
+    rule needed."""
+    assert classify_candidate_file_role("tests/api.rs") == FILE_ROLE_TEST_USAGE_CANDIDATE
