@@ -91,6 +91,20 @@ from sydes.impact.models import (
 #: a symbol the change actually touched.
 _IDENTIFIER_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 
+#: Single- or double-quoted string literals — route paths and other literal
+#: arguments (`@PostMapping("/save")`, `#[delete("/<id>")]`), never a symbol
+#: reference. Stripped before identifier extraction so a route-path segment
+#: that happens to spell a common word (`save`, `new`, `delete`) can't be
+#: mistaken for a dependency/type actually named in the decorator or
+#: signature — unlike a bare identifier in an argument or type position
+#: (`Depends(Guard([AdminOnlyPermission]))`, `PasteId<'_>`), which this
+#: leaves untouched.
+_STRING_LITERAL_RE = re.compile(r"'(?:[^'\\]|\\.)*'|\"(?:[^\"\\]|\\.)*\"")
+
+
+def _identifiers_outside_string_literals(text: str) -> list[str]:
+    return _IDENTIFIER_RE.findall(_STRING_LITERAL_RE.sub(" ", text))
+
 #: Names that appear in almost every decorator and would match everything.
 #: Excluded because a reference that matches every handler distinguishes none.
 _UNINFORMATIVE = frozenset({
@@ -1116,7 +1130,7 @@ class ImpactInterpreter:
         for entry in seen.values():
             matched = next(
                 (name for name in _reference_names(identity)
-                 if name in _IDENTIFIER_RE.findall(str(entry.get("decorators") or ""))),
+                 if name in _identifiers_outside_string_literals(str(entry.get("decorators") or ""))),
                 identity.short_name,
             )
             step = ImpactStep(
@@ -1153,7 +1167,7 @@ class ImpactInterpreter:
         for entry in seen.values():
             matched = next(
                 (name for name in _reference_names(identity)
-                 if name in _IDENTIFIER_RE.findall(str(entry.get("signature") or ""))),
+                 if name in _identifiers_outside_string_literals(str(entry.get("signature") or ""))),
                 identity.short_name,
             )
             step = ImpactStep(
@@ -1642,13 +1656,29 @@ class _FactIndex:
         # alternate between them. This is the fix: the previous key was the
         # bare symbol string, which merged every `update` in the repository
         # into one adjacency bucket regardless of file or class.
+        #
+        # A qualified name alone is not always enough of a key: Sydes'
+        # own short `Class.method` convention (used for Java, notably by
+        # `interface_bridge.py`) drops the package path, so two completely
+        # unrelated modules that both happen to declare a `UserServiceImpl`
+        # class collide on the exact same `qualified_name` — a live
+        # JAVA-S-01 run surfaced exactly this (a changed `UserServiceImpl
+        # .save` in one module pulling in `_reachability` hits from four
+        # other modules' own unrelated `UserServiceImpl`s). `_inbound_files`
+        # tracks, per key, every distinct callee/used file an edge actually
+        # reported — `inbound()` below uses it to require a file match
+        # whenever more than one file shares a key, the same "bare match
+        # must not override known, contradictory context" rule used
+        # everywhere else in this module.
         self._inbound: dict[str, list[tuple[str, SymbolIdentity, dict[str, Any]]]] = {}
+        self._inbound_files: dict[str, set[str]] = {}
         for edge in facts.call_edges:
             if repo is not None and edge.get("repo") != repo:
                 continue
+            callee_file = str(edge.get("callee_file") or "")
             callee = SymbolIdentity.from_fields(
                 repo=str(repo or edge.get("repo") or ""),
-                file=str(edge.get("callee_file") or ""),
+                file=callee_file,
                 qualified_name=edge.get("callee_qualified_name"),
                 short_name=edge.get("callee_symbol"),
                 line=edge.get("callee_line"),
@@ -1660,13 +1690,18 @@ class _FactIndex:
                 short_name=edge.get("caller_symbol"),
                 line=edge.get("caller_line"),
             )
-            self._inbound.setdefault(callee.key, []).append((RELATION_CALLS, caller, {}))
+            self._inbound.setdefault(callee.key, []).append(
+                (RELATION_CALLS, caller, {"_edge_file": callee_file})
+            )
+            if callee_file:
+                self._inbound_files.setdefault(callee.key, set()).add(callee_file)
         for edge in facts.usage_edges:
             if repo is not None and edge.get("repo") != repo:
                 continue
+            used_file = str(edge.get("used_file") or "")
             used = SymbolIdentity.from_fields(
                 repo=str(repo or edge.get("repo") or ""),
-                file=str(edge.get("used_file") or ""),
+                file=used_file,
                 qualified_name=edge.get("used_qualified_name"),
                 short_name=edge.get("used_symbol"),
             )
@@ -1676,7 +1711,11 @@ class _FactIndex:
                 qualified_name=edge.get("user_qualified_name"),
                 short_name=edge.get("user_symbol"),
             )
-            self._inbound.setdefault(used.key, []).append((RELATION_USAGE, user, {}))
+            self._inbound.setdefault(used.key, []).append(
+                (RELATION_USAGE, user, {"_edge_file": used_file})
+            )
+            if used_file:
+                self._inbound_files.setdefault(used.key, set()).add(used_file)
         # Stable adjacency order keeps traversal deterministic.
         for key, items in self._inbound.items():
             self._inbound[key] = sorted(
@@ -1721,7 +1760,26 @@ class _FactIndex:
     def inbound(
         self, identity: SymbolIdentity
     ) -> list[tuple[str, SymbolIdentity, dict[str, Any]]]:
-        return self._inbound.get(identity.key, [])
+        """Everything that calls or uses `identity`.
+
+        When the same key groups edges reported against more than one
+        distinct file — the short `Class.method` qualified-name collision
+        described above — a known `identity.file` narrows the result to
+        edges that actually reported that file, rather than mixing in
+        unrelated modules' own same-named classes. A `RELATION_SOURCE_
+        CONFIRMED` entry (added by `add_confirmed_edge`, never a bare
+        structural edge) always survives: it was independently verified,
+        not matched by name.
+        """
+        items = self._inbound.get(identity.key, [])
+        files = self._inbound_files.get(identity.key, set())
+        if identity.file and len(files) > 1:
+            return [
+                item for item in items
+                if item[0] == RELATION_SOURCE_CONFIRMED
+                or item[2].get("_edge_file") == identity.file
+            ]
+        return items
 
     def add_confirmed_edge(
         self, *, caller: SymbolIdentity, callee: SymbolIdentity, evidence: str,
@@ -1768,12 +1826,32 @@ class _FactIndex:
         )
 
     def entrypoints_named(self, name: str, file: str | None = None) -> list[dict[str, Any]]:
-        """Entrypoints defined by this symbol name, narrowed by file if known."""
+        """Entrypoints defined by this symbol name, narrowed by file if known.
+
+        When `file` is known but narrows to nothing, the safe fallback is not
+        "return everything" (a bare name as common as `new` or `delete`
+        recurring across unrelated files/crates would silently resolve to
+        one of them) — it is "return the repo-wide list only if it is a
+        single, globally unique candidate". That single-candidate case is
+        exactly route-derived entrypoints for Go's handler-by-reference
+        registration (`router.POST("/transfers", server.createTransfer)`):
+        the entrypoint's reported `file` is where the route is *registered*
+        (e.g. `api/server.go`), not where the changed symbol's own diff
+        attributes it — where `createTransfer` is actually *defined*
+        (`api/transfer.go`). There is no real ambiguity there (only one
+        `createTransfer` exists repo-wide), so uniqueness alone makes it
+        safe to resolve despite the file mismatch, per the same "bare name
+        only as a last resort, and only when unambiguous" rule used
+        everywhere else in this identity hierarchy.
+        """
         candidates = self._by_name.get(name, [])
         if file:
             narrowed = [entry for entry in candidates if entry.get("file") == file]
             if narrowed:
                 return narrowed
+            if len(candidates) == 1:
+                return candidates
+            return []
         return candidates
 
     def entrypoint_for_identity(self, identity: SymbolIdentity) -> dict[str, Any] | None:
@@ -1798,13 +1876,22 @@ class _FactIndex:
         return None
 
     def entrypoints_referencing(self, name: str) -> list[dict[str, Any]]:
-        """Entrypoints whose captured decorator text names this identifier."""
+        """Entrypoints whose captured decorator text names this identifier.
+
+        Route-path arguments are string literals (`@PostMapping("/save")`,
+        `#[delete("/<id>")]`) — a bare word like `save` recurring as a URL
+        path segment across unrelated handlers is a coincidence, not a
+        dependency reference, so identifiers inside quoted text don't count.
+        A genuine reference (`Depends(Guard([AdminOnlyPermission]))`,
+        `@Autowired UserServiceImpl`) is always a bare identifier, never a
+        quoted string, so this excludes nothing real.
+        """
         out = []
         for entry in self.entrypoints:
             text = entry.get("decorators")
             if not text:
                 continue
-            if name in _IDENTIFIER_RE.findall(str(text)):
+            if name in _identifiers_outside_string_literals(str(text)):
                 out.append(entry)
         return out
 
@@ -1824,6 +1911,6 @@ class _FactIndex:
             text = entry.get("signature")
             if not text:
                 continue
-            if name in _IDENTIFIER_RE.findall(str(text)):
+            if name in _identifiers_outside_string_literals(str(text)):
                 out.append(entry)
         return out
