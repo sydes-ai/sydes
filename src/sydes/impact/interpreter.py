@@ -316,17 +316,9 @@ class ImpactInterpreter:
         result.boundaries = boundaries
         result.boundary_decisions = boundary_decisions
 
-        _debug_paths: dict[str, list[list[str]]] = {}
-        for _entry in result.affected:
-            _debug_paths[_entry.symbol] = [
-                [f"{s.relation}:{s.symbol}:{s.qualified_name}:{s.file}" for s in _path.steps]
-                for _path in _entry.paths
-            ]
-
         result.metrics = {
             "changed_symbols": len(changed),
             "affected_entrypoints": len(result.affected),
-            "debug_paths": _debug_paths,
             "http_entrypoints": len(result.http_entrypoints),
             "unresolved_symbols": len(result.unresolved),
             "known_entrypoints": len(index.entrypoints),
