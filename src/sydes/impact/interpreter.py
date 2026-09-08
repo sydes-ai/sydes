@@ -316,9 +316,15 @@ class ImpactInterpreter:
         result.boundaries = boundaries
         result.boundary_decisions = boundary_decisions
 
+        _debug_strategy_counts: dict[str, int] = {}
+        for _entry in result.affected:
+            for _path in _entry.paths:
+                _debug_strategy_counts[_path.strategy] = _debug_strategy_counts.get(_path.strategy, 0) + 1
+
         result.metrics = {
             "changed_symbols": len(changed),
             "affected_entrypoints": len(result.affected),
+            "debug_strategy_counts": _debug_strategy_counts,
             "http_entrypoints": len(result.http_entrypoints),
             "unresolved_symbols": len(result.unresolved),
             "known_entrypoints": len(index.entrypoints),
