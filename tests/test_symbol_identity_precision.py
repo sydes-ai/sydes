@@ -26,6 +26,17 @@ file-scoped narrowing came up empty or ambiguous:
 - `resolve_trace_target` (discover/target_match.py) — the same
   method+path-first shortcut, reachable from the same flow-construction
   call site once it started passing a `file` hint.
+- `_FactIndex.entrypoints_referencing` / `entrypoints_with_signature_reference`
+  (DECORATOR_REFERENCE / SIGNATURE_REFERENCE) — a live JAVA-S-01 run found
+  a fourth site: these scan every entrypoint's captured decorator/signature
+  *text* for a changed symbol's bare name, and a route path is a string
+  literal (`@PostMapping("/save")`), not a symbol reference — a changed
+  method literally named `save` matched every unrelated controller whose
+  route happens to be `/save`. A genuine reference is always a bare
+  identifier (`Depends(Guard([AdminOnlyPermission]))`, a Rust handler's own
+  `PasteId<'_>` parameter type), never inside quotes, so excluding
+  identifiers found only inside string literals removes the false matches
+  without touching real ones.
 
 None of these problems are bare names themselves — `new`/`delete`/`save`
 are ordinary, common identifiers in every language here. The fix is never
@@ -38,7 +49,12 @@ from __future__ import annotations
 from sydes.code_intelligence.base import StructuralFacts
 from sydes.core.models import EndpointCandidate
 from sydes.discover.target_match import resolve_trace_target
-from sydes.impact.interpreter import ENTRYPOINT_HTTP, ImpactInterpreter, _FactIndex
+from sydes.impact.interpreter import (
+    ENTRYPOINT_HTTP,
+    ImpactInterpreter,
+    _FactIndex,
+    _identifiers_outside_string_literals,
+)
 from sydes.impact.models import AffectedEntrypoint
 from sydes.verify.analyzer import _match_endpoint_candidate
 
@@ -326,3 +342,65 @@ def test_same_file_call_with_a_real_call_edge_still_resolves() -> None:
     assert result.affected[0].file == "examples/pastebin/src/main.rs"
     assert result.affected[0].symbol == "upload"
     assert result.affected[0].status == "proven"
+
+
+# --------------------------------------------------------------------------
+# DECORATOR_REFERENCE / SIGNATURE_REFERENCE: route-path string literals
+# must not be mistaken for symbol references
+# --------------------------------------------------------------------------
+
+
+def test_identifiers_outside_string_literals_drops_a_route_path_match() -> None:
+    """The exact JAVA-S-01 shape: `save` recurs as a URL path segment, not
+    as a symbol reference — a plain identifier scan can't tell the
+    difference, but stripping quoted text first can. `PostMapping` (the
+    annotation name, a bare identifier) is correctly kept; only `save`
+    (inside the quoted path) is dropped."""
+    assert _identifiers_outside_string_literals('@PostMapping("/save")') == ["PostMapping"]
+
+
+def test_identifiers_outside_string_literals_keeps_a_bare_dependency_reference() -> None:
+    """The legitimate case this must not break: a dependency named directly,
+    never inside quotes."""
+    tokens = _identifiers_outside_string_literals(
+        "@router.put(dependencies=[Depends(Guard([AdminOnlyPermission]))])"
+    )
+    assert "AdminOnlyPermission" in tokens
+
+
+def test_identifiers_outside_string_literals_keeps_a_bare_type_in_a_signature() -> None:
+    """RS-S-01's genuine signal: a Rust handler's own parameter type, never
+    quoted."""
+    assert "PasteId" in _identifiers_outside_string_literals("(id: PasteId<'_>)")
+
+
+def test_decorator_reference_ignores_a_same_named_route_path_elsewhere() -> None:
+    """End-to-end: a changed method named `save` must not connect to an
+    unrelated controller merely because that controller's own route path
+    happens to be `/save` — that is a URL segment, not a reference to this
+    method."""
+    result = ImpactInterpreter().interpret(
+        [{"name": "save", "file": "app/service/impl/UserServiceImpl.java",
+          "qualified_name": "UserServiceImpl.save", "repo": REPO}],
+        _facts([
+            _entry("createUser", "app/service/impl/SysUserServiceImpl.java",
+                    route_method=None, route_path=None,
+                    decorators='@PostMapping("/save")'),
+        ]),
+    )
+    assert result.affected == []
+
+
+def test_signature_reference_still_resolves_a_genuine_bare_type() -> None:
+    """The positive case: a real handler parameter type, never quoted,
+    still resolves via SIGNATURE_REFERENCE."""
+    result = ImpactInterpreter().interpret(
+        [{"name": "new", "file": "examples/pastebin/src/paste_id.rs",
+          "qualified_name": "PasteId.new", "repo": REPO}],
+        _facts([
+            _entry("delete", "examples/pastebin/src/main.rs",
+                    route_method="DELETE", route_path="/{id}",
+                    signature="(id: PasteId<'_>)", decorators='#[delete("/<id>")]'),
+        ]),
+    )
+    assert [item.label for item in result.affected] == ["DELETE /{id}"]

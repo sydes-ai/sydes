@@ -91,6 +91,20 @@ from sydes.impact.models import (
 #: a symbol the change actually touched.
 _IDENTIFIER_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 
+#: Single- or double-quoted string literals — route paths and other literal
+#: arguments (`@PostMapping("/save")`, `#[delete("/<id>")]`), never a symbol
+#: reference. Stripped before identifier extraction so a route-path segment
+#: that happens to spell a common word (`save`, `new`, `delete`) can't be
+#: mistaken for a dependency/type actually named in the decorator or
+#: signature — unlike a bare identifier in an argument or type position
+#: (`Depends(Guard([AdminOnlyPermission]))`, `PasteId<'_>`), which this
+#: leaves untouched.
+_STRING_LITERAL_RE = re.compile(r"'(?:[^'\\]|\\.)*'|\"(?:[^\"\\]|\\.)*\"")
+
+
+def _identifiers_outside_string_literals(text: str) -> list[str]:
+    return _IDENTIFIER_RE.findall(_STRING_LITERAL_RE.sub(" ", text))
+
 #: Names that appear in almost every decorator and would match everything.
 #: Excluded because a reference that matches every handler distinguishes none.
 _UNINFORMATIVE = frozenset({
@@ -1116,7 +1130,7 @@ class ImpactInterpreter:
         for entry in seen.values():
             matched = next(
                 (name for name in _reference_names(identity)
-                 if name in _IDENTIFIER_RE.findall(str(entry.get("decorators") or ""))),
+                 if name in _identifiers_outside_string_literals(str(entry.get("decorators") or ""))),
                 identity.short_name,
             )
             step = ImpactStep(
@@ -1153,7 +1167,7 @@ class ImpactInterpreter:
         for entry in seen.values():
             matched = next(
                 (name for name in _reference_names(identity)
-                 if name in _IDENTIFIER_RE.findall(str(entry.get("signature") or ""))),
+                 if name in _identifiers_outside_string_literals(str(entry.get("signature") or ""))),
                 identity.short_name,
             )
             step = ImpactStep(
@@ -1818,13 +1832,22 @@ class _FactIndex:
         return None
 
     def entrypoints_referencing(self, name: str) -> list[dict[str, Any]]:
-        """Entrypoints whose captured decorator text names this identifier."""
+        """Entrypoints whose captured decorator text names this identifier.
+
+        Route-path arguments are string literals (`@PostMapping("/save")`,
+        `#[delete("/<id>")]`) — a bare word like `save` recurring as a URL
+        path segment across unrelated handlers is a coincidence, not a
+        dependency reference, so identifiers inside quoted text don't count.
+        A genuine reference (`Depends(Guard([AdminOnlyPermission]))`,
+        `@Autowired UserServiceImpl`) is always a bare identifier, never a
+        quoted string, so this excludes nothing real.
+        """
         out = []
         for entry in self.entrypoints:
             text = entry.get("decorators")
             if not text:
                 continue
-            if name in _IDENTIFIER_RE.findall(str(text)):
+            if name in _identifiers_outside_string_literals(str(text)):
                 out.append(entry)
         return out
 
@@ -1844,6 +1867,6 @@ class _FactIndex:
             text = entry.get("signature")
             if not text:
                 continue
-            if name in _IDENTIFIER_RE.findall(str(text)):
+            if name in _identifiers_outside_string_literals(str(text)):
                 out.append(entry)
         return out
