@@ -1768,12 +1768,32 @@ class _FactIndex:
         )
 
     def entrypoints_named(self, name: str, file: str | None = None) -> list[dict[str, Any]]:
-        """Entrypoints defined by this symbol name, narrowed by file if known."""
+        """Entrypoints defined by this symbol name, narrowed by file if known.
+
+        When `file` is known but narrows to nothing, the safe fallback is not
+        "return everything" (a bare name as common as `new` or `delete`
+        recurring across unrelated files/crates would silently resolve to
+        one of them) — it is "return the repo-wide list only if it is a
+        single, globally unique candidate". That single-candidate case is
+        exactly route-derived entrypoints for Go's handler-by-reference
+        registration (`router.POST("/transfers", server.createTransfer)`):
+        the entrypoint's reported `file` is where the route is *registered*
+        (e.g. `api/server.go`), not where the changed symbol's own diff
+        attributes it — where `createTransfer` is actually *defined*
+        (`api/transfer.go`). There is no real ambiguity there (only one
+        `createTransfer` exists repo-wide), so uniqueness alone makes it
+        safe to resolve despite the file mismatch, per the same "bare name
+        only as a last resort, and only when unambiguous" rule used
+        everywhere else in this identity hierarchy.
+        """
         candidates = self._by_name.get(name, [])
         if file:
             narrowed = [entry for entry in candidates if entry.get("file") == file]
             if narrowed:
                 return narrowed
+            if len(candidates) == 1:
+                return candidates
+            return []
         return candidates
 
     def entrypoint_for_identity(self, identity: SymbolIdentity) -> dict[str, Any] | None:

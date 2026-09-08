@@ -356,7 +356,7 @@ def test_absent_entrypoint_facts_are_called_out() -> None:
 def test_a_decorated_symbol_without_route_metadata_is_not_called_http() -> None:
     """Unknown kind is a real answer; guessing HTTP would be a false claim."""
     result = ImpactInterpreter().interpret(
-        changed("run_job"),
+        changed("run_job", file="app/jobs.py"),
         facts(entrypoints=[
             {"repo": REPO, "qualified_name": "app.jobs.run_job", "symbol": "run_job",
              "file": "app/jobs.py", "line": 3, "route_method": None, "route_path": None,

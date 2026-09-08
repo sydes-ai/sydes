@@ -945,21 +945,38 @@ def _match_endpoint_candidate(
 ) -> EndpointCandidate | None:
     """The Sydes-discovered route matching one reconciled affected entrypoint.
 
-    Tried by route method+path first (the identity that matters to a
-    developer), then by handler symbol+file (the identity CBM and Sydes both
-    derived from the same source). Neither is invented here: both are facts
-    already present on the candidate list `discover_endpoints` produced.
+    Tried by handler file+symbol first — the identity CBM and Sydes both
+    derived from the same source, and the only one that cannot be confused
+    by an unrelated route sharing the same method+path. A path shape like
+    `DELETE /{id}` recurs constantly across unrelated services/crates/
+    examples in one repository; matching on it alone previously returned
+    whichever candidate happened to come first in the discovery list,
+    regardless of which file the entrypoint actually came from.
+
+    Route method+path is tried next, scoped to the entrypoint's own file
+    whenever that file is known: a method+path candidate from a *different*
+    file is not ambiguity to arbitrate, it is evidence the entrypoint's own
+    known file already contradicts, the same reasoning that a bare-name
+    fallback must never override contradictory file context elsewhere in
+    this pipeline. This resolves to exactly one candidate or not at all —
+    several candidates surviving (even within the same file) means the
+    method+path shape does not uniquely identify the route here either, so
+    this returns `None` rather than guessing among them.
     """
-    if entrypoint.route_method and entrypoint.route_path:
+    if entrypoint.file and entrypoint.symbol:
         for candidate in candidates:
-            if (
-                (candidate.method or "").upper() == entrypoint.route_method.upper()
-                and (candidate.path or "") == entrypoint.route_path
-            ):
+            if candidate.file == entrypoint.file and candidate.handler == entrypoint.symbol:
                 return candidate
-    for candidate in candidates:
-        if candidate.file == entrypoint.file and candidate.handler == entrypoint.symbol:
-            return candidate
+    if entrypoint.route_method and entrypoint.route_path:
+        matches = [
+            candidate for candidate in candidates
+            if (candidate.method or "").upper() == entrypoint.route_method.upper()
+            and (candidate.path or "") == entrypoint.route_path
+        ]
+        if entrypoint.file:
+            matches = [c for c in matches if c.file == entrypoint.file]
+        if len(matches) == 1:
+            return matches[0]
     return None
 
 
@@ -1741,7 +1758,8 @@ def analyze_change(
             max_flows_cap_remaining = len(candidate_endpoints) - _cap_index
             break
         match = resolve_trace_target(
-            routes.routes, path=endpoint.path or "/", method=endpoint.method
+            routes.routes, path=endpoint.path or "/", method=endpoint.method,
+            file=endpoint.file,
         )
         resolved_endpoint = match.selected or endpoint
         traced, trace_notes = _trace_route(
