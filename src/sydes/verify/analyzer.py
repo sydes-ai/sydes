@@ -40,6 +40,7 @@ from sydes.core.models import (
 )
 from sydes.discover.endpoints import discover_endpoints
 from sydes.discover.interface_bridge import bridge_interface_call_edges
+from sydes.discover.member_call_bridge import bridge_member_call_edges
 from sydes.code_intelligence import get_code_intelligence
 from sydes.code_intelligence.base import StructuralFacts
 from sydes.code_intelligence.cbm import CBM_BACKEND
@@ -252,6 +253,7 @@ def attribute_changed_symbols(
                     file=changed_file.path,
                     name=name,
                     qualified_name=qualified,
+                    cbm_qualified_name=str(symbol.get("cbm_qualified_name") or "") or None,
                     kind=str(symbol.get("kind") or "function"),
                     language=str(symbol.get("language") or ""),
                     start_line=symbol.get("start_line"),
@@ -933,6 +935,7 @@ def _changed_symbols_for_impact(change: Any) -> list[dict[str, Any]]:
             "file": item.file,
             "repo": item.repo,
             "qualified_name": item.qualified_name or "",
+            "cbm_qualified_name": item.cbm_qualified_name or "",
             "start_line": item.start_line,
             "changed_line_ranges": hunks_by_file.get((item.repo, item.file), []),
         }
@@ -1242,10 +1245,24 @@ def _attach_bounded_graph_edges(
     # such edge, straight to the sole known implementation, whenever the
     # interface has exactly one; more than one is left alone rather than
     # guessed at. See interface_bridge.py.
-    bridged_edges = bridge_interface_call_edges(structural.route_index, structural.call_edges)
+    bridged_edges = bridge_interface_call_edges(
+        structural.route_index, structural.call_edges, structural.symbol_index,
+    )
     if bridged_edges:
         structural.call_edges.extend(bridged_edges)
         result.diagnostics.append(f"interface_bridge_edges_added={len(bridged_edges)}")
+
+    # A call through a TypeScript constructor-injected field
+    # (`this.petService.create(...)`, declared as
+    # `constructor(private petService: PetService)`) is never captured as a
+    # CALLS edge by any backend/mode tested — its type-aware resolution only
+    # covers same-file calls. This adds a synthetic edge straight to the
+    # declared type's method, but only when the type and the target method
+    # are each unambiguous. See member_call_bridge.py.
+    member_bridged_edges = bridge_member_call_edges(structural.symbol_index, structural.call_edges)
+    if member_bridged_edges:
+        structural.call_edges.extend(member_bridged_edges)
+        result.diagnostics.append(f"member_call_bridge_edges_added={len(member_bridged_edges)}")
 
     _trace.record_seed_selection(
         changed_symbol_seeds=selection.changed_symbol_count,

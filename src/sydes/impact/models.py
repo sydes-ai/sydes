@@ -223,27 +223,52 @@ class SymbolIdentity:
     Bare short name is deliberately excluded from equality: two functions
     named `update` in different modules are different symbols, and a graph
     that cannot tell them apart cannot bound its own traversal — which is
-    exactly what happened before this type existed. Identity resolves in three
+    exactly what happened before this type existed. Identity resolves in four
     tiers, from most to least certain:
 
-      1. `qualified_name` present -> identity is (repo, qualified_name).
-         Stable, and what CBM supplies for essentially every call/usage edge.
-      2. `qualified_name` absent but a line number is known -> identity is
+      1. `canonical_qualified_name` present -> identity is (repo, "qn",
+         canonical_qualified_name). The backend's own globally-unique
+         identifier for this exact symbol — verbatim from CBM (which every
+         CALLS/USAGE edge endpoint is *already* keyed by) rather than any
+         short, human-friendly form Sydes may separately construct for
+         display. Deliberately shares tier 1's key namespace with plain
+         `qualified_name` (both resolve to `(repo, "qn", <value>)`): a
+         changed symbol carrying the canonical form and a call edge carrying
+         its own `qualified_name` in that same raw form are the *same*
+         string once both take this path, so they collide into one identity
+         with no separate matching step required. This is what lets a
+         changed symbol reach a real CALLS edge when Sydes' own short
+         `Class.method` convention (e.g. Java's `interface_bridge.py`,
+         Rust's `PasteId.new`) would otherwise never equal CBM's full,
+         repo-path-prefixed qualified name for the exact same symbol.
+      2. `qualified_name` present (canonical absent) -> identity is
+         (repo, "qn", qualified_name). Stable, and what CBM supplies for
+         essentially every call/usage edge, or what Sydes' own short
+         `Class.method` convention constructs when canonical isn't known.
+      3. Neither present but a line number is known -> identity is
          (repo, file, short_name, line). A file rarely defines the same name
          twice at the same line, so this stays scoped without inventing a
          qualifier CBM never reported.
-      3. Neither present -> identity is (repo, file, short_name), and it is
+      4. None present -> identity is (repo, file, short_name), and it is
          marked unresolved. Still scoped to one file — never to a bare name
          across the whole repository — but two same-named, same-file, same-
          line-less symbols would collide here, so `resolved` says so and
          callers must not treat this identity as safe to fan out from.
 
     `short_name` is kept only for display; it plays no part in equality.
+    `qualified_name` (not `canonical_qualified_name`) is what `label` shows,
+    so a caller that already knows a short, readable qualified name for this
+    symbol keeps seeing it in evidence and diagnostics even when a canonical
+    form is also known and used for matching.
     """
 
     repo: str
     file: str
     qualified_name: str = ""
+    #: The backend's own canonical qualified name for this exact symbol, when
+    #: known — see tier 1 above. Never shown in `label`; only ever used to
+    #: strengthen `key`.
+    canonical_qualified_name: str = ""
     short_name: str = ""
     line: int | None = None
 
@@ -260,14 +285,19 @@ class SymbolIdentity:
 
     @property
     def resolved(self) -> bool:
-        """False only for the tier-3 fallback, where the key may be shared."""
-        return bool(self.qualified_name) or self.line is not None
+        """False only for the tier-4 fallback, where the key may be shared."""
+        return (
+            bool(self.canonical_qualified_name)
+            or bool(self.qualified_name)
+            or self.line is not None
+        )
 
     @property
     def key(self) -> str:
         """A deterministic string key, safe to use as a dict/set member."""
-        if self.qualified_name:
-            return _KEY_SEP.join((self.repo, "qn", self.qualified_name))
+        qualified = self.canonical_qualified_name or self.qualified_name
+        if qualified:
+            return _KEY_SEP.join((self.repo, "qn", qualified))
         if self.line is not None:
             return _KEY_SEP.join(
                 (self.repo, "fl", self.file, self.short_name, str(self.line))
@@ -276,7 +306,12 @@ class SymbolIdentity:
 
     @property
     def label(self) -> str:
-        """Human-readable form for evidence and diagnostics."""
+        """Human-readable form for evidence and diagnostics.
+
+        Deliberately `qualified_name`, never `canonical_qualified_name`: the
+        canonical form exists to strengthen matching, not to replace a
+        display name a caller already chose to be readable.
+        """
         return self.qualified_name or f"{self.file}:{self.short_name}"
 
     @classmethod
@@ -286,20 +321,25 @@ class SymbolIdentity:
         repo: str,
         file: str,
         qualified_name: str | None = None,
+        canonical_qualified_name: str | None = None,
         short_name: str | None = None,
         line: int | None = None,
     ) -> "SymbolIdentity":
         """Build an identity from whatever a fact or a caller happened to have.
 
-        `short_name` is derived from `qualified_name` when only that is given,
-        so a caller never has to duplicate the split-on-dot itself.
+        `short_name` is derived from `qualified_name` (or, absent that,
+        `canonical_qualified_name`) when only one of those is given, so a
+        caller never has to duplicate the split-on-dot itself.
         """
         qualified = str(qualified_name or "").strip()
+        canonical = str(canonical_qualified_name or "").strip()
         name = str(short_name or "").strip() or (
-            qualified.rsplit(".", 1)[-1] if qualified else ""
+            qualified.rsplit(".", 1)[-1] if qualified
+            else canonical.rsplit(".", 1)[-1] if canonical
+            else ""
         )
         return cls(repo=str(repo), file=str(file), qualified_name=qualified,
-                   short_name=name, line=line)
+                   canonical_qualified_name=canonical, short_name=name, line=line)
 
 
 @dataclass(frozen=True)

@@ -1739,6 +1739,19 @@ class _FactIndex:
         name this index has already observed for that exact pair — an exact
         lookup against collected facts, not a guess — before falling back to
         the line-scoped or file-scoped tiers.
+
+        `cbm_qualified_name`, when the symbol carries one, becomes this
+        identity's `canonical_qualified_name` — CBM's own globally-unique
+        qualified name for this exact symbol, verbatim, rather than the short
+        `Class.method` form Sydes' own change attribution constructs for
+        display. Every CALLS/USAGE edge endpoint is already keyed by that
+        same raw form, so a changed symbol carrying it reaches a real graph
+        edge that a short-form-only identity would never equal — RS-S-01's
+        `PasteId.new` (Sydes' display form) vs
+        `...examples.pastebin.src.paste_id.PasteId.new` (CBM's, and the one
+        every CALLS edge for it actually carries) is the motivating case.
+        This is purely additive: a symbol with no `cbm_qualified_name`
+        resolves exactly as before.
         """
         file = str(symbol.get("file") or "")
         name = str(symbol.get("name") or "")
@@ -1749,10 +1762,14 @@ class _FactIndex:
             learned = self._known_qualified.get((file, name))
             if learned:
                 qualified = learned
+        canonical = str(symbol.get("cbm_qualified_name") or "")
+        if "." not in canonical:
+            canonical = ""
         return SymbolIdentity.from_fields(
             repo=self.repo_of(symbol),
             file=file,
             qualified_name=qualified,
+            canonical_qualified_name=canonical,
             short_name=name,
             line=symbol.get("start_line") or symbol.get("line"),
         )
