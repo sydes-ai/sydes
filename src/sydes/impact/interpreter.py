@@ -316,15 +316,9 @@ class ImpactInterpreter:
         result.boundaries = boundaries
         result.boundary_decisions = boundary_decisions
 
-        _debug_strategy_counts: dict[str, int] = {}
-        for _entry in result.affected:
-            for _path in _entry.paths:
-                _debug_strategy_counts[_path.strategy] = _debug_strategy_counts.get(_path.strategy, 0) + 1
-
         result.metrics = {
             "changed_symbols": len(changed),
             "affected_entrypoints": len(result.affected),
-            "debug_strategy_counts": _debug_strategy_counts,
             "http_entrypoints": len(result.http_entrypoints),
             "unresolved_symbols": len(result.unresolved),
             "known_entrypoints": len(index.entrypoints),
@@ -1662,13 +1656,29 @@ class _FactIndex:
         # alternate between them. This is the fix: the previous key was the
         # bare symbol string, which merged every `update` in the repository
         # into one adjacency bucket regardless of file or class.
+        #
+        # A qualified name alone is not always enough of a key: Sydes'
+        # own short `Class.method` convention (used for Java, notably by
+        # `interface_bridge.py`) drops the package path, so two completely
+        # unrelated modules that both happen to declare a `UserServiceImpl`
+        # class collide on the exact same `qualified_name` — a live
+        # JAVA-S-01 run surfaced exactly this (a changed `UserServiceImpl
+        # .save` in one module pulling in `_reachability` hits from four
+        # other modules' own unrelated `UserServiceImpl`s). `_inbound_files`
+        # tracks, per key, every distinct callee/used file an edge actually
+        # reported — `inbound()` below uses it to require a file match
+        # whenever more than one file shares a key, the same "bare match
+        # must not override known, contradictory context" rule used
+        # everywhere else in this module.
         self._inbound: dict[str, list[tuple[str, SymbolIdentity, dict[str, Any]]]] = {}
+        self._inbound_files: dict[str, set[str]] = {}
         for edge in facts.call_edges:
             if repo is not None and edge.get("repo") != repo:
                 continue
+            callee_file = str(edge.get("callee_file") or "")
             callee = SymbolIdentity.from_fields(
                 repo=str(repo or edge.get("repo") or ""),
-                file=str(edge.get("callee_file") or ""),
+                file=callee_file,
                 qualified_name=edge.get("callee_qualified_name"),
                 short_name=edge.get("callee_symbol"),
                 line=edge.get("callee_line"),
@@ -1680,13 +1690,18 @@ class _FactIndex:
                 short_name=edge.get("caller_symbol"),
                 line=edge.get("caller_line"),
             )
-            self._inbound.setdefault(callee.key, []).append((RELATION_CALLS, caller, {}))
+            self._inbound.setdefault(callee.key, []).append(
+                (RELATION_CALLS, caller, {"_edge_file": callee_file})
+            )
+            if callee_file:
+                self._inbound_files.setdefault(callee.key, set()).add(callee_file)
         for edge in facts.usage_edges:
             if repo is not None and edge.get("repo") != repo:
                 continue
+            used_file = str(edge.get("used_file") or "")
             used = SymbolIdentity.from_fields(
                 repo=str(repo or edge.get("repo") or ""),
-                file=str(edge.get("used_file") or ""),
+                file=used_file,
                 qualified_name=edge.get("used_qualified_name"),
                 short_name=edge.get("used_symbol"),
             )
@@ -1696,7 +1711,11 @@ class _FactIndex:
                 qualified_name=edge.get("user_qualified_name"),
                 short_name=edge.get("user_symbol"),
             )
-            self._inbound.setdefault(used.key, []).append((RELATION_USAGE, user, {}))
+            self._inbound.setdefault(used.key, []).append(
+                (RELATION_USAGE, user, {"_edge_file": used_file})
+            )
+            if used_file:
+                self._inbound_files.setdefault(used.key, set()).add(used_file)
         # Stable adjacency order keeps traversal deterministic.
         for key, items in self._inbound.items():
             self._inbound[key] = sorted(
@@ -1741,7 +1760,26 @@ class _FactIndex:
     def inbound(
         self, identity: SymbolIdentity
     ) -> list[tuple[str, SymbolIdentity, dict[str, Any]]]:
-        return self._inbound.get(identity.key, [])
+        """Everything that calls or uses `identity`.
+
+        When the same key groups edges reported against more than one
+        distinct file — the short `Class.method` qualified-name collision
+        described above — a known `identity.file` narrows the result to
+        edges that actually reported that file, rather than mixing in
+        unrelated modules' own same-named classes. A `RELATION_SOURCE_
+        CONFIRMED` entry (added by `add_confirmed_edge`, never a bare
+        structural edge) always survives: it was independently verified,
+        not matched by name.
+        """
+        items = self._inbound.get(identity.key, [])
+        files = self._inbound_files.get(identity.key, set())
+        if identity.file and len(files) > 1:
+            return [
+                item for item in items
+                if item[0] == RELATION_SOURCE_CONFIRMED
+                or item[2].get("_edge_file") == identity.file
+            ]
+        return items
 
     def add_confirmed_edge(
         self, *, caller: SymbolIdentity, callee: SymbolIdentity, evidence: str,

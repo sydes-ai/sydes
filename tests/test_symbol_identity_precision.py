@@ -404,3 +404,79 @@ def test_signature_reference_still_resolves_a_genuine_bare_type() -> None:
         ]),
     )
     assert [item.label for item in result.affected] == ["DELETE /{id}"]
+
+
+# --------------------------------------------------------------------------
+# CALL_REACHABILITY: a short `Class.method` qualified name must not collide
+# across unrelated modules that happen to reuse the same class name
+# --------------------------------------------------------------------------
+
+
+def test_call_reachability_does_not_cross_unrelated_modules_sharing_a_class_name() -> None:
+    """A live JAVA-S-01 run exposed this: `demo-orm-jdbctemplate`'s
+    `UserServiceImpl.save` and `demo-cache-redis`'s own, unrelated
+    `UserServiceImpl.save` share the exact same short qualified name
+    (Sydes' own `Class.method` convention). A caller of the *other*
+    module's `save` must not be treated as reaching the changed one just
+    because both normalize to the same bare qualified name."""
+    result = ImpactInterpreter().interpret(
+        [{"name": "save", "file": "demo-orm-jdbctemplate/service/impl/UserServiceImpl.java",
+          "qualified_name": "UserServiceImpl.save", "repo": REPO}],
+        StructuralFacts(
+            entrypoints=[
+                _entry("save", "demo-orm-jdbctemplate/controller/UserController.java",
+                       route_method="POST", route_path="/user",
+                       qualified_name="UserController.save"),
+                _entry("createUser", "demo-cache-redis/controller/UserController.java",
+                       route_method="POST", route_path="/redis/user",
+                       qualified_name="UserController.createUser"),
+            ],
+            call_edges=[
+                {
+                    "repo": REPO,
+                    "caller_file": "demo-orm-jdbctemplate/controller/UserController.java",
+                    "caller_symbol": "save", "caller_qualified_name": "UserController.save",
+                    "callee_file": "demo-orm-jdbctemplate/service/impl/UserServiceImpl.java",
+                    "callee_symbol": "save", "callee_qualified_name": "UserServiceImpl.save",
+                },
+                {
+                    "repo": REPO,
+                    "caller_file": "demo-cache-redis/controller/UserController.java",
+                    "caller_symbol": "createUser", "caller_qualified_name": "UserController.createUser",
+                    "callee_file": "demo-cache-redis/service/impl/UserServiceImpl.java",
+                    "callee_symbol": "save", "callee_qualified_name": "UserServiceImpl.save",
+                },
+            ],
+            provides_call_graph=True, backend="cbm",
+        ),
+        repo=REPO,
+    )
+    labels = {item.label for item in result.affected}
+    assert labels == {"POST /user"}
+    assert "POST /redis/user" not in labels
+
+
+def test_call_reachability_still_resolves_when_the_qualified_name_is_unique() -> None:
+    """The positive case this must not break: a short qualified name that
+    genuinely maps to only one file still resolves normally."""
+    result = ImpactInterpreter().interpret(
+        [{"name": "save", "file": "demo-orm-jdbctemplate/service/impl/UserServiceImpl.java",
+          "qualified_name": "UserServiceImpl.save", "repo": REPO}],
+        StructuralFacts(
+            entrypoints=[
+                _entry("save", "demo-orm-jdbctemplate/controller/UserController.java",
+                       route_method="POST", route_path="/user",
+                       qualified_name="UserController.save"),
+            ],
+            call_edges=[{
+                "repo": REPO,
+                "caller_file": "demo-orm-jdbctemplate/controller/UserController.java",
+                "caller_symbol": "save", "caller_qualified_name": "UserController.save",
+                "callee_file": "demo-orm-jdbctemplate/service/impl/UserServiceImpl.java",
+                "callee_symbol": "save", "callee_qualified_name": "UserServiceImpl.save",
+            }],
+            provides_call_graph=True, backend="cbm",
+        ),
+        repo=REPO,
+    )
+    assert [item.label for item in result.affected] == ["POST /user"]
