@@ -43,6 +43,7 @@ SUPPORTED_EXTS = {
     ".php",
     ".cs",
     ".kt",
+    ".rs",
 }
 
 LANGUAGE_BY_EXT = {
@@ -56,6 +57,7 @@ LANGUAGE_BY_EXT = {
     ".rb": "ruby",
     ".php": "php",
     ".cs": "csharp",
+    ".rs": "rust",
     ".kt": "kotlin",
 }
 
@@ -381,6 +383,40 @@ def _java_implemented_names(line: str) -> list[str]:
     return names
 
 
+#: Rocket declares a route as an attribute directly on a free function —
+#: `#[get("/<id>")]` above `fn retrieve(...)` — not on a method inside a
+#: class/struct the way NestJS/routing-controllers/Spring do above. There is
+#: therefore no natural container to look up a path prefix from; the mount
+#: prefix a real app applies via `.mount("/prefix", routes![...])` is not
+#: composed here (same simplification already made for a bare Spring
+#: `@RestController` with no class-level `@RequestMapping`: the attribute's
+#: own path is used as the whole path). A route mounted under a non-root
+#: prefix will report an incomplete path rather than a wrong file/handler —
+#: composing `routes![...]`/`.mount(...)` generically is a larger feature,
+#: not this fix.
+_ROCKET_ROUTE_ATTR_RE = re.compile(
+    r'^\s*#\[\s*(?P<verb>get|post|put|delete|patch|head|options)\s*'
+    r'\(\s*(?:path\s*=\s*)?"(?P<path>[^"]*)"',
+    re.IGNORECASE,
+)
+_RUST_FN_RE = re.compile(
+    r"^\s*(?:pub(?:\([^)]*\))?\s+)?(?:async\s+)?fn\s+(?P<name>[A-Za-z_]\w*)\s*\("
+)
+#: A container id shared across every file — it never resolves to a real
+#: declared container (Rocket routes have none), so `route_graph.py` falls
+#: back to its synthetic-receiver path with an empty prefix, same as an
+#: unresolved receiver anywhere else. Scoped by (file, symbol) downstream, so
+#: sharing this string across files never collides two different routes.
+_ROCKET_SYNTHETIC_RECEIVER = "<rocket_route>"
+
+
+def _normalize_rocket_path(path: str) -> str:
+    """`<id>`/`<file..>` (Rocket's dynamic-segment syntax) -> `{id}`/`{file}`,
+    matching the `{name}` convention every other framework's path already
+    normalizes to."""
+    return re.sub(r"<([A-Za-z_]\w*)\.{0,2}>", r"{\1}", path)
+
+
 def _extract_index_for_file(relative_path: str, text: str, role: str) -> dict:
     ext = Path(relative_path).suffix.lower()
     language = LANGUAGE_BY_EXT.get(ext, "unknown")
@@ -420,12 +456,22 @@ def _extract_index_for_file(relative_path: str, text: str, role: str) -> dict:
     #: with route composition above.
     java_type: dict[str, Any] | None = None
 
+    #: Rocket's route attribute is consumed by the very next line (Rust
+    #: attributes are not stacked the way TS/Java decorators commonly are;
+    #: one route attribute per handler is the norm), so this only ever holds
+    #: at most one pending `(verb, path, raw_attribute_line)` tuple rather
+    #: than a list.
+    rocket_pending_route: tuple[str, str, str] | None = None
+
     joined_lines = _join_open_calls(text).splitlines()
     for idx, raw_line in enumerate(joined_lines, start=1):
         line = raw_line.strip()
         if not line:
             continue
-        if line.startswith("//") or line.startswith("#"):
+        # `#[...]` is Rust's attribute syntax (`#[get("/<id>")]`), not a
+        # comment — Rust itself has no `#`-prefixed comment form, so this
+        # can never collide with an actual comment in any supported language.
+        if line.startswith("//") or (line.startswith("#") and not line.startswith("#[")):
             continue
 
         if line.startswith("@"):
@@ -527,6 +573,30 @@ def _extract_index_for_file(relative_path: str, text: str, role: str) -> dict:
             java_pending_annotations = []
         elif java_pending_annotations and not line.startswith("@"):
             java_pending_annotations = []
+
+        rocket_attr_match = _ROCKET_ROUTE_ATTR_RE.match(line)
+        if rocket_attr_match:
+            rocket_pending_route = (
+                rocket_attr_match.group("verb").lower(),
+                rocket_attr_match.group("path"),
+                line,
+            )
+        elif rocket_pending_route:
+            fn_match = _RUST_FN_RE.match(line)
+            if fn_match:
+                verb, path, attr_line = rocket_pending_route
+                route_calls.append(
+                    {
+                        "receiver": _ROCKET_SYNTHETIC_RECEIVER,
+                        "method": verb,
+                        "path": _normalize_rocket_path(path),
+                        "handler_hint": fn_match.group("name"),
+                        "line": idx,
+                        "snippet": _trim(f"{attr_line}\n{raw_line.strip()}"),
+                    }
+                )
+                signals.add(f"route_call:{verb}")
+            rocket_pending_route = None
 
         for match in _ROUTER_DECL_RE.finditer(line):
             symbol = match.group("symbol")

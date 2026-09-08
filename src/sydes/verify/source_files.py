@@ -20,7 +20,7 @@ from sydes.ingest.file_roles import (
 from sydes.ingest.inventory import build_repo_inventory
 from sydes.ingest.readers import read_text_file_safely
 
-SOURCE_EXTENSIONS = {".py", ".js", ".jsx", ".ts", ".tsx", ".java", ".go", ".rb", ".php", ".cs", ".kt"}
+SOURCE_EXTENSIONS = {".py", ".js", ".jsx", ".ts", ".tsx", ".java", ".go", ".rb", ".php", ".cs", ".kt", ".rs"}
 CONFIG_EXTENSIONS = {".yml", ".yaml", ".toml", ".ini", ".properties", ".json", ".tf"}
 
 _MAX_READ_BYTES = 1_000_000

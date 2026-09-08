@@ -256,3 +256,59 @@ def test_route_index_java_type_is_none_for_a_class_implementing_nothing(tmp_path
     payload = build_route_index(RepoRef(name="demo", root=str(repo_root)))
     files = {item["path"]: item for item in payload["files"]}
     assert files["src/Plain.java"]["java_type"] == {"kind": "class", "name": "Plain", "implements": []}
+
+
+def test_route_index_recognizes_rocket_route_attributes(tmp_path: Path) -> None:
+    """Rocket declares a route as an attribute directly on a free function
+    (`#[get("/<id>")]` above `fn retrieve(...)`), not on a method inside a
+    class/struct the way every other framework recognized so far does —
+    there is no container to look up a prefix from, so each route's own
+    attribute path is used as the whole path (RS-S-01's real shape:
+    `examples/pastebin`, mounted at the root path)."""
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    (repo_root / "src").mkdir()
+    (repo_root / "src" / "main.rs").write_text(
+        "\n".join(
+            [
+                "#[macro_use] extern crate rocket;",
+                "",
+                '#[post("/", data = "<paste>")]',
+                "async fn upload(paste: Data<'_>) -> io::Result<String> {",
+                "    Ok(String::new())",
+                "}",
+                "",
+                '#[get("/<id>")]',
+                "async fn retrieve(id: PasteId<'_>) -> Option<RawText<File>> {",
+                "    None",
+                "}",
+                "",
+                "#[launch]",
+                "fn rocket() -> _ {",
+                '    rocket::build().mount("/", routes![upload, retrieve])',
+                "}",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    payload = build_route_index(RepoRef(name="demo", root=str(repo_root)))
+    files = {item["path"]: item for item in payload["files"]}
+    main = files["src/main.rs"]
+
+    assert main["containers"] == []
+    keys = {(c["method"], c["path"], c["handler_hint"]) for c in main["route_calls"]}
+    assert ("post", "/", "upload") in keys
+    assert ("get", "/{id}", "retrieve") in keys
+
+
+def test_route_index_ignores_a_rust_attribute_with_no_following_function() -> None:
+    """A route attribute followed by something else entirely (a struct, a
+    comment, another unrelated item) must not misattribute the path to the
+    wrong symbol — or to none at all, silently."""
+    from sydes.discover.route_index import _extract_index_for_file
+
+    text = '#[get("/health")]\nstruct NotAHandler;\n'
+    result = _extract_index_for_file("src/main.rs", text, "source_route_candidate")
+    assert result["route_calls"] == []
