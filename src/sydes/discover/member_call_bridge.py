@@ -225,11 +225,23 @@ def bridge_member_call_edges(
                         "repo": repo_name,
                         "caller_file": caller.get("file"),
                         "caller_symbol": caller.get("name"),
-                        "caller_qualified_name": caller.get("qualified_name") or caller.get("name"),
+                        # CBM's own canonical qualified name, when it gave
+                        # one, is what a changed symbol's identity now
+                        # prefers (SymbolIdentity.canonical_qualified_name)
+                        # — falling back to Sydes' short `Class.method`
+                        # display form otherwise, exactly as before that
+                        # tier existed.
+                        "caller_qualified_name": (
+                            caller.get("cbm_qualified_name")
+                            or caller.get("qualified_name") or caller.get("name")
+                        ),
                         "caller_line": caller.get("start_line"),
                         "callee_file": target.get("file"),
                         "callee_symbol": target.get("name"),
-                        "callee_qualified_name": target.get("qualified_name") or target.get("name"),
+                        "callee_qualified_name": (
+                            target.get("cbm_qualified_name")
+                            or target.get("qualified_name") or target.get("name")
+                        ),
                         "callee_line": target.get("start_line"),
                         "source": MEMBER_CALL_BRIDGE_SOURCE,
                         "bridge_reason": "constructor_typed_member_call",

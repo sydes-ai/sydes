@@ -322,3 +322,35 @@ def test_already_native_edge_is_not_duplicated(tmp_path: Path) -> None:
 
 def test_no_typescript_files_short_circuits_cleanly() -> None:
     assert bridge_member_call_edges({}, []) == []
+
+
+def test_bridged_edge_uses_canonical_qualified_name_when_the_target_symbol_has_one(
+    tmp_path: Path,
+) -> None:
+    """A changed symbol's identity now prefers CBM's own canonical qualified
+    name over Sydes' short `Class.method` form whenever one is known (see
+    `SymbolIdentity.canonical_qualified_name`) — a bridged edge that still
+    carried only the short form would never match a changed symbol reached
+    only through it. Locks in the same fix `test_interface_bridge.py`
+    verifies for the Java bridge."""
+    controller = _class_file(
+        "PetController", "private petService: PetService",
+        {"create": "return this.petService.create(pet);"},
+    )
+    service = _class_file("PetService", "", {"create": "return pet;"})
+    symbol_index = _write_symbol_index(tmp_path, {
+        "controller/PetController.ts": controller,
+        "service/PetService.ts": service,
+    })
+    for file_item in symbol_index["repos"][0]["files"]:
+        if file_item["path"] == "service/PetService.ts":
+            for symbol in file_item["symbols"]:
+                if symbol["name"] == "create":
+                    symbol["cbm_qualified_name"] = (
+                        "project.service.PetService.PetService.create"
+                    )
+
+    bridged = bridge_member_call_edges(symbol_index, [])
+
+    assert len(bridged) == 1
+    assert bridged[0]["callee_qualified_name"] == "project.service.PetService.PetService.create"

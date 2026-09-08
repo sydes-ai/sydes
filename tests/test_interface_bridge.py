@@ -109,3 +109,51 @@ def test_a_bridge_already_present_is_not_duplicated() -> None:
 
 def test_empty_route_index_produces_no_bridges() -> None:
     assert bridge_interface_call_edges({}, [_edge("a.java", "x", "b.java", "y")]) == []
+
+
+def test_bridged_edge_uses_canonical_qualified_name_when_symbol_index_has_one() -> None:
+    """A changed symbol's identity now prefers CBM's own canonical qualified
+    name over Sydes' short `Class.method` form whenever one is known (see
+    `SymbolIdentity.canonical_qualified_name`) — a bridged edge that still
+    carried only the short form would silently stop matching a changed
+    symbol it used to reach. JAVA-S-01 regressed exactly this way when the
+    canonical-identity tier was first added; this locks the fix in."""
+    route_index = _route_index([
+        _file("service/IUserService.java", {"kind": "interface", "name": "IUserService", "implements": []}),
+        _file("service/impl/UserServiceImpl.java", {"kind": "class", "name": "UserServiceImpl", "implements": ["IUserService"]}),
+    ])
+    edges = [_edge("controller/UserController.java", "save", "service/IUserService.java", "save")]
+    symbol_index = {
+        "repos": [{
+            "repo": "app",
+            "files": [{
+                "path": "service/impl/UserServiceImpl.java",
+                "symbols": [{
+                    "name": "save", "kind": "class_method", "parent": "UserServiceImpl",
+                    "qualified_name": "UserServiceImpl.save",
+                    "cbm_qualified_name": "com.example.service.impl.UserServiceImpl.save",
+                }],
+            }],
+        }],
+    }
+
+    bridged = bridge_interface_call_edges(route_index, edges, symbol_index)
+
+    assert len(bridged) == 1
+    assert bridged[0]["callee_qualified_name"] == "com.example.service.impl.UserServiceImpl.save"
+
+
+def test_bridged_edge_falls_back_to_short_form_without_a_symbol_index() -> None:
+    """The pre-canonical-identity behavior is unchanged when no symbol_index
+    is given at all (or it has no matching canonical name) — purely
+    additive."""
+    route_index = _route_index([
+        _file("service/IUserService.java", {"kind": "interface", "name": "IUserService", "implements": []}),
+        _file("service/impl/UserServiceImpl.java", {"kind": "class", "name": "UserServiceImpl", "implements": ["IUserService"]}),
+    ])
+    edges = [_edge("controller/UserController.java", "save", "service/IUserService.java", "save")]
+
+    bridged = bridge_interface_call_edges(route_index, edges)
+
+    assert len(bridged) == 1
+    assert bridged[0]["callee_qualified_name"] == "UserServiceImpl.save"

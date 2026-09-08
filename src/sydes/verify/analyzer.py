@@ -1245,7 +1245,9 @@ def _attach_bounded_graph_edges(
     # such edge, straight to the sole known implementation, whenever the
     # interface has exactly one; more than one is left alone rather than
     # guessed at. See interface_bridge.py.
-    bridged_edges = bridge_interface_call_edges(structural.route_index, structural.call_edges)
+    bridged_edges = bridge_interface_call_edges(
+        structural.route_index, structural.call_edges, structural.symbol_index,
+    )
     if bridged_edges:
         structural.call_edges.extend(bridged_edges)
         result.diagnostics.append(f"interface_bridge_edges_added={len(bridged_edges)}")
