@@ -252,6 +252,7 @@ def attribute_changed_symbols(
                     file=changed_file.path,
                     name=name,
                     qualified_name=qualified,
+                    cbm_qualified_name=str(symbol.get("cbm_qualified_name") or "") or None,
                     kind=str(symbol.get("kind") or "function"),
                     language=str(symbol.get("language") or ""),
                     start_line=symbol.get("start_line"),
@@ -933,6 +934,7 @@ def _changed_symbols_for_impact(change: Any) -> list[dict[str, Any]]:
             "file": item.file,
             "repo": item.repo,
             "qualified_name": item.qualified_name or "",
+            "cbm_qualified_name": item.cbm_qualified_name or "",
             "start_line": item.start_line,
             "changed_line_ranges": hunks_by_file.get((item.repo, item.file), []),
         }

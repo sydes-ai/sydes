@@ -480,3 +480,179 @@ def test_call_reachability_still_resolves_when_the_qualified_name_is_unique() ->
         repo=REPO,
     )
     assert [item.label for item in result.affected] == ["POST /user"]
+
+
+# --------------------------------------------------------------------------
+# CBM canonical qualified identity: a changed symbol's short Sydes display
+# form (`PasteId.new`) must not block matching a real CALLS edge that CBM
+# itself keys by its own long, repo-path-prefixed canonical form. RS-S-01
+# exposed this: CBM's bounded edge slice already contained
+# `upload -> PasteId::new`, but `_FactIndex` keyed reachability off the
+# short display qualified name, which never equals CBM's canonical one for
+# the same symbol, so the real edge was never reached.
+# --------------------------------------------------------------------------
+
+_CANONICAL_PREFIX = "Users-x-sample_repos-Rocket.examples.pastebin.src.paste_id"
+
+
+def test_canonical_qualified_name_connects_the_real_edge() -> None:
+    """1. A changed symbol carrying both its short display qn and CBM's
+    matching canonical qn reaches an entrypoint via a real CALLS edge keyed
+    by that canonical form."""
+    canonical_callee = f"{_CANONICAL_PREFIX}.PasteId.new"
+    result = ImpactInterpreter().interpret(
+        [{
+            "name": "new", "file": "examples/pastebin/src/paste_id.rs", "repo": REPO,
+            "qualified_name": "PasteId.new", "cbm_qualified_name": canonical_callee,
+        }],
+        StructuralFacts(
+            entrypoints=[_entry("upload", "examples/pastebin/src/main.rs",
+                                 route_method="POST", route_path="/",
+                                 qualified_name=f"{_CANONICAL_PREFIX.rsplit('.', 1)[0]}.main.upload")],
+            call_edges=[{
+                "repo": REPO,
+                "caller_file": "examples/pastebin/src/main.rs", "caller_symbol": "upload",
+                "caller_qualified_name": f"{_CANONICAL_PREFIX.rsplit('.', 1)[0]}.main.upload",
+                "caller_line": 21,
+                "callee_file": "examples/pastebin/src/paste_id.rs", "callee_symbol": "new",
+                "callee_qualified_name": canonical_callee, "callee_line": 22,
+            }],
+            provides_call_graph=True, backend="cbm",
+        ),
+        repo=REPO,
+    )
+    assert len(result.affected) == 1
+    assert result.affected[0].symbol == "upload"
+    assert result.affected[0].status == "proven"
+
+
+def test_mismatched_canonical_qualified_name_does_not_connect() -> None:
+    """2. A canonical qn that genuinely does not match any edge must not be
+    papered over — no fabricated connection, no fallback to the short qn
+    matching something it shouldn't."""
+    result = ImpactInterpreter().interpret(
+        [{
+            "name": "new", "file": "examples/pastebin/src/paste_id.rs", "repo": REPO,
+            "qualified_name": "PasteId.new",
+            "cbm_qualified_name": f"{_CANONICAL_PREFIX}.PasteId.new",
+        }],
+        StructuralFacts(
+            entrypoints=[_entry("upload", "examples/pastebin/src/main.rs",
+                                 route_method="POST", route_path="/")],
+            call_edges=[{
+                "repo": REPO,
+                "caller_file": "examples/pastebin/src/main.rs", "caller_symbol": "upload",
+                "caller_qualified_name": "main.upload",
+                "callee_file": "examples/pastebin/src/paste_id.rs", "callee_symbol": "new",
+                # A different canonical qn — e.g. a same-named `new` CBM
+                # reports under a *different* crate's own canonical prefix.
+                "callee_qualified_name": "Users-x-sample_repos-Rocket.examples.json.src.main.PasteId.new",
+            }],
+            provides_call_graph=True, backend="cbm",
+        ),
+        repo=REPO,
+    )
+    assert result.affected == []
+
+
+def test_canonical_qualified_name_disambiguates_same_short_qn_in_different_files() -> None:
+    """3. Two symbols sharing the exact same short Sydes display qn
+    (`PasteId.new`, in two unrelated crates) must not collide once each also
+    carries its own distinct canonical qn — the changed symbol's canonical
+    form picks out only the edge that actually targets it."""
+    real_canonical = f"{_CANONICAL_PREFIX}.PasteId.new"
+    unrelated_canonical = "Users-x-sample_repos-Rocket.examples.json.src.main.PasteId.new"
+    result = ImpactInterpreter().interpret(
+        [{
+            "name": "new", "file": "examples/pastebin/src/paste_id.rs", "repo": REPO,
+            "qualified_name": "PasteId.new", "cbm_qualified_name": real_canonical,
+        }],
+        StructuralFacts(
+            entrypoints=[
+                _entry("upload", "examples/pastebin/src/main.rs",
+                       route_method="POST", route_path="/", qualified_name="main.upload"),
+                _entry("create", "examples/json/src/main.rs",
+                       route_method="POST", route_path="/json", qualified_name="main.create"),
+            ],
+            call_edges=[
+                {
+                    "repo": REPO,
+                    "caller_file": "examples/pastebin/src/main.rs", "caller_symbol": "upload",
+                    "caller_qualified_name": "main.upload",
+                    "callee_file": "examples/pastebin/src/paste_id.rs", "callee_symbol": "new",
+                    "callee_qualified_name": real_canonical,
+                },
+                {
+                    "repo": REPO,
+                    "caller_file": "examples/json/src/main.rs", "caller_symbol": "create",
+                    "caller_qualified_name": "main.create",
+                    "callee_file": "examples/json/src/main.rs", "callee_symbol": "new",
+                    "callee_qualified_name": unrelated_canonical,
+                },
+            ],
+            provides_call_graph=True, backend="cbm",
+        ),
+        repo=REPO,
+    )
+    labels = {item.label for item in result.affected}
+    assert labels == {"POST /"}
+    assert "POST /json" not in labels
+
+
+def test_absence_of_canonical_qualified_name_preserves_existing_behavior() -> None:
+    """4. A changed symbol with no `cbm_qualified_name` at all resolves
+    exactly as before this fix — purely additive, no behavior change for
+    symbols the backend never gave a canonical form for."""
+    result = ImpactInterpreter().interpret(
+        [{"name": "save", "file": "demo-orm-jdbctemplate/service/impl/UserServiceImpl.java",
+          "qualified_name": "UserServiceImpl.save", "repo": REPO}],
+        StructuralFacts(
+            entrypoints=[_entry("save", "demo-orm-jdbctemplate/controller/UserController.java",
+                                 route_method="POST", route_path="/user",
+                                 qualified_name="UserController.save")],
+            call_edges=[{
+                "repo": REPO,
+                "caller_file": "demo-orm-jdbctemplate/controller/UserController.java",
+                "caller_symbol": "save", "caller_qualified_name": "UserController.save",
+                "callee_file": "demo-orm-jdbctemplate/service/impl/UserServiceImpl.java",
+                "callee_symbol": "save", "callee_qualified_name": "UserServiceImpl.save",
+            }],
+            provides_call_graph=True, backend="cbm",
+        ),
+        repo=REPO,
+    )
+    assert [item.label for item in result.affected] == ["POST /user"]
+
+
+def test_symbol_identity_canonical_qualified_name_outranks_short_form() -> None:
+    """Unit-level check on `SymbolIdentity` itself: when both a short
+    `qualified_name` and a `canonical_qualified_name` are given, `.key` is
+    driven by the canonical form (so it matches a CBM edge keyed the same
+    way) while `.label` stays the short, readable form — the canonical form
+    strengthens matching without replacing what a caller shows a reader."""
+    from sydes.impact.models import SymbolIdentity
+
+    identity = SymbolIdentity.from_fields(
+        repo=REPO, file="examples/pastebin/src/paste_id.rs",
+        qualified_name="PasteId.new",
+        canonical_qualified_name=f"{_CANONICAL_PREFIX}.PasteId.new",
+        short_name="new",
+    )
+    matching_edge_identity = SymbolIdentity.from_fields(
+        repo=REPO, file="examples/pastebin/src/paste_id.rs",
+        qualified_name=f"{_CANONICAL_PREFIX}.PasteId.new",
+    )
+    assert identity.key == matching_edge_identity.key
+    assert identity.label == "PasteId.new"
+    assert identity.resolved is True
+
+
+# Bare-name-collision rejection (test 5) and the Go registration/definition
+# fallback (test 7) are unchanged by this fix — already covered above by
+# `test_same_bare_name_in_two_unrelated_files_is_not_resolved_by_direct_entrypoint`
+# and `test_globally_unique_bare_name_still_resolves_across_a_file_mismatch`.
+# Java's short `Class.method` behavior (test 6) is covered by
+# `test_call_reachability_still_resolves_when_the_qualified_name_is_unique`
+# and `test_absence_of_canonical_qualified_name_preserves_existing_behavior`
+# above — Java symbols carry no `cbm_qualified_name` today, so this fix does
+# not change their resolution at all.

@@ -152,6 +152,13 @@ class ChangedSymbol(BaseModel):
     file: str
     name: str
     qualified_name: str | None = None
+    #: The backend's own canonical qualified name for this exact symbol, when
+    #: known — CBM's raw, repo-path-prefixed form, distinct from
+    #: `qualified_name`'s short `Class.method` display convention. Every
+    #: CALLS/USAGE edge endpoint CBM reports already carries this same raw
+    #: form, so the impact layer uses it to strengthen identity matching
+    #: without changing what `qualified_name` shows for display.
+    cbm_qualified_name: str | None = None
     kind: str = "function"
     language: str | None = None
     start_line: int | None = None
