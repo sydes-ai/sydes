@@ -1,6 +1,6 @@
 # Sydes
 
-**Know what a code change can break — and what still hasn't been verified.**
+**Sydes tells you what a code change could break, what was verified, and what remains unverified.**
 
 Sydes follows backend changes beyond the diff across services, APIs, libraries, and other system boundaries. It combines structural code intelligence with AI reasoning to show what is established, what is inferred, and what remains unverified.
 
@@ -228,15 +228,15 @@ The goal is not to ask an LLM to read an entire repository. Sydes uses code inte
 
 ## Validated support
 
-Support depth varies by language. This reflects a 15-case manual calibration suite (one simple, one medium, one hard case per language) — see [the full validation summary](https://github.com/sydes-examples/.github/blob/main/results/manual-v1-public-summary.md) for methodology and results. **This is a calibration signal, not an independent benchmark** — 15 cases do not establish statistical significance.
+Support depth varies by language, based on **15 preregistered manual calibration cases across 5 languages and 3 complexity bands** — see [the full validation summary](https://github.com/sydes-examples/.github/blob/main/results/manual-v1-public-summary.md). **This is a manual calibration suite, not an independent benchmark evaluation** — 15 cases do not establish statistical significance, and it is not a universal language guarantee.
 
-| Language | Current support | Notes |
+| Language | Support | Notes |
 | --- | --- | --- |
-| Python | Good | Simple/medium/hard calibration cases all recovered cleanly, including a multi-file, two-route chain. |
-| Go | Moderate | HTTP/gRPC paths trace well. Async task-queue entrypoints (a consumer with no HTTP path) are a known gap — not yet detected. |
-| TypeScript | Moderate | Direct controller→service calls and one level of CQRS command-bus dispatch trace well. Deeper backward propagation (a change nested inside a value object, traced back up through an aggregate and handler) is a known gap. |
-| Java | Moderate-good | Controller/service/repository paths trace well, including hand-written auth logic. Cross-cutting concerns (one filter affecting every route) and Spring Data JPA proxy noise are known gaps. |
-| Rust | Experimental | Route/entrypoint detection is the primary limitation, confirmed across two different frameworks (Rocket and Axum). |
+| Python | Good | Best-supported path in current calibration. |
+| Java | Good | Controller/service/interface paths work well; cross-cutting filters remain partial. |
+| TypeScript | Moderate | Direct controller/service and some CQRS patterns work; deeper backward propagation limited. |
+| Go | Moderate | HTTP/gRPC paths supported; async worker entrypoints limited. |
+| Rust | Experimental | Partial route/flow coverage. |
 
 See Sydes commenting on a real pull request: [a proven, multi-route affected-behavior trace](https://github.com/sydes-examples/Kokoro-FastAPI/pull/3) · [more examples](https://github.com/sydes-examples/.github/blob/main/results/showcase-v1.md).
 
@@ -537,16 +537,10 @@ Sydes also stores local artifacts under:
 
 Sydes is under active development.
 
-Current limitations include:
-
-- System-boundary discovery is still expanding beyond route-centric flows.
-- Support depth varies across languages and frameworks.
-- Large repositories are explored selectively rather than exhaustively.
-- Cross-repository linking is currently shallow and depends on detectable structural/API relationships.
-- AI-inferred impacts are hypotheses with explicit uncertainty; they are not proof.
-- Test execution depends on an already prepared repository environment.
-- Sydes reports runtime requirements but does not provision, mock, or contact them.
-- Generalized end-to-end system verification is not solved; Sydes returns `VERIFICATION INCOMPLETE` when the evidence is insufficient.
+- No guarantee of completeness — `VERIFICATION INCOMPLETE` means the evidence was insufficient, not that nothing was checked.
+- Structural proof depends on the available code intelligence for a given language/framework; support depth varies (see [Validated support](#validated-support)).
+- Some framework- or runtime-dispatched paths (async consumers, deep backward propagation, cross-cutting filters) remain partial or undetected.
+- Test execution may be disabled depending on invocation, and always depends on an already-prepared repository environment — Sydes does not provision, mock, or contact runtime dependencies.
 
 ---
 
