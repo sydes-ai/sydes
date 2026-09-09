@@ -238,6 +238,8 @@ Support depth varies by language. This reflects a 15-case manual calibration sui
 | Java | Moderate-good | Controller/service/repository paths trace well, including hand-written auth logic. Cross-cutting concerns (one filter affecting every route) and Spring Data JPA proxy noise are known gaps. |
 | Rust | Experimental | Route/entrypoint detection is the primary limitation, confirmed across two different frameworks (Rocket and Axum). |
 
+See Sydes commenting on a real pull request: [a proven, multi-route affected-behavior trace](https://github.com/sydes-examples/Kokoro-FastAPI/pull/3) · [more examples](https://github.com/sydes-examples/.github/blob/main/results/showcase-v1.md).
+
 ---
 
 ## Why
