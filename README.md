@@ -226,6 +226,20 @@ The goal is not to ask an LLM to read an entire repository. Sydes uses code inte
 
 ---
 
+## Validated support
+
+Support depth varies by language. This reflects a 15-case manual calibration suite (one simple, one medium, one hard case per language) — see [the full validation summary](https://github.com/sydes-examples/.github/blob/main/results/manual-v1-public-summary.md) for methodology and results. **This is a calibration signal, not an independent benchmark** — 15 cases do not establish statistical significance.
+
+| Language | Current support | Notes |
+| --- | --- | --- |
+| Python | Good | Simple/medium/hard calibration cases all recovered cleanly, including a multi-file, two-route chain. |
+| Go | Moderate | HTTP/gRPC paths trace well. Async task-queue entrypoints (a consumer with no HTTP path) are a known gap — not yet detected. |
+| TypeScript | Moderate | Direct controller→service calls and one level of CQRS command-bus dispatch trace well. Deeper backward propagation (a change nested inside a value object, traced back up through an aggregate and handler) is a known gap. |
+| Java | Moderate-good | Controller/service/repository paths trace well, including hand-written auth logic. Cross-cutting concerns (one filter affecting every route) and Spring Data JPA proxy noise are known gaps. |
+| Rust | Experimental | Route/entrypoint detection is the primary limitation, confirmed across two different frameworks (Rocket and Axum). |
+
+---
+
 ## Why
 
 Passing tests or reviewing a diff does not establish everything a backend change may affect.
