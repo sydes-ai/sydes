@@ -15,13 +15,13 @@ Sydes follows backend changes beyond the diff across services, APIs, libraries, 
 Using `pip`:
 
 ```bash
-python -m pip install "git+https://github.com/sydes-ai/sydes.git"
+python -m pip install "git+https://github.com/sydes-ai/sydes.git@v0.2.0-beta.1"
 ```
 
 Or, if you use `uv`:
 
 ```bash
-uv tool install "git+https://github.com/sydes-ai/sydes.git"
+uv tool install "git+https://github.com/sydes-ai/sydes.git@v0.2.0-beta.1"
 ```
 
 ### 2. Add an LLM key
@@ -120,7 +120,7 @@ jobs:
 
       - name: Install Sydes
         run: |
-          python -m pip install "git+https://github.com/sydes-ai/sydes.git"
+          python -m pip install "git+https://github.com/sydes-ai/sydes.git@v0.2.0-beta.1"
 
       - name: Run Sydes verify-change
         env:
@@ -228,8 +228,6 @@ The goal is not to ask an LLM to read an entire repository. Sydes uses code inte
 
 ## Validated support
 
-Support depth varies by language, based on **15 preregistered manual calibration cases across 5 languages and 3 complexity bands** — see [the full validation summary](https://github.com/sydes-examples/.github/blob/main/results/manual-v1-public-summary.md). **This is a manual calibration suite, not an independent benchmark evaluation** — 15 cases do not establish statistical significance, and it is not a universal language guarantee.
-
 | Language | Support | Notes |
 | --- | --- | --- |
 | Python | Good | Best-supported path in current calibration. |
@@ -238,7 +236,33 @@ Support depth varies by language, based on **15 preregistered manual calibration
 | Go | Moderate | HTTP/gRPC paths supported; async worker entrypoints limited. |
 | Rust | Experimental | Partial route/flow coverage. |
 
-See Sydes commenting on a real pull request: [a proven, multi-route affected-behavior trace](https://github.com/sydes-examples/Kokoro-FastAPI/pull/3) · [more examples](https://github.com/sydes-examples/.github/blob/main/results/showcase-v1.md).
+This is not a universal guarantee — see [Validation](#validation) below for how it was measured.
+
+### Validation
+
+Sydes v0.2.0-beta.1 was exercised on 15 preregistered manual calibration cases across Python, Go, TypeScript, Java, and Rust, spanning simple, medium, and hard structural complexity.
+
+| Complexity | Pass | Partial | Unsupported |
+| --- | --- | --- | --- |
+| Simple | 4 | 1 | 0 |
+| Medium | 3 | 2 | 0 |
+| Hard | 1 | 1 | 3 |
+
+Full results, per-language breakdown, and methodology: [manual-v1-public-summary.md](https://github.com/sydes-examples/.github/blob/main/results/manual-v1-public-summary.md).
+
+**This is a manual calibration suite, not an independent benchmark evaluation.**
+
+A note on reading these results: `Pass` above is a *calibration* label meaning Sydes recovered the expected structural path and test evidence for that preregistered case. It is a different axis from the `VERIFICATION INCOMPLETE` verdict you'll see on your own real changes — that verdict commonly appears even on a `Pass` case, because it simply means tests were mapped but not executed (e.g. `--no-run-tests`, the recommended CI mode — see [Why `--no-run-tests`](#why---no-run-tests-in-the-example)). The two labels are not in tension: one describes whether Sydes found what it was calibrated to find, the other describes whether your specific run executed enough evidence to call the change fully verified.
+
+### Showcase examples
+
+Five real PRs from the calibration suite, chosen to show affected-path tracing, test mapping, and honest partial results — not chosen because they all pass. Full writeups: [showcase-v1.md](https://github.com/sydes-examples/.github/blob/main/results/showcase-v1.md).
+
+- Python — [PY-M-01](https://github.com/sydes-examples/Kokoro-FastAPI/pull/3): a proven, multi-route affected-behavior trace.
+- Go — [GO-M-01](https://github.com/sydes-examples/simplebank/pull/2): the honest boundary between proven and inferred evidence.
+- TypeScript — [TS-M-01](https://github.com/sydes-examples/domain-driven-hexagon/pull/2): a dynamic CQRS command-bus dispatch resolved structurally.
+- Java — [JAVA-M-01](https://github.com/sydes-examples/spring-boot-demo/pull/2): a clean medium-complexity result with test mapping onto previously-uncovered code.
+- Rust — [RS-M-01](https://github.com/sydes-examples/Rocket/pull/2): **intentionally a partial result** — a real proven route alongside confirmed false positives, illustrating Rust's experimental support.
 
 ---
 
