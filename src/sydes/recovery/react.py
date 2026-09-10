@@ -41,6 +41,43 @@ TOOL_PROMPT_BLOCK = """You have these tools. Call exactly one per turn, as a sin
 trace_callers/trace_callees/search_symbol query a prebuilt code graph -- prefer them over read_file/search_text when you already know (or can guess) a symbol name and want who calls it, what it calls, or where else it's declared: one call answers what would otherwise take several read_file/search_text round trips. They may report "ERROR: CBM graph not available" (no graph was built for this repository) or zero results for a relationship that exists only through a decorator, dependency-injection binding, or message/event dispatch rather than a direct call -- treat either as "this tool found nothing," not as proof nothing exists; read the source directly in that case."""
 
 
+def _find_balanced_object_end(text: str, start: int) -> int | None:
+    """Index one past the `{` at `start`'s matching closing brace, scanning
+    past string literals (respecting `\\"` escapes) so a brace or quote
+    inside a JSON string VALUE is never mistaken for structure. Returns
+    `None` if the object never closes within `text`.
+
+    This is what lets a real, complete JSON object survive trailing junk
+    after it (a stray extra `}`, or repeated/duplicated content) — a
+    real, observed failure mode: a live agent turn once nested a sibling
+    key at the wrong depth and left one unmatched closing brace dangling
+    at the very end, which `rfind("}")` (the previous approach here)
+    cannot tell apart from a matching one.
+    """
+    depth = 0
+    in_string = False
+    escape = False
+    for i in range(start, len(text)):
+        ch = text[i]
+        if in_string:
+            if escape:
+                escape = False
+            elif ch == "\\":
+                escape = True
+            elif ch == '"':
+                in_string = False
+            continue
+        if ch == '"':
+            in_string = True
+        elif ch == "{":
+            depth += 1
+        elif ch == "}":
+            depth -= 1
+            if depth == 0:
+                return i + 1
+    return None
+
+
 def extract_turn(text: str, *, max_chars: int) -> dict[str, Any]:
     stripped = text.strip()[:max_chars]
     if stripped.startswith("```"):
@@ -51,11 +88,11 @@ def extract_turn(text: str, *, max_chars: int) -> dict[str, Any]:
         payload = json.loads(stripped)
     except json.JSONDecodeError:
         start = stripped.find("{")
-        end = stripped.rfind("}")
-        if start < 0 or end <= start:
+        end = _find_balanced_object_end(stripped, start) if start >= 0 else None
+        if start < 0 or end is None:
             raise RecoveryError("agent turn was not a JSON object")
         try:
-            payload = json.loads(stripped[start : end + 1])
+            payload = json.loads(stripped[start:end])
         except json.JSONDecodeError as exc:
             raise RecoveryError(f"agent turn was not valid JSON: {exc}") from exc
     if not isinstance(payload, dict):
