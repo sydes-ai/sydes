@@ -15,6 +15,7 @@ from sydes.core.models import RepoRef
 from sydes.ingest.repos import parse_repo_specs
 from sydes.llm.client import LLMClientError, create_default_llm_client
 from sydes.recovery.agent import recover
+from sydes.recovery.canonical_merge import merge_verified_recovery_into_result
 from sydes.recovery.context import build_context
 from sydes.recovery.merge import build_recovery_view, summarize_for_notes
 from sydes.recovery.schema import RecoveryError
@@ -195,15 +196,16 @@ def _run_ai_recovery(
 ) -> None:
     """The entire AI-recovery integration surface, run automatically by
     default (see `--no-ai-recovery`): evaluate the trigger, run one
-    recovery attempt if it fires, and touch the canonical result in
-    exactly one place — appending a summary line to `notes`. Never raises
-    past this function: no LLM provider configured, a provider failure, or
-    a malformed agent response is reported to the terminal and left out of
-    `notes` entirely, so a broken recovery pass can never fail a normal
-    `verify-change` run or leave a misleading trace in the result. The
-    verdict, counts, and CBM graph are never touched here, whether
-    recovery establishes something or not — its findings are always
-    supplementary, never authoritative."""
+    recovery attempt if it fires, and — only for what it actually
+    ESTABLISHED — merge it into the canonical result via
+    `sydes.recovery.canonical_merge`, plus a one-line summary in `notes`
+    either way. Never raises past this function: no LLM provider
+    configured, a provider failure, or a malformed agent response is
+    reported to the terminal and left out of the result entirely, so a
+    broken recovery pass can never fail a normal `verify-change` run or
+    leave a misleading trace. `summary.verdict`/`risk`/`headline` and
+    CBM's graph are never touched here, whether recovery establishes
+    something or not — see `canonical_merge` for exactly what is."""
     trigger = evaluate_trigger(result)
     if trigger is None:
         typer.echo("AI recovery (experimental): no high-value gap found; skipped.")
@@ -223,6 +225,7 @@ def _run_ai_recovery(
         typer.echo(f"AI recovery (experimental): failed, first-pass result left unchanged: {exc}")
         return
 
+    merge_verified_recovery_into_result(result, outcome.path_recovery, outcome.test_recovery)
     result.notes.append(summarize_for_notes(outcome.path_recovery, outcome.test_recovery))
     typer.echo(
         f"AI recovery (experimental): path={outcome.path_recovery.status} test={outcome.test_recovery.status} "
