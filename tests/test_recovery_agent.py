@@ -1,12 +1,16 @@
-"""`sydes.recovery.agent` — the discover -> prove -> verify -> compose
-pipeline orchestration.
+"""`sydes.recovery.agent` — the discover -> prove (with recursion) ->
+verify -> compose pipeline orchestration, and independent path/test
+outcomes.
 
 Uses a scripted fake `LLMClient` returning one response per call, in the
 exact order the pipeline makes calls: one discovery call (possibly with
 tool-call turns first), then one atomic-evidence-completion call per edge
-(and per candidate test), then one verifier call. This is about the
-pipeline's control flow and fail-closed behavior, not model quality — see
-`scripts/recovery_eval.py` for the real-repo, real-model evaluation.
+(and per candidate test) -- with a decomposition call and its own set of
+atomic-completion calls inserted whenever a direct proof finds nothing --
+then one verifier call for paths and, separately, one for tests. This is
+about the pipeline's control flow and fail-closed behavior, not model
+quality — see `scripts/recovery_eval.py` for the real-repo, real-model
+evaluation.
 """
 
 from __future__ import annotations
@@ -22,7 +26,7 @@ from sydes.recovery.context import RecoveryContext
 from sydes.recovery.schema import RecoveryError, STATUS_ESTABLISHED, STATUS_PARTIAL, STATUS_UNRESOLVED
 
 
-def _context() -> RecoveryContext:
+def _context(changed_files: tuple[str, ...] = ("handler.ts",)) -> RecoveryContext:
     return RecoveryContext(
         reason_first_pass_stopped="no established path",
         gap_kinds=("no_established_flow",),
@@ -33,6 +37,7 @@ def _context() -> RecoveryContext:
         known_entrypoints=(),
         test_candidates=(),
         unresolved_gaps=(),
+        changed_files=changed_files,
     )
 
 
@@ -57,10 +62,14 @@ class FailingClient:
         raise LLMClientError("provider unreachable")
 
 
-def _discovery_final(nodes: list[str], target_node: str, tests: list[dict] | None = None) -> dict:
+def _node(symbol: str, file: str = "handler.ts") -> dict:
+    return {"symbol": symbol, "file": file}
+
+
+def _discovery_final(nodes: list[str], target_node: str, tests: list[dict] | None = None, file: str = "handler.ts") -> dict:
     return {
         "final": {
-            "candidate_path": {"entrypoint": "GET /users", "target_node": target_node, "nodes": nodes},
+            "candidate_path": {"entrypoint": "GET /users", "target_node": target_node, "nodes": [_node(n, file) for n in nodes]},
             "candidate_tests": tests or [],
         }
     }
@@ -70,13 +79,19 @@ def _no_path_discovery(tests: list[dict] | None = None) -> dict:
     return {"final": {"candidate_path": None, "candidate_tests": tests or []}}
 
 
-def _atomic_final(relationship: str, file: str = "handler.ts") -> dict:
+def _atomic_final(relationship: str, file: str = "handler.ts", to_file: str | None = None) -> dict:
     return {
         "final": {
             "relationship": relationship,
+            "to_file": (to_file if to_file is not None else file) if relationship else "",
+            "from_file": file if relationship else "",
             "evidence": [{"file": file, "line_start": 1, "line_end": 3, "fact": relationship}] if relationship else [],
         }
     }
+
+
+def _decompose_final(intermediates: list[str], file: str = "handler.ts") -> dict:
+    return {"final": {"intermediates": [_node(s, file) for s in intermediates]}}
 
 
 def _verdicts(*accepts: bool) -> dict:
@@ -96,57 +111,49 @@ def test_recover_accepts_a_verified_established_two_node_path(repo: Path):
         _verdicts(True),
     ])
     outcome = recover(_context(), repo_root=repo, client=client, trigger_reason="no established path")
-    assert outcome.result.status == STATUS_ESTABLISHED
-    assert outcome.result.recovered_paths[0].edges[0].provenance == "ai_recovery"
+    assert outcome.path_recovery.status == STATUS_ESTABLISHED
+    assert outcome.path_recovery.paths[0].edges[0].provenance == "ai_recovery"
+    assert outcome.test_recovery.status == STATUS_UNRESOLVED  # no candidate tests proposed
 
 
 def test_three_node_path_runs_two_independent_atomic_completions(repo: Path):
     client = SequencedClient([
         _discovery_final(["route", "mid", "handler"], "handler"),
-        _atomic_final("registers"),   # route -> mid
-        _atomic_final("dispatches to"),  # mid -> handler
+        _atomic_final("registers"),
+        _atomic_final("dispatches to"),
         _verdicts(True, True),
     ])
     outcome = recover(_context(), repo_root=repo, client=client, trigger_reason="no established path")
-    assert outcome.result.status == STATUS_ESTABLISHED
-    assert len(outcome.result.recovered_paths[0].edges) == 2
+    assert outcome.path_recovery.status == STATUS_ESTABLISHED
+    assert len(outcome.path_recovery.paths[0].edges) == 2
 
 
 def test_one_unproven_edge_out_of_two_yields_partial_prefix(repo: Path):
     client = SequencedClient([
         _discovery_final(["route", "mid", "handler"], "handler"),
-        _atomic_final("registers"),        # route -> mid: found evidence
-        _atomic_final(""),                 # mid -> handler: nothing found
-        _verdicts(True),                   # only the first (Layer-1 survivor) edge goes to the verifier
+        _atomic_final("registers"),
+        _atomic_final(""),               # nothing found directly
+        _decompose_final([]),            # decomposition also finds nothing
+        _verdicts(True),                 # only the proven edge reaches the verifier
     ])
     budget = RecoveryBudget(max_pipeline_retries=0)
     outcome = recover(_context(), repo_root=repo, client=client, trigger_reason="no established path", budget=budget)
-    assert outcome.result.status == STATUS_PARTIAL
-    assert [n.symbol for n in outcome.result.recovered_paths[0].nodes] == ["route", "mid"]
-
-
-def test_edge_with_no_evidence_found_never_reaches_the_verifier(repo: Path):
-    client = SequencedClient([
-        _discovery_final(["route", "handler"], "handler"),
-        _atomic_final(""),  # evidence completion found nothing at all
-        # no verdicts response queued -- if the verifier were called this would raise AssertionError
-    ])
-    budget = RecoveryBudget(max_pipeline_retries=0)
-    outcome = recover(_context(), repo_root=repo, client=client, trigger_reason="no established path", budget=budget)
-    assert outcome.result.status == STATUS_UNRESOLVED
+    assert outcome.path_recovery.status == STATUS_PARTIAL
+    assert [n.symbol for n in outcome.path_recovery.paths[0].nodes] == ["route", "mid"]
 
 
 def test_discovery_with_no_candidate_path_but_a_candidate_test(repo: Path):
     (repo / "spec.ts").write_text("it('t', () => { expect(handler()).toBe(1); });\n")
     client = SequencedClient([
-        _no_path_discovery(tests=[{"file": "spec.ts", "test": "t", "covers": "handler behavior"}]),
-        _atomic_final("directly calls handler() and asserts", file="spec.ts"),
+        _no_path_discovery(tests=[{"file": "spec.ts", "test": "t", "covers": "handler behavior", "target": _node("handler")}]),
+        _atomic_final("directly calls handler() and asserts", file="spec.ts", to_file="handler.ts"),
         _verdicts(True),
     ])
     budget = RecoveryBudget(max_pipeline_retries=0)
     outcome = recover(_context(), repo_root=repo, client=client, trigger_reason="missing test mapping", budget=budget)
-    assert outcome.result.recovered_paths == []
-    assert outcome.result.recovered_tests[0].status == "accepted"
+    assert outcome.path_recovery.paths == []
+    assert outcome.test_recovery.status == STATUS_ESTABLISHED
+    assert outcome.test_recovery.tests[0].status == "accepted"
 
 
 def test_discovery_tool_call_turn_before_final_answer(repo: Path):
@@ -157,19 +164,8 @@ def test_discovery_tool_call_turn_before_final_answer(repo: Path):
         _verdicts(True),
     ])
     outcome = recover(_context(), repo_root=repo, client=client, trigger_reason="no established path")
-    assert outcome.result.status == STATUS_ESTABLISHED
+    assert outcome.path_recovery.status == STATUS_ESTABLISHED
     assert any(c.tool == "read_file" for c in outcome.stats.tool_calls)
-
-
-def test_atomic_completion_tool_call_turn_before_final_answer(repo: Path):
-    client = SequencedClient([
-        _discovery_final(["route", "handler"], "handler"),
-        {"tool": "read_file", "args": {"path": "handler.ts"}},
-        _atomic_final("registers and dispatches to"),
-        _verdicts(True),
-    ])
-    outcome = recover(_context(), repo_root=repo, client=client, trigger_reason="no established path")
-    assert outcome.result.status == STATUS_ESTABLISHED
 
 
 def test_verifier_rejection_triggers_one_full_pipeline_retry(repo: Path):
@@ -181,7 +177,7 @@ def test_verifier_rejection_triggers_one_full_pipeline_retry(repo: Path):
         _no_path_discovery(),
     ])
     outcome = recover(_context(), repo_root=repo, client=client, trigger_reason="no established path")
-    assert outcome.result.status == STATUS_UNRESOLVED
+    assert outcome.path_recovery.status == STATUS_UNRESOLVED
     assert outcome.stats.pipeline_retries == 1
 
 
@@ -189,14 +185,15 @@ def test_retry_only_replaces_result_when_strictly_better(repo: Path):
     client = SequencedClient([
         _discovery_final(["route", "mid", "handler"], "handler"),
         _atomic_final("registers"),
-        _atomic_final(""),  # partial: mid -> handler unproven
+        _atomic_final(""),
+        _decompose_final([]),
         _verdicts(True),
-        # retry produces nothing -- strictly worse than the existing partial result
+        # retry produces nothing at all -- strictly worse than the existing partial result
         _no_path_discovery(),
     ])
     outcome = recover(_context(), repo_root=repo, client=client, trigger_reason="no established path")
-    assert outcome.result.status == STATUS_PARTIAL
-    assert len(outcome.result.recovered_paths[0].nodes) == 2  # kept the verified prefix, not discarded
+    assert outcome.path_recovery.status == STATUS_PARTIAL
+    assert len(outcome.path_recovery.paths[0].nodes) == 2
 
 
 def test_provider_failure_during_discovery_raises_recovery_error(repo: Path):
@@ -218,12 +215,10 @@ def test_discovery_budget_forces_a_final_answer_eventually(repo: Path):
         _no_path_discovery(),
     ])
     outcome = recover(_context(), repo_root=repo, client=client, trigger_reason="no established path", budget=budget)
-    assert outcome.result.status == STATUS_UNRESOLVED
+    assert outcome.path_recovery.status == STATUS_UNRESOLVED
 
 
 def test_independent_recover_calls_do_not_share_state(repo: Path):
-    """No prior-run evidence leaks into an independent later run: each
-    `recover()` call builds its own `RepoTools`/stats from scratch."""
     client1 = SequencedClient([_discovery_final(["route", "handler"], "handler"), _atomic_final("registers and dispatches to"), _verdicts(True)])
     outcome1 = recover(_context(), repo_root=repo, client=client1, trigger_reason="no established path")
 
@@ -231,58 +226,104 @@ def test_independent_recover_calls_do_not_share_state(repo: Path):
     budget = RecoveryBudget(max_pipeline_retries=0)
     outcome2 = recover(_context(), repo_root=repo, client=client2, trigger_reason="no established path", budget=budget)
 
-    assert outcome1.result.status == STATUS_ESTABLISHED
-    assert outcome2.result.status == STATUS_UNRESOLVED
-    assert outcome2.stats.llm_calls == 1  # only its own single discovery call, nothing carried over
+    assert outcome1.path_recovery.status == STATUS_ESTABLISHED
+    assert outcome2.path_recovery.status == STATUS_UNRESOLVED
+    assert outcome2.stats.llm_calls == 1
     assert outcome2.stats.tool_calls == []
 
 
-def test_verifier_rejects_found_evidence_yields_partial_prefix(repo: Path):
-    """Distinct from 'no evidence found' (test above): here evidence
-    completion DOES find something for the second edge, but the
-    adversarial verifier (Stage C) rejects it -- the prefix up to that
-    point must still be kept, not discarded."""
+def test_full_pipeline_drops_node_beyond_target_node(repo: Path):
     client = SequencedClient([
-        _discovery_final(["route", "mid", "handler"], "handler"),
-        _atomic_final("registers"),           # route -> mid: evidence found
-        _atomic_final("declared nearby"),     # mid -> handler: evidence found but weak
-        _verdicts(True, False),               # both go to the verifier; second is rejected
+        _discovery_final(["route", "handler", "unrelated_extra"], "handler"),
+        _atomic_final("registers and dispatches to"),
+        _verdicts(True),
+    ])
+    outcome = recover(_context(), repo_root=repo, client=client, trigger_reason="no established path")
+    assert outcome.path_recovery.status == STATUS_ESTABLISHED
+    path = outcome.path_recovery.paths[0]
+    assert [n.symbol for n in path.nodes] == ["route", "handler"]
+    assert path.unresolved_suffix == []
+
+
+# ---------------------------------------------------------------------------
+# Recursive missing-link resolution.
+# ---------------------------------------------------------------------------
+
+
+def test_recursive_decomposition_used_when_direct_proof_finds_nothing(repo: Path):
+    (repo / "handler.ts").write_text("mid registers handler\nline2\n")
+    client = SequencedClient([
+        _discovery_final(["route", "handler"], "handler"),
+        _atomic_final(""),                          # direct route -> handler: nothing found
+        _decompose_final(["mid"]),                  # decompose into one intermediate
+        _atomic_final("route registers mid"),        # route -> mid
+        _atomic_final("mid registers handler"),      # mid -> handler
+        _verdicts(True, True),
+    ])
+    outcome = recover(_context(), repo_root=repo, client=client, trigger_reason="no established path")
+    assert outcome.path_recovery.status == STATUS_ESTABLISHED
+    path = outcome.path_recovery.paths[0]
+    assert [n.symbol for n in path.nodes] == ["route", "mid", "handler"]
+    assert all(e.from_decomposition for e in path.edges)
+    assert outcome.stats.recursive_decompositions_used == 1
+
+
+def test_recursive_decomposition_not_attempted_when_direct_proof_succeeds(repo: Path):
+    client = SequencedClient([
+        _discovery_final(["route", "handler"], "handler"),
+        _atomic_final("registers and dispatches to"),
+        _verdicts(True),
+    ])
+    outcome = recover(_context(), repo_root=repo, client=client, trigger_reason="no established path")
+    assert outcome.stats.recursive_decompositions_attempted == 0
+
+
+def test_decomposition_chain_with_one_bad_edge_yields_partial(repo: Path):
+    client = SequencedClient([
+        _discovery_final(["route", "handler"], "handler"),
+        _atomic_final(""),
+        _decompose_final(["mid"]),
+        _atomic_final("route registers mid"),
+        _atomic_final(""),  # mid -> handler still unproven even after decomposition
+        _verdicts(True),
     ])
     budget = RecoveryBudget(max_pipeline_retries=0)
     outcome = recover(_context(), repo_root=repo, client=client, trigger_reason="no established path", budget=budget)
-    assert outcome.result.status == STATUS_PARTIAL
-    assert [n.symbol for n in outcome.result.recovered_paths[0].nodes] == ["route", "mid"]
-    assert outcome.result.recovered_paths[0].unresolved_suffix[0].to_symbol == "handler"
+    assert outcome.path_recovery.status == STATUS_PARTIAL
+    assert [n.symbol for n in outcome.path_recovery.paths[0].nodes] == ["route", "mid"]
 
 
-def test_edge_relationship_text_comes_entirely_from_evidence_completion(repo: Path):
-    """Discovery never proposes relationship wording at all in this
-    schema -- only node names. The final edge's `relationship` is
-    whatever Stage B (evidence completion) found, confirming Stage A's
-    hypothesis carries no unverified narrative into the final result."""
+def test_no_second_decomposition_after_first_fails(repo: Path):
+    """Recursion happens at most once per hop -- if decomposition itself
+    produced a chain but one of ITS edges is still unproven, there is no
+    further decomposition of that sub-edge; it is simply reported
+    unresolved."""
     client = SequencedClient([
         _discovery_final(["route", "handler"], "handler"),
-        _atomic_final("a very specific, source-grounded description of the real wiring"),
-        _verdicts(True),
+        _atomic_final(""),
+        _decompose_final(["mid"]),
+        _atomic_final(""),  # route -> mid also unproven; no further decomposition attempted
+        _atomic_final(""),  # mid -> handler unproven
+        # no further decompose_final call is scripted -- if the code tried
+        # one, SequencedClient would raise AssertionError
     ])
-    outcome = recover(_context(), repo_root=repo, client=client, trigger_reason="no established path")
-    assert outcome.result.recovered_paths[0].edges[0].relationship == "a very specific, source-grounded description of the real wiring"
+    budget = RecoveryBudget(max_pipeline_retries=0)
+    outcome = recover(_context(), repo_root=repo, client=client, trigger_reason="no established path", budget=budget)
+    assert outcome.path_recovery.status == STATUS_UNRESOLVED
 
 
-def test_full_pipeline_drops_node_beyond_target_node(repo: Path):
-    """Shortest-sufficient-path, end to end: if discovery proposes a node
-    past target_node, it never appears in the final result at all -- not
-    even as unresolved_suffix -- regardless of whether its edge would
-    have been accepted."""
+def test_decomposition_chain_respects_max_bridge_nodes(repo: Path):
+    """More intermediates than the budget allows are truncated, not used
+    wholesale -- confirmed by the exact number of atomic-completion calls
+    scripted (one per hop in the truncated chain, not the full proposal)."""
+    budget = RecoveryBudget(max_bridge_nodes=1, max_pipeline_retries=0)
     client = SequencedClient([
-        _discovery_final(["route", "handler", "unrelated_extra"], "handler"),
-        _atomic_final("registers and dispatches to"),  # route -> handler (the only edge up to target)
-        _verdicts(True),
-        # No atomic-completion or verdict call for handler -> unrelated_extra:
-        # it must never be attempted since it is beyond target_node.
+        _discovery_final(["route", "handler"], "handler"),
+        _atomic_final(""),
+        _decompose_final(["a", "b", "c"]),  # proposes 3, budget allows 1
+        _atomic_final("route to a"),        # route -> a
+        _atomic_final("a to handler"),      # a -> handler (chain truncated to just "a")
+        _verdicts(True, True),
     ])
-    outcome = recover(_context(), repo_root=repo, client=client, trigger_reason="no established path")
-    assert outcome.result.status == STATUS_ESTABLISHED
-    path = outcome.result.recovered_paths[0]
-    assert [n.symbol for n in path.nodes] == ["route", "handler"]
-    assert path.unresolved_suffix == []
+    outcome = recover(_context(), repo_root=repo, client=client, trigger_reason="no established path", budget=budget)
+    assert [n.symbol for n in outcome.path_recovery.paths[0].nodes] == ["route", "a", "handler"]

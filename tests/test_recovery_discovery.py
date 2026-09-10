@@ -49,13 +49,14 @@ def _tools(repo: Path):
 def test_discover_candidate_returns_path_and_tests(repo: Path):
     client = SequencedClient([
         {"final": {
-            "candidate_path": {"entrypoint": "GET /x", "target_node": "b", "nodes": ["a", "b"]},
+            "candidate_path": {"entrypoint": "GET /x", "target_node": "b", "nodes": [{"symbol": "a"}, {"symbol": "b", "file": "handler.ts"}]},
             "candidate_tests": [{"file": "x.spec.ts", "test": "t", "covers": "c"}],
         }}
     ])
     stats = RecoveryRunStats()
     path, tests = discover_candidate(_context(), tools=_tools(repo), client=client, max_turns=3, max_response_chars=4000, stats=stats)
-    assert path.nodes == ["a", "b"]
+    assert [n.symbol for n in path.nodes] == ["a", "b"]
+    assert path.nodes[1].file == "handler.ts"
     assert len(tests) == 1
     assert stats.llm_calls == 1
 
@@ -81,7 +82,7 @@ def test_discover_candidate_degenerate_single_node_path_degrades_to_none_not_err
     must degrade gracefully to 'no candidate proposed', not crash the
     whole recovery attempt before Stage B or the retry budget ever runs."""
     client = SequencedClient([
-        {"final": {"candidate_path": {"entrypoint": "x", "target_node": "a", "nodes": ["a"]}, "candidate_tests": []}}
+        {"final": {"candidate_path": {"entrypoint": "x", "target_node": "a", "nodes": [{"symbol": "a"}]}, "candidate_tests": []}}
     ])
     stats = RecoveryRunStats()
     path, tests = discover_candidate(_context(), tools=_tools(repo), client=client, max_turns=3, max_response_chars=4000, stats=stats)

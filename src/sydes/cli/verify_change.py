@@ -214,9 +214,9 @@ def _run_ai_recovery(
         typer.echo(f"AI recovery (experimental): failed, first-pass result left unchanged: {exc}")
         return
 
-    result.notes.append(summarize_for_notes(outcome.result))
+    result.notes.append(summarize_for_notes(outcome.path_recovery, outcome.test_recovery))
     typer.echo(
-        f"AI recovery (experimental): status={outcome.result.status} "
+        f"AI recovery (experimental): path={outcome.path_recovery.status} test={outcome.test_recovery.status} "
         f"turns={outcome.stats.turns} llm_calls={outcome.stats.llm_calls} "
         f"tokens={outcome.stats.prompt_tokens}+{outcome.stats.completion_tokens}"
     )
@@ -225,7 +225,8 @@ def _run_ai_recovery(
         try:
             target = resolve_output_file_path(json_output, default_filename="change_verification.json")
             recovery_target = target.with_name(target.stem + ".ai_recovery.json")
-            write_output_text(recovery_target, json.dumps(build_recovery_view(outcome.result), indent=2))
+            payload = build_recovery_view(outcome.path_recovery, outcome.test_recovery)
+            write_output_text(recovery_target, json.dumps(payload, indent=2))
             typer.echo(f"Wrote AI recovery result: {recovery_target}")
         except (OSError, ValueError) as exc:
             typer.echo(f"AI recovery (experimental): could not write recovery artifact: {exc}")

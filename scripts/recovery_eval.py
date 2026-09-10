@@ -74,18 +74,26 @@ def main() -> int:
         return 1
     wall_ms = (time.perf_counter() - started) * 1000.0
 
-    print(f"\nstatus: {outcome.result.status}")
+    print(f"\npath status: {outcome.path_recovery.status}  test status: {outcome.test_recovery.status}")
     print(f"turns: {outcome.stats.turns}  llm_calls: {outcome.stats.llm_calls}  pipeline_retries: {outcome.stats.pipeline_retries}")
+    print(
+        f"recursive decompositions: attempted={outcome.stats.recursive_decompositions_attempted} "
+        f"used={outcome.stats.recursive_decompositions_used}"
+    )
     print(f"tokens: prompt={outcome.stats.prompt_tokens} completion={outcome.stats.completion_tokens}")
     print(f"latency (LLM time): {outcome.stats.latency_ms:.0f}ms  wall time: {wall_ms:.0f}ms")
     print(f"files read: {outcome.stats.files_read}")
     print(f"tool calls: {[(c.tool, c.args) for c in outcome.stats.tool_calls]}")
 
+    def _entity_str(entity) -> str:
+        return f"{entity.symbol}@{entity.file}" if entity.file else f"{entity.symbol}@?"
+
     print("\nrecovered paths:")
-    for path in outcome.result.recovered_paths:
+    for path in outcome.path_recovery.paths:
         print(f"  [{path.status}] {path.entrypoint}  (target_node={path.target_node})")
         for edge in path.edges:
-            print(f"    EDGE [{edge.status}/{edge.provenance}] {edge.from_symbol} -> {edge.to_symbol}")
+            tag = " [decomposed hop]" if edge.from_decomposition else ""
+            print(f"    EDGE [{edge.status}/{edge.provenance}]{tag} {_entity_str(edge.from_entity)} -> {_entity_str(edge.to_entity)}")
             print(f"      relationship: {edge.relationship}")
             for ev in edge.evidence:
                 print(f"      evidence: {ev.file}:{ev.line_start}-{ev.line_end} -- {ev.fact}")
@@ -94,33 +102,35 @@ def main() -> int:
         if path.unresolved_suffix:
             print("    unresolved_suffix (needed but not proven):")
             for edge in path.unresolved_suffix:
-                print(f"      {edge.from_symbol} -> {edge.to_symbol}: {edge.rejection_reason}")
+                print(f"      {_entity_str(edge.from_entity)} -> {_entity_str(edge.to_entity)}: {edge.rejection_reason}")
+
+    print("\ncorrected first-pass claims:")
+    for c in outcome.path_recovery.corrected_first_pass_claims:
+        print(f"  {c.claim}: {c.original!r} -> {c.corrected!r}")
+
+    print("\nunresolved:")
+    for u in outcome.path_recovery.unresolved:
+        print(f"  {u.question} (missing: {u.missing_evidence})")
 
     print("\nrecovered tests:")
-    for t in outcome.result.recovered_tests:
-        print(f"  [{t.status}] {t.file} :: {t.test} -- covers: {t.covers}")
+    for t in outcome.test_recovery.tests:
+        print(f"  [{t.status}] {t.file} :: {t.test} -- covers: {t.covers}  (target={_entity_str(t.target)})")
         for ev in t.evidence:
             print(f"      evidence: {ev.file}:{ev.line_start}-{ev.line_end} -- {ev.fact}")
         if t.rejection_reason:
             print(f"      verifier: {t.rejection_reason}")
 
-    print("\ncorrected first-pass claims:")
-    for c in outcome.result.corrected_first_pass_claims:
-        print(f"  {c.claim}: {c.original!r} -> {c.corrected!r}")
-
-    print("\nunresolved:")
-    for u in outcome.result.unresolved:
-        print(f"  {u.question} (missing: {u.missing_evidence})")
-
     if args.out:
         payload = {
             "case_name": case_name,
             "trigger": {"gap_kinds": list(trigger.gap_kinds), "reason": trigger.reason},
-            "recovery": build_recovery_view(outcome.result),
+            "recovery": build_recovery_view(outcome.path_recovery, outcome.test_recovery),
             "stats": {
                 "turns": outcome.stats.turns,
                 "llm_calls": outcome.stats.llm_calls,
                 "pipeline_retries": outcome.stats.pipeline_retries,
+                "recursive_decompositions_attempted": outcome.stats.recursive_decompositions_attempted,
+                "recursive_decompositions_used": outcome.stats.recursive_decompositions_used,
                 "prompt_tokens": outcome.stats.prompt_tokens,
                 "completion_tokens": outcome.stats.completion_tokens,
                 "latency_ms": outcome.stats.latency_ms,

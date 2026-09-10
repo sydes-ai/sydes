@@ -30,7 +30,8 @@ Your objective:
 - Propose the SHORTEST plausible chain of symbol names connecting a reachable, externally meaningful entrypoint (an HTTP route, an RPC/GraphQL operation, a scheduled/queued job, a CLI command, or any other externally triggerable entrypoint) to the changed behavior. Do not pad it with interfaces, abstract wrappers, aliases, helper layers, or extra nodes beyond what plausibly connects the two — a later step will only ever shorten your proposal further, never lengthen it, so propose the shortest chain you find plausible.
 - Search the repository broadly if needed. Do not stop merely because a direct static caller is absent — runtime indirection, registration, decorators, dependency injection, dispatch, callbacks, configuration, events, queues, factories, middleware, reflection, or other repository-local wiring may connect the path. These are examples of the KINDS of things that might connect a path, not a checklist to apply mechanically — read what is actually in this repository.
 - Also propose candidate tests that plausibly DIRECTLY exercise the changed behavior (construct or call the changed code, or exercise the entrypoint that reaches it) — not merely a test file that happens to be part of this diff, imports the same module, or shares a similar name. A later step independently checks each candidate.
-- You do not need to cite line-level evidence here — a separate step proves each hop. Just name the symbols and, if you know it, the file each roughly lives in (helpful but not required).
+- You do not need to cite line-level evidence here — a separate step proves each hop. But identity matters even at this stage: whenever you know or can quickly tell which file a symbol is declared in, name it — an entity with no file is more likely to get confused with a same-named symbol declared somewhere else in the repository during the proving step. A repository can legitimately contain more than one symbol with the same short name in different files/modules; naming the file whenever you can is how a later step avoids picking the wrong one.
+- The node whose symbol you name as `target_node` MUST be the entity whose file matches one of the `changed_files` you were given below — that is the actual changed behavior from this diff, not a same-named or similar-looking symbol elsewhere. If you cannot confirm this, say so honestly rather than guessing.
 - If, after actively looking, you find no plausible entrypoint-to-changed-behavior chain at all, propose no `candidate_path` (omit it or use `null`) rather than inventing a weak one — a separate step cannot prove a hypothesis that was never real to begin with.
 - `nodes[0]` must be something an external caller genuinely triggers from OUTSIDE this process — a network request arriving at a route, a message arriving on a queue from elsewhere, a scheduler firing, a CLI invocation, or similar. An in-process object your own code constructs and passes around internally (a plain data/command/query/event object, a DTO, a local callback) is NOT by itself a valid `nodes[0]`, no matter how directly it connects to the changed behavior — it is a hop INSIDE the path, never the entrypoint. Picking an internal object as `nodes[0]` to shorten the chain is exactly the kind of shortcut this schema exists to prevent; if you cannot identify what actually triggers the chain from outside the process, that is itself a sign you have not found a real path yet — keep looking, or propose none.
 
@@ -41,14 +42,18 @@ When you are done investigating (or you have used your available turns), respond
   "candidate_path": {{
     "entrypoint": "e.g. GET /users or a queue/job name",
     "target_node": "the exact symbol (must also appear in nodes below) that IS the changed behavior",
-    "nodes": ["entrypoint symbol/route", "...", "the changed behavior symbol"]
+    "nodes": [
+      {{"symbol": "entrypoint symbol/route", "file": "file if known, else omit or empty string", "qualified_name": "optional"}},
+      {{"symbol": "...", "file": "..."}},
+      {{"symbol": "the changed behavior symbol", "file": "the actual changed file from changed_files"}}
+    ]
   }},
   "candidate_tests": [
-    {{"file": "...", "test": "test name/identifier", "covers": "short statement of what behavior it exercises"}}
+    {{"file": "...", "test": "test name/identifier", "covers": "short statement of what behavior it exercises", "target": {{"symbol": "the changed symbol this test covers", "file": "its actual file"}}}}
   ]
 }}}}
 
-`candidate_path` may be `null` if you found no plausible chain. `nodes` needs at least 2 entries (an entrypoint and something distinct from it); `target_node` must be one of `nodes` and must not be `nodes[0]`.
+`candidate_path` may be `null` if you found no plausible chain. `nodes` needs at least 2 entries (an entrypoint and something distinct from it); `target_node` must be one of `nodes`' symbols and must not be `nodes[0]`'s symbol.
 
 Respond with exactly one JSON object per turn: either a tool call or your final answer. Nothing else — no prose outside the JSON."""
 
@@ -63,6 +68,9 @@ def _build_initial_prompt(context: RecoveryContext) -> str:
         "",
         "changed_symbols:",
         *([f"  - {s}" for s in context.changed_symbols] if context.changed_symbols else ["  (none listed)"]),
+        "",
+        "changed_files (the ONLY files that actually changed in this diff -- target_node's file must be one of these):",
+        *([f"  - {f}" for f in context.changed_files] if context.changed_files else ["  (none recorded)"]),
         "",
         f"current_result_summary: {context.current_result_summary}",
         "",

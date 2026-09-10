@@ -31,6 +31,14 @@ class RecoveryContext:
     known_entrypoints: tuple[str, ...]
     test_candidates: tuple[str, ...]
     unresolved_gaps: tuple[str, ...]
+    #: The exact repo-relative file paths this diff actually changed, taken
+    #: directly from `ChangeVerificationResult.change.symbols`/`.files` —
+    #: never a guess. This is the ground truth
+    #: `sydes.recovery.verify`'s identity layer checks a path's
+    #: `target_node` against: an entity whose resolved file is not in this
+    #: set cannot be the actually-changed behavior, no matter how
+    #: plausible its name looks.
+    changed_files: tuple[str, ...] = ()
 
 
 def _diff_summary(result: ChangeVerificationResult) -> str:
@@ -96,6 +104,17 @@ def _known_entrypoints(result: ChangeVerificationResult) -> tuple[str, ...]:
     return tuple(sorted(out))
 
 
+def _changed_files(result: ChangeVerificationResult) -> tuple[str, ...]:
+    out: set[str] = set()
+    for symbol in result.change.symbols:
+        if symbol.file:
+            out.add(symbol.file)
+    for f in result.change.files:
+        if f.path and f.role != "test_usage_candidate":
+            out.add(f.path)
+    return tuple(sorted(out))
+
+
 def build_context(result: ChangeVerificationResult, trigger: RecoveryTrigger) -> RecoveryContext:
     return RecoveryContext(
         reason_first_pass_stopped=trigger.reason,
@@ -107,4 +126,5 @@ def build_context(result: ChangeVerificationResult, trigger: RecoveryTrigger) ->
         known_entrypoints=_known_entrypoints(result),
         test_candidates=trigger.extra_test_candidate_files,
         unresolved_gaps=tuple(result.analysis_notes),
+        changed_files=_changed_files(result),
     )

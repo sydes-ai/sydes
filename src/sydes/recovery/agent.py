@@ -1,5 +1,7 @@
 """Orchestrates the recovery pipeline: discover a candidate, prove each
-atomic relationship independently, verify, compose.
+atomic relationship independently (recursing into intermediate entities
+when a direct proof fails), verify, compose -- path recovery and test
+recovery as two fully independent outcomes.
 
 CBM is a helper here, not the authority: the pipeline starts from the first
 pass's own hypothesis (the CBM/structural fragments in `RecoveryContext`)
@@ -12,19 +14,23 @@ Four stages, each independently testable:
      hypothesis only, no evidence-citation responsibility.
   B. `sydes.recovery.evidence` proves (or fails to prove) each adjacent
      pair in the candidate path, and each candidate test, ONE AT A TIME —
-     never the whole path in one call.
-  C. `sydes.recovery.verify` (unchanged) independently, adversarially
-     judges each atomic claim's evidence.
+     never the whole path in one call. When a direct proof finds nothing,
+     exactly one recursive decomposition attempt asks for a small,
+     source-backed chain of intermediate entities, and each resulting hop
+     is then proven directly (no further recursion).
+  C. `sydes.recovery.verify` independently, adversarially judges each
+     atomic claim's evidence AND canonical identity — path and test
+     verification never share state or outcome.
   D. This module composes the verified atomic facts into a final
-     `RecoveryResult` via the same shortest-sufficient-path truncation
-     `sydes.recovery.verify` already implements.
+     `RecoveryResult` (`path_recovery` + `test_recovery`, each
+     independently `established`/`partial`/`unresolved`) via the
+     shortest-sufficient-path truncation `sydes.recovery.verify` already
+     implements. The full internal proof chain (including any nodes a
+     recursive decomposition inserted) is retained; nothing is collapsed
+     before or during verification.
 
-Splitting discovery from evidence completion is the fix for a real,
-observed weakness: one agent asked to range broadly over a whole
-repository AND perfectly cite evidence for every hop in the same pass
-tended to cite the nearest plausible-looking lines rather than the ones
-that actually prove a given hop. A focused, single-relationship prover has
-one job and nothing else competing for its attention.
+A failure to establish or even to complete path recovery must never
+discard test recovery, and vice versa — see `recover`.
 """
 
 from __future__ import annotations
@@ -35,17 +41,21 @@ from pathlib import Path
 from sydes.llm.client import LLMClient
 from sydes.recovery.context import RecoveryContext
 from sydes.recovery.discovery import discover_candidate
-from sydes.recovery.evidence import prove_relationship, prove_test_claim
+from sydes.recovery.evidence import decompose_relationship, prove_relationship, prove_test_claim
 from sydes.recovery.schema import (
-    RecoveredNode,
+    EntityRef,
+    MAX_BRIDGE_NODES,
+    PathRecoveryResult,
+    RecoveredEdge,
     RecoveredPath,
-    RecoveryResult,
     STATUS_ESTABLISHED,
     STATUS_PARTIAL,
     STATUS_UNRESOLVED,
+    TestRecoveryResult,
+    recompute_test_status,
 )
 from sydes.recovery.tools import RepoTools, ToolCallRecord
-from sydes.recovery.verify import verify_recovery_result
+from sydes.recovery.verify import verify_paths, verify_tests
 
 
 @dataclass(frozen=True)
@@ -54,16 +64,22 @@ class RecoveryBudget:
     policy.
 
     `max_discovery_turns` bounds Stage A's tool-call turns. `max_edge_turns`
-    bounds EACH Stage B atomic-proof call (deliberately smaller than
-    discovery's budget — a focused single-relationship search needs fewer
-    turns than ranging over the whole repository). `max_pipeline_retries`
-    bounds how many times the WHOLE pipeline (fresh discovery + fresh
-    evidence completion) may be retried after a non-established outcome —
-    see `recover`.
+    bounds EACH Stage B atomic-proof/decompose call (deliberately smaller
+    than discovery's budget — a focused single-relationship search needs
+    fewer turns than ranging over the whole repository).
+    `max_bridge_nodes` caps how many intermediate entities one recursive
+    decomposition may insert. `max_pipeline_retries` bounds how many times
+    the WHOLE pipeline (fresh discovery + fresh evidence completion) may be
+    retried after a non-established outcome — see `recover`. Recursive
+    decomposition itself is capped at exactly one attempt per originally-
+    unproven relationship, enforced in `_prove_hop_with_recursion` (not
+    configurable — "one attempt" is a correctness property, not a tuning
+    knob).
     """
 
     max_discovery_turns: int = 6
     max_edge_turns: int = 4
+    max_bridge_nodes: int = MAX_BRIDGE_NODES
     max_pipeline_retries: int = 1
     max_response_chars: int = 4000
 
@@ -71,9 +87,10 @@ class RecoveryBudget:
 @dataclass
 class RecoveryRunStats:
     """Cost/latency/tool-usage accounting for one `recover()` call,
-    accumulated across every stage (discovery + every atomic proof +
-    verification) — the evaluation harness's primary output alongside the
-    `RecoveryResult` itself."""
+    accumulated across every stage (discovery + every atomic proof,
+    including any recursive decomposition + verification) — the
+    evaluation harness's primary output alongside the `RecoveryResult`
+    itself."""
 
     turns: int = 0
     tool_calls: list[ToolCallRecord] = field(default_factory=list)
@@ -84,15 +101,19 @@ class RecoveryRunStats:
     verify_retries: int = 0
     pipeline_retries: int = 0
     files_read: list[str] = field(default_factory=list)
+    recursive_decompositions_attempted: int = 0
+    recursive_decompositions_used: int = 0
 
 
 @dataclass
 class RecoveryOutcome:
-    """What `recover()` returns: the (possibly verify-downgraded) result,
-    plus the stats needed to judge whether this prototype is worth
-    integrating."""
+    """What `recover()` returns: path recovery and test recovery as two
+    fully independent results, plus the stats needed to judge whether this
+    prototype is worth integrating. Neither result's status or content
+    depends on the other's."""
 
-    result: RecoveryResult
+    path_recovery: PathRecoveryResult
+    test_recovery: TestRecoveryResult
     stats: RecoveryRunStats
     trigger_reason: str
 
@@ -101,11 +122,53 @@ def _status_rank(status: str) -> int:
     return {STATUS_ESTABLISHED: 2, STATUS_PARTIAL: 1, STATUS_UNRESOLVED: 0}.get(status, 0)
 
 
+def _prove_hop_with_recursion(
+    from_entity: EntityRef, to_entity: EntityRef, path_context: str, *, tools: RepoTools, client: LLMClient,
+    budget: RecoveryBudget, stats: RecoveryRunStats,
+) -> list[RecoveredEdge]:
+    """One candidate-path hop, possibly expanded into several proven
+    sub-edges. Recursion happens at most once: if the direct
+    `prove_relationship(from_entity, to_entity, ...)` finds no evidence at
+    all, one `decompose_relationship` call is tried; each hop in whatever
+    chain it returns is then proven directly (never decomposed further).
+    If decomposition finds nothing (or is itself unproductive), the
+    original, unresolved direct edge is returned as-is — never fabricated,
+    never silently dropped.
+    """
+    direct = prove_relationship(
+        from_entity, to_entity, path_context, tools=tools, client=client,
+        max_turns=budget.max_edge_turns, max_response_chars=budget.max_response_chars, stats=stats,
+    )
+    if direct.evidence:
+        return [direct]
+
+    stats.recursive_decompositions_attempted += 1
+    intermediates = decompose_relationship(
+        from_entity, to_entity, path_context, tools=tools, client=client,
+        max_turns=budget.max_edge_turns, max_response_chars=budget.max_response_chars, stats=stats,
+    )
+    intermediates = intermediates[: budget.max_bridge_nodes]
+    if not intermediates:
+        return [direct]
+
+    stats.recursive_decompositions_used += 1
+    chain = [from_entity, *intermediates, to_entity]
+    edges: list[RecoveredEdge] = []
+    for a, b in zip(chain, chain[1:]):
+        edge = prove_relationship(
+            a, b, f"{path_context} (intermediate hop found via recursive decomposition)",
+            tools=tools, client=client,
+            max_turns=budget.max_edge_turns, max_response_chars=budget.max_response_chars, stats=stats,
+        )
+        edges.append(edge.model_copy(update={"from_decomposition": True}))
+    return edges
+
+
 def _run_pipeline_once(
     context: RecoveryContext, *, tools: RepoTools, client: LLMClient, budget: RecoveryBudget, stats: RecoveryRunStats,
-) -> RecoveryResult:
-    """Stages A + B + (draft assembly). Stage C (verification) is applied
-    once by the caller across everything this produces."""
+) -> tuple[list[RecoveredPath], list]:
+    """Stages A + B (draft assembly). Stage C (verification) is applied
+    once by the caller, separately for paths and for tests."""
     candidate_path, candidate_tests = discover_candidate(
         context, tools=tools, client=client,
         max_turns=budget.max_discovery_turns, max_response_chars=budget.max_response_chars, stats=stats,
@@ -115,52 +178,41 @@ def _run_pipeline_once(
     if candidate_path is not None:
         # Shortest-sufficient-path applied at evidence-completion time, not
         # only at final composition: nothing past target_node is proven at
-        # all (`sydes.recovery.verify` would drop it anyway), so there is
-        # no reason to spend an atomic-completion call on it.
-        target_index = candidate_path.nodes.index(candidate_path.target_node)
+        # all (verify would drop it anyway), so there is no reason to
+        # spend an atomic-completion call on it.
+        target_index = next(i for i, n in enumerate(candidate_path.nodes) if n.symbol == candidate_path.target_node)
         relevant_nodes = candidate_path.nodes[: target_index + 1]
 
-        edges = []
-        for from_symbol, to_symbol in zip(relevant_nodes, relevant_nodes[1:]):
-            edge = prove_relationship(
-                from_symbol, to_symbol,
-                f"hop in candidate path from entrypoint {candidate_path.entrypoint!r} to changed behavior {candidate_path.target_node!r}",
-                tools=tools, client=client,
-                max_turns=budget.max_edge_turns, max_response_chars=budget.max_response_chars, stats=stats,
+        expanded_nodes: list[EntityRef] = [relevant_nodes[0]]
+        all_edges: list[RecoveredEdge] = []
+        path_ctx = f"hop in candidate path from entrypoint {candidate_path.entrypoint!r} to changed behavior {candidate_path.target_node!r}"
+        for from_entity, to_entity in zip(relevant_nodes, relevant_nodes[1:]):
+            hop_edges = _prove_hop_with_recursion(
+                from_entity, to_entity, path_ctx, tools=tools, client=client, budget=budget, stats=stats,
             )
-            edges.append(edge)
-        nodes = [
-            RecoveredNode(symbol=symbol, file=_file_for_node(symbol, edges))
-            for symbol in relevant_nodes
-        ]
+            for edge in hop_edges:
+                expanded_nodes.append(edge.to_entity)
+                all_edges.append(edge)
+
         draft_paths.append(
             RecoveredPath(
                 entrypoint=candidate_path.entrypoint, target_node=candidate_path.target_node,
-                nodes=nodes, edges=edges,
+                nodes=expanded_nodes, edges=all_edges,
             )
         )
 
     draft_tests = [
         prove_test_claim(
-            candidate, "candidate test proposed during discovery for this change's missing test mapping",
+            candidate,
+            candidate.target or EntityRef(symbol=candidate.test, file=""),
+            "candidate test proposed during discovery for this change's missing test mapping",
             tools=tools, client=client, max_turns=budget.max_edge_turns,
             max_response_chars=budget.max_response_chars, stats=stats,
         )
         for candidate in candidate_tests
     ]
 
-    return RecoveryResult(status=STATUS_UNRESOLVED, recovered_paths=draft_paths, recovered_tests=draft_tests)
-
-
-def _file_for_node(symbol: str, edges: list) -> str:
-    """Best-effort display file for a node — cosmetic only; correctness
-    lives entirely in the edges' own evidence, never in this guess."""
-    for edge in edges:
-        if edge.from_symbol == symbol or edge.to_symbol == symbol:
-            for item in edge.evidence:
-                if item.file:
-                    return item.file
-    return ""
+    return draft_paths, draft_tests
 
 
 def recover(
@@ -171,9 +223,15 @@ def recover(
     trigger_reason: str,
     budget: RecoveryBudget | None = None,
 ) -> RecoveryOutcome:
-    """Run the full discover -> prove -> verify -> compose pipeline, with
-    at most one full-pipeline retry if the first attempt does not reach
-    `established`. Never more than that.
+    """Run the full discover -> prove (with recursion) -> verify -> compose
+    pipeline, with at most one full-pipeline retry if PATH recovery does
+    not reach `established`. Test recovery has no separate retry of its
+    own in this pass — it already reaches the correct answer reliably
+    without one; see the module docstring.
+
+    Path recovery and test recovery are verified completely independently
+    (`verify_paths`/`verify_tests`) and neither result depends on or is
+    discarded by the other's outcome.
 
     Never raises on a clean failure path: the CLI's opt-in `--ai-recovery`
     hook is responsible for catching `sydes.recovery.schema.RecoveryError`
@@ -185,19 +243,34 @@ def recover(
     active_budget = budget or RecoveryBudget()
     tools = RepoTools(repo_root)
     stats = RecoveryRunStats()
+    changed_files = frozenset(result_context.changed_files)
 
-    draft = _run_pipeline_once(result_context, tools=tools, client=client, budget=active_budget, stats=stats)
-    verified = verify_recovery_result(draft, tools=tools, client=client, stats=stats)
+    draft_paths, draft_tests = _run_pipeline_once(result_context, tools=tools, client=client, budget=active_budget, stats=stats)
+    path_recovery = verify_paths(draft_paths, changed_files=changed_files, tools=tools, client=client, stats=stats)
+    test_recovery = verify_tests(draft_tests, changed_files=changed_files, tools=tools, client=client, stats=stats)
 
     while (
-        verified.status != STATUS_ESTABLISHED
+        path_recovery.status != STATUS_ESTABLISHED
         and stats.pipeline_retries < active_budget.max_pipeline_retries
     ):
         stats.pipeline_retries += 1
-        retry_draft = _run_pipeline_once(result_context, tools=tools, client=client, budget=active_budget, stats=stats)
-        retry_verified = verify_recovery_result(retry_draft, tools=tools, client=client, stats=stats)
-        if _status_rank(retry_verified.status) > _status_rank(verified.status):
-            verified = retry_verified
+        retry_paths, retry_tests = _run_pipeline_once(
+            result_context, tools=tools, client=client, budget=active_budget, stats=stats,
+        )
+        retry_path_recovery = verify_paths(retry_paths, changed_files=changed_files, tools=tools, client=client, stats=stats)
+        if _status_rank(retry_path_recovery.status) > _status_rank(path_recovery.status):
+            path_recovery = retry_path_recovery
+        # A retry's tests are additive evidence for the SAME independent
+        # test-recovery outcome, never a replacement -- a path retry must
+        # not discard tests already established on the first attempt.
+        if retry_tests:
+            retry_test_recovery = verify_tests(retry_tests, changed_files=changed_files, tools=tools, client=client, stats=stats)
+            existing_keys = {(t.file, t.test) for t in test_recovery.tests}
+            new_tests = [t for t in retry_test_recovery.tests if (t.file, t.test) not in existing_keys]
+            if new_tests:
+                test_recovery = recompute_test_status(
+                    TestRecoveryResult(tests=test_recovery.tests + new_tests)
+                )
 
     stats.tool_calls = list(tools.calls)
-    return RecoveryOutcome(result=verified, stats=stats, trigger_reason=trigger_reason)
+    return RecoveryOutcome(path_recovery=path_recovery, test_recovery=test_recovery, stats=stats, trigger_reason=trigger_reason)
