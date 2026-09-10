@@ -1,0 +1,200 @@
+{
+  "model": "openai:gpt-4.1-mini",
+  "cases": [
+    {
+      "name": "pr1_dev_model_false",
+      "candidate": "GET /dev/model -> generate_audio_stream",
+      "oracle": "false",
+      "decision": "suppress",
+      "reason": "The GET /dev/model endpoint is implemented by model_status in api/src/routers/development.py, which only calls tts_service.model_manager.status() and does not call or reach generate_audio_stream in api/src/services/tts_service.py. There is no call chain or wiring from model_status to generate_audio_stream.",
+      "evidence_files": [
+        "api/src/routers/development.py",
+        "api/src/services/tts_service.py"
+      ],
+      "false_suppression": false,
+      "false_retention": false,
+      "correctly_promoted": false,
+      "correctly_suppressed": true,
+      "turns": 7,
+      "llm_calls": 7,
+      "prompt_tokens": 11299,
+      "completion_tokens": 302,
+      "latency_ms": 8946.709625190124,
+      "wall_ms": 8968.588375020772
+    },
+    {
+      "name": "pr1_generate_from_phonemes_false",
+      "candidate": "POST /dev/generate_from_phonemes -> generate_audio_stream",
+      "oracle": "false",
+      "decision": "suppress",
+      "reason": "The entrypoint POST /dev/generate_from_phonemes corresponds to the method generate_from_phonemes in tts_service.py, which does not call or otherwise reach generate_audio_stream. The phoneme generation uses a different backend pipeline method generate_from_tokens and does not invoke generate_audio_stream anywhere in its code or call chain.",
+      "evidence_files": [
+        "api/src/services/tts_service.py"
+      ],
+      "false_suppression": false,
+      "false_retention": false,
+      "correctly_promoted": false,
+      "correctly_suppressed": true,
+      "turns": 7,
+      "llm_calls": 7,
+      "prompt_tokens": 11996,
+      "completion_tokens": 305,
+      "latency_ms": 6879.570999881253,
+      "wall_ms": 6886.5605420432985
+    },
+    {
+      "name": "pr1_dev_reload_false",
+      "candidate": "POST /dev/reload -> generate_audio_stream",
+      "oracle": "false",
+      "decision": "retain",
+      "reason": "The /dev/reload endpoint calls reload_model which calls tts_service.model_manager.reload(), but there is no direct or clearly traceable call or wiring from reload_model or model_manager.reload() to generate_audio_stream in the inspected code or changed files. The connection is not established by the available evidence.",
+      "evidence_files": [
+        "api/src/routers/development.py",
+        "api/src/services/tts_service.py"
+      ],
+      "false_suppression": false,
+      "false_retention": true,
+      "correctly_promoted": false,
+      "correctly_suppressed": false,
+      "turns": 7,
+      "llm_calls": 7,
+      "prompt_tokens": 12581,
+      "completion_tokens": 289,
+      "latency_ms": 6779.9945417791605,
+      "wall_ms": 6799.775041174144
+    },
+    {
+      "name": "pr1_dev_unload_false",
+      "candidate": "POST /dev/unload -> generate_audio_stream",
+      "oracle": "false",
+      "decision": "suppress",
+      "reason": "The /dev/unload endpoint calls unload_model in development.py which calls tts_service.model_manager.unload(), but there is no call or reference to generate_audio_stream in tts_service.py or related to unload_model. The changed file only affects tts_service.py where generate_audio_stream is defined, but unload_model does not reach it.",
+      "evidence_files": [
+        "api/src/routers/development.py",
+        "api/src/services/tts_service.py"
+      ],
+      "false_suppression": false,
+      "false_retention": false,
+      "correctly_promoted": false,
+      "correctly_suppressed": true,
+      "turns": 7,
+      "llm_calls": 7,
+      "prompt_tokens": 12373,
+      "completion_tokens": 304,
+      "latency_ms": 6166.888833511621,
+      "wall_ms": 6190.518499817699
+    },
+    {
+      "name": "pr1_within_duration_ceiling_legitimate",
+      "candidate": "POST /audio/speech -> _within_duration_ceiling",
+      "oracle": "legitimate",
+      "decision": "suppress",
+      "reason": "The entrypoint POST /audio/speech is handled by create_speech in api/src/routers/openai_compatible.py, which does not call or reference _within_duration_ceiling. The _within_duration_ceiling function is only used as an AfterValidator in the Duration type in api/src/structures/schemas.py, but the request type OpenAISpeechRequest used by the handler does not show any direct or indirect use of Duration or _within_duration_ceiling. No evidence connects the entrypoint to the target function.",
+      "evidence_files": [
+        "api/src/structures/schemas.py",
+        "api/src/routers/openai_compatible.py"
+      ],
+      "false_suppression": true,
+      "false_retention": false,
+      "correctly_promoted": false,
+      "correctly_suppressed": false,
+      "turns": 7,
+      "llm_calls": 7,
+      "prompt_tokens": 12587,
+      "completion_tokens": 346,
+      "latency_ms": 7100.113957654685,
+      "wall_ms": 7129.538333043456
+    },
+    {
+      "name": "pr2_convert_audio_false",
+      "candidate": "POST /audio/speech -> handle_url",
+      "oracle": "false",
+      "decision": "suppress",
+      "reason": "The POST /audio/speech endpoint is implemented in api/src/routers/openai_compatible.py and calls TTS-related services and streaming functions, but there is no evidence it calls AudioService.convert_audio or handle_url. The changed files are unrelated to this endpoint, and no call chain or wiring to handle_url was found.",
+      "evidence_files": [
+        "api/src/routers/openai_compatible.py"
+      ],
+      "false_suppression": false,
+      "false_retention": false,
+      "correctly_promoted": false,
+      "correctly_suppressed": true,
+      "turns": 7,
+      "llm_calls": 7,
+      "prompt_tokens": 13296,
+      "completion_tokens": 308,
+      "latency_ms": 7202.853293158114,
+      "wall_ms": 7224.977958016098
+    },
+    {
+      "name": "pr2_trim_audio_false",
+      "candidate": "POST /audio/speech -> handle_url",
+      "oracle": "false",
+      "decision": "retain",
+      "reason": "No evidence found that the POST /audio/speech entrypoint exists or calls AudioService.trim_audio or handle_url; no connection established in the code or by data types.",
+      "evidence_files": [
+        "api/src/services/audio.py"
+      ],
+      "false_suppression": false,
+      "false_retention": true,
+      "correctly_promoted": false,
+      "correctly_suppressed": false,
+      "turns": 7,
+      "llm_calls": 7,
+      "prompt_tokens": 11993,
+      "completion_tokens": 250,
+      "latency_ms": 5958.942584693432,
+      "wall_ms": 5988.850707886741
+    },
+    {
+      "name": "pr1_settings_legitimate_heldout",
+      "candidate": "POST /audio/speech -> Settings.max_output_duration_s",
+      "oracle": "legitimate",
+      "decision": "retain",
+      "reason": "The entrypoint POST /audio/speech is handled by create_speech in api/src/routers/openai_compatible.py, which processes an OpenAISpeechRequest and calls various functions, but the investigation did not find a direct or clearly indirect connection to Settings.max_output_duration_s. The changed files include api/src/core/config.py where Settings is defined, but no evidence was found that create_speech or its request/response types access or use Settings.max_output_duration_s. Without further evidence of wiring or usage, the connection cannot be confirmed or denied.",
+      "evidence_files": [
+        "api/src/routers/openai_compatible.py"
+      ],
+      "false_suppression": false,
+      "false_retention": false,
+      "correctly_promoted": false,
+      "correctly_suppressed": false,
+      "turns": 7,
+      "llm_calls": 7,
+      "prompt_tokens": 17275,
+      "completion_tokens": 348,
+      "latency_ms": 8152.566043194383,
+      "wall_ms": 13083.215791964903
+    },
+    {
+      "name": "pr1_settings_wrong_entrypoint_false_heldout",
+      "candidate": "POST /dev/generate_from_phonemes -> Settings.max_output_duration_s",
+      "oracle": "false",
+      "decision": "retain",
+      "reason": "The entrypoint POST /dev/generate_from_phonemes calls tts_service.generate_from_phonemes but there is no direct or indirect evidence that it reads or uses Settings.max_output_duration_s. The changed files define and mention max_output_duration_s but no connection to the entrypoint was found in the code examined.",
+      "evidence_files": [
+        "api/src/routers/development.py",
+        "api/src/core/config.py"
+      ],
+      "false_suppression": false,
+      "false_retention": true,
+      "correctly_promoted": false,
+      "correctly_suppressed": false,
+      "turns": 7,
+      "llm_calls": 7,
+      "prompt_tokens": 13785,
+      "completion_tokens": 302,
+      "latency_ms": 6403.868247754872,
+      "wall_ms": 6426.796209067106
+    }
+  ],
+  "summary": {
+    "n": 9,
+    "correctly_suppressed": 4,
+    "correctly_promoted": 0,
+    "false_suppressions": 1,
+    "false_retentions": 3,
+    "total_prompt_tokens": 117185,
+    "total_completion_tokens": 2754,
+    "total_wall_ms": 68698.82145803422
+  }
+}

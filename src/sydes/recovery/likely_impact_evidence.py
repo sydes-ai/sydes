@@ -89,6 +89,8 @@ You will be given: an entrypoint, a proposed changed target it might reach, and 
 
 This is a narrow factual question: "Does this specific candidate actually connect this entrypoint/entity to this specific changed target?" It is NOT "does this sound related" or "could this plausibly be affected". Two symbols living in the same file, class, or module as each other is NOT evidence of a connection by itself -- you must find (or fail to find) an actual path: a direct call, a registration, a decorator/dependency-injection wiring, an event/dispatch mechanism, or similar, cited by file and line. A shared class or a shared "belongs to the same service" relationship, with no actual call/dispatch edge you can point to, is exactly the kind of false candidate this check exists to catch -- do not treat it as evidence.
 
+A connection is not only a direct call in a handler's own body. A target can also be reached through the SHAPE of data the entrypoint accepts or returns: if the entrypoint's own request or response type has a field, constraint, default, or wrapper that is wired to the proposed target -- so that constructing, validating, or serializing that type invokes it -- that is a real connection, exactly as real as an explicit call, even though no line in the handler function names it directly. The same is true one level further: a value or object the target reads (a shared config/settings object, a constant, a registry) that IS itself read by something already connected to the entrypoint is a real, if indirect, connection -- trace what a candidate actually reads or is read by, not only what calls it by name. Before you conclude "suppress", you must have positively ruled out this kind of connection too, not merely failed to find a direct call -- search for the proposed target's name across the whole repository (not only inside the handler function) and check anything that references the entrypoint's own request/response type. Absence of a direct call in the handler body is NOT, by itself, positive evidence of no connection.
+
 {TOOL_PROMPT_BLOCK}
 
 When you are done investigating (or out of turns), respond with your FINAL answer as a single JSON object and nothing else:
@@ -99,11 +101,11 @@ When you are done investigating (or out of turns), respond with your FINAL answe
 }}}}
 
 Decision rules -- read carefully, these are NOT symmetric:
-- "promote": you found a REAL, citable connection (by file/line) from the entrypoint to the specific proposed target.
-- "suppress": you actively searched and found clear evidence the entrypoint's code does NOT reach the proposed target -- e.g. it calls a different, unrelated method, or the proposed target is provably unreachable from it.
+- "promote": you found a REAL, citable connection (by file/line) from the entrypoint to the specific proposed target -- a direct call, OR wiring through the entrypoint's own request/response type, OR a traced read/write relationship to something already connected.
+- "suppress": you actively searched -- including for indirect wiring and shared reads, per above, not just a direct call -- and found clear evidence the entrypoint's code does NOT reach the proposed target -- e.g. it calls a different, unrelated method, or the proposed target is provably unreachable from it.
 - "retain": you could not find clear evidence either way after genuinely searching -- the honest answer is "unresolved", not a guess.
 
-FAIL SAFE: if you are not confident, answer "retain", never "suppress". Suppressing a real impact is far worse than leaving one labeled "likely, not fully established" a little longer. Only answer "suppress" when you have positive evidence the connection does NOT exist, not merely an absence of evidence FOR it.
+FAIL SAFE: if you are not confident, answer "retain", never "suppress". Suppressing a real impact is far worse than leaving one labeled "likely, not fully established" a little longer. Only answer "suppress" when you have positive evidence the connection does NOT exist, not merely an absence of evidence FOR it -- and "I found no direct call in the handler" is not, by itself, that evidence.
 
 Respond with exactly one JSON object per turn: either a tool call or your final answer. Nothing else -- no prose outside the JSON."""
 

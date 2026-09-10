@@ -161,6 +161,34 @@ CASES: list[EvalCase] = [
             ),
         ),
     ),
+    # ------------------------------------------------------------------
+    # Held-out cases, added ONLY after the prompt was revised in response
+    # to the first run's false suppression -- these were never used to
+    # shape that revision, so they're a genuine (if small) check that the
+    # fix generalizes rather than merely memorizing the one failure.
+    # ------------------------------------------------------------------
+    EvalCase(
+        name="pr1_settings_legitimate_heldout",
+        branch="py-real-01-max-output-duration",
+        oracle="legitimate",
+        candidate=LikelyImpactCandidate(
+            entry_label="POST /audio/speech",
+            candidate_label="Settings",
+            proposed_target="Settings.max_output_duration_s",
+            changed_files=("api/src/core/config.py", "api/src/structures/schemas.py"),
+        ),
+    ),
+    EvalCase(
+        name="pr1_settings_wrong_entrypoint_false_heldout",
+        branch="py-real-01-max-output-duration",
+        oracle="false",
+        candidate=LikelyImpactCandidate(
+            entry_label="POST /dev/generate_from_phonemes",
+            candidate_label="Settings",
+            proposed_target="Settings.max_output_duration_s",
+            changed_files=("api/src/core/config.py", "api/src/structures/schemas.py"),
+        ),
+    ),
 ]
 
 
