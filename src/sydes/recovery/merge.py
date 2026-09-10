@@ -94,7 +94,8 @@ def build_recovery_view(path_recovery: PathRecoveryResult, test_recovery: TestRe
 def summarize_for_notes(path_recovery: PathRecoveryResult, test_recovery: TestRecoveryResult) -> str:
     """One line suitable for `ChangeVerificationResult.notes` — the only
     touch point this prototype has with the canonical result today (see
-    `sydes.cli.verify_change`'s `--ai-recovery` flag). Never claims
+    `sydes.cli.verify_change`'s AI-recovery integration, on by default).
+    Never claims
     structural provenance for what recovery found; always reports path and
     test recovery as two separate facts, since one may have succeeded
     while the other did not."""

@@ -102,19 +102,24 @@ def verify_change_command(
         typer.Option("--test-timeout", help="Per-test process timeout in seconds."),
     ] = 120.0,
     verbose: Annotated[bool, typer.Option("--verbose")] = False,
-    ai_recovery: Annotated[
+    no_ai_recovery: Annotated[
         bool,
         typer.Option(
-            "--ai-recovery",
+            "--no-ai-recovery",
             help=(
-                "EXPERIMENTAL, off by default: when the first pass leaves a "
-                "high-value gap (no established path, a boundary with no "
-                "complete flow, or a missing test mapping despite a changed "
-                "test file), run a second-stage LLM recovery pass that may "
-                "search the whole repository. Never alters the structural "
-                "result, verdict, or CBM graph; writes its own JSON "
-                "artifact and appends one summary line to `notes`. See "
-                "`sydes.recovery` for the full design."
+                "Opt out of AI recovery (on by default). When the first pass "
+                "leaves a high-value gap (no established path, a boundary with "
+                "no complete flow, or a missing test mapping despite a changed "
+                "test file), Sydes automatically runs a second-stage LLM "
+                "recovery pass that may search the whole repository. It never "
+                "alters the structural result, verdict, or CBM graph; a run "
+                "that cannot establish the missing evidence leaves the "
+                "first-pass result completely unchanged. A successful run adds "
+                "its findings via a summary line in `notes` and its own JSON "
+                "artifact, never by rewriting the verdict. Use this flag to "
+                "skip that pass entirely (cost control, debugging, or a repo "
+                "with no LLM provider configured). See `sydes.recovery` for "
+                "the full design."
             ),
         ),
     ] = False,
@@ -153,7 +158,7 @@ def verify_change_command(
     except ValueError as exc:
         raise typer.BadParameter(str(exc), param_hint="--repo") from exc
 
-    if ai_recovery:
+    if not no_ai_recovery:
         _run_ai_recovery(result, repo_root=Path(repos[0].root), model_spec=model, json_output=json_output)
 
     workspace_id = compute_workspace_id(repos)
@@ -188,13 +193,17 @@ def verify_change_command(
 def _run_ai_recovery(
     result: ChangeVerificationResult, *, repo_root: Path, model_spec: str | None, json_output: Path | None,
 ) -> None:
-    """The entire `--ai-recovery` integration surface: evaluate the
-    trigger, run one recovery attempt if it fires, and touch the canonical
-    result in exactly one place — appending a summary line to `notes`.
-    Never raises past this function: a provider failure or a malformed
-    agent response is reported to the terminal and left out of `notes`
-    entirely, so a broken recovery pass can never fail a normal
-    `verify-change` run or leave a misleading trace in the result."""
+    """The entire AI-recovery integration surface, run automatically by
+    default (see `--no-ai-recovery`): evaluate the trigger, run one
+    recovery attempt if it fires, and touch the canonical result in
+    exactly one place — appending a summary line to `notes`. Never raises
+    past this function: no LLM provider configured, a provider failure, or
+    a malformed agent response is reported to the terminal and left out of
+    `notes` entirely, so a broken recovery pass can never fail a normal
+    `verify-change` run or leave a misleading trace in the result. The
+    verdict, counts, and CBM graph are never touched here, whether
+    recovery establishes something or not — its findings are always
+    supplementary, never authoritative."""
     trigger = evaluate_trigger(result)
     if trigger is None:
         typer.echo("AI recovery (experimental): no high-value gap found; skipped.")

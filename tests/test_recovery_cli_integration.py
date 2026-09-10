@@ -1,4 +1,5 @@
-"""`sydes.cli.verify_change`'s `--ai-recovery` integration point.
+"""`sydes.cli.verify_change`'s AI-recovery integration point (on by default,
+opt out with `--no-ai-recovery`).
 
 `_run_ai_recovery` is the entire touch point this prototype has with the
 canonical `ChangeVerificationResult` (see its own docstring) — these tests

@@ -67,6 +67,40 @@ def _apply_service_change(root: Path) -> None:
     )
 
 
+def test_ai_recovery_runs_by_default(service_repo: Path, monkeypatch) -> None:
+    """AI recovery is on by default -- the CLI must invoke it without any
+    flag, not require an explicit opt-in."""
+    _apply_service_change(service_repo)
+    calls: list[bool] = []
+    monkeypatch.setattr("sydes.cli.verify_change._run_ai_recovery", lambda *a, **k: calls.append(True))
+
+    result = runner.invoke(
+        app,
+        ["verify-change", "--base", "main", "--llm-policy", "never", "--repo", f"svc={service_repo}"],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert calls == [True]
+
+
+def test_no_ai_recovery_flag_opts_out(service_repo: Path, monkeypatch) -> None:
+    """`--no-ai-recovery` is the escape hatch -- it must skip the hook entirely."""
+    _apply_service_change(service_repo)
+    calls: list[bool] = []
+    monkeypatch.setattr("sydes.cli.verify_change._run_ai_recovery", lambda *a, **k: calls.append(True))
+
+    result = runner.invoke(
+        app,
+        [
+            "verify-change", "--base", "main", "--llm-policy", "never",
+            "--repo", f"svc={service_repo}", "--no-ai-recovery",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert calls == []
+
+
 def test_verify_change_reports_flow_verification_and_runtime(service_repo: Path) -> None:
     """The deterministic run connects a service change to its route and needs."""
     _apply_service_change(service_repo)

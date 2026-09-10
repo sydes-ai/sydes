@@ -286,8 +286,9 @@ def recover(
     (`verify_paths`/`verify_tests`) and neither result depends on or is
     discarded by the other's outcome.
 
-    Never raises on a clean failure path: the CLI's opt-in `--ai-recovery`
-    hook is responsible for catching `sydes.recovery.schema.RecoveryError`
+    Never raises on a clean failure path: the CLI's AI-recovery hook (on by
+    default, opt out with `--no-ai-recovery`) is responsible for catching
+    `sydes.recovery.schema.RecoveryError`
     and leaving the first-pass result untouched. A failure partway through
     Stage B for one edge/test does not fail the run — see
     `sydes.recovery.evidence`, which treats its own failure as "no evidence
