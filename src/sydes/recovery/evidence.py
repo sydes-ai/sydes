@@ -89,8 +89,11 @@ _TEST_SYSTEM_PROMPT = f"""You are proving or disproving ONE specific claim: that
 
 Search the test file (and anything it calls into) to determine whether the test's own code actually calls, constructs, or asserts on THAT SPECIFIC entity — not a same-named symbol declared elsewhere, and not merely that it imports the same module, lives in the same directory, or shares a similar name.
 
+If no target entity was named for you (it will say so explicitly), your first job is to determine, from the test's own code, which specific production entity (symbol and file) it is actually exercising — do not treat the test itself, or anything declared in the test file, as the entity under test. A test's target is always something the test CALLS INTO, never the test method/class itself.
+
 Rules:
 - Evidence must show the test's own code invoking or asserting on the changed behavior specifically, not just importing the file it lives in.
+- The entity under test must be declared OUTSIDE the test file itself — a test can never be its own target.
 - If you are not certain the entity the test touches is the SAME one you were asked about (same file), say so via an empty evidence list rather than assuming a name match is enough.
 - Never invent a file, symbol, or line you have not actually read via a tool call in this conversation.
 - If you cannot find proof after actively investigating, say so honestly with an empty evidence list — do not force a weak citation to look sufficient.
@@ -100,7 +103,8 @@ Rules:
 
 When you are done investigating (or you have used your available turns), respond with your FINAL answer instead, as a single JSON object and nothing else:
 {{"final": {{
-  "to_file": "the exact repo-relative file where the changed entity actually is (confirm or correct what you were given)",
+  "to_file": "the exact repo-relative file where the changed entity actually is (confirm or correct what you were given) -- never the test's own file",
+  "to_symbol": "the exact symbol of the entity under test, only if none was given to you or you determined it should be corrected -- otherwise leave empty",
   "relationship": "short description of how the test exercises the behavior (empty string if it does not)",
   "evidence": [{{"file": "...", "line_start": 1, "line_end": 5, "fact": "..."}}]
 }}}}
@@ -173,12 +177,23 @@ def prove_relationship(
 
 
 def prove_test_claim(
-    candidate: CandidateTestClaim, target: EntityRef, context: str, *, tools: RepoTools, client: LLMClient,
+    candidate: CandidateTestClaim, target: EntityRef | None, context: str, *, tools: RepoTools, client: LLMClient,
     max_turns: int, max_response_chars: int, stats,
 ) -> RecoveredTest:
+    """`target` is discovery's guess at which entity this test covers --
+    Stage A is free to propose none at all (it may not know), in which case
+    this asks the agent to first determine the entity from the test's own
+    code rather than silently treating the test itself as its own target
+    (a real failure mode: naming a fallback target after the test would
+    make the test trivially "resolve" to itself)."""
+    target_line = (
+        f"target entity: {_describe_entity(target)}"
+        if target is not None
+        else "target entity: none proposed -- determine from the test's own code which production entity (symbol and file, never the test file itself) it actually exercises"
+    )
     prompt = (
         f"test file: {candidate.file}\ntest: {candidate.test}\nclaimed to cover: {candidate.covers}\n"
-        f"target entity: {_describe_entity(target)}\n"
+        f"{target_line}\n"
         f"context: {context}\n\nInvestigate now. Call one tool per turn, or give your final answer when ready."
     )
     try:
@@ -188,9 +203,17 @@ def prove_test_claim(
             parse_final=parse_atomic_completion_result,
         )
     except RecoveryError:
-        return RecoveredTest(file=candidate.file, test=candidate.test, covers=candidate.covers, target=target, evidence=[])
+        fallback_target = target if target is not None else EntityRef(symbol="", file="")
+        return RecoveredTest(file=candidate.file, test=candidate.test, covers=candidate.covers, target=fallback_target, evidence=[])
 
-    resolved_target = target.model_copy(update={"file": completion.to_file or target.file})
+    base_symbol = target.symbol if target is not None else ""
+    base_file = target.file if target is not None else ""
+    base_qualified_name = target.qualified_name if target is not None else None
+    resolved_target = EntityRef(
+        symbol=completion.to_symbol or base_symbol,
+        file=completion.to_file or base_file,
+        qualified_name=completion.to_qualified_name or base_qualified_name,
+    )
     covers = candidate.covers if not completion.relationship else completion.relationship
     return RecoveredTest(
         file=candidate.file, test=candidate.test, covers=covers, target=resolved_target, evidence=completion.evidence,

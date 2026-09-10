@@ -150,6 +150,45 @@ def test_prove_test_claim_returns_empty_evidence_when_nothing_found(repo: Path):
     assert result.evidence == []
 
 
+def test_prove_test_claim_with_no_proposed_target_resolves_from_agent_not_from_test_name(repo: Path):
+    """A real reliability-experiment run showed the fallback for 'no target
+    proposed by discovery' naming the target after the TEST ITSELF -- which
+    then let a test's own file resolve as if it were the entity under test.
+    `target=None` must ask the agent to determine the real entity, never
+    silently substitute the test's own name/file."""
+    (repo / "handler.ts").write_text("export function handler() { return 1; }\n")
+    (repo / "spec.ts").write_text("it('handles it', () => { expect(handler()).toBe(1); });\n")
+    candidate = CandidateTestClaim(file="spec.ts", test="handles it", covers="handler behavior")
+    client = SequencedClient([
+        {"final": {
+            "to_file": "handler.ts", "to_symbol": "handler",
+            "relationship": "directly calls handler() and asserts on its result",
+            "evidence": [{"file": "spec.ts", "line_start": 1, "line_end": 1, "fact": "calls handler()"}],
+        }}
+    ])
+    stats = RecoveryRunStats()
+    result = prove_test_claim(
+        candidate, None, "ctx", tools=RepoTools(repo), client=client,
+        max_turns=3, max_response_chars=4000, stats=stats,
+    )
+    assert result.target.file == "handler.ts"
+    assert result.target.symbol == "handler"
+    assert result.target.file != candidate.file
+
+
+def test_prove_test_claim_with_no_proposed_target_and_no_resolution_stays_unresolved(repo: Path):
+    (repo / "spec.ts").write_text("it('t', () => {});\n")
+    candidate = CandidateTestClaim(file="spec.ts", test="t", covers="unclear")
+    client = SequencedClient([{"final": {"relationship": "", "evidence": []}}])
+    stats = RecoveryRunStats()
+    result = prove_test_claim(
+        candidate, None, "ctx", tools=RepoTools(repo), client=client,
+        max_turns=3, max_response_chars=4000, stats=stats,
+    )
+    assert result.target.file == ""
+    assert result.evidence == []
+
+
 def test_decompose_relationship_returns_intermediates(repo: Path):
     client = SequencedClient([{"final": {"intermediates": [{"symbol": "mid", "file": "handler.ts"}]}}])
     stats = RecoveryRunStats()

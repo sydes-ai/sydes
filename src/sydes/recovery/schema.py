@@ -465,6 +465,7 @@ class AtomicCompletionResult(BaseModel):
     to_file: str = ""
     from_qualified_name: str | None = None
     to_qualified_name: str | None = None
+    to_symbol: str = ""
 
 
 def parse_atomic_completion_result(text: str) -> AtomicCompletionResult:
@@ -487,6 +488,7 @@ def parse_atomic_completion_result(text: str) -> AtomicCompletionResult:
         relationship=relationship, evidence=evidence,
         from_file=_str_or_empty("from_file"), to_file=_str_or_empty("to_file"),
         from_qualified_name=_str_or_none("from_qualified_name"), to_qualified_name=_str_or_none("to_qualified_name"),
+        to_symbol=_str_or_empty("to_symbol"),
     )
 
 

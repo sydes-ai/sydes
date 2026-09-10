@@ -204,7 +204,7 @@ def _run_pipeline_once(
     draft_tests = [
         prove_test_claim(
             candidate,
-            candidate.target or EntityRef(symbol=candidate.test, file=""),
+            candidate.target,
             "candidate test proposed during discovery for this change's missing test mapping",
             tools=tools, client=client, max_turns=budget.max_edge_turns,
             max_response_chars=budget.max_response_chars, stats=stats,
