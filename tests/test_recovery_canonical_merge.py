@@ -147,6 +147,20 @@ def test_recovered_test_never_becomes_executed():
     assert result.test_executions == []
 
 
+def test_duplicate_recovered_tests_count_once_not_per_duplicate():
+    """Issue 8: the agent proposing the same real test twice (or two
+    recovery attempts both accepting it) must not inflate mapped_tests
+    beyond the number of actually-distinct tests recovered."""
+    result = _result()
+    duplicated = TestRecoveryResult(
+        status=STATUS_ESTABLISHED,
+        tests=[_recovered_test(file="a.spec.ts", test="t1"), _recovered_test(file="a.spec.ts", test="t1")],
+    )
+    merge_verified_recovery_into_result(result, PathRecoveryResult(), duplicated)
+    assert result.summary.counts.mapped_tests == 1
+    assert result.summary.counts.supporting_tests == 1
+
+
 def test_rejected_test_is_not_counted():
     result = _result()
     test_recovery = TestRecoveryResult(status=STATUS_ESTABLISHED, tests=[_recovered_test(status=TEST_STATUS_REJECTED)])

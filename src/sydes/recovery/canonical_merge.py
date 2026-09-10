@@ -191,7 +191,12 @@ def _merge_recovered_tests(result: ChangeVerificationResult, test_recovery: Test
     if not accepted:
         return
     existing = _existing_mapped_test_keys(result)
-    new_count = sum(1 for t in accepted if (t.file, t.test) not in existing)
+    # Dedup by (file, test) BEFORE counting -- the agent proposing (or two
+    # separate recovery attempts each accepting) the same real test twice
+    # must never inflate mapped_tests/supporting_tests beyond the number
+    # of actually-distinct tests recovered.
+    new_keys = {(t.file, t.test) for t in accepted} - existing
+    new_count = len(new_keys)
     if new_count == 0:
         return
     # Relevant/mapped, never executed -- recovery does not run anything.
