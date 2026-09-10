@@ -8,20 +8,22 @@ Sydes follows backend changes beyond the diff across services, APIs, libraries, 
 
 ## Quick start
 
-> **PyPI package coming next.** Until the package is published, install Sydes directly from GitHub. Its runtime dependencies — including `codebase-memory-mcp` — are installed with it.
+Sydes is published on PyPI. Its runtime dependencies — including `codebase-memory-mcp` — are installed with it.
 
 ### 1. Install Sydes
 
-Using `pip`:
+Sydes is still in beta — pin the exact version rather than relying on `pip`'s prerelease handling, which behaves differently depending on your other constraints and can silently skip a prerelease version entirely:
 
 ```bash
-python -m pip install "git+https://github.com/sydes-ai/sydes.git@v0.2.0-beta.1"
+python -m pip install "sydes==0.2.0b2"
 ```
 
-Or, if you use `uv`:
+A plain `pip install sydes` also works, but during beta may resolve to an older non-prerelease version depending on your environment — pin the version above for a reproducible install.
+
+For development against the latest unreleased `main`, install from GitHub instead:
 
 ```bash
-uv tool install "git+https://github.com/sydes-ai/sydes.git@v0.2.0-beta.1"
+python -m pip install "git+https://github.com/sydes-ai/sydes.git@main"
 ```
 
 ### 2. Add an LLM key
@@ -33,6 +35,8 @@ export OPENAI_API_KEY=...
 ```
 
 Sydes also supports Anthropic and local Ollama models. See [Model providers](#model-providers).
+
+This key is also what powers **AI recovery**: when a first analysis pass leaves a meaningful gap (no established path, or a changed test file with nothing mapped to it), Sydes automatically runs a second, evidence-based recovery pass over the repository before reporting its result — no flag required. Pass `--no-ai-recovery` to `verify-change` to disable it.
 
 ### 3. Run Sydes in your repository
 
@@ -120,7 +124,7 @@ jobs:
 
       - name: Install Sydes
         run: |
-          python -m pip install "git+https://github.com/sydes-ai/sydes.git@v0.2.0-beta.1"
+          python -m pip install "sydes==0.2.0b2"
 
       - name: Run Sydes verify-change
         env:
@@ -178,8 +182,6 @@ Sydes
 Your CI
   → runs the repository's real tests in its real environment
 ```
-
-> After Sydes is published on PyPI, the install step becomes simply `pip install sydes`.
 
 ### PR comments and job summaries
 
