@@ -1,0 +1,159 @@
+{
+  "model": "openai:gpt-4.1-mini",
+  "cases": [
+    {
+      "name": "pr1_dev_model_false",
+      "candidate": "GET /dev/model -> generate_audio_stream",
+      "oracle": "false",
+      "decision": "suppress",
+      "reason": "The GET /dev/model endpoint calls model_status in api/src/routers/development.py, which returns tts_service.model_manager.status(), but does not call or reach generate_audio_stream in tts_service.py.",
+      "evidence_files": [
+        "api/src/routers/development.py",
+        "api/src/services/tts_service.py"
+      ],
+      "false_suppression": false,
+      "false_retention": false,
+      "correctly_promoted": false,
+      "correctly_suppressed": true,
+      "turns": 7,
+      "llm_calls": 7,
+      "prompt_tokens": 9120,
+      "completion_tokens": 285,
+      "latency_ms": 9093.205710174516,
+      "wall_ms": 9104.84991595149
+    },
+    {
+      "name": "pr1_generate_from_phonemes_false",
+      "candidate": "POST /dev/generate_from_phonemes -> generate_audio_stream",
+      "oracle": "false",
+      "decision": "suppress",
+      "reason": "The entrypoint POST /dev/generate_from_phonemes calls TTSService.generate_from_phonemes, which calls backend._get_pipeline(...).generate_from_tokens, not generate_audio_stream. There is no call or dispatch to generate_audio_stream in the chain.",
+      "evidence_files": [
+        "api/src/routers/development.py",
+        "api/src/services/tts_service.py"
+      ],
+      "false_suppression": false,
+      "false_retention": false,
+      "correctly_promoted": false,
+      "correctly_suppressed": true,
+      "turns": 7,
+      "llm_calls": 7,
+      "prompt_tokens": 11799,
+      "completion_tokens": 303,
+      "latency_ms": 6559.696207987145,
+      "wall_ms": 6577.094666892663
+    },
+    {
+      "name": "pr1_dev_reload_false",
+      "candidate": "POST /dev/reload -> generate_audio_stream",
+      "oracle": "false",
+      "decision": "suppress",
+      "reason": "The /dev/reload endpoint calls reload_model which calls tts_service.model_manager.reload(), but there is no evidence that this reload method or the reload_model function calls or reaches generate_audio_stream. The changed file only modifies tts_service.py, but reload_model is defined in development.py and does not call generate_audio_stream directly or indirectly based on the available code and searches.",
+      "evidence_files": [
+        "api/src/routers/development.py"
+      ],
+      "false_suppression": false,
+      "false_retention": false,
+      "correctly_promoted": false,
+      "correctly_suppressed": true,
+      "turns": 7,
+      "llm_calls": 7,
+      "prompt_tokens": 9514,
+      "completion_tokens": 293,
+      "latency_ms": 6239.6528327371925,
+      "wall_ms": 6254.779125098139
+    },
+    {
+      "name": "pr1_dev_unload_false",
+      "candidate": "POST /dev/unload -> generate_audio_stream",
+      "oracle": "false",
+      "decision": "retain",
+      "reason": "The /dev/unload endpoint calls tts_service.model_manager.unload(), but no unload function was found in the changed file or related service code, and no call graph was available to confirm a path to generate_audio_stream.",
+      "evidence_files": [
+        "api/src/routers/development.py",
+        "api/src/services/tts_service.py"
+      ],
+      "false_suppression": false,
+      "false_retention": true,
+      "correctly_promoted": false,
+      "correctly_suppressed": false,
+      "turns": 7,
+      "llm_calls": 7,
+      "prompt_tokens": 9533,
+      "completion_tokens": 273,
+      "latency_ms": 6161.400415934622,
+      "wall_ms": 6178.257208084688
+    },
+    {
+      "name": "pr1_within_duration_ceiling_legitimate",
+      "candidate": "POST /audio/speech -> _within_duration_ceiling",
+      "oracle": "legitimate",
+      "decision": "suppress",
+      "reason": "The entrypoint POST /audio/speech is handled by create_speech in api/src/routers/openai_compatible.py, which does not call or reference _within_duration_ceiling. The _within_duration_ceiling function is only used as a validator in api/src/structures/schemas.py and is not connected to the endpoint code.",
+      "evidence_files": [
+        "api/src/structures/schemas.py",
+        "api/src/routers/openai_compatible.py"
+      ],
+      "false_suppression": true,
+      "false_retention": false,
+      "correctly_promoted": false,
+      "correctly_suppressed": false,
+      "turns": 7,
+      "llm_calls": 7,
+      "prompt_tokens": 12772,
+      "completion_tokens": 303,
+      "latency_ms": 6485.0757899694145,
+      "wall_ms": 13170.54154118523
+    },
+    {
+      "name": "pr2_convert_audio_false",
+      "candidate": "POST /audio/speech -> handle_url",
+      "oracle": "false",
+      "decision": "suppress",
+      "reason": "The POST /audio/speech endpoint in api/src/routers/openai_compatible.py does not call or reach AudioService.convert_audio or handle_url; the code handles TTS streaming and temp file writing but does not invoke the proposed target.",
+      "evidence_files": [
+        "api/src/routers/openai_compatible.py"
+      ],
+      "false_suppression": false,
+      "false_retention": false,
+      "correctly_promoted": false,
+      "correctly_suppressed": true,
+      "turns": 7,
+      "llm_calls": 7,
+      "prompt_tokens": 11056,
+      "completion_tokens": 291,
+      "latency_ms": 6327.48975022696,
+      "wall_ms": 6350.790041964501
+    },
+    {
+      "name": "pr2_trim_audio_false",
+      "candidate": "POST /audio/speech -> handle_url",
+      "oracle": "false",
+      "decision": "retain",
+      "reason": "The entrypoint POST /audio/speech is handled by create_speech in api/src/routers/openai_compatible.py, which calls get_tts_service and then stream_audio_chunks, but there is no direct evidence in the inspected code that AudioService.trim_audio or handle_url is called or reached. The changed files do not include the router or service files directly linking these calls, and no call chain to handle_url was found.",
+      "evidence_files": [
+        "api/src/routers/openai_compatible.py"
+      ],
+      "false_suppression": false,
+      "false_retention": true,
+      "correctly_promoted": false,
+      "correctly_suppressed": false,
+      "turns": 7,
+      "llm_calls": 7,
+      "prompt_tokens": 11056,
+      "completion_tokens": 328,
+      "latency_ms": 6248.079333920032,
+      "wall_ms": 6271.065375069156
+    }
+  ],
+  "summary": {
+    "n": 7,
+    "correctly_suppressed": 4,
+    "correctly_promoted": 0,
+    "false_suppressions": 1,
+    "false_retentions": 2,
+    "total_prompt_tokens": 74850,
+    "total_completion_tokens": 2076,
+    "total_wall_ms": 53907.37787424587
+  }
+}
