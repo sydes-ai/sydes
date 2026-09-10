@@ -13,9 +13,14 @@ this merge is the real fix, upstream of rendering.
 
 Fail-safe and additive by construction:
 - an unresolved/partial recovery attempt changes nothing here at all
-- a verified finding is only ever ADDED, never used to remove, downgrade,
-  or overwrite an existing `AffectedFlow`/`AcceptedImpact`/test count —
-  whatever the deterministic pipeline already established always wins
+- a verified finding is only ever ADDED; the one narrow exception is
+  dropping a now-redundant INFERRED impact for the exact same changed
+  symbol a newly-established path just proved reaches an entrypoint (see
+  `_drop_subsumed_inferred_impacts`) — never a `status == "proven"`
+  impact, and never anything an established path doesn't structurally
+  correspond to
+- whatever the deterministic pipeline already ESTABLISHED always wins —
+  proven evidence is never removed, downgraded, or overwritten
 - a route/target the result already covers (any provenance) is never
   duplicated
 - `summary.verdict`/`risk`/`headline`, CBM's own graph, and
@@ -28,6 +33,7 @@ Fail-safe and additive by construction:
 from __future__ import annotations
 
 from sydes.recovery.schema import (
+    EntityRef,
     PathRecoveryResult,
     STATUS_ESTABLISHED,
     STATUS_PARTIAL,
@@ -56,6 +62,64 @@ def _already_covers(result: ChangeVerificationResult, entry_label: str, target_s
         if any(node.symbol == target_symbol for node in flow.changed_nodes):
             return True
     return False
+
+
+def _changed_symbol_names_for_target(result: ChangeVerificationResult, target: EntityRef) -> set[str]:
+    """The diff's OWN ground-truth changed-symbol name(s) (`change.symbols`,
+    computed once, deterministically, before recovery ever runs) that this
+    recovered target structurally corresponds to -- matched by the target's
+    file (most reliable: the diff can only have one changed symbol per
+    file in the common case) or by exact symbol/qualified-name equality.
+    Never a fuzzy text/label comparison.
+    """
+    names: set[str] = set()
+    for changed in result.change.symbols:
+        same_file = bool(changed.file) and changed.file == target.file
+        same_symbol = changed.name == target.symbol or changed.qualified_name == target.symbol
+        if same_file or same_symbol:
+            names.add(changed.name)
+            if changed.qualified_name:
+                names.add(changed.qualified_name)
+    return names
+
+
+def _is_subsumed_inferred_impact(impact: AcceptedImpact, changed_symbol_names: set[str]) -> bool:
+    """True only for an INFERRED impact anchored to the same changed
+    symbol a newly-established recovered path just proved reaches an
+    entrypoint -- never a proven/structural impact (checked by the
+    caller), and never anything matched by comparing `label`/
+    `behavior_label` text.
+
+    Two structured signals, both already present on `AcceptedImpact`:
+    `changed_symbols` (when populated with real names, not the generic
+    `"(whole change)"` placeholder a whole-change-level inference uses),
+    and the `id` field's own documented `impact:{repo}:{qualified_name or
+    symbol}` anchor convention -- the same identity a real, per-symbol
+    impact's `changed_symbols` entry would carry, just encoded in `id`
+    instead for this shape.
+    """
+    if impact.status != "inferred":
+        return False
+    if any(symbol in changed_symbol_names for symbol in impact.changed_symbols):
+        return True
+    anchor = impact.id.rsplit(":", 1)[-1]
+    return anchor in changed_symbol_names
+
+
+def _drop_subsumed_inferred_impacts(
+    result: ChangeVerificationResult, changed_symbol_names: set[str],
+) -> None:
+    if not changed_symbol_names:
+        return
+    kept: list[AcceptedImpact] = []
+    for impact in result.accepted_impacts:
+        if _is_subsumed_inferred_impact(impact, changed_symbol_names):
+            result.summary.counts.impacts_inferred = max(0, result.summary.counts.impacts_inferred - 1)
+            if impact.verification_model_status != "modeled":
+                result.summary.counts.impacts_not_modeled = max(0, result.summary.counts.impacts_not_modeled - 1)
+            continue
+        kept.append(impact)
+    result.accepted_impacts[:] = kept
 
 
 def _existing_mapped_test_keys(result: ChangeVerificationResult) -> set[tuple[str, str]]:
@@ -100,15 +164,19 @@ def _merge_established_paths(result: ChangeVerificationResult, path_recovery: Pa
             provenance=PROVENANCE_AI_RECOVERY,
             impact_status="proven",
         ))
+        changed_symbol_names = _changed_symbol_names_for_target(result, target)
+        _drop_subsumed_inferred_impacts(result, changed_symbol_names)
+
         result.accepted_impacts.append(AcceptedImpact(
             id=flow_id,
             label=target.symbol,
             kind="ai_recovery",
             status="proven",
-            changed_symbols=[target.symbol],
+            changed_symbols=sorted(changed_symbol_names) or [target.symbol],
             verification_model_status="modeled",
             provenance=PROVENANCE_AI_RECOVERY,
         ))
+        result.summary.counts.impacts_proven += 1
 
 
 def _merge_recovered_tests(result: ChangeVerificationResult, test_recovery: TestRecoveryResult) -> None:
