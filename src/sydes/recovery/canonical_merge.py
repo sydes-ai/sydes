@@ -164,6 +164,11 @@ def _merge_established_paths(result: ChangeVerificationResult, path_recovery: Pa
             provenance=PROVENANCE_AI_RECOVERY,
             impact_status="proven",
         ))
+        # counts.affected_flows is defined as len(result.affected_flows);
+        # the append above must never silently drift it out of sync with
+        # the list it's supposed to describe (see task item 7: "counts
+        # match lists").
+        result.summary.counts.affected_flows += 1
         changed_symbol_names = _changed_symbol_names_for_target(result, target)
         _drop_subsumed_inferred_impacts(result, changed_symbol_names)
 

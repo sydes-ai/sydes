@@ -72,6 +72,21 @@ def test_established_path_appears_in_canonical_affected_flows():
     assert flow.changed_nodes[0].file == "handler.ts"
 
 
+def test_counts_affected_flows_matches_the_list_length_after_merge():
+    """Issue 7 invariant: counts must match lists. counts.affected_flows is
+    defined as len(result.affected_flows) -- appending a recovered flow
+    without also bumping this count would silently desync the summary
+    from the list it's supposed to describe."""
+    result = _result(
+        affected_flows=[AffectedFlow(id="flow:pre-existing", entry_label="GET /pre-existing")],
+        summary=ChangeSummary(counts=VerificationCounts(affected_flows=1)),
+    )
+    merge_verified_recovery_into_result(result, _established_path(), TestRecoveryResult())
+
+    assert len(result.affected_flows) == 2
+    assert result.summary.counts.affected_flows == 2
+
+
 def test_established_impact_is_visible_to_the_renderer_without_notes():
     """Mirrors exactly what the external renderer reads: an
     `AffectedFlow.id` matching an `AcceptedImpact.id` with `status ==
