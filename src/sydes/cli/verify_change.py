@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+import json
 from pathlib import Path
 from typing import Annotated, Literal
 
@@ -12,10 +13,17 @@ from sydes.cli.output_paths import resolve_output_file_path, write_output_text
 from sydes.code_intelligence.base import CodeIntelligenceError
 from sydes.core.models import RepoRef
 from sydes.ingest.repos import parse_repo_specs
+from sydes.llm.client import LLMClientError, create_default_llm_client
+from sydes.recovery.agent import recover
+from sydes.recovery.context import build_context
+from sydes.recovery.merge import build_recovery_view, summarize_for_notes
+from sydes.recovery.schema import RecoveryError
+from sydes.recovery.trigger import evaluate_trigger
 from sydes.report.verify_terminal import render_verify_change_terminal
 from sydes.store.workspace import compute_workspace_id, create_run_id, save_run_artifact
 from sydes.verify.analyzer import VerifyChangeOptions, analyze_change
 from sydes.verify.git_change import GitChangeError
+from sydes.verify.models import ChangeVerificationResult
 
 
 def verify_change_command(
@@ -94,6 +102,22 @@ def verify_change_command(
         typer.Option("--test-timeout", help="Per-test process timeout in seconds."),
     ] = 120.0,
     verbose: Annotated[bool, typer.Option("--verbose")] = False,
+    ai_recovery: Annotated[
+        bool,
+        typer.Option(
+            "--ai-recovery",
+            help=(
+                "EXPERIMENTAL, off by default: when the first pass leaves a "
+                "high-value gap (no established path, a boundary with no "
+                "complete flow, or a missing test mapping despite a changed "
+                "test file), run a second-stage LLM recovery pass that may "
+                "search the whole repository. Never alters the structural "
+                "result, verdict, or CBM graph; writes its own JSON "
+                "artifact and appends one summary line to `notes`. See "
+                "`sydes.recovery` for the full design."
+            ),
+        ),
+    ] = False,
 ) -> None:
     """Analyze a change, run the tests that verify it, and report the evidence."""
     try:
@@ -129,6 +153,9 @@ def verify_change_command(
     except ValueError as exc:
         raise typer.BadParameter(str(exc), param_hint="--repo") from exc
 
+    if ai_recovery:
+        _run_ai_recovery(result, repo_root=Path(repos[0].root), model_spec=model, json_output=json_output)
+
     workspace_id = compute_workspace_id(repos)
     run_id = create_run_id()
     try:
@@ -156,3 +183,49 @@ def verify_change_command(
             typer.echo(str(exc))
             raise typer.Exit(code=1) from exc
         typer.echo(f"Wrote verification result: {target}")
+
+
+def _run_ai_recovery(
+    result: ChangeVerificationResult, *, repo_root: Path, model_spec: str | None, json_output: Path | None,
+) -> None:
+    """The entire `--ai-recovery` integration surface: evaluate the
+    trigger, run one recovery attempt if it fires, and touch the canonical
+    result in exactly one place — appending a summary line to `notes`.
+    Never raises past this function: a provider failure or a malformed
+    agent response is reported to the terminal and left out of `notes`
+    entirely, so a broken recovery pass can never fail a normal
+    `verify-change` run or leave a misleading trace in the result."""
+    trigger = evaluate_trigger(result)
+    if trigger is None:
+        typer.echo("AI recovery (experimental): no high-value gap found; skipped.")
+        return
+
+    typer.echo(f"AI recovery (experimental): triggered ({trigger.reason})")
+    try:
+        client = create_default_llm_client(model_spec, stage="ai_recovery")
+    except LLMClientError as exc:
+        typer.echo(f"AI recovery (experimental): could not create LLM client: {exc}")
+        return
+
+    context = build_context(result, trigger)
+    try:
+        outcome = recover(context, repo_root=repo_root, client=client, trigger_reason=trigger.reason)
+    except RecoveryError as exc:
+        typer.echo(f"AI recovery (experimental): failed, first-pass result left unchanged: {exc}")
+        return
+
+    result.notes.append(summarize_for_notes(outcome.result))
+    typer.echo(
+        f"AI recovery (experimental): status={outcome.result.status} "
+        f"turns={outcome.stats.turns} llm_calls={outcome.stats.llm_calls} "
+        f"tokens={outcome.stats.prompt_tokens}+{outcome.stats.completion_tokens}"
+    )
+
+    if json_output is not None:
+        try:
+            target = resolve_output_file_path(json_output, default_filename="change_verification.json")
+            recovery_target = target.with_name(target.stem + ".ai_recovery.json")
+            write_output_text(recovery_target, json.dumps(build_recovery_view(outcome.result), indent=2))
+            typer.echo(f"Wrote AI recovery result: {recovery_target}")
+        except (OSError, ValueError) as exc:
+            typer.echo(f"AI recovery (experimental): could not write recovery artifact: {exc}")
