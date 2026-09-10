@@ -17,7 +17,7 @@ import pytest
 from sydes.llm.client import LLMClientError, LLMRequest, LLMResponse
 from sydes.recovery.agent import RecoveryBudget, recover
 from sydes.recovery.context import RecoveryContext
-from sydes.recovery.schema import RecoveryError, STATUS_ESTABLISHED, STATUS_UNRESOLVED
+from sydes.recovery.schema import RecoveryError, STATUS_ESTABLISHED, STATUS_PARTIAL, STATUS_UNRESOLVED
 
 
 def _context() -> RecoveryContext:
@@ -55,15 +55,20 @@ class FailingClient:
         raise LLMClientError("provider unreachable")
 
 
-def _established_final(entrypoint: str = "GET /users", file: str = "handler.ts") -> dict:
+def _two_node_final(entrypoint: str = "GET /users", file: str = "handler.ts") -> dict:
     return {
         "final": {
             "recovered_paths": [
                 {
                     "entrypoint": entrypoint,
-                    "steps": [{"symbol": "handler", "file": file, "relationship": "registers and dispatches"}],
-                    "evidence": [{"file": file, "line_start": 1, "line_end": 3, "fact": "registers handler for this route"}],
-                    "status": "established",
+                    "target_node": "handler",
+                    "nodes": [{"symbol": "route", "file": file}, {"symbol": "handler", "file": file}],
+                    "edges": [
+                        {
+                            "from": "route", "to": "handler", "relationship": "registers and dispatches",
+                            "evidence": [{"file": file, "line_start": 1, "line_end": 3, "fact": "registers handler for this route"}],
+                        }
+                    ],
                 }
             ],
             "recovered_tests": [],
@@ -75,25 +80,24 @@ def _established_final(entrypoint: str = "GET /users", file: str = "handler.ts")
 
 @pytest.fixture()
 def repo(tmp_path: Path) -> Path:
-    (tmp_path / "handler.ts").write_text("line1\nline2\nline3\n")
+    (tmp_path / "handler.ts").write_text("route registers handler\nline2\nline3\n")
     return tmp_path
 
 
 def test_recover_accepts_a_verified_established_path(repo: Path):
-    # Turn 1: agent's initial answer; verifier's one call accepts it.
     client = SequencedClient([
-        _established_final(),
-        {"verdicts": [{"index": 0, "accept": True, "reason": "evidence supports every bridge"}]},
+        _two_node_final(),
+        {"verdicts": [{"index": 0, "accept": True, "reason": "evidence supports the edge"}]},
     ])
     outcome = recover(_context(), repo_root=repo, client=client, trigger_reason="no established path")
     assert outcome.result.status == STATUS_ESTABLISHED
-    assert outcome.result.recovered_paths[0].provenance == "ai_recovery"
+    assert outcome.result.recovered_paths[0].edges[0].provenance == "ai_recovery"
 
 
 def test_recover_runs_a_tool_call_before_the_final_answer(repo: Path):
     client = SequencedClient([
         {"tool": "read_file", "args": {"path": "handler.ts"}},
-        _established_final(),
+        _two_node_final(),
         {"verdicts": [{"index": 0, "accept": True, "reason": "ok"}]},
     ])
     outcome = recover(_context(), repo_root=repo, client=client, trigger_reason="no established path")
@@ -101,11 +105,11 @@ def test_recover_runs_a_tool_call_before_the_final_answer(repo: Path):
     assert any(c.tool == "read_file" for c in outcome.stats.tool_calls)
 
 
-def test_verifier_rejection_downgrades_the_path_and_is_not_lost(repo: Path):
+def test_verifier_rejection_downgrades_the_path_and_retries_once(repo: Path):
     client = SequencedClient([
-        _established_final(),
+        _two_node_final(),
         {"verdicts": [{"index": 0, "accept": False, "reason": "the cited line does not show a real registration"}]},
-        # retry attempt:
+        # retry attempt: agent gives up entirely
         {"final": {"recovered_paths": [], "recovered_tests": [], "corrected_first_pass_claims": [],
                     "unresolved": [{"question": "does anything register this handler?",
                                     "missing_evidence": "no registration point found anywhere in the repo"}]}},
@@ -113,6 +117,35 @@ def test_verifier_rejection_downgrades_the_path_and_is_not_lost(repo: Path):
     outcome = recover(_context(), repo_root=repo, client=client, trigger_reason="no established path")
     assert outcome.result.status == STATUS_UNRESOLVED
     assert outcome.stats.verify_retries == 1
+
+
+def test_retry_is_not_used_when_original_already_partial_and_retry_would_be_worse(repo: Path):
+    # First attempt: 3-node path, first edge accepted (partial), second rejected.
+    three_node = {
+        "final": {
+            "recovered_paths": [{
+                "entrypoint": "GET /users", "target_node": "target",
+                "nodes": [{"symbol": "route", "file": "handler.ts"}, {"symbol": "mid", "file": "handler.ts"}, {"symbol": "target", "file": "handler.ts"}],
+                "edges": [
+                    {"from": "route", "to": "mid", "relationship": "calls", "evidence": [{"file": "handler.ts", "line_start": 1, "line_end": 1, "fact": "route registers handler"}]},
+                    {"from": "mid", "to": "target", "relationship": "calls", "evidence": [{"file": "handler.ts", "line_start": 1, "line_end": 1, "fact": "route registers handler"}]},
+                ],
+            }],
+            "recovered_tests": [], "corrected_first_pass_claims": [], "unresolved": [],
+        }
+    }
+    client = SequencedClient([
+        three_node,
+        {"verdicts": [
+            {"index": 0, "accept": True, "reason": "ok"},
+            {"index": 1, "accept": False, "reason": "not proven"},
+        ]},
+        # retry produces nothing at all -- strictly worse than the existing partial result
+        {"final": {"recovered_paths": [], "recovered_tests": [], "corrected_first_pass_claims": [], "unresolved": []}},
+    ])
+    outcome = recover(_context(), repo_root=repo, client=client, trigger_reason="no established path")
+    assert outcome.result.status == STATUS_PARTIAL
+    assert len(outcome.result.recovered_paths[0].nodes) == 2  # kept the verified prefix, not discarded
 
 
 def test_provider_failure_raises_recovery_error(repo: Path):

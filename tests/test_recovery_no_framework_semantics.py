@@ -17,11 +17,18 @@ _BANNED_TERMS = (
     "querybus", "commandbus", "query bus", "command bus",
     "queryhandler", "@queryhandler", "commandhandler",
     "cqrs",
-    "springframework", "spring boot", "springbootapplication",
+    "springframework", "spring boot", "springbootapplication", "spring",
     "@controller", "@service", "@component", "@autowired", "@requestmapping",
     "@getmapping", "@postmapping",
     "django", "flask", "fastapi", "express.js", "expressjs",
-    "actix", "rocket::", "gin.engine", "gorilla/mux",
+    "actix", "rocket::", "rocket", "gin.engine", "gorilla/mux",
+    "asynq", "axum",
+    # Symbol/class names specific to the actual sample repos used in
+    # evaluation -- these must never leak into recovery logic as
+    # hardcoded rules, only ever appear (if at all) inside example JSON
+    # fixtures under tests/, never in the recovery package itself.
+    "finduserquery", "finduseryquery", "finduseryqueryhandler", "findusersqueryhandler",
+    "usercontroller", "iuserservice", "redistaskprocessor", "processtasksendverifyemail",
 )
 
 

@@ -83,17 +83,26 @@ def main() -> int:
 
     print("\nrecovered paths:")
     for path in outcome.result.recovered_paths:
-        print(f"  [{path.status}/{path.provenance}] {path.entrypoint}")
-        for step in path.steps:
-            print(f"      -> {step.symbol} ({step.file}): {step.relationship}")
-        for ev in path.evidence:
-            print(f"      evidence: {ev.file}:{ev.line_start}-{ev.line_end} -- {ev.fact}")
-        if path.rejection_reason:
-            print(f"      rejected: {path.rejection_reason}")
+        print(f"  [{path.status}] {path.entrypoint}  (target_node={path.target_node})")
+        for edge in path.edges:
+            print(f"    EDGE [{edge.status}/{edge.provenance}] {edge.from_symbol} -> {edge.to_symbol}")
+            print(f"      relationship: {edge.relationship}")
+            for ev in edge.evidence:
+                print(f"      evidence: {ev.file}:{ev.line_start}-{ev.line_end} -- {ev.fact}")
+            if edge.rejection_reason:
+                print(f"      verifier: {edge.rejection_reason}")
+        if path.unresolved_suffix:
+            print("    unresolved_suffix (needed but not proven):")
+            for edge in path.unresolved_suffix:
+                print(f"      {edge.from_symbol} -> {edge.to_symbol}: {edge.rejection_reason}")
 
     print("\nrecovered tests:")
     for t in outcome.result.recovered_tests:
-        print(f"  {t.file} :: {t.test} -- covers: {t.covers}")
+        print(f"  [{t.status}] {t.file} :: {t.test} -- covers: {t.covers}")
+        for ev in t.evidence:
+            print(f"      evidence: {ev.file}:{ev.line_start}-{ev.line_end} -- {ev.fact}")
+        if t.rejection_reason:
+            print(f"      verifier: {t.rejection_reason}")
 
     print("\ncorrected first-pass claims:")
     for c in outcome.result.corrected_first_pass_claims:

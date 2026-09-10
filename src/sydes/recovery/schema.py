@@ -1,17 +1,28 @@
-"""Structured, strictly-parsed recovery output.
+"""Structured, strictly-parsed recovery output — edge-level proof, not
+whole-path claims.
 
-Mirrors the fail-closed philosophy of `sydes.impact.guide`: the recovery
-agent's `LLMClient` has no structured-output mode, so the contract is "ask
-for JSON in the prompt, then parse and validate strictly." Anything that
-does not parse or does not match the schema raises `RecoveryError` rather
-than being coerced into a best-effort guess.
+A path is a chain of nodes connected by edges, and EVERY edge carries its
+own status/evidence/provenance. This is deliberate: "all cited files/lines
+exist" is not the bar for calling a path established — each edge must be
+independently supported by evidence that actually proves that specific
+relationship (see `sydes.recovery.verify`, which judges edges one at a
+time, never a whole path as one blob).
 
-Provenance is never ambiguous: every recovered path/test carries its own
-`provenance` (`PROVENANCE_AI_RECOVERY` or `PROVENANCE_AI_RECOVERY_EXHAUSTED`)
-so a caller can never mistake an AI-recovered edge for one CBM established
-structurally. Nothing in this module writes into `ChangeVerificationResult`
-or the CBM graph — see `sydes.recovery.merge` for the read-only, additive
-view built from a `RecoveryResult`.
+`target_node` names which node in the chain is the actually-changed
+behavior — not necessarily the last node the agent proposed. This is what
+lets `sydes.recovery.verify` implement the shortest-sufficient-path rule:
+once the chain reaches `target_node`, anything the agent appended beyond it
+is padding, dropped outright rather than merely marked unresolved.
+
+Mirrors the fail-closed philosophy of `sydes.impact.guide`: the agent's
+`LLMClient` has no structured-output mode, so the contract is "ask for JSON
+in the prompt, then parse and validate strictly." Anything that does not
+parse or does not match the schema raises `RecoveryError` rather than
+being coerced into a best-effort guess.
+
+Nothing in this module writes into `ChangeVerificationResult` or the CBM
+graph — see `sydes.recovery.merge` for the read-only, additive view built
+from a `RecoveryResult`.
 """
 
 from __future__ import annotations
@@ -22,15 +33,17 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 STATUS_ESTABLISHED = "established"
+STATUS_PARTIAL = "partial"
 STATUS_UNRESOLVED = "unresolved"
-_VALID_STATUSES = (STATUS_ESTABLISHED, STATUS_UNRESOLVED)
+_VALID_PATH_STATUSES = (STATUS_ESTABLISHED, STATUS_PARTIAL, STATUS_UNRESOLVED)
+_VALID_EDGE_STATUSES = (STATUS_ESTABLISHED, STATUS_UNRESOLVED)
+_VALID_TEST_STATUSES = ("accepted", "rejected")
 
-#: An AI-recovered path/test that repository evidence supports.
+#: An AI-recovered path/edge/test that repository evidence supports.
 PROVENANCE_AI_RECOVERY = "ai_recovery"
-#: A path/test the agent could not establish even after the retry budget —
-#: distinct from never having tried; see `sydes.recovery.agent`.
+#: A path/edge/test the agent could not establish even after the retry
+#: budget — distinct from never having tried; see `sydes.recovery.agent`.
 PROVENANCE_AI_RECOVERY_EXHAUSTED = "ai_recovery_exhausted"
-_VALID_PROVENANCE = (PROVENANCE_AI_RECOVERY, PROVENANCE_AI_RECOVERY_EXHAUSTED)
 
 #: Response text considered for JSON extraction, mirroring
 #: `sydes.impact.guide._MAX_RESPONSE_CHARS` — a reasoning-heavy response
@@ -44,19 +57,19 @@ class RecoveryError(RuntimeError):
 
     Covers provider failure, non-JSON output, and a missing/invalid field.
     The caller's only correct response is to record the failure and leave
-    the first-pass result exactly as it was — never to substitute a guessed
-    recovery.
+    the first-pass result exactly as it was — never to substitute a
+    guessed recovery.
     """
 
 
 class RecoveredEvidence(BaseModel):
     """One inspectable, re-readable fact backing a recovered claim.
 
-    `fact` is a short, specific statement of what the cited lines show (e.g.
-    "constructs the query object and dispatches it to the bus" or
+    `fact` is a short, specific statement of what the cited lines show
+    (e.g. "constructs the query object and dispatches it to the bus" or
     "decorator registers this handler for that message type") — never a
-    restatement of the bridge it is supposed to support ("this connects A to
-    B" is not evidence, it is the claim).
+    restatement of the bridge it is supposed to support ("this connects A
+    to B" is not evidence, it is the claim).
     """
 
     file: str
@@ -65,47 +78,78 @@ class RecoveredEvidence(BaseModel):
     fact: str
 
 
-class RecoveredStep(BaseModel):
-    """One hop in a recovered path, from the entrypoint toward the changed
-    behavior. `relationship` is free text describing the connection actually
-    found in source (e.g. "calls", "constructs and dispatches", "registered
-    for via decorator", "invoked by scheduler config") — deliberately open,
-    never a fixed framework-relationship taxonomy."""
+class RecoveredNode(BaseModel):
+    """One point in a recovered path."""
 
     symbol: str
     file: str
-    relationship: str
 
 
-class RecoveredPath(BaseModel):
-    """One recovered entrypoint-to-changed-behavior path.
+class RecoveredEdge(BaseModel):
+    """One hop in a recovered path, judged entirely on its own — never as
+    part of a whole-path blob. `from_symbol`/`to_symbol` must each name a
+    node already listed in the owning path's `nodes` (enforced at parse
+    time, not just by convention).
 
-    `status`/`provenance` are per-path: a single recovery run can establish
-    some paths while leaving others unresolved, and a path's status can
-    later be downgraded by `sydes.recovery.verify` independently of any
-    other path this same run proposed.
+    `status`/`provenance` reflect the OUTCOME of verification, not the
+    agent's own claim: the agent proposes `relationship` and `evidence`;
+    `sydes.recovery.verify` decides `status`/`provenance` independently
+    (Layer 1 deterministic check, then Layer 2 adversarial LLM judgment per
+    edge) and this model is then rebuilt with the verified values.
     """
 
-    entrypoint: str
-    steps: list[RecoveredStep] = Field(default_factory=list)
+    from_symbol: str = Field(alias="from")
+    to_symbol: str = Field(alias="to")
+    relationship: str
     evidence: list[RecoveredEvidence] = Field(default_factory=list)
     status: str = STATUS_UNRESOLVED
     provenance: str = PROVENANCE_AI_RECOVERY_EXHAUSTED
-    #: Set by `sydes.recovery.verify` when a verification pass rejected this
-    #: path after it was initially proposed as established — kept distinct
-    #: from `status`/`provenance` so the merge view can say *why*, not just
-    #: *that*, a path was downgraded.
     rejection_reason: str | None = None
+
+    model_config = {"populate_by_name": True}
+
+
+class RecoveredPath(BaseModel):
+    """One recovered entrypoint-to-changed-behavior path, expressed as a
+    chain of nodes/edges rather than a single all-or-nothing claim.
+
+    `target_node` is the symbol (must match one entry in `nodes`) that is
+    the actually-changed behavior this path exists to reach — the anchor
+    the shortest-sufficient-path rule truncates around, in either
+    direction: edges needed to reach it are kept and judged; anything the
+    agent appended past it is dropped outright (see
+    `sydes.recovery.verify._derive_path_outcome`).
+
+    `status` here is the FINAL, post-verification outcome:
+    `established` (the full chain to `target_node` is edge-proven),
+    `partial` (a real prefix was proven but a required edge before
+    `target_node` was rejected), or `unresolved` (nothing survived).
+    `unresolved_suffix` names exactly the edges that would have been needed
+    to reach `target_node` but were not proven — never edges beyond
+    `target_node`, which are simply not part of the reported path at all.
+    """
+
+    entrypoint: str
+    target_node: str
+    nodes: list[RecoveredNode] = Field(default_factory=list)
+    edges: list[RecoveredEdge] = Field(default_factory=list)
+    status: str = STATUS_UNRESOLVED
+    unresolved_suffix: list[RecoveredEdge] = Field(default_factory=list)
 
 
 class RecoveredTest(BaseModel):
     """A test the agent found that directly exercises the changed behavior
-    — not merely a test file that happens to have changed."""
+    — not merely a test file that happens to have changed, imports the
+    same module, or shares a similar name. `status`/`rejection_reason` are
+    set by `sydes.recovery.verify`'s test-evidence pass, the same way an
+    edge's are — the agent's own claim is not the final word."""
 
     file: str
     test: str
     covers: str
     evidence: list[RecoveredEvidence] = Field(default_factory=list)
+    status: str = "rejected"
+    rejection_reason: str | None = None
 
 
 class CorrectedFirstPassClaim(BaseModel):
@@ -131,11 +175,9 @@ class UnresolvedQuestion(BaseModel):
 class RecoveryResult(BaseModel):
     """The complete, strict output of one recovery run.
 
-    `status` is the overall outcome: `established` iff at least one
-    `recovered_paths` entry has `status=established`; `unresolved`
-    otherwise. Never mutated in place after `sydes.recovery.verify` runs —
-    `verify` returns a new `RecoveryResult` with any downgraded paths, so a
-    caller always holds one coherent, internally-consistent object.
+    Overall `status`: `established` iff at least one path is fully
+    established; else `partial` iff at least one path has a real (even if
+    incomplete) verified prefix; else `unresolved`.
     """
 
     status: str = STATUS_UNRESOLVED
@@ -196,45 +238,114 @@ def _parse_evidence_list(raw: Any, *, context: str) -> list[RecoveredEvidence]:
     return out
 
 
-def _parse_steps(raw: Any, *, context: str) -> list[RecoveredStep]:
-    if raw is None:
-        return []
-    if not isinstance(raw, list):
-        raise RecoveryError(f"{context}: 'steps' must be a JSON array")
-    out: list[RecoveredStep] = []
+def _parse_nodes(raw: Any, *, context: str) -> list[RecoveredNode]:
+    if not isinstance(raw, list) or not raw:
+        raise RecoveryError(f"{context}: 'nodes' must be a non-empty JSON array")
+    out: list[RecoveredNode] = []
     for item in raw:
         if not isinstance(item, dict):
-            raise RecoveryError(f"{context}: step entry must be an object")
+            raise RecoveryError(f"{context}: node entry must be an object")
         symbol = item.get("symbol")
         file = item.get("file")
-        relationship = item.get("relationship")
-        if not all(isinstance(v, str) and v.strip() for v in (symbol, file, relationship)):
-            raise RecoveryError(f"{context}: step entry requires non-empty symbol/file/relationship")
-        out.append(RecoveredStep(symbol=symbol.strip(), file=file.strip(), relationship=relationship.strip()))
+        if not isinstance(symbol, str) or not symbol.strip():
+            raise RecoveryError(f"{context}: node entry missing non-empty 'symbol'")
+        if not isinstance(file, str) or not file.strip():
+            raise RecoveryError(f"{context}: node entry missing non-empty 'file'")
+        out.append(RecoveredNode(symbol=symbol.strip(), file=file.strip()))
     return out
+
+
+def _parse_edges(raw: Any, *, context: str, known_symbols: set[str]) -> list[RecoveredEdge]:
+    if raw is None:
+        raw = []
+    if not isinstance(raw, list):
+        raise RecoveryError(f"{context}: 'edges' must be a JSON array")
+    out: list[RecoveredEdge] = []
+    for i, item in enumerate(raw):
+        edge_context = f"{context}.edges[{i}]"
+        if not isinstance(item, dict):
+            raise RecoveryError(f"{edge_context} must be an object")
+        from_symbol = item.get("from")
+        to_symbol = item.get("to")
+        relationship = item.get("relationship")
+        if not isinstance(from_symbol, str) or not from_symbol.strip():
+            raise RecoveryError(f"{edge_context} missing non-empty 'from'")
+        if not isinstance(to_symbol, str) or not to_symbol.strip():
+            raise RecoveryError(f"{edge_context} missing non-empty 'to'")
+        if not isinstance(relationship, str) or not relationship.strip():
+            raise RecoveryError(f"{edge_context} missing non-empty 'relationship'")
+        from_symbol, to_symbol = from_symbol.strip(), to_symbol.strip()
+        if from_symbol not in known_symbols:
+            raise RecoveryError(f"{edge_context}: 'from' {from_symbol!r} is not one of this path's nodes")
+        if to_symbol not in known_symbols:
+            raise RecoveryError(f"{edge_context}: 'to' {to_symbol!r} is not one of this path's nodes")
+        evidence = _parse_evidence_list(item.get("evidence"), context=edge_context)
+        out.append(RecoveredEdge(**{"from": from_symbol, "to": to_symbol}, relationship=relationship.strip(), evidence=evidence))
+    return out
+
+
+def _validate_edge_chain(edges: list[RecoveredEdge], nodes: list[RecoveredNode], *, context: str) -> None:
+    """Edges must form one contiguous chain starting at `nodes[0]` — the
+    prefix-truncation algorithm in `sydes.recovery.verify` depends on this;
+    an out-of-order or branching edge list is rejected at parse time rather
+    than silently mishandled later."""
+    if not edges:
+        if len(nodes) > 1:
+            raise RecoveryError(f"{context}: more than one node but no edges connecting them")
+        return
+    if len(edges) != len(nodes) - 1:
+        raise RecoveryError(
+            f"{context}: expected {len(nodes) - 1} edge(s) for {len(nodes)} node(s), got {len(edges)}"
+        )
+    expected_from = nodes[0].symbol
+    for i, edge in enumerate(edges):
+        if edge.from_symbol != expected_from:
+            raise RecoveryError(
+                f"{context}: edges do not form a single chain from nodes[0] at position {i}"
+            )
+        if edge.to_symbol != nodes[i + 1].symbol:
+            raise RecoveryError(
+                f"{context}: edge[{i}]'s 'to' does not match nodes[{i + 1}] — edges must follow node order"
+            )
+        expected_from = edge.to_symbol
 
 
 def _parse_path(raw: Any, *, index: int) -> RecoveredPath:
     if not isinstance(raw, dict):
         raise RecoveryError(f"recovered_paths[{index}] must be an object")
-    entrypoint = raw.get("entrypoint")
-    if not isinstance(entrypoint, str) or not entrypoint.strip():
-        raise RecoveryError(f"recovered_paths[{index}] missing non-empty 'entrypoint'")
     context = f"recovered_paths[{index}]"
-    steps = _parse_steps(raw.get("steps"), context=context)
-    evidence = _parse_evidence_list(raw.get("evidence"), context=context)
-    # The agent proposes a path as established or not; deterministic
-    # downgrade for empty evidence happens in `validate_result`, not here —
-    # this function only parses what the model said, faithfully.
-    raw_status = raw.get("status", STATUS_UNRESOLVED)
-    status = raw_status.strip().lower() if isinstance(raw_status, str) else STATUS_UNRESOLVED
-    if status not in _VALID_STATUSES:
-        raise RecoveryError(f"{context}: unsupported status {raw_status!r}")
-    provenance = PROVENANCE_AI_RECOVERY if status == STATUS_ESTABLISHED else PROVENANCE_AI_RECOVERY_EXHAUSTED
-    return RecoveredPath(
-        entrypoint=entrypoint.strip(), steps=steps, evidence=evidence,
-        status=status, provenance=provenance,
-    )
+    entrypoint = raw.get("entrypoint")
+    target_node = raw.get("target_node") or raw.get("target")
+    if not isinstance(entrypoint, str) or not entrypoint.strip():
+        raise RecoveryError(f"{context} missing non-empty 'entrypoint'")
+    if not isinstance(target_node, str) or not target_node.strip():
+        raise RecoveryError(f"{context} missing non-empty 'target_node'")
+
+    nodes = _parse_nodes(raw.get("nodes"), context=context)
+    if len(nodes) < 2:
+        # A "path" that is only the changed symbol itself, declared as its
+        # own entrypoint, proves nothing — it is a way to dodge the actual
+        # dispatch/connection evidence this schema exists to demand. Report
+        # a genuinely unreachable symbol via `unresolved` instead; a
+        # recovered path must connect at least two distinct points.
+        raise RecoveryError(
+            f"{context}: a path needs at least 2 nodes (an entrypoint and the changed behavior it "
+            "reaches) — a single node claiming the changed symbol as its own entrypoint is not a path"
+        )
+    known_symbols = {n.symbol for n in nodes}
+    target_node = target_node.strip()
+    if target_node not in known_symbols:
+        raise RecoveryError(f"{context}: 'target_node' {target_node!r} is not one of this path's nodes")
+    if target_node == nodes[0].symbol:
+        raise RecoveryError(
+            f"{context}: 'target_node' cannot be nodes[0] — the entrypoint and the changed "
+            "behavior must be different nodes, connected by at least one edge"
+        )
+
+    edges = _parse_edges(raw.get("edges"), context=context, known_symbols=known_symbols)
+    _validate_edge_chain(edges, nodes, context=context)
+
+    return RecoveredPath(entrypoint=entrypoint.strip(), target_node=target_node, nodes=nodes, edges=edges)
 
 
 def _parse_test(raw: Any, *, index: int) -> RecoveredTest:
@@ -277,73 +388,74 @@ def _parse_unresolved(raw: Any, *, index: int) -> UnresolvedQuestion:
     return UnresolvedQuestion(question=question.strip(), missing_evidence=missing_evidence.strip())
 
 
+def _parse_list(raw: Any, *, field_name: str, parse_one) -> tuple[list, list[UnresolvedQuestion]]:
+    """Parse a top-level array field item by item. One malformed entry does
+    NOT fail the whole response — partial recovery beats an all-or-nothing
+    failure that would discard everything else the agent legitimately
+    found (e.g. a genuinely-recovered test alongside one malformed path
+    entry). The array itself must still be an array; a dropped item is
+    recorded as an `UnresolvedQuestion` rather than silently vanishing."""
+    if raw is None:
+        raw = []
+    if not isinstance(raw, list):
+        raise RecoveryError(f"'{field_name}' must be a JSON array")
+    parsed: list = []
+    dropped: list[UnresolvedQuestion] = []
+    for i, item in enumerate(raw):
+        try:
+            parsed.append(parse_one(item, index=i))
+        except RecoveryError as exc:
+            dropped.append(
+                UnresolvedQuestion(
+                    question=f"agent's {field_name}[{i}] was malformed and dropped",
+                    missing_evidence=str(exc),
+                )
+            )
+    return parsed, dropped
+
+
 def parse_recovery_result(text: str) -> RecoveryResult:
     """Parse and strictly validate one final recovery response.
 
-    Raises `RecoveryError` for anything not exactly the documented shape.
-    No best-effort coercion: a response close to valid but not valid is
-    exactly the case a fail-closed contract exists for — see the module
-    docstring.
+    Raises `RecoveryError` only when the response is not a JSON object at
+    all, or a top-level field is not an array. Within each array, one
+    malformed entry is dropped (and recorded in `unresolved`) rather than
+    failing the whole response — see `_parse_list`. This function does NOT
+    decide `status`/`provenance` for any edge, path, or test — that is
+    entirely `sydes.recovery.verify`'s job; everything parsed here starts
+    `unresolved`/`rejected` until verified.
     """
     payload = _extract_json_object(text)
     if not isinstance(payload, dict):
         raise RecoveryError("recovery output was not a single JSON object")
 
-    raw_paths = payload.get("recovered_paths", [])
-    if not isinstance(raw_paths, list):
-        raise RecoveryError("'recovered_paths' must be a JSON array")
-    paths = [_parse_path(item, index=i) for i, item in enumerate(raw_paths)]
-
-    raw_tests = payload.get("recovered_tests", [])
-    if not isinstance(raw_tests, list):
-        raise RecoveryError("'recovered_tests' must be a JSON array")
-    tests = [_parse_test(item, index=i) for i, item in enumerate(raw_tests)]
-
-    raw_corrected = payload.get("corrected_first_pass_claims", [])
-    if not isinstance(raw_corrected, list):
-        raise RecoveryError("'corrected_first_pass_claims' must be a JSON array")
-    corrected = [_parse_corrected_claim(item, index=i) for i, item in enumerate(raw_corrected)]
+    paths, dropped_paths = _parse_list(payload.get("recovered_paths"), field_name="recovered_paths", parse_one=_parse_path)
+    tests, dropped_tests = _parse_list(payload.get("recovered_tests"), field_name="recovered_tests", parse_one=_parse_test)
+    corrected, dropped_corrected = _parse_list(
+        payload.get("corrected_first_pass_claims"), field_name="corrected_first_pass_claims", parse_one=_parse_corrected_claim,
+    )
 
     raw_unresolved = payload.get("unresolved", [])
     if not isinstance(raw_unresolved, list):
         raise RecoveryError("'unresolved' must be a JSON array")
     unresolved = [_parse_unresolved(item, index=i) for i, item in enumerate(raw_unresolved)]
 
-    result = RecoveryResult(
-        recovered_paths=paths, recovered_tests=tests,
-        corrected_first_pass_claims=corrected, unresolved=unresolved,
+    return RecoveryResult(
+        status=STATUS_UNRESOLVED, recovered_paths=paths, recovered_tests=tests,
+        corrected_first_pass_claims=corrected,
+        unresolved=unresolved + dropped_paths + dropped_tests + dropped_corrected,
     )
-    return validate_result(result)
 
 
-def validate_result(result: RecoveryResult) -> RecoveryResult:
-    """The deterministic evidence gate: a path claimed `established` with no
-    evidence is downgraded to `unresolved` regardless of what the model
-    said. This runs independent of (and before) `sydes.recovery.verify`'s
-    LLM-based adversarial check — a structural backstop that needs no
-    provider call and cannot be argued around by a confident-sounding
-    response.
-
-    Overall `status` is recomputed from the (possibly downgraded) paths:
-    `established` iff at least one path remains `established`.
-    """
-    fixed_paths: list[RecoveredPath] = []
-    for path in result.recovered_paths:
-        if path.status == STATUS_ESTABLISHED and not path.evidence:
-            fixed_paths.append(
-                path.model_copy(
-                    update={
-                        "status": STATUS_UNRESOLVED,
-                        "provenance": PROVENANCE_AI_RECOVERY_EXHAUSTED,
-                        "rejection_reason": "claimed established with no cited evidence",
-                    }
-                )
-            )
-        else:
-            fixed_paths.append(path)
-    overall_status = (
-        STATUS_ESTABLISHED
-        if any(p.status == STATUS_ESTABLISHED for p in fixed_paths)
-        else STATUS_UNRESOLVED
-    )
-    return result.model_copy(update={"recovered_paths": fixed_paths, "status": overall_status})
+def recompute_overall_status(result: RecoveryResult) -> RecoveryResult:
+    """Overall `status` from the (post-verification) paths: `established`
+    iff any path is fully established, else `partial` iff any path has a
+    real verified prefix, else `unresolved`."""
+    statuses = {p.status for p in result.recovered_paths}
+    if STATUS_ESTABLISHED in statuses:
+        overall = STATUS_ESTABLISHED
+    elif STATUS_PARTIAL in statuses:
+        overall = STATUS_PARTIAL
+    else:
+        overall = STATUS_UNRESOLVED
+    return result.model_copy(update={"status": overall})
