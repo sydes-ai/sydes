@@ -207,7 +207,7 @@ def _run_ai_recovery(
         typer.echo(f"AI recovery (experimental): could not create LLM client: {exc}")
         return
 
-    context = build_context(result, trigger)
+    context = build_context(result, trigger, repo_root=repo_root)
     try:
         outcome = recover(context, repo_root=repo_root, client=client, trigger_reason=trigger.reason)
     except RecoveryError as exc:

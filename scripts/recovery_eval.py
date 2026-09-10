@@ -65,7 +65,7 @@ def main() -> int:
         print(f"could not create LLM client: {exc}")
         return 1
 
-    context = build_context(result, trigger)
+    context = build_context(result, trigger, repo_root=args.repo)
     started = time.perf_counter()
     try:
         outcome = recover(context, repo_root=args.repo, client=client, trigger_reason=trigger.reason)

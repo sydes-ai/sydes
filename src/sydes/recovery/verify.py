@@ -324,6 +324,21 @@ def _derive_path_outcome(path: RecoveredPath, verified_edges: list[RecoveredEdge
     their own verdict. Edges strictly needed to reach `target_node` are
     walked in order; the first rejected edge truncates the path there.
     """
+    if len(path.nodes) == 1:
+        # Zero-hop shape: entrypoint and target are the SAME node (see
+        # `sydes.recovery.agent._direct_entrypoint_edge`) -- there is no
+        # walk to do, so the general logic below would treat an empty
+        # `edges_to_target` as vacuously "reached" even when NO edge was
+        # ever verified. Established here requires an actual verified
+        # self-edge, never the absence of anything to check.
+        if verified_edges and verified_edges[0].status == STATUS_ESTABLISHED:
+            return path.model_copy(update={
+                "edges": verified_edges[:1], "status": STATUS_ESTABLISHED, "unresolved_suffix": [],
+            })
+        return path.model_copy(update={
+            "edges": [], "status": STATUS_UNRESOLVED, "unresolved_suffix": verified_edges[:1],
+        })
+
     node_order = [path.nodes[0].symbol] + [e.to_entity.symbol for e in verified_edges]
     try:
         target_index = node_order.index(path.target_node)

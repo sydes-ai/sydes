@@ -384,7 +384,18 @@ def _parse_candidate_path(raw: Any) -> CandidatePath:
     if target_node not in symbols:
         raise RecoveryError(f"'candidate_path.target_node' {target_node!r} is not among 'nodes'")
     if target_node == symbols[0]:
-        raise RecoveryError("'candidate_path.target_node' cannot be the entrypoint node (nodes[0])")
+        if all(n.symbol == target_node and n.file == nodes[0].file for n in nodes):
+            # Every proposed node collapses to the SAME entity as
+            # target_node -- not a real multi-hop chain the model got
+            # backwards, but its way of saying the entrypoint's own
+            # decorator sits directly on the changed symbol (no
+            # intermediate hop exists at all). A single canonical node
+            # represents this honestly; `sydes.recovery.agent` verifies it
+            # deterministically rather than asking Stage B to "prove" a
+            # relationship between a symbol and itself.
+            nodes = [nodes[0]]
+        else:
+            raise RecoveryError("'candidate_path.target_node' cannot be the entrypoint node (nodes[0])")
     return CandidatePath(entrypoint=entrypoint.strip(), target_node=target_node, nodes=nodes)
 
 

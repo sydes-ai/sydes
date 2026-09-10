@@ -1,16 +1,28 @@
 """Assembling what the recovery agent is shown before its first turn.
 
-Everything here is read from the already-computed `ChangeVerificationResult`
-and the diff it carries — no new graph query, no new source read. The
-agent's own tool loop (see `sydes.recovery.tools`/`agent`) is what does
-unrestricted repository investigation; this module only frames the
-starting question.
+Almost everything here is read from the already-computed
+`ChangeVerificationResult` and the diff it carries — no graph query, no
+source read. The agent's own tool loop (see
+`sydes.recovery.tools`/`agent`) is what does unrestricted repository
+investigation; this module only frames the starting question.
+
+One deliberate exception: `declarative_entrypoints`, a small, targeted,
+deterministic scan (`sydes.recovery.entrypoint_heuristic`) of the files
+right next to what changed. This exists because of a measured, specific
+failure — discovery never once proposed the real HTTP entrypoint across 5
+live TS runs, because that entrypoint's controller file was never itself
+part of the diff (a route's controller is routinely a SIBLING of the
+handler it dispatches to, not the changed file). Handing discovery this
+one fact up front, instead of hoping its own bounded search stumbles onto
+it, is what actually fixes that.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from pathlib import Path
 
+from sydes.recovery.entrypoint_heuristic import find_declarative_entrypoints, nearby_files
 from sydes.recovery.trigger import RecoveryTrigger
 from sydes.verify.models import ChangeVerificationResult
 
@@ -39,6 +51,13 @@ class RecoveryContext:
     #: set cannot be the actually-changed behavior, no matter how
     #: plausible its name looks.
     changed_files: tuple[str, ...] = ()
+    #: `"GET findUsers (path/to/controller.ts:24) class_prefix=... path=..."`
+    #: style hints from `sydes.recovery.entrypoint_heuristic` — a
+    #: decorator-shape match, never a resolved/verified fact. `path` and
+    #: `class_prefix` are best-effort and often symbolic (an unresolved
+    #: routes-config constant, not a literal string) — never used for
+    #: identity; only `file` + `symbol` are.
+    declarative_entrypoints: tuple[str, ...] = ()
 
 
 def _diff_summary(result: ChangeVerificationResult) -> str:
@@ -115,7 +134,32 @@ def _changed_files(result: ChangeVerificationResult) -> tuple[str, ...]:
     return tuple(sorted(out))
 
 
-def build_context(result: ChangeVerificationResult, trigger: RecoveryTrigger) -> RecoveryContext:
+def _declarative_entrypoints(repo_root: Path | None, changed_files: tuple[str, ...]) -> tuple[str, ...]:
+    if repo_root is None or not changed_files:
+        return ()
+    try:
+        files = nearby_files(repo_root, changed_files)
+        found = find_declarative_entrypoints(repo_root, files)
+    except OSError:
+        return ()
+    # Path/method lead, symbol trails: when a class overloads a method name
+    # (two entries share `symbol`), what actually tells them apart is the
+    # route each is decorated with -- leading with that keeps it the first
+    # thing read, not a trailing detail after an apparently-duplicate name.
+    return tuple(
+        f"{ep.http_method} {ep.path!r} -> {ep.symbol} ({ep.file}:{ep.line}) class_prefix={ep.class_prefix!r}"
+        for ep in found
+    )
+
+
+def build_context(
+    result: ChangeVerificationResult, trigger: RecoveryTrigger, *, repo_root: Path | None = None,
+) -> RecoveryContext:
+    """`repo_root` is optional so callers that don't need
+    `declarative_entrypoints` (or are constructing a context in a test)
+    aren't forced to supply one — omitting it just leaves that field
+    empty, never an error."""
+    changed_files = _changed_files(result)
     return RecoveryContext(
         reason_first_pass_stopped=trigger.reason,
         gap_kinds=trigger.gap_kinds,
@@ -126,5 +170,6 @@ def build_context(result: ChangeVerificationResult, trigger: RecoveryTrigger) ->
         known_entrypoints=_known_entrypoints(result),
         test_candidates=trigger.extra_test_candidate_files,
         unresolved_gaps=tuple(result.analysis_notes),
-        changed_files=_changed_files(result),
+        changed_files=changed_files,
+        declarative_entrypoints=_declarative_entrypoints(repo_root, changed_files),
     )

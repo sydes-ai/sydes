@@ -25,12 +25,20 @@ from sydes.recovery.tools import RepoTools
 
 T = TypeVar("T")
 
-_TOOL_NAMES = ("read_file", "search_text", "list_directory", "final")
+_TOOL_NAMES = (
+    "read_file", "search_text", "list_directory",
+    "trace_callers", "trace_callees", "search_symbol", "final",
+)
 
 TOOL_PROMPT_BLOCK = """You have these tools. Call exactly one per turn, as a single JSON object and nothing else:
 {"tool": "read_file", "args": {"path": "relative/path.ext", "start_line": optional_int, "end_line": optional_int}}
 {"tool": "search_text", "args": {"pattern": "regex pattern", "path_glob": "optional glob, e.g. src/**/*.ts"}}
-{"tool": "list_directory", "args": {"path": "relative/dir/or/. for repo root"}}"""
+{"tool": "list_directory", "args": {"path": "relative/dir/or/. for repo root"}}
+{"tool": "trace_callers", "args": {"symbol": "exact symbol or qualified name", "depth": optional_int}}
+{"tool": "trace_callees", "args": {"symbol": "exact symbol or qualified name", "depth": optional_int}}
+{"tool": "search_symbol", "args": {"name_pattern": "regex over symbol names", "file_pattern": "optional path regex"}}
+
+trace_callers/trace_callees/search_symbol query a prebuilt code graph -- prefer them over read_file/search_text when you already know (or can guess) a symbol name and want who calls it, what it calls, or where else it's declared: one call answers what would otherwise take several read_file/search_text round trips. They may report "ERROR: CBM graph not available" (no graph was built for this repository) or zero results for a relationship that exists only through a decorator, dependency-injection binding, or message/event dispatch rather than a direct call -- treat either as "this tool found nothing," not as proof nothing exists; read the source directly in that case."""
 
 
 def extract_turn(text: str, *, max_chars: int) -> dict[str, Any]:
@@ -68,6 +76,21 @@ def run_tool(tools: RepoTools, tool_name: str, args: dict[str, Any]) -> str:
         return tools.search_text(pattern, path_glob=args.get("path_glob"))
     if tool_name == "list_directory":
         return tools.list_directory(args.get("path", "."))
+    if tool_name == "trace_callers":
+        symbol = args.get("symbol")
+        if not isinstance(symbol, str) or not symbol:
+            return "ERROR: 'symbol' is required"
+        return tools.trace_callers(symbol, depth=args.get("depth") or 3)
+    if tool_name == "trace_callees":
+        symbol = args.get("symbol")
+        if not isinstance(symbol, str) or not symbol:
+            return "ERROR: 'symbol' is required"
+        return tools.trace_callees(symbol, depth=args.get("depth") or 3)
+    if tool_name == "search_symbol":
+        name_pattern = args.get("name_pattern")
+        if not isinstance(name_pattern, str) or not name_pattern:
+            return "ERROR: 'name_pattern' is required"
+        return tools.search_symbol(name_pattern, file_pattern=args.get("file_pattern"))
     return f"ERROR: unknown tool {tool_name!r}"
 
 

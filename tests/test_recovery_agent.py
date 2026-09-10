@@ -104,6 +104,52 @@ def repo(tmp_path: Path) -> Path:
     return tmp_path
 
 
+def test_zero_hop_candidate_established_via_deterministic_entrypoint_heuristic(tmp_path: Path):
+    """A real reliability-experiment run showed the model correctly
+    determining that the route decorator sits directly on the changed
+    method (Java's UserController.getUser IS the entrypoint, not a
+    separate hop) -- this must establish deterministically, without an
+    atomic-completion LLM call proving a symbol connects to itself."""
+    (tmp_path / "UserController.java").write_text(
+        "public class UserController {\n"
+        "    @GetMapping(\"/user/{id}\")\n"
+        "    public Dict getUser(Long id) { return null; }\n"
+        "}\n"
+    )
+    client = SequencedClient([
+        _discovery_final(["UserController.getUser", "UserController.getUser"], "UserController.getUser", file="UserController.java"),
+        _verdicts(True),
+    ])
+    outcome = recover(
+        _context(changed_files=("UserController.java",)), repo_root=tmp_path, client=client,
+        trigger_reason="no established path",
+    )
+    assert outcome.path_recovery.status == STATUS_ESTABLISHED
+    edges = outcome.path_recovery.paths[0].edges
+    assert len(edges) == 1
+    assert edges[0].from_entity.symbol == edges[0].to_entity.symbol == "UserController.getUser"
+    assert edges[0].evidence[0].line_start == 3  # the method declaration's own line
+
+
+def test_zero_hop_candidate_without_a_confirming_decorator_yields_no_fabricated_edge(tmp_path: Path):
+    (tmp_path / "UserController.java").write_text(
+        "public class UserController {\n"
+        "    public Dict getUser(Long id) { return null; }\n"  # no decorator at all
+        "}\n"
+    )
+    client = SequencedClient([
+        _discovery_final(["UserController.getUser", "UserController.getUser"], "UserController.getUser", file="UserController.java"),
+        # The pipeline retries once when path recovery doesn't establish.
+        _discovery_final(["UserController.getUser", "UserController.getUser"], "UserController.getUser", file="UserController.java"),
+    ])
+    outcome = recover(
+        _context(changed_files=("UserController.java",)), repo_root=tmp_path, client=client,
+        trigger_reason="no established path",
+    )
+    assert outcome.path_recovery.status != STATUS_ESTABLISHED
+    assert outcome.path_recovery.paths == [] or outcome.path_recovery.paths[0].edges == []
+
+
 def test_recover_accepts_a_verified_established_two_node_path(repo: Path):
     client = SequencedClient([
         _discovery_final(["route", "handler"], "handler"),

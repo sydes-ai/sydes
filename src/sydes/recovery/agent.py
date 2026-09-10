@@ -41,12 +41,15 @@ from pathlib import Path
 from sydes.llm.client import LLMClient
 from sydes.recovery.context import RecoveryContext
 from sydes.recovery.discovery import discover_candidate
+from sydes.recovery.entrypoint_heuristic import find_declarative_entrypoints
 from sydes.recovery.evidence import decompose_relationship, prove_relationship, prove_test_claim
+from sydes.recovery.graph_tools import CBMGraphTools
 from sydes.recovery.schema import (
     EntityRef,
     MAX_BRIDGE_NODES,
     PathRecoveryResult,
     RecoveredEdge,
+    RecoveredEvidence,
     RecoveredPath,
     STATUS_ESTABLISHED,
     STATUS_PARTIAL,
@@ -164,8 +167,53 @@ def _prove_hop_with_recursion(
     return edges
 
 
+def _direct_entrypoint_edge(node: EntityRef, repo_root: Path) -> RecoveredEdge | None:
+    """When discovery collapses a candidate path to a single node (its
+    honest way of saying the entrypoint's own decorator sits directly on
+    the changed symbol -- no intermediate hop exists at all, see
+    `sydes.recovery.schema._parse_candidate_path`), don't ask Stage B to
+    "prove" a relationship between a symbol and itself. Confirm it the
+    same deterministic way `sydes.recovery.context` found it in the first
+    place, or return None (never fabricate) if it can't be confirmed here.
+
+    This still goes through the ordinary `sydes.recovery.verify` Layer
+    0/1/2 pipeline like any other edge -- it is a normal `RecoveredEdge`
+    with real, inspectable evidence, not a special-cased bypass.
+    """
+    if not node.file:
+        return None
+    try:
+        found = find_declarative_entrypoints(repo_root, [node.file])
+    except OSError:
+        return None
+    # `node.symbol` may be class-qualified (e.g. `SomeClass.someMethod`, the
+    # convention discovery otherwise uses throughout this pipeline) while
+    # the heuristic's regex-based extraction only ever captures the bare
+    # method name -- match on the last segment, not exact equality.
+    bare_symbol = node.symbol.rsplit(".", 1)[-1]
+    match = next((ep for ep in found if ep.symbol == bare_symbol), None)
+    if match is None:
+        return None
+    evidence = [RecoveredEvidence(
+        file=node.file, line_start=match.line, line_end=match.line,
+        fact=(
+            f"{node.symbol} carries a {match.http_method}-shaped declarative-entrypoint "
+            f"decorator (path={match.path!r}) directly on its own declaration."
+        ),
+    )]
+    return RecoveredEdge(
+        **{"from": node, "to": node},
+        relationship=(
+            "the entrypoint's own decorator is declared directly on this symbol; "
+            "no intermediate hop connects them because none exists"
+        ),
+        evidence=evidence,
+    )
+
+
 def _run_pipeline_once(
-    context: RecoveryContext, *, tools: RepoTools, client: LLMClient, budget: RecoveryBudget, stats: RecoveryRunStats,
+    context: RecoveryContext, *, tools: RepoTools, client: LLMClient, budget: RecoveryBudget,
+    stats: RecoveryRunStats, repo_root: Path,
 ) -> tuple[list[RecoveredPath], list]:
     """Stages A + B (draft assembly). Stage C (verification) is applied
     once by the caller, separately for paths and for tests."""
@@ -185,14 +233,19 @@ def _run_pipeline_once(
 
         expanded_nodes: list[EntityRef] = [relevant_nodes[0]]
         all_edges: list[RecoveredEdge] = []
-        path_ctx = f"hop in candidate path from entrypoint {candidate_path.entrypoint!r} to changed behavior {candidate_path.target_node!r}"
-        for from_entity, to_entity in zip(relevant_nodes, relevant_nodes[1:]):
-            hop_edges = _prove_hop_with_recursion(
-                from_entity, to_entity, path_ctx, tools=tools, client=client, budget=budget, stats=stats,
-            )
-            for edge in hop_edges:
-                expanded_nodes.append(edge.to_entity)
-                all_edges.append(edge)
+        if len(relevant_nodes) == 1:
+            direct_edge = _direct_entrypoint_edge(relevant_nodes[0], repo_root)
+            if direct_edge is not None:
+                all_edges.append(direct_edge)
+        else:
+            path_ctx = f"hop in candidate path from entrypoint {candidate_path.entrypoint!r} to changed behavior {candidate_path.target_node!r}"
+            for from_entity, to_entity in zip(relevant_nodes, relevant_nodes[1:]):
+                hop_edges = _prove_hop_with_recursion(
+                    from_entity, to_entity, path_ctx, tools=tools, client=client, budget=budget, stats=stats,
+                )
+                for edge in hop_edges:
+                    expanded_nodes.append(edge.to_entity)
+                    all_edges.append(edge)
 
         draft_paths.append(
             RecoveredPath(
@@ -241,36 +294,42 @@ def recover(
     found" for that one atomic claim.
     """
     active_budget = budget or RecoveryBudget()
-    tools = RepoTools(repo_root)
+    graph = CBMGraphTools(repo_root)
+    tools = RepoTools(repo_root, graph=graph)
     stats = RecoveryRunStats()
     changed_files = frozenset(result_context.changed_files)
 
-    draft_paths, draft_tests = _run_pipeline_once(result_context, tools=tools, client=client, budget=active_budget, stats=stats)
-    path_recovery = verify_paths(draft_paths, changed_files=changed_files, tools=tools, client=client, stats=stats)
-    test_recovery = verify_tests(draft_tests, changed_files=changed_files, tools=tools, client=client, stats=stats)
-
-    while (
-        path_recovery.status != STATUS_ESTABLISHED
-        and stats.pipeline_retries < active_budget.max_pipeline_retries
-    ):
-        stats.pipeline_retries += 1
-        retry_paths, retry_tests = _run_pipeline_once(
-            result_context, tools=tools, client=client, budget=active_budget, stats=stats,
+    try:
+        draft_paths, draft_tests = _run_pipeline_once(
+            result_context, tools=tools, client=client, budget=active_budget, stats=stats, repo_root=repo_root,
         )
-        retry_path_recovery = verify_paths(retry_paths, changed_files=changed_files, tools=tools, client=client, stats=stats)
-        if _status_rank(retry_path_recovery.status) > _status_rank(path_recovery.status):
-            path_recovery = retry_path_recovery
-        # A retry's tests are additive evidence for the SAME independent
-        # test-recovery outcome, never a replacement -- a path retry must
-        # not discard tests already established on the first attempt.
-        if retry_tests:
-            retry_test_recovery = verify_tests(retry_tests, changed_files=changed_files, tools=tools, client=client, stats=stats)
-            existing_keys = {(t.file, t.test) for t in test_recovery.tests}
-            new_tests = [t for t in retry_test_recovery.tests if (t.file, t.test) not in existing_keys]
-            if new_tests:
-                test_recovery = recompute_test_status(
-                    TestRecoveryResult(tests=test_recovery.tests + new_tests)
-                )
+        path_recovery = verify_paths(draft_paths, changed_files=changed_files, tools=tools, client=client, stats=stats)
+        test_recovery = verify_tests(draft_tests, changed_files=changed_files, tools=tools, client=client, stats=stats)
+
+        while (
+            path_recovery.status != STATUS_ESTABLISHED
+            and stats.pipeline_retries < active_budget.max_pipeline_retries
+        ):
+            stats.pipeline_retries += 1
+            retry_paths, retry_tests = _run_pipeline_once(
+                result_context, tools=tools, client=client, budget=active_budget, stats=stats, repo_root=repo_root,
+            )
+            retry_path_recovery = verify_paths(retry_paths, changed_files=changed_files, tools=tools, client=client, stats=stats)
+            if _status_rank(retry_path_recovery.status) > _status_rank(path_recovery.status):
+                path_recovery = retry_path_recovery
+            # A retry's tests are additive evidence for the SAME independent
+            # test-recovery outcome, never a replacement -- a path retry must
+            # not discard tests already established on the first attempt.
+            if retry_tests:
+                retry_test_recovery = verify_tests(retry_tests, changed_files=changed_files, tools=tools, client=client, stats=stats)
+                existing_keys = {(t.file, t.test) for t in test_recovery.tests}
+                new_tests = [t for t in retry_test_recovery.tests if (t.file, t.test) not in existing_keys]
+                if new_tests:
+                    test_recovery = recompute_test_status(
+                        TestRecoveryResult(tests=test_recovery.tests + new_tests)
+                    )
+    finally:
+        graph.close()
 
     stats.tool_calls = list(tools.calls)
     return RecoveryOutcome(path_recovery=path_recovery, test_recovery=test_recovery, stats=stats, trigger_reason=trigger_reason)

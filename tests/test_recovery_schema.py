@@ -68,6 +68,28 @@ def test_discovery_target_node_equal_to_entrypoint_degrades_to_none():
     assert path is None
 
 
+def test_discovery_all_nodes_collapsing_to_the_target_is_a_valid_single_node_path():
+    """A real reliability-experiment run showed the model correctly
+    determining that the entrypoint's own decorator sits directly on the
+    changed symbol (no intermediate hop exists), expressed by naming it
+    twice -- this must NOT be treated the same as the genuinely malformed
+    'target_node == nodes[0], but nodes[0] != nodes[1]' case just above."""
+    payload = {
+        "candidate_path": {
+            "entrypoint": "GET /user/{id}", "target_node": "UserController.getUser",
+            "nodes": [
+                {"symbol": "UserController.getUser", "file": "UserController.java"},
+                {"symbol": "UserController.getUser", "file": "UserController.java"},
+            ],
+        },
+        "candidate_tests": [],
+    }
+    path, _tests = parse_discovery_result(json.dumps(payload))
+    assert path is not None
+    assert [n.symbol for n in path.nodes] == ["UserController.getUser"]
+    assert path.target_node == "UserController.getUser"
+
+
 def test_discovery_target_node_not_among_nodes_degrades_to_none():
     payload = {
         "candidate_path": {"entrypoint": "x", "target_node": "z", "nodes": [{"symbol": "a"}, {"symbol": "b"}]},

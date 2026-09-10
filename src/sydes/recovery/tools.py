@@ -1,10 +1,14 @@
 """Generic, repository-scoped read/search tools for the recovery agent.
 
-Deliberately not CBM: these are plain filesystem operations (read a file,
-grep for text, list a directory) with no framework or language awareness at
-all. This is what lets the agent search "outside CBM-selected files" — its
-only boundary is the repository root itself, enforced by
-`_resolve_within_repo` on every call.
+The filesystem tools here (read a file, grep for text, list a directory)
+have no framework or language awareness at all — this is what lets the
+agent search "outside CBM-selected files", bounded only by the repository
+root itself (`_resolve_within_repo`). `graph`, when supplied, additionally
+offers CBM-backed callers/callees/symbol-search queries
+(`sydes.recovery.graph_tools.CBMGraphTools`) — production-grade for the
+lexically resolvable part of the call graph, and optional: every caller of
+this class works identically with `graph=None`, just without those three
+tools available.
 """
 
 from __future__ import annotations
@@ -12,6 +16,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 import re
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from sydes.recovery.graph_tools import CBMGraphTools
 
 #: Bounds on every tool's output, independent of the recovery budget's turn
 #: count — a single huge file or a greedy grep must not blow past the
@@ -48,8 +56,9 @@ def _resolve_within_repo(repo_root: Path, rel_path: str) -> Path:
 class RepoTools:
     """Bound to one repository root for the duration of a recovery run."""
 
-    def __init__(self, repo_root: Path) -> None:
+    def __init__(self, repo_root: Path, *, graph: "CBMGraphTools | None" = None) -> None:
         self._repo_root = repo_root
+        self._graph = graph
         self.calls: list[ToolCallRecord] = []
 
     def read_file(self, path: str, start_line: int | None = None, end_line: int | None = None) -> str:
@@ -123,4 +132,25 @@ class RepoTools:
             f"{'d' if e.is_dir() else 'f'} {e.relative_to(self._repo_root)}" for e in entries
         )
         self.calls.append(ToolCallRecord("list_directory", {"path": path}, len(out), True))
+        return out
+
+    def trace_callers(self, symbol: str, depth: int = 3) -> str:
+        if self._graph is None:
+            return "ERROR: CBM graph tools not available in this run"
+        out = self._graph.trace_callers(symbol, depth=depth)
+        self.calls.append(ToolCallRecord("trace_callers", {"symbol": symbol, "depth": depth}, len(out), not out.startswith("ERROR")))
+        return out
+
+    def trace_callees(self, symbol: str, depth: int = 3) -> str:
+        if self._graph is None:
+            return "ERROR: CBM graph tools not available in this run"
+        out = self._graph.trace_callees(symbol, depth=depth)
+        self.calls.append(ToolCallRecord("trace_callees", {"symbol": symbol, "depth": depth}, len(out), not out.startswith("ERROR")))
+        return out
+
+    def search_symbol(self, name_pattern: str, file_pattern: str | None = None) -> str:
+        if self._graph is None:
+            return "ERROR: CBM graph tools not available in this run"
+        out = self._graph.search_symbol(name_pattern, file_pattern=file_pattern)
+        self.calls.append(ToolCallRecord("search_symbol", {"name_pattern": name_pattern, "file_pattern": file_pattern}, len(out), not out.startswith("ERROR")))
         return out
