@@ -22,15 +22,20 @@ from __future__ import annotations
 
 from sydes.verify.analyzer import _compute_summary
 from sydes.verify.models import (
+    RISK_HIGH,
+    RISK_MEDIUM,
     VERDICT_INCOMPLETE,
     VERDICT_VERIFIED,
     VERIFICATION_PASSED,
+    VERIFICATION_UNKNOWN,
+    VERIFICATION_UNVERIFIED,
     AcceptedImpact,
     AffectedFlow,
     ChangedFile,
     ChangedSymbol,
     ChangeSet,
     ChangeVerificationResult,
+    MappedTest,
     VerificationObligation,
 )
 
@@ -152,3 +157,108 @@ def test_all_three_gates_can_fire_together_without_masking_each_others_reason() 
     assert "not yet modeled for verification" in reasons_text
     assert "AI-inferred rather than structurally proven" in reasons_text
     assert "unresolved" in reasons_text
+
+
+# ---------------------------------------------------------------------------
+# Issue 5: "tests not executed" alone (e.g. --no-run-tests) must not be
+# indistinguishable from a genuine "no test exists" coverage gap for risk
+# purposes. VERDICT_INCOMPLETE is correct either way (Sydes really could not
+# confirm pass/fail) — only the RISK label was conflating the two.
+# ---------------------------------------------------------------------------
+
+
+def _mapped_test(name: str = "test_x") -> MappedTest:
+    return MappedTest(id=f"test:{name}", name=name, file="tests/test_x.py")
+
+
+def test_tests_not_executed_with_full_mapping_stays_medium_not_high() -> None:
+    """Every obligation has a real mapped test; the ONLY reason its status
+    is UNKNOWN is that the suite was never run (no `ci_suite` at all, the
+    --no-run-tests shape). This is a fact about how the run was invoked,
+    not evidence of a risky change, and must not alone reach RISK_HIGH even
+    though the obligation was introduced by this change."""
+    obligation = VerificationObligation(
+        id="ob:1", flow_id="flow:GET:/x", kind="route_contract", statement="responds 200",
+        origin="api_contract", required=True, introduced_by_change=True,
+        mapped_tests=[_mapped_test()], status=VERIFICATION_UNKNOWN,
+        reason="The repository test suite was not executed",
+    )
+    flow = AffectedFlow(
+        id="flow:GET:/x", entry_label="GET /x", method="GET", path="/x",
+        obligations=[obligation], impact_status="proven",
+    )
+    impact = AcceptedImpact(
+        id=flow.id, label="GET /x", status="proven", route_method="GET", route_path="/x",
+        verification_model_status="modeled",
+    )
+    result = _result(affected_flows=[flow], accepted_impacts=[impact])
+    assert result.ci_suite is None  # the --no-run-tests shape this test targets
+
+    summary = _compute_summary(result)
+
+    assert summary.verdict == VERDICT_INCOMPLETE
+    assert summary.risk == RISK_MEDIUM
+
+
+def test_genuine_missing_test_coverage_still_reaches_high_risk() -> None:
+    """Contrast case: at least one obligation has NO mapped test at all
+    (a real coverage gap, VERIFICATION_UNVERIFIED) -- this must still reach
+    RISK_HIGH for an obligation introduced by the change, exactly as
+    before. The fix must only soften the "simply never executed" case,
+    never mask an actual missing-test gap."""
+    covered = VerificationObligation(
+        id="ob:1", flow_id="flow:GET:/x", kind="route_contract", statement="responds 200",
+        origin="api_contract", required=True, introduced_by_change=True,
+        mapped_tests=[_mapped_test()], status=VERIFICATION_UNKNOWN,
+        reason="The repository test suite was not executed",
+    )
+    uncovered = VerificationObligation(
+        id="ob:2", flow_id="flow:GET:/x", kind="validation", statement="rejects bad input",
+        origin="api_contract", required=True, introduced_by_change=True,
+        mapped_tests=[], status=VERIFICATION_UNVERIFIED,
+        reason="No existing test asserts this behavior",
+    )
+    flow = AffectedFlow(
+        id="flow:GET:/x", entry_label="GET /x", method="GET", path="/x",
+        obligations=[covered, uncovered], impact_status="proven",
+    )
+    impact = AcceptedImpact(
+        id=flow.id, label="GET /x", status="proven", route_method="GET", route_path="/x",
+        verification_model_status="modeled",
+    )
+    result = _result(affected_flows=[flow], accepted_impacts=[impact])
+
+    summary = _compute_summary(result)
+
+    assert summary.verdict == VERDICT_INCOMPLETE
+    assert summary.risk == RISK_HIGH
+
+
+def test_suite_ran_but_produced_no_signal_still_reaches_high_risk() -> None:
+    """Contrast case: the suite WAS executed (ci_suite is not None) but
+    could not produce a usable signal (e.g. it crashed) -- unlike the
+    never-executed case, this is a real anomaly and must keep its existing
+    risk weighting, not be softened."""
+    from sydes.verify.models import CiSuiteRun
+
+    obligation = VerificationObligation(
+        id="ob:1", flow_id="flow:GET:/x", kind="route_contract", statement="responds 200",
+        origin="api_contract", required=True, introduced_by_change=True,
+        mapped_tests=[_mapped_test()], status=VERIFICATION_UNKNOWN,
+        reason="The test suite failed without attributable test results",
+    )
+    flow = AffectedFlow(
+        id="flow:GET:/x", entry_label="GET /x", method="GET", path="/x",
+        obligations=[obligation], impact_status="proven",
+    )
+    impact = AcceptedImpact(
+        id=flow.id, label="GET /x", status="proven", route_method="GET", route_path="/x",
+        verification_model_status="modeled",
+    )
+    ci_suite = CiSuiteRun(status=VERIFICATION_UNKNOWN, reason="crashed before producing results")
+    result = _result(affected_flows=[flow], accepted_impacts=[impact], ci_suite=ci_suite)
+
+    summary = _compute_summary(result)
+
+    assert summary.verdict == VERDICT_INCOMPLETE
+    assert summary.risk == RISK_HIGH

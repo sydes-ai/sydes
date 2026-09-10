@@ -798,7 +798,21 @@ def _compute_summary(result: ChangeVerificationResult) -> ChangeSummary:
         verdict, risk = VERDICT_ACTION_REQUIRED, RISK_HIGH
     elif counts.obligations_unknown or counts.obligations_unverified:
         verdict = VERDICT_INCOMPLETE
-        risk = RISK_HIGH if counts.obligations_introduced_by_change else RISK_MEDIUM
+        # `obligations_unverified` means no test exists at all for that
+        # obligation -- a real coverage gap. `obligations_unknown` can mean
+        # the same underlying "no usable signal" (a suite that ran but
+        # crashed), but it ALSO covers the ordinary --no-run-tests case:
+        # `resolve_obligation_status` sets UNKNOWN there even when every
+        # obligation has a real mapped test, solely because `suite is
+        # None` (see that function). That specific case -- a test suite
+        # that was simply never executed, with no coverage gap otherwise
+        # -- is a fact about how this run was invoked, not evidence the
+        # change itself is risky, so it must not alone push risk to HIGH.
+        tests_simply_not_executed = counts.obligations_unverified == 0 and suite is None
+        if tests_simply_not_executed:
+            risk = RISK_MEDIUM
+        else:
+            risk = RISK_HIGH if counts.obligations_introduced_by_change else RISK_MEDIUM
     elif counts.obligations:
         verdict, risk = VERDICT_VERIFIED, RISK_LOW
     elif change.files:
