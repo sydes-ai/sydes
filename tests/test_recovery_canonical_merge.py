@@ -24,6 +24,7 @@ from sydes.recovery.schema import (
 from sydes.verify.models import (
     AcceptedImpact,
     AffectedFlow,
+    ChangedSymbol,
     ChangeSet,
     ChangeSummary,
     ChangeVerificationResult,
@@ -40,9 +41,10 @@ def _entity(symbol: str, file: str) -> EntityRef:
     return EntityRef(symbol=symbol, file=file)
 
 
-def _result(**overrides) -> ChangeVerificationResult:
+def _result(*, changed_symbols=None, **overrides) -> ChangeVerificationResult:
     overrides.setdefault("summary", ChangeSummary(counts=VerificationCounts()))
-    return ChangeVerificationResult(change=ChangeSet(base="main", head="abc"), **overrides)
+    change = ChangeSet(base="main", head="abc", symbols=changed_symbols or [])
+    return ChangeVerificationResult(change=change, **overrides)
 
 
 def _established_path(entrypoint="GET /users", nodes=None) -> PathRecoveryResult:
@@ -194,3 +196,80 @@ def test_verdict_and_risk_are_never_touched_by_merge():
     merge_verified_recovery_into_result(result, _established_path(), TestRecoveryResult(status=STATUS_ESTABLISHED, tests=[_recovered_test()]))
     assert result.summary.verdict == "VERIFICATION INCOMPLETE"
     assert result.summary.risk == "MEDIUM"
+
+
+# ---------------------------------------------------------------------------
+# Superseding a stale inferred impact for the SAME changed behavior.
+# ---------------------------------------------------------------------------
+
+
+def _whole_change_inferred_impact(changed_symbol_name: str) -> AcceptedImpact:
+    """Shapes exactly the real case this was found on: a whole-change-level
+    semantic-guide inference whose OWN `changed_symbols` is a generic
+    placeholder, not a real name -- so the only structured link back to
+    the diff's own changed symbol is the documented `id` anchor
+    convention (`impact:{repo}:{qualified_name or symbol}`)."""
+    return AcceptedImpact(
+        id=f"impact:app:{changed_symbol_name}", label="some inferred behavior",
+        status="inferred", changed_symbols=["(whole change)"],
+        verification_model_status="unsupported_or_partial", behavior_label="some inferred behavior",
+    )
+
+
+def test_inferred_impact_for_the_same_changed_symbol_is_dropped_when_recovery_establishes_it():
+    changed = [ChangedSymbol(id="s1", repo=REPO, file="handler.ts", name="execute", qualified_name="Handler.execute")]
+    stale = _whole_change_inferred_impact("execute")
+    result = _result(changed_symbols=changed, accepted_impacts=[stale], summary=ChangeSummary(counts=VerificationCounts(impacts_inferred=1, impacts_not_modeled=1)))
+    path = _established_path(nodes=[_entity("Controller.findUsers", "controller.ts"), _entity("Handler.execute", "handler.ts")])
+    merge_verified_recovery_into_result(result, path, TestRecoveryResult())
+    ids = [imp.id for imp in result.accepted_impacts]
+    assert "impact:app:execute" not in ids
+    assert result.summary.counts.impacts_inferred == 0
+    assert result.summary.counts.impacts_not_modeled == 0
+
+
+def test_inferred_impact_for_a_different_changed_symbol_is_retained():
+    changed = [ChangedSymbol(id="s1", repo=REPO, file="handler.ts", name="execute", qualified_name="Handler.execute")]
+    unrelated = _whole_change_inferred_impact("someOtherFunction")
+    result = _result(changed_symbols=changed, accepted_impacts=[unrelated], summary=ChangeSummary(counts=VerificationCounts(impacts_inferred=1, impacts_not_modeled=1)))
+    path = _established_path(nodes=[_entity("Controller.findUsers", "controller.ts"), _entity("Handler.execute", "handler.ts")])
+    merge_verified_recovery_into_result(result, path, TestRecoveryResult())
+    ids = [imp.id for imp in result.accepted_impacts]
+    assert "impact:app:someOtherFunction" in ids
+    assert result.summary.counts.impacts_inferred == 1
+
+
+def test_proven_structural_impact_is_never_dropped_even_for_the_same_symbol():
+    changed = [ChangedSymbol(id="s1", repo=REPO, file="handler.ts", name="execute", qualified_name="Handler.execute")]
+    proven = AcceptedImpact(id="impact:app:execute", label="x", status="proven", changed_symbols=["execute"], verification_model_status="modeled")
+    result = _result(changed_symbols=changed, accepted_impacts=[proven])
+    path = _established_path(
+        entrypoint="a different route", nodes=[_entity("Other.handler", "other.ts"), _entity("Handler.execute", "handler.ts")],
+    )
+    merge_verified_recovery_into_result(result, path, TestRecoveryResult())
+    ids = [imp.id for imp in result.accepted_impacts]
+    assert "impact:app:execute" in ids  # untouched -- status == "proven", never a dedupe target
+
+
+def test_unresolved_recovery_never_drops_an_inferred_impact():
+    changed = [ChangedSymbol(id="s1", repo=REPO, file="handler.ts", name="execute", qualified_name="Handler.execute")]
+    stale = _whole_change_inferred_impact("execute")
+    result = _result(changed_symbols=changed, accepted_impacts=[stale])
+    merge_verified_recovery_into_result(result, PathRecoveryResult(status=STATUS_UNRESOLVED), TestRecoveryResult())
+    assert result.accepted_impacts == [stale]
+
+
+def test_matching_by_file_identity_when_symbol_name_differs():
+    """A recovered target's bare/qualified symbol need not textually match
+    the diff's own changed-symbol name for the match to hold -- the SAME
+    file is itself a structured identity signal, not a text comparison."""
+    changed = [ChangedSymbol(id="s1", repo=REPO, file="handler.ts", name="execute", qualified_name="Handler.execute")]
+    stale = _whole_change_inferred_impact("execute")
+    result = _result(changed_symbols=changed, accepted_impacts=[stale])
+    # The recovered target names the QUALIFIED form ("Handler.execute"),
+    # matched here via file identity, not a literal string match against
+    # the changed symbol's bare "execute".
+    path = _established_path(nodes=[_entity("Controller.findUsers", "controller.ts"), _entity("Handler.execute", "handler.ts")])
+    merge_verified_recovery_into_result(result, path, TestRecoveryResult())
+    assert result.accepted_impacts[0].id != "impact:app:execute"  # the stale one is gone; only the new one remains
+    assert len(result.accepted_impacts) == 1
