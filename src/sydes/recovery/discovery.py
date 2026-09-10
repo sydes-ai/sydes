@@ -75,7 +75,10 @@ def _build_initial_prompt(context: RecoveryContext) -> str:
         "",
         f"current_result_summary: {context.current_result_summary}",
         "",
-        "first_pass_findings (your starting hypothesis to verify/correct/complete):",
+        "first_pass_findings (your starting hypothesis to verify/correct/complete -- an "
+        "AffectedFlow with impact_status=proven or an AcceptedImpact with status=proven is "
+        "ALREADY fully established; do not spend turns re-investigating those, focus on the "
+        "gap named in why_the_first_pass_stopped above):",
         context.cbm_fragments,
         "",
         "known_entrypoints_already_seen_by_the_first_pass:",

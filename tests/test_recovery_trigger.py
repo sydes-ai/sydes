@@ -11,6 +11,7 @@ from sydes.recovery.trigger import (
     GAP_MISSING_TEST_MAPPING,
     GAP_NO_ESTABLISHED_FLOW,
     GAP_ONLY_INFERRED_IMPACT,
+    GAP_UNRESOLVED_CHANGED_SYMBOLS,
     evaluate_trigger,
 )
 from sydes.verify.models import (
@@ -103,5 +104,61 @@ def test_no_trigger_when_tests_are_mapped_even_with_a_changed_test_file():
         files=[ChangedFile(repo=REPO, path="svc_test.py", change_type="added", role="test_usage_candidate")],
         summary=ChangeSummary(verdict=VERDICT_VERIFIED, counts=VerificationCounts(mapped_tests=3)),
         affected_flows=[AffectedFlow(id="f1", entry_label="POST /users", impact_status="proven")],
+    )
+    assert evaluate_trigger(result) is None
+
+
+# ---------------------------------------------------------------------------
+# Issue 3: one established flow must not mask a genuinely separate,
+# unresolved gap elsewhere on the same result.
+# ---------------------------------------------------------------------------
+
+
+def test_trigger_fires_for_a_separate_inferred_impact_despite_an_established_flow():
+    """One flow IS established -- the top-level VERIFIED/OK short-circuit
+    does not apply because the verdict is INCOMPLETE -- and a genuinely
+    separate accepted impact on the same result is still only inferred.
+    That must still trigger recovery for the separate gap, not be masked
+    by the flow that's already fine."""
+    result = _result(
+        affected_flows=[AffectedFlow(id="f1", entry_label="POST /users", impact_status="proven")],
+        accepted_impacts=[
+            AcceptedImpact(id="f1", label="POST /users", status="proven"),
+            AcceptedImpact(id="i2", label="a separate maybe-affected behavior", status="inferred"),
+        ],
+    )
+    trigger = evaluate_trigger(result)
+    assert trigger is not None
+    assert GAP_ONLY_INFERRED_IMPACT in trigger.gap_kinds
+
+
+def test_trigger_fires_for_unresolved_changed_symbols_despite_an_established_flow():
+    """An established flow exists, but the first pass still could not
+    connect some OTHER changed symbol to any entrypoint -- that gap is
+    exactly as real as it would be with nothing established at all."""
+    result = _result(
+        affected_flows=[AffectedFlow(id="f1", entry_label="POST /users", impact_status="proven")],
+        accepted_impacts=[AcceptedImpact(id="f1", label="POST /users", status="proven")],
+        unresolved_changed_symbols=2,
+    )
+    trigger = evaluate_trigger(result)
+    assert trigger is not None
+    assert GAP_UNRESOLVED_CHANGED_SYMBOLS in trigger.gap_kinds
+
+
+def test_no_trigger_when_everything_is_already_established_and_resolved():
+    """Sanity check: a fully clean, all-proven result with no residual gap
+    of any kind must still not trigger -- the fix must not make recovery
+    fire unconditionally just because a result has more than one flow."""
+    result = _result(
+        summary=ChangeSummary(verdict=VERDICT_VERIFIED, counts=VerificationCounts(mapped_tests=1)),
+        affected_flows=[
+            AffectedFlow(id="f1", entry_label="POST /users", impact_status="proven"),
+            AffectedFlow(id="f2", entry_label="GET /users", impact_status="proven"),
+        ],
+        accepted_impacts=[
+            AcceptedImpact(id="f1", label="POST /users", status="proven"),
+            AcceptedImpact(id="f2", label="GET /users", status="proven"),
+        ],
     )
     assert evaluate_trigger(result) is None

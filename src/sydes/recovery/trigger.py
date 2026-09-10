@@ -59,10 +59,13 @@ def _has_any_real_impact_signal(result: ChangeVerificationResult) -> bool:
     return bool(result.affected_flows or result.affected_boundaries or result.accepted_impacts)
 
 
-def _has_only_inferred_impacts(result: ChangeVerificationResult) -> bool:
-    if not result.accepted_impacts:
-        return False
-    return all(impact.status != IMPACT_STATUS_PROVEN for impact in result.accepted_impacts)
+def _has_unresolved_inferred_impact(result: ChangeVerificationResult) -> bool:
+    """True iff at least one accepted impact is not (yet) structurally
+    proven -- regardless of whether OTHER impacts on this same result ARE
+    proven. An established flow elsewhere on the same PR must never mask
+    a genuinely separate, still-inferred impact (see task item 3: "a PR
+    with one established flow can still have another unresolved path")."""
+    return any(impact.status != IMPACT_STATUS_PROVEN for impact in result.accepted_impacts)
 
 
 def _boundary_without_matching_flow(result: ChangeVerificationResult) -> bool:
@@ -106,6 +109,20 @@ def evaluate_trigger(result: ChangeVerificationResult) -> RecoveryTrigger | None
     recover" (either a real impact signal already found, or a concretely
     named new/changed test file with zero mapping) so the agent is never
     sent to investigate a change that plausibly has nothing to find.
+
+    An established flow existing somewhere on the result does NOT, by
+    itself, suppress every other check below: a PR can have one flow fully
+    established and a genuinely separate impact/changed-symbol/test-mapping
+    gap alongside it, and that gap is just as real as it would be with no
+    established flow at all (task item: "one established flow does not
+    prevent recovery of unresolved flow B"). Only the top-level VERIFIED/OK
+    short-circuit and the `_boundary_without_matching_flow`/
+    `GAP_NO_ESTABLISHED_FLOW` checks below are inherently "zero flows"
+    conditions — every other gap kind is evaluated regardless of whether
+    something else on the same result is already established, and the
+    downstream canonical merge (`sydes.recovery.canonical_merge`) is what
+    already guarantees recovering one gap never duplicates or downgrades
+    evidence recovery didn't touch.
     """
     if result.summary.verdict in (VERDICT_OK, VERDICT_VERIFIED) and _has_established_flow(result):
         return None
@@ -115,14 +132,15 @@ def evaluate_trigger(result: ChangeVerificationResult) -> RecoveryTrigger | None
     extra_tests: tuple[str, ...] = ()
 
     has_signal = _has_any_real_impact_signal(result)
+    has_established = _has_established_flow(result)
 
-    if has_signal and not _has_established_flow(result):
+    if has_signal and not has_established:
         if _boundary_without_matching_flow(result):
             gap_kinds.append(GAP_BOUNDARY_WITHOUT_FLOW)
             reasons.append(
                 "a structural boundary was found but no complete route/entrypoint flow reaches it"
             )
-        elif _has_only_inferred_impacts(result):
+        elif _has_unresolved_inferred_impact(result):
             gap_kinds.append(GAP_ONLY_INFERRED_IMPACT)
             reasons.append(
                 "only inferred impact exists; no impact was structurally established with a complete path"
@@ -135,6 +153,16 @@ def evaluate_trigger(result: ChangeVerificationResult) -> RecoveryTrigger | None
             gap_kinds.append(GAP_ROUTE_COMPOSITION_UNRESOLVED)
             reasons.append("the first pass reported route composition as unresolved in this repository")
 
+    elif has_established and _has_unresolved_inferred_impact(result):
+        # One or more flows ARE established, but a genuinely separate
+        # accepted impact on this same result remains only AI-inferred —
+        # an established flow elsewhere must not mask that remaining gap.
+        gap_kinds.append(GAP_ONLY_INFERRED_IMPACT)
+        reasons.append(
+            "an established flow already exists, but a separate accepted impact remains "
+            "only AI-inferred, not structurally proven"
+        )
+
     missing_test_candidates = _missing_test_mapping_despite_new_tests(result)
     if missing_test_candidates:
         gap_kinds.append(GAP_MISSING_TEST_MAPPING)
@@ -144,7 +172,10 @@ def evaluate_trigger(result: ChangeVerificationResult) -> RecoveryTrigger | None
         )
         extra_tests = missing_test_candidates
 
-    if result.unresolved_changed_symbols > 0 and has_signal and not _has_established_flow(result):
+    # Deliberately NOT gated on `not has_established`: a changed symbol the
+    # first pass never connected to any entrypoint is exactly as real a
+    # gap when some OTHER flow is already established as when nothing is.
+    if result.unresolved_changed_symbols > 0 and has_signal:
         gap_kinds.append(GAP_UNRESOLVED_CHANGED_SYMBOLS)
         reasons.append(
             f"{result.unresolved_changed_symbols} changed symbol(s) reach no entrypoint the first pass found"
