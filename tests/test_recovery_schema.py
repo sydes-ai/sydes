@@ -22,7 +22,13 @@ import json
 
 import pytest
 
-from sydes.recovery.schema import RecoveryError, STATUS_UNRESOLVED, parse_recovery_result
+from sydes.recovery.schema import (
+    RecoveryError,
+    STATUS_UNRESOLVED,
+    parse_atomic_completion_result,
+    parse_discovery_result,
+    parse_recovery_result,
+)
 
 
 def _payload(**overrides) -> dict:
@@ -198,3 +204,95 @@ def test_one_malformed_path_does_not_discard_a_valid_test_or_other_paths():
     assert result.recovered_paths[0].entrypoint == "GET /users"
     assert len(result.recovered_tests) == 1
     assert any("recovered_paths[1]" in u.question for u in result.unresolved)
+
+
+# ---------------------------------------------------------------------------
+# Stage A (discovery) and Stage B (atomic evidence completion) parsing.
+# ---------------------------------------------------------------------------
+
+
+def test_parses_a_well_formed_candidate_path_and_tests():
+    payload = {
+        "candidate_path": {
+            "entrypoint": "GET /users", "target_node": "handler",
+            "nodes": ["route", "middle", "handler"],
+        },
+        "candidate_tests": [{"file": "a.spec.ts", "test": "t1", "covers": "limit behavior"}],
+    }
+    path, tests = parse_discovery_result(json.dumps(payload))
+    assert path is not None
+    assert path.nodes == ["route", "middle", "handler"]
+    assert path.target_node == "handler"
+    assert len(tests) == 1
+
+
+def test_discovery_with_null_candidate_path_is_valid():
+    payload = {"candidate_path": None, "candidate_tests": []}
+    path, tests = parse_discovery_result(json.dumps(payload))
+    assert path is None
+    assert tests == []
+
+
+def test_discovery_candidate_path_with_too_few_nodes_degrades_to_none():
+    """A malformed candidate_path is dropped (treated as 'no path
+    proposed'), never fatal to the whole discovery response -- this is
+    exactly the shape a real discovery run produced (a degenerate
+    single-node "path") that used to crash the entire recovery attempt
+    before Stage B or the retry budget ever got a chance to run."""
+    payload = {"candidate_path": {"entrypoint": "x", "target_node": "a", "nodes": ["a"]}, "candidate_tests": []}
+    path, _tests = parse_discovery_result(json.dumps(payload))
+    assert path is None
+
+
+def test_discovery_target_node_equal_to_entrypoint_degrades_to_none():
+    payload = {"candidate_path": {"entrypoint": "x", "target_node": "a", "nodes": ["a", "b"]}, "candidate_tests": []}
+    path, _tests = parse_discovery_result(json.dumps(payload))
+    assert path is None
+
+
+def test_discovery_target_node_not_among_nodes_degrades_to_none():
+    payload = {"candidate_path": {"entrypoint": "x", "target_node": "z", "nodes": ["a", "b"]}, "candidate_tests": []}
+    path, _tests = parse_discovery_result(json.dumps(payload))
+    assert path is None
+
+
+def test_discovery_malformed_candidate_path_does_not_lose_valid_candidate_tests():
+    payload = {
+        "candidate_path": {"entrypoint": "x", "target_node": "a", "nodes": ["a"]},  # malformed
+        "candidate_tests": [{"file": "a.ts", "test": "t1", "covers": "c1"}],
+    }
+    path, tests = parse_discovery_result(json.dumps(payload))
+    assert path is None
+    assert len(tests) == 1
+
+
+def test_discovery_one_malformed_candidate_test_is_dropped_not_fatal():
+    payload = {
+        "candidate_path": None,
+        "candidate_tests": [
+            {"file": "a.ts", "test": "t1", "covers": "c1"},
+            {"file": "a.ts"},  # missing test/covers
+        ],
+    }
+    path, tests = parse_discovery_result(json.dumps(payload))
+    assert len(tests) == 1
+    assert tests[0].test == "t1"
+
+
+def test_parses_atomic_completion_with_evidence():
+    payload = {"relationship": "constructs and dispatches", "evidence": [{"file": "a.ts", "line_start": 1, "line_end": 2, "fact": "x"}]}
+    relationship, evidence = parse_atomic_completion_result(json.dumps(payload))
+    assert relationship == "constructs and dispatches"
+    assert len(evidence) == 1
+
+
+def test_parses_atomic_completion_with_no_evidence_found():
+    payload = {"relationship": "", "evidence": []}
+    relationship, evidence = parse_atomic_completion_result(json.dumps(payload))
+    assert relationship == ""
+    assert evidence == []
+
+
+def test_atomic_completion_non_json_raises_recovery_error():
+    with pytest.raises(RecoveryError):
+        parse_atomic_completion_result("not json")

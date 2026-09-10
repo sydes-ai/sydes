@@ -75,7 +75,7 @@ def main() -> int:
     wall_ms = (time.perf_counter() - started) * 1000.0
 
     print(f"\nstatus: {outcome.result.status}")
-    print(f"turns: {outcome.stats.turns}  llm_calls: {outcome.stats.llm_calls}  verify_retries: {outcome.stats.verify_retries}")
+    print(f"turns: {outcome.stats.turns}  llm_calls: {outcome.stats.llm_calls}  pipeline_retries: {outcome.stats.pipeline_retries}")
     print(f"tokens: prompt={outcome.stats.prompt_tokens} completion={outcome.stats.completion_tokens}")
     print(f"latency (LLM time): {outcome.stats.latency_ms:.0f}ms  wall time: {wall_ms:.0f}ms")
     print(f"files read: {outcome.stats.files_read}")
@@ -120,7 +120,7 @@ def main() -> int:
             "stats": {
                 "turns": outcome.stats.turns,
                 "llm_calls": outcome.stats.llm_calls,
-                "verify_retries": outcome.stats.verify_retries,
+                "pipeline_retries": outcome.stats.pipeline_retries,
                 "prompt_tokens": outcome.stats.prompt_tokens,
                 "completion_tokens": outcome.stats.completion_tokens,
                 "latency_ms": outcome.stats.latency_ms,

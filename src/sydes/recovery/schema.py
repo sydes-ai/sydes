@@ -172,6 +172,108 @@ class UnresolvedQuestion(BaseModel):
     missing_evidence: str
 
 
+class CandidatePath(BaseModel):
+    """Stage A's (discovery) output: a HYPOTHESIS only — a plausible chain
+    of symbol names from an entrypoint to the changed behavior, with no
+    evidence-citation responsibility at all. `nodes` are bare symbol names
+    (discovery is not required to know which file a name lives in; Stage B
+    — `sydes.recovery.evidence` — finds that out while proving each hop).
+    Never trusted on its own: every adjacent pair is independently proven
+    by Stage B and judged by Stage C (`sydes.recovery.verify`) before any
+    of this becomes a `RecoveredPath`."""
+
+    entrypoint: str
+    target_node: str
+    nodes: list[str] = Field(default_factory=list)
+
+
+class CandidateTestClaim(BaseModel):
+    """Stage A's hypothesis that some test exercises the changed behavior
+    — no evidence yet; Stage B proves or disproves it the same way it does
+    a path edge."""
+
+    file: str
+    test: str
+    covers: str
+
+
+def _parse_candidate_path(raw: Any) -> CandidatePath:
+    if not isinstance(raw, dict):
+        raise RecoveryError("'candidate_path' must be an object")
+    entrypoint = raw.get("entrypoint")
+    target_node = raw.get("target_node") or raw.get("target")
+    raw_nodes = raw.get("nodes")
+    if not isinstance(entrypoint, str) or not entrypoint.strip():
+        raise RecoveryError("'candidate_path' missing non-empty 'entrypoint'")
+    if not isinstance(target_node, str) or not target_node.strip():
+        raise RecoveryError("'candidate_path' missing non-empty 'target_node'")
+    if not isinstance(raw_nodes, list) or len(raw_nodes) < 2:
+        raise RecoveryError("'candidate_path.nodes' must be an array of at least 2 symbol names")
+    nodes = [n.strip() for n in raw_nodes if isinstance(n, str) and n.strip()]
+    if len(nodes) != len(raw_nodes):
+        raise RecoveryError("'candidate_path.nodes' entries must all be non-empty strings")
+    target_node = target_node.strip()
+    if target_node not in nodes:
+        raise RecoveryError(f"'candidate_path.target_node' {target_node!r} is not among 'nodes'")
+    if target_node == nodes[0]:
+        raise RecoveryError("'candidate_path.target_node' cannot be the entrypoint node (nodes[0])")
+    return CandidatePath(entrypoint=entrypoint.strip(), target_node=target_node, nodes=nodes)
+
+
+def _parse_candidate_test(raw: Any, *, index: int) -> CandidateTestClaim:
+    if not isinstance(raw, dict):
+        raise RecoveryError(f"candidate_tests[{index}] must be an object")
+    file = raw.get("file")
+    test = raw.get("test")
+    covers = raw.get("covers")
+    if not all(isinstance(v, str) and v.strip() for v in (file, test, covers)):
+        raise RecoveryError(f"candidate_tests[{index}] requires non-empty file/test/covers")
+    return CandidateTestClaim(file=file.strip(), test=test.strip(), covers=covers.strip())
+
+
+def parse_discovery_result(text: str) -> tuple[CandidatePath | None, list[CandidateTestClaim]]:
+    """Parse Stage A's response: `{"candidate_path": {...} | null,
+    "candidate_tests": [...]}`.
+
+    Both a malformed individual candidate test AND a malformed
+    `candidate_path` are dropped (treated as "no candidate proposed"),
+    never fatal to the whole discovery response — partial recovery over
+    all-or-nothing, the same tolerance `parse_recovery_result` applies to
+    the final answer. This matters here specifically because discovery is
+    the one stage a bad response cannot be repaired downstream: Stage B has
+    nothing to prove without *some* candidate, so a malformed
+    `candidate_path` degrading to "propose no path this attempt" (which the
+    agent is separately told is a valid, honest answer) is strictly better
+    than crashing the entire run before Stage B or the retry budget ever
+    gets a chance to run — observed in practice when a discovery response
+    proposed a degenerate single-node "path" instead of honestly using
+    `null`, exactly the shortcut the prompt tells it not to take.
+    """
+    payload = _extract_json_object(text)
+    if not isinstance(payload, dict):
+        raise RecoveryError("discovery output was not a single JSON object")
+
+    raw_path = payload.get("candidate_path")
+    path: CandidatePath | None = None
+    if raw_path is not None:
+        try:
+            path = _parse_candidate_path(raw_path)
+        except RecoveryError:
+            path = None
+
+    raw_tests = payload.get("candidate_tests", [])
+    if not isinstance(raw_tests, list):
+        raise RecoveryError("'candidate_tests' must be a JSON array")
+    tests: list[CandidateTestClaim] = []
+    for i, item in enumerate(raw_tests):
+        try:
+            tests.append(_parse_candidate_test(item, index=i))
+        except RecoveryError:
+            continue  # one malformed candidate test does not sink discovery
+
+    return path, tests
+
+
 class RecoveryResult(BaseModel):
     """The complete, strict output of one recovery run.
 
@@ -412,6 +514,23 @@ def _parse_list(raw: Any, *, field_name: str, parse_one) -> tuple[list, list[Unr
                 )
             )
     return parsed, dropped
+
+
+def parse_atomic_completion_result(text: str) -> tuple[str, list[RecoveredEvidence]]:
+    """Parse Stage B's response for ONE atomic claim (one edge, or one
+    candidate test): `{"relationship": "...", "evidence": [...]}`. An
+    empty `evidence` list is a complete, honest, valid answer — "I looked
+    and could not find proof" — not a parse failure; the caller (Stage C)
+    treats empty evidence as an automatic reject, no LLM verifier call
+    needed for it.
+    """
+    payload = _extract_json_object(text)
+    if not isinstance(payload, dict):
+        raise RecoveryError("atomic evidence-completion output was not a single JSON object")
+    relationship = payload.get("relationship", "")
+    relationship = relationship.strip() if isinstance(relationship, str) else ""
+    evidence = _parse_evidence_list(payload.get("evidence"), context="atomic_evidence_completion")
+    return relationship, evidence
 
 
 def parse_recovery_result(text: str) -> RecoveryResult:
