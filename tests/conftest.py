@@ -45,6 +45,27 @@ def isolate_sydes_store(
     return store_root
 
 
+@pytest.fixture(autouse=True)
+def no_real_ai_recovery_by_default(monkeypatch) -> None:
+    """AI recovery now runs by default on every `verify-change` invocation
+    (see `--no-ai-recovery`), which means any test that drives the CLI
+    command (`CliRunner`/`subprocess`) without that flag would otherwise
+    try to build a REAL LLM client and make a REAL network call the moment
+    its fixture repo happens to leave any high-value gap -- silently slow,
+    costly, and flaky, for tests that were never written to exercise this.
+
+    This makes the CLI's AI-recovery hook a no-op by default for the whole
+    suite. A test that specifically wants to exercise it (e.g. asserting
+    it's invoked/skipped correctly) overrides this within its own body via
+    `monkeypatch.setattr("sydes.cli.verify_change._run_ai_recovery", ...)`
+    — that later call wins over this one since both share the same
+    per-test `monkeypatch` instance. A test that calls `_run_ai_recovery`
+    directly (not through the CLI command) is unaffected either way, since
+    that is a separate, explicit call this fixture never touches.
+    """
+    monkeypatch.setattr("sydes.cli.verify_change._run_ai_recovery", lambda *a, **k: None)
+
+
 def pytest_configure(config: pytest.Config) -> None:
     """Register the opt-out marker so `--strict-markers` stays usable."""
     config.addinivalue_line(

@@ -35,9 +35,18 @@ class LLMRequest:
 
 @dataclass(frozen=True)
 class LLMResponse:
-    """Simple response payload for text generation calls."""
+    """Simple response payload for text generation calls.
+
+    `usage` is `None` unless the provider's SDK response actually reported
+    token counts (populated for OpenAI/Anthropic; Ollama's client leaves it
+    `None`). Purely additive/optional — no existing caller reads it, and
+    nothing about the request/response contract changes for one that
+    doesn't. Added for `sydes.recovery`'s cost/latency accounting rather
+    than guessed from character counts.
+    """
 
     text: str
+    usage: dict[str, int] | None = None
 
 
 class LLMClient(Protocol):
@@ -232,6 +241,31 @@ class OllamaClient:
         return LLMResponse(text=text)
 
 
+def _openai_usage(response: Any) -> dict[str, int] | None:
+    usage = getattr(response, "usage", None)
+    if usage is None:
+        return None
+    prompt = getattr(usage, "prompt_tokens", None)
+    completion = getattr(usage, "completion_tokens", None)
+    if not isinstance(prompt, int) or not isinstance(completion, int):
+        return None
+    return {"prompt_tokens": prompt, "completion_tokens": completion, "total_tokens": prompt + completion}
+
+
+def _anthropic_usage(response: Any) -> dict[str, int] | None:
+    usage = getattr(response, "usage", None)
+    if usage is None:
+        return None
+    input_tokens = getattr(usage, "input_tokens", None)
+    output_tokens = getattr(usage, "output_tokens", None)
+    if not isinstance(input_tokens, int) or not isinstance(output_tokens, int):
+        return None
+    return {
+        "prompt_tokens": input_tokens, "completion_tokens": output_tokens,
+        "total_tokens": input_tokens + output_tokens,
+    }
+
+
 class OpenAIClient:
     """OpenAI text generation client via official OpenAI Python SDK."""
 
@@ -299,7 +333,7 @@ class OpenAIClient:
             message = getattr(first_choice, "message", None)
             content = getattr(message, "content", None) if message is not None else None
             if isinstance(content, str):
-                return LLMResponse(text=content)
+                return LLMResponse(text=content, usage=_openai_usage(response))
         raise LLMClientError("OpenAI response missing completion text.")
 
 
@@ -367,7 +401,7 @@ class AnthropicClient:
                 text_parts.append(text_value)
         if not text_parts:
             raise LLMClientError("Anthropic response missing completion text.")
-        return LLMResponse(text="\n".join(text_parts))
+        return LLMResponse(text="\n".join(text_parts), usage=_anthropic_usage(response))
 
 
 def load_llm_settings_from_env() -> LLMSettings:

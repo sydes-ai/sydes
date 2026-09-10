@@ -422,6 +422,12 @@ class AcceptedImpact(BaseModel):
     #: or an inferred route that never matched a real one. Recorded rather
     #: than silently dropped either way.
     verification_model_status: str = "modeled"
+    #: "structural" (default, every existing construction site) for the
+    #: deterministic/CBM-backed pipeline, or "ai_recovery" for an impact
+    #: `sydes.recovery`'s canonical merge added after adversarial
+    #: verification. Provenance only, never read by verdict aggregation —
+    #: see `sydes.recovery.canonical_merge`.
+    provenance: str = "structural"
 
 
 class AffectedFlow(BaseModel):
@@ -460,6 +466,12 @@ class AffectedFlow(BaseModel):
     #: start `VERIFICATION_UNVERIFIED` exactly like any other and can only
     #: change status through the same real evidence any obligation needs.
     impact_status: str = "proven"
+    #: "structural" (default, every existing construction site) for the
+    #: deterministic/CBM-backed pipeline, or "ai_recovery" for a flow
+    #: `sydes.recovery`'s canonical merge added after adversarial
+    #: verification. Provenance only, never read by verdict aggregation —
+    #: see `sydes.recovery.canonical_merge`.
+    provenance: str = "structural"
 
 
 class VerificationGap(BaseModel):
