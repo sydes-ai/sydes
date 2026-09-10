@@ -76,15 +76,32 @@ def test_discover_candidate_malformed_output_raises_recovery_error(repo: Path):
         discover_candidate(_context(), tools=_tools(repo), client=client, max_turns=3, max_response_chars=4000, stats=stats)
 
 
-def test_discover_candidate_degenerate_single_node_path_degrades_to_none_not_error(repo: Path):
-    """A real reliability-experiment run produced exactly this shape (a
-    degenerate one-node "path") instead of honestly using `null` -- this
-    must degrade gracefully to 'no candidate proposed', not crash the
-    whole recovery attempt before Stage B or the retry budget ever runs."""
+def test_discover_candidate_empty_nodes_path_degrades_to_none_not_error(repo: Path):
+    """A genuinely malformed candidate (no nodes at all) must degrade
+    gracefully to 'no candidate proposed', not crash the whole recovery
+    attempt before Stage B or the retry budget ever runs."""
     client = SequencedClient([
-        {"final": {"candidate_path": {"entrypoint": "x", "target_node": "a", "nodes": [{"symbol": "a"}]}, "candidate_tests": []}}
+        {"final": {"candidate_path": {"entrypoint": "x", "target_node": "a", "nodes": []}, "candidate_tests": []}}
     ])
     stats = RecoveryRunStats()
     path, tests = discover_candidate(_context(), tools=_tools(repo), client=client, max_turns=3, max_response_chars=4000, stats=stats)
     assert path is None
+    assert tests == []
+
+
+def test_discover_candidate_genuine_single_node_zero_hop_path_is_valid(repo: Path):
+    """A real PR (a scheduled/cron job with no separate dispatcher symbol
+    to name) produced exactly this shape -- a single node is a legitimate
+    answer, not automatically a lazy non-answer. See
+    `sydes.recovery.agent._direct_entrypoint_edge` for how it's verified."""
+    client = SequencedClient([
+        {"final": {
+            "candidate_path": {"entrypoint": "scheduled job x", "target_node": "a", "nodes": [{"symbol": "a", "file": "handler.ts"}]},
+            "candidate_tests": [],
+        }}
+    ])
+    stats = RecoveryRunStats()
+    path, tests = discover_candidate(_context(), tools=_tools(repo), client=client, max_turns=3, max_response_chars=4000, stats=stats)
+    assert path is not None
+    assert [n.symbol for n in path.nodes] == ["a"]
     assert tests == []

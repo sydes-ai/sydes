@@ -374,8 +374,16 @@ def _parse_candidate_path(raw: Any) -> CandidatePath:
         raise RecoveryError("'candidate_path' missing non-empty 'entrypoint'")
     if not isinstance(target_node, str) or not target_node.strip():
         raise RecoveryError("'candidate_path' missing non-empty 'target_node'")
-    if not isinstance(raw_nodes, list) or len(raw_nodes) < 2:
-        raise RecoveryError("'candidate_path.nodes' must be an array of at least 2 entities")
+    if not isinstance(raw_nodes, list) or len(raw_nodes) < 1:
+        # A single node is a legitimate answer -- see the zero-hop
+        # collapse below: some real entrypoints (a scheduled/cron job
+        # registered directly on the changed function, no separate
+        # dispatcher symbol to name) have nothing else to list. What
+        # distinguishes a genuine zero-hop case from the model simply
+        # giving up is decided downstream, deterministically (see
+        # `sydes.recovery.agent._direct_entrypoint_edge`), never here by
+        # node count alone.
+        raise RecoveryError("'candidate_path.nodes' must be a non-empty array")
     nodes = [_parse_entity_ref(item, context="candidate_path.nodes[]") for item in raw_nodes]
     symbols = [n.symbol for n in nodes]
     if any(not s for s in symbols):

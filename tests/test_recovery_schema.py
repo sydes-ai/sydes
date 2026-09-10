@@ -53,10 +53,31 @@ def test_discovery_with_null_candidate_path_is_valid():
     assert tests == []
 
 
-def test_discovery_candidate_path_with_too_few_nodes_degrades_to_none():
-    payload = {"candidate_path": {"entrypoint": "x", "target_node": "a", "nodes": [{"symbol": "a"}]}, "candidate_tests": []}
+def test_discovery_candidate_path_with_empty_nodes_degrades_to_none():
+    payload = {"candidate_path": {"entrypoint": "x", "target_node": "a", "nodes": []}, "candidate_tests": []}
     path, _tests = parse_discovery_result(json.dumps(payload))
     assert path is None
+
+
+def test_discovery_genuine_single_node_zero_hop_path_is_valid():
+    """A real PR (a scheduled/cron job registered directly on the changed
+    function, with no separate dispatcher symbol to name at all) produced
+    exactly this shape -- a single node IS a legitimate answer when the
+    entrypoint has nothing else to list, not automatically a lazy
+    non-answer. Whether it can actually be ESTABLISHED is decided
+    downstream, deterministically (see
+    `sydes.recovery.agent._direct_entrypoint_edge`), never here."""
+    payload = {
+        "candidate_path": {
+            "entrypoint": "scheduled job incident-report-weekly", "target_node": "incident_report_weekly",
+            "nodes": [{"symbol": "incident_report_weekly", "file": "scheduled.py"}],
+        },
+        "candidate_tests": [],
+    }
+    path, _tests = parse_discovery_result(json.dumps(payload))
+    assert path is not None
+    assert [n.symbol for n in path.nodes] == ["incident_report_weekly"]
+    assert path.target_node == "incident_report_weekly"
 
 
 def test_discovery_target_node_equal_to_entrypoint_degrades_to_none():
@@ -101,7 +122,7 @@ def test_discovery_target_node_not_among_nodes_degrades_to_none():
 
 def test_discovery_malformed_candidate_path_does_not_lose_valid_candidate_tests():
     payload = {
-        "candidate_path": {"entrypoint": "x", "target_node": "a", "nodes": [{"symbol": "a"}]},  # malformed
+        "candidate_path": {"entrypoint": "x", "target_node": "a", "nodes": []},  # malformed: empty nodes
         "candidate_tests": [{"file": "a.ts", "test": "t1", "covers": "c1"}],
     }
     path, tests = parse_discovery_result(json.dumps(payload))
