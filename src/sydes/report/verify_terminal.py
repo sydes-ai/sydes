@@ -639,7 +639,13 @@ def _render_change_analysis_verbose(analysis: ChangeSemanticAnalysis, lines: lis
         lines.append("")
         lines.append("  Local risks:")
         for risk in analysis.local_risks:
-            lines.append(f"    - {risk}")
+            lines.append(f"    - {risk.description}")
+            if risk.citations:
+                lines.append(f"        citations: {risk.citations_verified}/{len(risk.citations)} verified")
+                for citation, note in zip(risk.citations, risk.citation_notes, strict=False):
+                    lines.append(f"          {citation.file}:{citation.line} — {note}")
+            else:
+                lines.append("        citations: none supplied")
     if analysis.uncertainties:
         lines.append("")
         lines.append("  Uncertain:")

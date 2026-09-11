@@ -21,6 +21,11 @@ covered here:
    still be indeterminate at the same time — see
    `test_a_fully_verified_analysis_can_also_be_indeterminate` below, the
    exact combination an earlier version of this schema made inexpressible.
+4. `local_risks` entries get the identical citation treatment as
+   `behavior_changes` -- an uncited, alarming risk claim is exactly as
+   capable of being a fabrication. Kept out of `verification_state` itself
+   (see `SemanticRisk`'s docstring) so that scalar stays scoped to actual
+   impact claims.
 """
 
 from __future__ import annotations
@@ -39,10 +44,12 @@ from sydes.verify.models import (
     ChangeVerificationResult,
     SemanticBehaviorChange,
     SemanticCitation,
+    SemanticRisk,
 )
 from sydes.verify.pr_semantic_analysis import (
     _apply_verification,
     _parse_indeterminate,
+    _parse_risk,
     _removed_lines_by_file,
     parse_semantic_analysis,
 )
@@ -385,7 +392,107 @@ def test_apply_verification_prefers_the_live_file_when_both_would_verify(tmp_pat
 
 
 # --------------------------------------------------------------------------
-# 5. Full generate_pr_semantic_analysis wiring
+# 5. local_risks get the same citation treatment, but stay out of
+#    verification_state
+# --------------------------------------------------------------------------
+
+def test_local_risk_parses_the_object_shape_with_citations() -> None:
+    raw = {
+        "local_risks": [
+            {"description": "a cited risk", "citations": [{"file": "a.py", "line": 1, "quoted_text": "a real quoted line"}]},
+        ],
+    }
+    analysis = parse_semantic_analysis(raw)
+    assert analysis.local_risks == [
+        SemanticRisk(
+            description="a cited risk",
+            citations=[SemanticCitation(file="a.py", line=1, quoted_text="a real quoted line")],
+        )
+    ]
+
+
+def test_local_risk_accepts_a_bare_string_defensively() -> None:
+    """A model that ignores the schema update and still emits a plain
+    string must not lose the risk entirely -- it just carries zero
+    citations, and is scored unverified accordingly like any other
+    uncited claim."""
+    analysis = parse_semantic_analysis({"local_risks": ["off-by-one in channel lookup"]})
+    assert analysis.local_risks == [SemanticRisk(description="off-by-one in channel lookup")]
+
+
+def test_parse_risk_drops_a_malformed_entry() -> None:
+    assert _parse_risk({"description": ""}) is None
+    assert _parse_risk(123) is None
+    assert _parse_risk("") is None
+
+
+def test_apply_verification_verifies_local_risk_citations_independently_of_behavior_changes(
+    tmp_path: Path,
+) -> None:
+    _write(tmp_path, "a.py", "def handler():\n    return real_downstream_call()\n")
+    analysis = ChangeSemanticAnalysis(
+        local_risks=[
+            SemanticRisk(
+                description="a real, cited risk",
+                citations=[SemanticCitation(file="a.py", line=2, quoted_text="return real_downstream_call()")],
+            ),
+            SemanticRisk(
+                description="may cause data corruption",  # the fabrication-shaped case
+                citations=[SemanticCitation(file="a.py", line=2, quoted_text="this text was never here")],
+            ),
+        ],
+    )
+    verified = _apply_verification(analysis, repo_root=tmp_path, diff_text="")
+    assert verified.local_risks[0].citations_verified == 1
+    assert verified.local_risks[1].citations_verified == 0
+    # Risks never feed verification_state -- it stays scoped to behavior_changes,
+    # which is empty here, so the default (unverified) rollup is unaffected by risks.
+    assert verified.verification_state == SEMANTIC_VERIFICATION_UNVERIFIED
+
+
+def test_apply_verification_local_risk_citation_also_gets_the_removed_lines_fallback(
+    tmp_path: Path,
+) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    _write(repo, "bootstrap.ts", "await registerWebhookEvents();\n")
+    analysis = ChangeSemanticAnalysis(
+        local_risks=[
+            SemanticRisk(
+                description="cron cleanup no longer runs",
+                citations=[SemanticCitation(
+                    file="server/bootstrap.ts", line=42,
+                    quoted_text="if (strapi.ai.admin.isEnabled() === true) {",
+                )],
+            ),
+        ],
+    )
+    verified = _apply_verification(analysis, repo_root=repo, diff_text=_DELETION_DIFF)
+    assert verified.local_risks[0].citations_verified == 1
+
+
+def test_verbose_report_shows_local_risk_citation_detail() -> None:
+    analysis = ChangeSemanticAnalysis(
+        local_risks=[
+            SemanticRisk(
+                description="may cause data corruption",
+                citations=[SemanticCitation(file="a.py", line=1, quoted_text="fabricated text")],
+                citations_verified=0,
+                citation_notes=["quoted text not found near a.py:1 (checked lines 1-6)"],
+            ),
+            SemanticRisk(description="an uncited risk"),
+        ],
+    )
+    report = render_verify_change_terminal(_result_with(analysis), verbose=True)
+    assert "may cause data corruption" in report
+    assert "citations: 0/1 verified" in report
+    assert "quoted text not found" in report
+    assert "an uncited risk" in report
+    assert "citations: none supplied" in report
+
+
+# --------------------------------------------------------------------------
+# 6. Full generate_pr_semantic_analysis wiring
 # --------------------------------------------------------------------------
 
 def test_generate_pr_semantic_analysis_applies_verification_end_to_end(tmp_path: Path) -> None:
@@ -436,7 +543,7 @@ def test_generate_pr_semantic_analysis_applies_verification_end_to_end(tmp_path:
 
 
 # --------------------------------------------------------------------------
-# 6. Terminal rendering — the surface the H3 hallucination actually reached
+# 7. Terminal rendering — the surface the H3 hallucination actually reached
 # --------------------------------------------------------------------------
 
 def _result_with(analysis: ChangeSemanticAnalysis) -> ChangeVerificationResult:

@@ -61,6 +61,7 @@ from sydes.verify.models import (
     SemanticCitation,
     SemanticInvestigationHint,
     SemanticKeySymbol,
+    SemanticRisk,
 )
 
 MAX_DIFF_CHARS = 12_000
@@ -163,16 +164,20 @@ _SEMANTIC_ANALYSIS_HEADER = (
     "inventing one — this output is a hypothesis for later reconciliation against "
     "structural evidence, never proof, never a verified impact, never itself a "
     "discovered system boundary.\n"
-    "- Every entry in `behavior_changes` should carry `citations`: a list of "
-    "`{\"file\": \"...\", \"line\": <int>, \"quoted_text\": \"...\"}` entries, each a "
-    "LITERAL, VERBATIM quote of real source text you were actually shown (from the diff "
-    "or the supplied context) — never a paraphrase, a summary, or a description of what "
-    "a line does. Each citation is re-checked against the real file before it counts for "
-    "anything; a quote that does not actually appear at that file/line is worse than no "
-    "citation at all. A `behavior_changes` entry with no verifiable citation is treated "
-    "as unverified downstream, no matter how confident you are — so ground every claim "
-    "you can, and where you genuinely cannot ground one, say so in `uncertainties` "
-    "rather than asserting it uncited.\n"
+    "- Every entry in `behavior_changes`, and every entry in `local_risks`, should carry "
+    "`citations`: a list of `{\"file\": \"...\", \"line\": <int>, \"quoted_text\": \"...\"}` "
+    "entries, each a LITERAL, VERBATIM quote of real source text you were actually shown "
+    "(from the diff or the supplied context) — never a paraphrase, a summary, or a "
+    "description of what a line does. Each citation is re-checked against the real file "
+    "before it counts for anything; a quote that does not actually appear at that file/"
+    "line is worse than no citation at all. An entry with no verifiable citation is "
+    "treated as unverified downstream, no matter how confident you are — so ground every "
+    "claim you can, and where you genuinely cannot ground one, say so in `uncertainties` "
+    "rather than asserting it uncited. This applies with extra force to `local_risks`: "
+    "an alarming, uncited risk claim ('may cause data corruption') is exactly as capable "
+    "of being a fabrication as a behavior_changes entry — never invent one because a "
+    "change 'feels risky'; only report a risk you can trace to something you were "
+    "actually shown.\n"
     "- `likely_boundary_types` (both per-hint and overall) may ONLY contain values from "
     "this fixed set: api, callable, async, external, unknown — nothing else, and it is a "
     "hint for later investigation, not a discovery.\n"
@@ -215,7 +220,9 @@ _SEMANTIC_ANALYSIS_HEADER = (
     '"important_symbols":[{"repo":"...","file":"...","symbol":"...","reason":"..."}],'
     '"investigation_hints":[{"description":"...","related_symbols":["..."],"concepts":["..."],'
     '"likely_boundary_types":["..."]}],'
-    '"likely_boundary_types":["..."],"local_risks":["..."],"uncertainties":["..."],'
+    '"likely_boundary_types":["..."],'
+    '"local_risks":[{"description":"...","citations":[{"file":"...","line":0,"quoted_text":"..."}]}],'
+    '"uncertainties":["..."],'
     '"indeterminate":{"is_indeterminate":false,"reason":null,"detail":"..."}}'
 )
 
@@ -293,6 +300,30 @@ def _parse_behavior_change(raw: Any) -> SemanticBehaviorChange | None:
         confidence=confidence_value,
         citations=citations,
     )
+
+
+def _parse_risk(raw: Any) -> SemanticRisk | None:
+    """Parse one `local_risks` entry. Accepts the documented object shape
+    (`{"description": ..., "citations": [...]}`) and, defensively, a bare
+    string — a model that ignores the schema update and still emits a
+    plain string list item should not lose that risk entirely, it just
+    gets zero citations (and is scored unverified accordingly, same as any
+    other uncited claim)."""
+    if isinstance(raw, str):
+        description = raw.strip()
+        return SemanticRisk(description=description[:400]) if description else None
+    if not isinstance(raw, dict):
+        return None
+    description = str(raw.get("description") or "").strip()
+    if not description:
+        return None
+    raw_citations = raw.get("citations")
+    citations = [
+        item for item in (
+            _parse_citation(entry) for entry in raw_citations or []
+        ) if item is not None
+    ] if isinstance(raw_citations, list) else []
+    return SemanticRisk(description=description[:400], citations=citations)
 
 
 def _parse_key_symbol(raw: Any) -> SemanticKeySymbol | None:
@@ -389,6 +420,11 @@ def parse_semantic_analysis(raw: dict[str, Any]) -> ChangeSemanticAnalysis:
             _parse_investigation_hint(entry) for entry in raw.get("investigation_hints", []) or []
         ) if item is not None
     ][:MAX_INVESTIGATION_HINTS]
+    local_risks = [
+        item for item in (
+            _parse_risk(entry) for entry in raw.get("local_risks", []) or []
+        ) if item is not None
+    ][:MAX_LIST_ITEMS]
     is_indeterminate, indeterminate_reason, indeterminate_detail = _parse_indeterminate(
         raw.get("indeterminate")
     )
@@ -399,7 +435,7 @@ def parse_semantic_analysis(raw: dict[str, Any]) -> ChangeSemanticAnalysis:
         important_symbols=important_symbols,
         investigation_hints=investigation_hints,
         likely_boundary_types=_filtered_boundary_types(raw.get("likely_boundary_types")),
-        local_risks=_as_str_list(raw.get("local_risks"), cap=MAX_LIST_ITEMS),
+        local_risks=local_risks,
         uncertainties=_as_str_list(raw.get("uncertainties"), cap=MAX_LIST_ITEMS),
         # Always the safe default here -- the real, evidence-only value is
         # computed by `_apply_verification` once citations can be checked.
@@ -550,26 +586,28 @@ def _verify_citation(
     return False, f"{reason}; {fallback_reason}"
 
 
-def _verify_behavior_change_citations(
-    behavior_change: SemanticBehaviorChange, *, repo_root: Path, diff_text: str,
-) -> SemanticBehaviorChange:
-    """Re-check every citation on one `behavior_change`, via `_verify_citation`
-    — the same "re-read the real evidence, don't trust the quote" discipline
-    already proven out for the impact-guide's own candidate citations, now
-    with the bounded removed-lines fallback for deletion claims (see
-    `_verify_citation`). Returns a new `SemanticBehaviorChange` (Pydantic
-    models are immutable-by-convention here) with `citations_verified`/
+def _verify_item_citations(
+    item: SemanticBehaviorChange | SemanticRisk, *, repo_root: Path, diff_text: str,
+) -> SemanticBehaviorChange | SemanticRisk:
+    """Re-check every citation on one `behavior_changes` or `local_risks`
+    entry (both carry the identical `citations`/`citations_verified`/
+    `citation_notes` shape), via `_verify_citation` — the same "re-read the
+    real evidence, don't trust the quote" discipline already proven out for
+    the impact-guide's own candidate citations, now with the bounded
+    removed-lines fallback for deletion claims (see `_verify_citation`).
+    Returns a new instance of whichever type was passed in (Pydantic models
+    are immutable-by-convention here) with `citations_verified`/
     `citation_notes` populated; everything else is unchanged."""
-    if not behavior_change.citations:
-        return behavior_change
+    if not item.citations:
+        return item
     verified_count = 0
     notes: list[str] = []
-    for citation in behavior_change.citations:
+    for citation in item.citations:
         verified, reason = _verify_citation(citation, repo_root=repo_root, diff_text=diff_text)
         if verified:
             verified_count += 1
         notes.append(reason)
-    return behavior_change.model_copy(
+    return item.model_copy(
         update={"citations_verified": verified_count, "citation_notes": notes}
     )
 
@@ -604,21 +642,30 @@ def _apply_verification(
     itself so parsing stays filesystem-free and directly testable (see
     `test_pr_semantic_analysis.py`'s parsing tests, none of which touch disk).
 
-    `verification_state` is always recomputed from citations here,
-    unconditionally — `is_indeterminate`/`indeterminate_reason`/
+    `verification_state` is always recomputed from `behavior_changes`'
+    citations here, unconditionally — `is_indeterminate`/`indeterminate_reason`/
     `indeterminate_detail` (already recorded by `parse_semantic_analysis`)
     are passed through untouched. The two are orthogonal: a fully-cited,
     verified mechanism trace and "the real-world significance is
     indeterminate" are different questions, and neither one gates the
     other — see `ChangeSemanticAnalysis.is_indeterminate`.
+
+    `local_risks` citations are verified the same way, independently, but
+    deliberately do NOT feed `verification_state` — see `SemanticRisk`'s
+    docstring for why that scalar stays scoped to `behavior_changes` only.
     """
     verified_changes = [
-        _verify_behavior_change_citations(item, repo_root=repo_root, diff_text=diff_text)
+        _verify_item_citations(item, repo_root=repo_root, diff_text=diff_text)
         for item in analysis.behavior_changes
+    ]
+    verified_risks = [
+        _verify_item_citations(item, repo_root=repo_root, diff_text=diff_text)
+        for item in analysis.local_risks
     ]
     return analysis.model_copy(
         update={
             "behavior_changes": verified_changes,
+            "local_risks": verified_risks,
             "verification_state": _compute_verification_state(verified_changes),
         }
     )
