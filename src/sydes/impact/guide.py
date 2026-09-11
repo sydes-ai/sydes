@@ -27,6 +27,7 @@ from sydes.impact.models import (
     ACTION_INFER_IMPACT,
     ACTION_STOP_UNRESOLVED,
     INVESTIGATION_ACTIONS,
+    CandidateCitation,
     ImpactCandidate,
     ImpactQuestion,
     InvestigationDecision,
@@ -84,6 +85,7 @@ Ground rules:
 - Only reach for a graph-navigation action (TRACE_CALLERS, INSPECT_SYMBOL, INSPECT_NEARBY_ENTRYPOINTS, etc.) when you genuinely need one more piece of context before you can infer well — not as your default move, and not repeatedly. Prefer one high-value INFER_IMPACT call over many rounds of graph navigation.
 - `entrypoint` is a reviewer-facing BEHAVIOR LABEL, not a code identifier — a different field from `reason`, and it must not do `reason`'s job. It must: (1) name what existing system/user-observable behavior may now differ, in plain domain language someone who has not read the diff could understand; (2) stay concise — a short noun phrase, not a sentence, and never carry the causal explanation itself (that belongs entirely in `reason`); (3) never be only a bare function/method/class/file/module name or dotted path, with or without a trailing `()`, regardless of what that name is — this holds for every symbol, not a specific list of "bad" ones; (4) never be a generic template that says nothing beyond "this changed" — e.g. "X behavior changes", "changed function behavior", "updated logic" — those describe that something changed, not what changed; (5) never be the changed symbol's own name or qualified name lightly reworded (a trailing word like "behavior" or "output" tacked onto the symbol name does not make it a behavior description); (6) still be strictly grounded in the evidence you were given — concise is not license to invent a plausible-sounding product feature the reason can't actually support. An "HTTP_METHOD /path" string is a legitimate label when you believe the behavior is a route. Reusing a domain word that also appears in the changed symbol's own name is fine and often unavoidable — a change to a method named `set_expires` on an `Order`-like type may legitimately produce a label like "order expiry calculation varies by sales channel"; what is never acceptable is the label being nothing more than the symbol's name, restated or lightly reworded, with no added behavior description. `entrypoint_symbol`, if you know it, should be one of the exact names this question already listed (known_files, candidate_entrypoints, known_entrypoints_in_context, partial_paths) — never invent a symbol name you were not shown; naming the changed symbol itself as `entrypoint_symbol` is fine when it is genuinely the nearest known anchor, since that field is not reviewer-facing the way `entrypoint` is.
 - Confidence is your honest estimate in [0, 1], not a formality — do not default everything to a round number.
+- Optionally, back a candidate with `citations`: a list of `{"file": "...", "line": <int>, "citation_text": "..."}` entries, each a LITERAL, VERBATIM quote of real source text you were actually shown — never a paraphrase, a summary, or a description of what a line does. A citation is re-checked against the real file before it counts for anything; a quote that does not actually appear at that file/line is worse than no citation at all, so omit `citations` entirely rather than write one you are not quoting exactly. Citations are optional and never required — an empty or missing `citations` array is a normal, complete answer, not a weaker one.
 - A completed deterministic path needs no further investigation — you are only ever asked about what is still unresolved.
 - Check attempted_actions before choosing: do not repeat an action that already ran with the same target/sought_symbol/candidates.
 - Choose STOP_UNRESOLVED only when you have already tried INFER_IMPACT (or are confident it would yield nothing) and no other action is likely to add real value. Trying INFER_IMPACT and concluding with an empty candidate list satisfies this — you do not need to keep searching for something to report. Do not guess to fill the budget.
@@ -92,7 +94,7 @@ Ground rules:
 - Respond with a single JSON object and nothing else.
 
 For INFER_IMPACT:
-{"action": "infer_impact", "candidates": [{"entrypoint": "GET /cases", "entrypoint_symbol": "optional exact known symbol", "confidence": 0.72, "reason": "one sentence naming the downstream behavior and why it is affected", "inference_type": "semantic_indirect_dependency", "uncertainty": "what the graph is missing"}, {"entrypoint": "cached listing results going stale after a write", "entrypoint_symbol": "optional exact known symbol", "confidence": 0.55, "reason": "one sentence naming the downstream behavior and why it is affected", "inference_type": "semantic_indirect_dependency", "uncertainty": "what the graph is missing"}], "rationale": "one sentence", "investigate_next": ["optional_symbol_name", "..."]}
+{"action": "infer_impact", "candidates": [{"entrypoint": "GET /cases", "entrypoint_symbol": "optional exact known symbol", "confidence": 0.72, "reason": "one sentence naming the downstream behavior and why it is affected", "inference_type": "semantic_indirect_dependency", "uncertainty": "what the graph is missing", "citations": [{"file": "path/to/file.py", "line": 42, "citation_text": "exact text copied verbatim from that line"}]}, {"entrypoint": "cached listing results going stale after a write", "entrypoint_symbol": "optional exact known symbol", "confidence": 0.55, "reason": "one sentence naming the downstream behavior and why it is affected", "inference_type": "semantic_indirect_dependency", "uncertainty": "what the graph is missing"}], "rationale": "one sentence", "investigate_next": ["optional_symbol_name", "..."]}
 
 For a WHOLE-CHANGE-turn candidate with no `entrypoint_symbol`:
 {"action": "infer_impact", "candidates": [{"entrypoint": "Merge operations now survive caller cancellation across several entrypoints", "entrypoint_symbol": "", "based_on_changed_symbols": ["MergePullRequest", "UpdatePullRequest"], "confidence": 0.8, "reason": "one sentence naming the downstream behavior and why it is affected", "inference_type": "semantic_pr_wide_theme", "uncertainty": "what the graph is missing"}], "rationale": "one sentence"}
@@ -227,11 +229,37 @@ def _parse_candidate(raw: Any) -> ImpactCandidate | None:
     based_on_changed_symbols = tuple(
         item.strip() for item in raw_based_on if isinstance(item, str) and item.strip()
     ) if isinstance(raw_based_on, list) else ()
+    citations = _parse_citations(raw.get("citations"))
     return ImpactCandidate(
         entrypoint_label=label.strip(), entrypoint_symbol=symbol, confidence=confidence,
         reason=reason, inference_type=inference_type, uncertainty=uncertainty,
-        based_on_changed_symbols=based_on_changed_symbols,
+        based_on_changed_symbols=based_on_changed_symbols, citations=citations,
     )
+
+
+def _parse_citations(raw: Any) -> tuple[CandidateCitation, ...]:
+    """Malformed entries are dropped individually, never failing the whole
+    candidate — citations are optional evidence, not a required field; a
+    candidate with one bad citation among several good ones should keep the
+    good ones, same discipline as `_parse_candidates` below for candidates
+    themselves."""
+    if not isinstance(raw, list):
+        return ()
+    out: list[CandidateCitation] = []
+    for item in raw:
+        if not isinstance(item, dict):
+            continue
+        file = item.get("file")
+        line = item.get("line")
+        text = item.get("citation_text")
+        if not isinstance(file, str) or not file.strip():
+            continue
+        if not isinstance(line, int) or line < 1:
+            continue
+        if not isinstance(text, str) or not text.strip():
+            continue
+        out.append(CandidateCitation(file=file.strip(), line=line, citation_text=text))
+    return tuple(out)
 
 
 def _parse_candidates(raw: Any) -> tuple[ImpactCandidate, ...]:

@@ -33,6 +33,7 @@ from sydes.impact.boundary_discovery import (
     discover_boundaries,
     is_production_boundary_candidate,
 )
+from sydes.impact.citation_check import verify_citation
 from sydes.impact.guide import GuideError, ImpactGuide
 from sydes.impact.investigate import InvestigationExecutor, source_preview
 from sydes.impact.models import (
@@ -566,6 +567,7 @@ class ImpactInterpreter:
                         changed_qualified_name=start_identity.qualified_name,
                         changed_repo=index.repo_of(symbol),
                         changed_names=changed_name_set,
+                        repo_root=self._repo_root,
                     )
                     continue
 
@@ -724,7 +726,7 @@ class ImpactInterpreter:
         self._apply_inferred_candidates(
             decision.candidates, executor=executor, found=found, result=result,
             name=_WHOLE_CHANGE_SYMBOL_NAME, turn=1, metrics=metrics, changed_repo=index.repo_of({}),
-            changed_names=changed_names,
+            changed_names=changed_names, repo_root=self._repo_root,
         )
         return decision.follow_up_symbols
 
@@ -765,8 +767,18 @@ class ImpactInterpreter:
         changed_qualified_name: str = "",
         changed_repo: str = "",
         changed_names: frozenset[str] = frozenset(),
+        repo_root: Path | None = None,
     ) -> None:
         """Corroborate and merge every candidate from one INFER_IMPACT turn.
+
+        Citation verification (see `citation_check.verify_citation`) runs
+        here too, once per candidate, and is recorded on every
+        `llm_candidate_log` entry below regardless of outcome — but it never
+        changes whether a candidate is accepted, corroborated, or promoted.
+        The canonical PROVEN/INFERRED result is decided exclusively by the
+        corroboration logic already documented below; citation results are
+        transparency/audit data for now, a deliberate, disclosed scope
+        boundary rather than an oversight.
 
         Corroboration (`InvestigationExecutor.corroborate_candidates`) is
         cheap and never a new search — see its own docstring. Every
@@ -816,6 +828,8 @@ class ImpactInterpreter:
         corroborations = executor.corroborate_candidates(candidates)
         metrics["llm_candidates"] += len(candidates)
         for candidate, corroboration in zip(candidates, corroborations):
+            citation_fields = ImpactInterpreter._verify_candidate_citations(candidate, repo_root)
+
             if _is_self_referential(candidate, name, changed_qualified_name):
                 metrics["llm_candidates_self_referential"] += 1
                 result.llm_candidate_log.append({
@@ -834,6 +848,7 @@ class ImpactInterpreter:
                         "self_referential: candidate restates the changed symbol "
                         "itself rather than naming a downstream affected behavior"
                     ),
+                    **citation_fields,
                 })
                 continue
 
@@ -852,6 +867,7 @@ class ImpactInterpreter:
                     "corroboration_evidence": "",
                     "accepted": False,
                     "rejection_reason": "missing_reason: candidate had no causal reason to accept",
+                    **citation_fields,
                 })
                 continue
 
@@ -895,6 +911,7 @@ class ImpactInterpreter:
                         "neither one of this PR's changed symbols nor reachable "
                         "from one via a known call/usage edge"
                     ),
+                    **citation_fields,
                 })
                 continue
 
@@ -935,6 +952,7 @@ class ImpactInterpreter:
                             "production symbols in based_on_changed_symbols; got "
                             f"{list(candidate.based_on_changed_symbols)!r}"
                         ),
+                        **citation_fields,
                     })
                     continue
 
@@ -961,7 +979,42 @@ class ImpactInterpreter:
                 "corroboration_evidence": corroboration["detail"],
                 "accepted": accepted,
                 "rejection_reason": rejection_reason,
+                **citation_fields,
             })
+
+    @staticmethod
+    def _verify_candidate_citations(candidate: ImpactCandidate, repo_root: Path | None) -> dict[str, Any]:
+        """Re-check every citation the guide attached to `candidate` against
+        the real repository (`citation_check.verify_citation`) and summarize
+        the result as log fields — computed once per candidate, merged into
+        whichever `llm_candidate_log` entry that candidate ends up in,
+        regardless of accept/reject outcome.
+
+        Deliberately does not influence acceptance, corroboration, or
+        promotion anywhere in this file — see this method's caller's
+        docstring for why that is a scope boundary, not an oversight.
+        """
+        if not candidate.citations:
+            return {
+                "citation_provided": False, "citations_total": 0,
+                "citations_verified": 0, "citation_notes": [],
+            }
+        notes: list[str] = []
+        verified_count = 0
+        for citation in candidate.citations:
+            verified, reason = verify_citation(
+                file=citation.file, line=citation.line,
+                citation_text=citation.citation_text, repo_root=repo_root,
+            )
+            if verified:
+                verified_count += 1
+            notes.append(reason)
+        return {
+            "citation_provided": True,
+            "citations_total": len(candidate.citations),
+            "citations_verified": verified_count,
+            "citation_notes": notes,
+        }
 
     # -- strategies -------------------------------------------------------
 
