@@ -57,7 +57,17 @@ class RepoTools:
     """Bound to one repository root for the duration of a recovery run."""
 
     def __init__(self, repo_root: Path, *, graph: "CBMGraphTools | None" = None) -> None:
-        self._repo_root = repo_root
+        # Resolved once here so every method's own resolved paths (via
+        # `_resolve_within_repo`, which always returns an absolute,
+        # symlink-resolved path) stay consistent with this root for
+        # `relative_to` — a caller passing a relative root (e.g. `Path(".")`,
+        # what every `--repo name=.` CLI invocation does) would otherwise
+        # make `list_directory`'s `e.relative_to(self._repo_root)` raise
+        # ValueError on its first entry (found empirically: a repo whose
+        # first alphabetically-sorted dotfile is `.env.sample` crashed here,
+        # which looked file-specific but was really "any entry, first repo
+        # root listing").
+        self._repo_root = repo_root.resolve()
         self._graph = graph
         self.calls: list[ToolCallRecord] = []
 
