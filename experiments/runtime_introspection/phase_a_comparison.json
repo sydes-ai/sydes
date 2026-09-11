@@ -1,0 +1,317 @@
+{
+  "static_route_count": 22,
+  "live_route_count": 30,
+  "matched_count": 14,
+  "static_only_count": 8,
+  "live_only_count": 16,
+  "matched": [
+    {
+      "key": [
+        "GET",
+        "/health"
+      ],
+      "static_symbol": "health_check",
+      "static_file": "api/src/main.py"
+    },
+    {
+      "key": [
+        "GET",
+        "/v1/test"
+      ],
+      "static_symbol": "test_endpoint",
+      "static_file": "api/src/main.py"
+    },
+    {
+      "key": [
+        "GET",
+        "/debug/threads"
+      ],
+      "static_symbol": "get_thread_info",
+      "static_file": "api/src/routers/debug.py"
+    },
+    {
+      "key": [
+        "GET",
+        "/debug/storage"
+      ],
+      "static_symbol": "get_storage_info",
+      "static_file": "api/src/routers/debug.py"
+    },
+    {
+      "key": [
+        "GET",
+        "/debug/system"
+      ],
+      "static_symbol": "get_system_info",
+      "static_file": "api/src/routers/debug.py"
+    },
+    {
+      "key": [
+        "POST",
+        "/dev/phonemize"
+      ],
+      "static_symbol": "phonemize_text",
+      "static_file": "api/src/routers/development.py"
+    },
+    {
+      "key": [
+        "POST",
+        "/dev/generate_from_phonemes"
+      ],
+      "static_symbol": "generate_from_phonemes",
+      "static_file": "api/src/routers/development.py"
+    },
+    {
+      "key": [
+        "POST",
+        "/dev/dialogue"
+      ],
+      "static_symbol": "create_dialogue",
+      "static_file": "api/src/routers/development.py"
+    },
+    {
+      "key": [
+        "POST",
+        "/dev/captioned_speech"
+      ],
+      "static_symbol": "create_captioned_speech",
+      "static_file": "api/src/routers/development.py"
+    },
+    {
+      "key": [
+        "POST",
+        "/dev/unload"
+      ],
+      "static_symbol": "unload_model",
+      "static_file": "api/src/routers/development.py"
+    },
+    {
+      "key": [
+        "POST",
+        "/dev/reload"
+      ],
+      "static_symbol": "reload_model",
+      "static_file": "api/src/routers/development.py"
+    },
+    {
+      "key": [
+        "GET",
+        "/dev/model"
+      ],
+      "static_symbol": "model_status",
+      "static_file": "api/src/routers/development.py"
+    },
+    {
+      "key": [
+        "GET",
+        "/dev/ssml"
+      ],
+      "static_symbol": "ssml_capabilities",
+      "static_file": "api/src/routers/ssml.py"
+    },
+    {
+      "key": [
+        "POST",
+        "/dev/ssml"
+      ],
+      "static_symbol": "translate_ssml_text",
+      "static_file": "api/src/routers/ssml.py"
+    }
+  ],
+  "static_only": [
+    {
+      "key": [
+        "POST",
+        "/audio/speech"
+      ],
+      "symbol": "create_speech",
+      "file": "api/src/routers/openai_compatible.py"
+    },
+    {
+      "key": [
+        "GET",
+        "/download/{param}"
+      ],
+      "symbol": "download_audio_file",
+      "file": "api/src/routers/openai_compatible.py"
+    },
+    {
+      "key": [
+        "GET",
+        "/models"
+      ],
+      "symbol": "list_models",
+      "file": "api/src/routers/openai_compatible.py"
+    },
+    {
+      "key": [
+        "GET",
+        "/models/{param}"
+      ],
+      "symbol": "retrieve_model",
+      "file": "api/src/routers/openai_compatible.py"
+    },
+    {
+      "key": [
+        "GET",
+        "/audio/voices"
+      ],
+      "symbol": "list_voices",
+      "file": "api/src/routers/openai_compatible.py"
+    },
+    {
+      "key": [
+        "POST",
+        "/audio/voices/combine"
+      ],
+      "symbol": "combine_voices",
+      "file": "api/src/routers/openai_compatible.py"
+    },
+    {
+      "key": [
+        "GET",
+        "/config"
+      ],
+      "symbol": "get_web_config",
+      "file": "api/src/routers/web_player.py"
+    },
+    {
+      "key": [
+        "GET",
+        "/{param}}"
+      ],
+      "symbol": "serve_web_file",
+      "file": "api/src/routers/web_player.py"
+    }
+  ],
+  "live_only": [
+    {
+      "key": [
+        "GET",
+        "/openapi.json"
+      ],
+      "endpoint": "FastAPI.setup.<locals>.openapi",
+      "module": "fastapi.applications"
+    },
+    {
+      "key": [
+        "HEAD",
+        "/openapi.json"
+      ],
+      "endpoint": "FastAPI.setup.<locals>.openapi",
+      "module": "fastapi.applications"
+    },
+    {
+      "key": [
+        "GET",
+        "/docs"
+      ],
+      "endpoint": "FastAPI.setup.<locals>.swagger_ui_html",
+      "module": "fastapi.applications"
+    },
+    {
+      "key": [
+        "HEAD",
+        "/docs"
+      ],
+      "endpoint": "FastAPI.setup.<locals>.swagger_ui_html",
+      "module": "fastapi.applications"
+    },
+    {
+      "key": [
+        "GET",
+        "/docs/oauth2-redirect"
+      ],
+      "endpoint": "FastAPI.setup.<locals>.swagger_ui_redirect",
+      "module": "fastapi.applications"
+    },
+    {
+      "key": [
+        "HEAD",
+        "/docs/oauth2-redirect"
+      ],
+      "endpoint": "FastAPI.setup.<locals>.swagger_ui_redirect",
+      "module": "fastapi.applications"
+    },
+    {
+      "key": [
+        "GET",
+        "/redoc"
+      ],
+      "endpoint": "FastAPI.setup.<locals>.redoc_html",
+      "module": "fastapi.applications"
+    },
+    {
+      "key": [
+        "HEAD",
+        "/redoc"
+      ],
+      "endpoint": "FastAPI.setup.<locals>.redoc_html",
+      "module": "fastapi.applications"
+    },
+    {
+      "key": [
+        "POST",
+        "/v1/audio/speech"
+      ],
+      "endpoint": "create_speech",
+      "module": "api.src.routers.openai_compatible"
+    },
+    {
+      "key": [
+        "GET",
+        "/v1/download/{param}"
+      ],
+      "endpoint": "download_audio_file",
+      "module": "api.src.routers.openai_compatible"
+    },
+    {
+      "key": [
+        "GET",
+        "/v1/models"
+      ],
+      "endpoint": "list_models",
+      "module": "api.src.routers.openai_compatible"
+    },
+    {
+      "key": [
+        "GET",
+        "/v1/models/{param}"
+      ],
+      "endpoint": "retrieve_model",
+      "module": "api.src.routers.openai_compatible"
+    },
+    {
+      "key": [
+        "GET",
+        "/v1/audio/voices"
+      ],
+      "endpoint": "list_voices",
+      "module": "api.src.routers.openai_compatible"
+    },
+    {
+      "key": [
+        "POST",
+        "/v1/audio/voices/combine"
+      ],
+      "endpoint": "combine_voices",
+      "module": "api.src.routers.openai_compatible"
+    },
+    {
+      "key": [
+        "GET",
+        "/web/config"
+      ],
+      "endpoint": "get_web_config",
+      "module": "api.src.routers.web_player"
+    },
+    {
+      "key": [
+        "GET",
+        "/web/{param}"
+      ],
+      "endpoint": "serve_web_file",
+      "module": "api.src.routers.web_player"
+    }
+  ]
+}
