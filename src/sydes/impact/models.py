@@ -764,6 +764,30 @@ def _clamp_confidence(value: float) -> float:
 
 
 @dataclass(frozen=True)
+class CandidateCitation:
+    """One literal-evidence claim backing an `ImpactCandidate`: "this file,
+    this line, here is the real source text that justifies the claim."
+
+    Optional on every candidate, and purely additive — a candidate with no
+    citations behaves exactly as it did before this type existed. When
+    present, each citation is re-checked against the real file
+    (`citation_check.verify_citation`) and the result is recorded on
+    `result.llm_candidate_log` for transparency; verification never changes
+    whether the candidate itself is accepted or promoted (see
+    `interpreter.py`'s `_merge_candidates`) — the canonical PROVEN/INFERRED
+    result stays exactly what the existing corroboration pipeline already
+    decides.
+    """
+
+    file: str
+    line: int
+    citation_text: str
+
+    def to_dict(self) -> dict[str, Any]:
+        return {"file": self.file, "line": self.line, "citation_text": self.citation_text}
+
+
+@dataclass(frozen=True)
 class ImpactCandidate:
     """One semantic impact hypothesis, straight from a guide turn.
 
@@ -791,6 +815,10 @@ class ImpactCandidate:
     #: `interpreter._apply_inferred_candidates`. Default empty for backward
     #: compatibility with any guide response that predates this field.
     based_on_changed_symbols: tuple[str, ...] = ()
+    #: Optional literal-evidence citations — see `CandidateCitation`. Default
+    #: empty for backward compatibility with any guide response that
+    #: predates this field.
+    citations: tuple[CandidateCitation, ...] = ()
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "confidence", _clamp_confidence(self.confidence))
@@ -804,6 +832,7 @@ class ImpactCandidate:
             "inference_type": self.inference_type,
             "uncertainty": self.uncertainty,
             "based_on_changed_symbols": list(self.based_on_changed_symbols),
+            "citations": [c.to_dict() for c in self.citations],
         }
 
 
