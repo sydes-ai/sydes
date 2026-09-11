@@ -40,6 +40,7 @@ from sydes.core.models import (
 )
 from sydes.discover.endpoints import discover_endpoints
 from sydes.discover.interface_bridge import bridge_interface_call_edges
+from sydes.discover.layer2_declaration_bridge import bridge_layer2_declaration_reference_edges
 from sydes.discover.member_call_bridge import bridge_member_call_edges
 from sydes.code_intelligence import get_code_intelligence
 from sydes.code_intelligence.base import StructuralFacts
@@ -1624,6 +1625,24 @@ def analyze_change(
         change=change, routes=routes, result=result,
         candidate_files=candidate_files,
     )
+
+    # Layer 2 generic declaration-reference edges (SYDES_LAYER2_GENERIC_EDGES,
+    # default off): additive only, scoped to this diff's own changed Python
+    # files, every candidate citation-verified against the real file it
+    # cites before being admitted. A no-op when disabled or no Python files
+    # changed. See discover/layer2_declaration_bridge.py.
+    changed_python_files = [
+        item.path for item in change.files
+        if item.repo == primary.name and item.change_type != CHANGE_DELETED
+        and item.path.endswith(".py")
+    ]
+    layer2_edges = bridge_layer2_declaration_reference_edges(
+        repo=primary.name, repo_root=primary_root,
+        changed_python_files=changed_python_files, symbol_index=structural.symbol_index,
+    )
+    if layer2_edges:
+        structural.usage_edges.extend(layer2_edges)
+        result.diagnostics.append(f"layer2_declaration_reference_edges_added={len(layer2_edges)}")
 
     # Which entrypoints the change reaches: the impact interpreter is the
     # primary source when CBM supplied a call graph, since it resolves
