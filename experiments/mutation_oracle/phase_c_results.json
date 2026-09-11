@@ -1,0 +1,22 @@
+{
+  "positive": {
+    "label": "POSITIVE (real dependency)",
+    "file": "api/src/structures/schemas.py",
+    "line": 73,
+    "description": "relational-operator mutation (> -> >=) on the duration ceiling check",
+    "baseline_passed": true,
+    "mutated_passed": false,
+    "flipped": true,
+    "behavioral_coverage": "CONFIRMED"
+  },
+  "negative": {
+    "label": "NEGATIVE (false-candidate control)",
+    "file": "api/src/routers/development.py",
+    "line": 536,
+    "description": "condition negation on an UNRELATED guard (model_status's own kill-switch)",
+    "baseline_passed": true,
+    "mutated_passed": true,
+    "flipped": false,
+    "behavioral_coverage": "N/A (correctly no effect)"
+  }
+}
