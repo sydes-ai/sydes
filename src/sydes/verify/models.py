@@ -572,6 +572,25 @@ class SemanticBehaviorChange(BaseModel):
     citation_notes: list[str] = Field(default_factory=list)
 
 
+class SemanticRisk(BaseModel):
+    """One local/static risk the semantic pass flags for a reviewer.
+
+    Was a bare string; promoted to carry the same citation/verification
+    shape as `SemanticBehaviorChange` (`citations`/`citations_verified`/
+    `citation_notes`) because a risk claim ("may cause data corruption") is
+    exactly as capable of being an ungrounded, alarming hallucination as a
+    behavior_change is — the same discipline applies, just scoped to this
+    one field rather than folded into `ChangeSemanticAnalysis.
+    verification_state` (which stays behavior_changes-only; see that
+    field's docstring). An uncited or unverified risk still renders — this
+    is about visible provenance, not suppression."""
+
+    description: str
+    citations: list[SemanticCitation] = Field(default_factory=list)
+    citations_verified: int = 0
+    citation_notes: list[str] = Field(default_factory=list)
+
+
 class SemanticKeySymbol(BaseModel):
     """One changed symbol/file the semantic pass judges most worth
     attention, and why — not a claim that it was structurally reached."""
@@ -613,7 +632,11 @@ class ChangeSemanticAnalysis(BaseModel):
     important_symbols: list[SemanticKeySymbol] = Field(default_factory=list)
     investigation_hints: list[SemanticInvestigationHint] = Field(default_factory=list)
     likely_boundary_types: list[str] = Field(default_factory=list)
-    local_risks: list[str] = Field(default_factory=list)
+    #: Each risk's own `citations`/`citations_verified`/`citation_notes`
+    #: are verified the same way `behavior_changes`' are (see `SemanticRisk`)
+    #: — but do NOT feed `verification_state`, which stays scoped to
+    #: `behavior_changes` only.
+    local_risks: list[SemanticRisk] = Field(default_factory=list)
     uncertainties: list[str] = Field(default_factory=list)
     #: Deterministic, computed from citation verification across
     #: `behavior_changes` (never the model's own confidence) — one of
