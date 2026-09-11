@@ -1,0 +1,101 @@
+{
+  "part1": {
+    "total": 151,
+    "verified": 151,
+    "rejected": 0,
+    "rejected_samples": []
+  },
+  "part2": {
+    "chain_symbols": [
+      "Settings",
+      "_within_input_limit",
+      "InputText",
+      "OpenAISpeechRequest",
+      "create_speech"
+    ],
+    "verified": true,
+    "reason": "chain verified",
+    "hops": [
+      {
+        "edge": {
+          "kind": "reads_member",
+          "user_file": "api/src/structures/schemas.py",
+          "user_symbol": "_within_input_limit",
+          "used_file": null,
+          "used_symbol": "Settings",
+          "line": 54,
+          "provenance": "python_ast_one_hop_import",
+          "citation_text": "settings.max_input_length"
+        },
+        "citation_verified": true,
+        "citation_reason": "'settings.max_input_length' confirmed present near api/src/structures/schemas.py:54",
+        "adjacency_ok": true,
+        "file_identity": "n/a (first hop)"
+      },
+      {
+        "edge": {
+          "kind": "call_argument_reference",
+          "user_file": "api/src/structures/schemas.py",
+          "user_symbol": "InputText",
+          "used_file": "api/src/structures/schemas.py",
+          "used_symbol": "_within_input_limit",
+          "line": 61
+        },
+        "citation_verified": true,
+        "citation_reason": "'_within_input_limit' confirmed present near api/src/structures/schemas.py:61",
+        "adjacency_ok": true,
+        "file_identity": "confirmed"
+      },
+      {
+        "edge": {
+          "kind": "class_field_type_reference",
+          "user_file": "api/src/structures/schemas.py",
+          "user_symbol": "OpenAISpeechRequest",
+          "used_file": "api/src/structures/schemas.py",
+          "used_symbol": "InputText",
+          "line": 205
+        },
+        "citation_verified": true,
+        "citation_reason": "'InputText' confirmed present near api/src/structures/schemas.py:205",
+        "adjacency_ok": true,
+        "file_identity": "confirmed"
+      },
+      {
+        "edge": {
+          "kind": "function_parameter_type_reference",
+          "user_file": "api/src/routers/openai_compatible.py",
+          "user_symbol": "create_speech",
+          "used_file": "api/src/structures/__init__.py",
+          "used_symbol": "OpenAISpeechRequest",
+          "line": 299,
+          "resolution": "cross_file_import"
+        },
+        "citation_verified": true,
+        "citation_reason": "'OpenAISpeechRequest' confirmed present near api/src/routers/openai_compatible.py:299",
+        "adjacency_ok": true,
+        "file_identity": "confirmed_via_reexport"
+      }
+    ]
+  },
+  "part3": {
+    "real_edge": {
+      "kind": "class_field_type_reference",
+      "user_file": "api/src/structures/schemas.py",
+      "user_symbol": "CaptionedSpeechResponse",
+      "used_file": "api/src/structures/schemas.py",
+      "used_symbol": "WordTimestamp",
+      "line": 117
+    },
+    "real_verified": true,
+    "fabricated_edge": {
+      "kind": "class_field_type_reference",
+      "user_file": "api/src/structures/schemas.py",
+      "user_symbol": "CaptionedSpeechResponse",
+      "used_file": "api/src/structures/schemas.py",
+      "used_symbol": "ThisSymbolDoesNotExistAnywhereInTheFile",
+      "line": 117
+    },
+    "fabricated_verified": false,
+    "test_passed": true
+  }
+}
