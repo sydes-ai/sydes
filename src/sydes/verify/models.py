@@ -91,26 +91,30 @@ SEMANTIC_BOUNDARY_TYPES = frozenset({
 # `partially_verified`: a mix of checked-out and unverifiable/absent
 # citations. `unverified`: no citation checked out (including the case of no
 # citations at all) — the default, safe assumption for any hypothesis until
-# proven otherwise. `indeterminate` is a distinct axis, not a point on this
-# scale: it means the model itself judged the underlying question
-# unanswerable from the repository alone (see `SEMANTIC_INDETERMINATE_REASONS`)
-# — a `partially_verified` claim can still be usefully partly true;
-# `indeterminate` says the question itself doesn't have a repository-only
-# answer, which a citation count cannot express.
+# proven otherwise.
+#
+# Deliberately NOT a 4-way enum with `indeterminate` as a member: whether
+# the cited evidence checks out and whether the underlying question has a
+# repository-only answer at all are orthogonal — a fully-cited, verified
+# mechanism trace can still leave "does this matter for any real
+# deployment" indeterminate (see `ChangeSemanticAnalysis.is_indeterminate`).
+# Collapsing them onto one scale made that combination inexpressible; this
+# axis stays evidence-only on purpose.
 SEMANTIC_VERIFICATION_VERIFIED = "verified"
 SEMANTIC_VERIFICATION_PARTIALLY_VERIFIED = "partially_verified"
 SEMANTIC_VERIFICATION_UNVERIFIED = "unverified"
-SEMANTIC_VERIFICATION_INDETERMINATE = "indeterminate"
 SEMANTIC_VERIFICATION_STATES = frozenset({
     SEMANTIC_VERIFICATION_VERIFIED, SEMANTIC_VERIFICATION_PARTIALLY_VERIFIED,
-    SEMANTIC_VERIFICATION_UNVERIFIED, SEMANTIC_VERIFICATION_INDETERMINATE,
+    SEMANTIC_VERIFICATION_UNVERIFIED,
 })
 
 # Fixed, closed vocabulary for *why* a semantic analysis is indeterminate —
 # machine-readable, not free prose, so a downstream consumer (a renderer, a
 # future gate) can branch on it without parsing English. The model chooses
 # one of these; anything else it supplies is dropped (see
-# `pr_semantic_analysis._parse_indeterminate`).
+# `pr_semantic_analysis._parse_indeterminate`). Meaningful only when
+# `ChangeSemanticAnalysis.is_indeterminate` is true — see that field, not
+# `SEMANTIC_VERIFICATION_STATES` above, for how indeterminacy is recorded.
 INDETERMINATE_DEPLOYMENT_CONFIG_REQUIRED = "deployment_config_required"
 INDETERMINATE_RUNTIME_ONLY_BEHAVIOR = "runtime_only_behavior"
 INDETERMINATE_EXTERNAL_SYSTEM_STATE_REQUIRED = "external_system_state_required"
@@ -529,11 +533,13 @@ class SemanticCitation(BaseModel):
     """One literal-evidence claim backing a `SemanticBehaviorChange`: this
     file, this line, here is the real source text the claim rests on.
 
-    Re-checked against the real file (`pr_semantic_analysis._verify_citations`,
-    reusing `impact.citation_check.verify_citation`) before
-    `SemanticBehaviorChange.citations_verified`/`citation_notes` are
-    populated — a citation the model supplied is never trusted at face
-    value. See `ChangeSemanticAnalysis.verification_state`."""
+    Re-checked against the real file
+    (`pr_semantic_analysis._verify_behavior_change_citations`, reusing
+    `impact.citation_check.verify_citation`), with a bounded fallback
+    against this diff's own removed lines for a citation to code the diff
+    deletes, before `SemanticBehaviorChange.citations_verified`/
+    `citation_notes` are populated — a citation the model supplied is never
+    trusted at face value. See `ChangeSemanticAnalysis.verification_state`."""
 
     file: str
     line: int
@@ -616,15 +622,26 @@ class ChangeSemanticAnalysis(BaseModel):
     #: analysis that hasn't gone through `pr_semantic_analysis`'s
     #: verification step (e.g. a hand-built `ChangeSemanticAnalysis` in a
     #: test) rather than a claim of having checked and found nothing.
+    #: Always evidence-only — see `is_indeterminate` for the orthogonal
+    #: "does this question even have a repository-only answer" axis; a
+    #: `ChangeSemanticAnalysis` can be `verification_state="verified"` AND
+    #: `is_indeterminate=True` at the same time (a fully-cited, accurate
+    #: mechanism trace whose real-world significance still depends on data
+    #: outside the repository).
     verification_state: str = SEMANTIC_VERIFICATION_UNVERIFIED
-    #: Populated only when `verification_state ==
-    #: SEMANTIC_VERIFICATION_INDETERMINATE`: one of
-    #: `SEMANTIC_INDETERMINATE_REASONS`, chosen by the model itself (this is
-    #: the one part of this whole analysis that is trusted on the model's
-    #: own say-so, deliberately — no repository-side check can determine
-    #: "this depends on data outside the repository" any other way) but
-    #: constrained to a fixed, machine-readable vocabulary rather than free
-    #: prose. `None` for every other verification_state.
+    #: Whether the model itself judged "what does this change affect" to
+    #: not have a repository-only answer — deployment config, runtime-only
+    #: state, an external system, or just insufficient evidence (see
+    #: `indeterminate_reason`). Independent of `verification_state`: this is
+    #: the one field on this whole analysis that is trusted on the model's
+    #: own say-so, deliberately, since no repository-side check can
+    #: determine "this depends on data outside the repository" any other
+    #: way. Citation verification still runs and is still recorded
+    #: regardless of this flag — the two questions don't gate each other.
+    is_indeterminate: bool = False
+    #: Populated only when `is_indeterminate` is true: one of
+    #: `SEMANTIC_INDETERMINATE_REASONS`, constrained to a fixed,
+    #: machine-readable vocabulary rather than free prose. `None` otherwise.
     indeterminate_reason: str | None = None
     #: Free-text elaboration of `indeterminate_reason`, for a human reader —
     #: never itself machine-branched on. `""` when not indeterminate.

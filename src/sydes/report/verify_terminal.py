@@ -18,7 +18,6 @@ from sydes.verify.models import (
     OBLIGATION_STATE_CONSISTENCY,
     OBLIGATION_VALIDATION,
     ORIGIN_TRACE_SINK,
-    SEMANTIC_VERIFICATION_INDETERMINATE,
     SEMANTIC_VERIFICATION_PARTIALLY_VERIFIED,
     SEMANTIC_VERIFICATION_UNVERIFIED,
     SEMANTIC_VERIFICATION_VERIFIED,
@@ -34,16 +33,17 @@ from sydes.verify.models import (
     VerificationObligation,
 )
 
-#: Human-readable label per `ChangeSemanticAnalysis.verification_state`,
-#: shown in the "CHANGE ANALYSIS" section header so a reader never has to
-#: infer evidence quality from prose — this is exactly the signal the
-#: hostile-case benchmark found buried and easy to miss when left as prose
-#: only (see `pr_semantic_analysis.py`).
+#: Human-readable label per `ChangeSemanticAnalysis.verification_state` —
+#: always evidence-only now (see that field's docstring: `is_indeterminate`
+#: is a separate, orthogonal axis, labeled separately below) — shown in the
+#: "CHANGE ANALYSIS" section header so a reader never has to infer evidence
+#: quality from prose. This is exactly the signal the hostile-case
+#: benchmark found buried and easy to miss when left as prose only (see
+#: `pr_semantic_analysis.py`).
 _SEMANTIC_VERIFICATION_LABELS = {
     SEMANTIC_VERIFICATION_VERIFIED: "citations verified",
     SEMANTIC_VERIFICATION_PARTIALLY_VERIFIED: "partially verified",
     SEMANTIC_VERIFICATION_UNVERIFIED: "unverified",
-    SEMANTIC_VERIFICATION_INDETERMINATE: "indeterminate",
 }
 
 #: Machine-readable `indeterminate_reason` -> a short human phrase, used only
@@ -544,8 +544,10 @@ def _render_change_analysis_default(result: ChangeVerificationResult, lines: lis
     ):
         return
     label = _SEMANTIC_VERIFICATION_LABELS.get(analysis.verification_state, analysis.verification_state)
+    if analysis.is_indeterminate:
+        label = f"{label}, indeterminate"
     _header(lines, f"CHANGE ANALYSIS ({label})")
-    if analysis.verification_state == SEMANTIC_VERIFICATION_INDETERMINATE:
+    if analysis.is_indeterminate:
         reason_text = _INDETERMINATE_REASON_LABELS.get(
             analysis.indeterminate_reason or "", analysis.indeterminate_reason or "unspecified"
         )
@@ -587,7 +589,7 @@ def _render_change_analysis_verbose(analysis: ChangeSemanticAnalysis, lines: lis
     the concise report only summarizes via the section-header label."""
     label = _SEMANTIC_VERIFICATION_LABELS.get(analysis.verification_state, analysis.verification_state)
     lines.append(f"  Verification: {label}")
-    if analysis.verification_state == SEMANTIC_VERIFICATION_INDETERMINATE:
+    if analysis.is_indeterminate:
         reason_text = _INDETERMINATE_REASON_LABELS.get(
             analysis.indeterminate_reason or "", analysis.indeterminate_reason or "unspecified"
         )

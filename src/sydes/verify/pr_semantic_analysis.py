@@ -52,7 +52,6 @@ from sydes.verify.models import (
     INDETERMINATE_INSUFFICIENT_REPOSITORY_EVIDENCE,
     SEMANTIC_BOUNDARY_TYPES,
     SEMANTIC_INDETERMINATE_REASONS,
-    SEMANTIC_VERIFICATION_INDETERMINATE,
     SEMANTIC_VERIFICATION_PARTIALLY_VERIFIED,
     SEMANTIC_VERIFICATION_UNVERIFIED,
     SEMANTIC_VERIFICATION_VERIFIED,
@@ -367,11 +366,13 @@ def parse_semantic_analysis(raw: dict[str, Any]) -> ChangeSemanticAnalysis:
 
     Purely structural: this does not touch the filesystem, so it cannot yet
     verify `behavior_changes[].citations` or compute the final
-    `verification_state` — those need `repo_root` and are applied afterward
-    by `_apply_verification` (called from `generate_pr_semantic_analysis`).
-    An indeterminate self-report is the one exception: parsed here directly,
-    since it needs no repository access and — per `_apply_verification` —
-    always takes precedence over whatever citation verification finds.
+    `verification_state` — those need `repo_root`/the diff text and are
+    applied afterward by `_apply_verification` (called from
+    `generate_pr_semantic_analysis`). An indeterminate self-report is the
+    one exception: parsed here directly, since it needs no repository
+    access — and, being orthogonal to `verification_state` (see
+    `ChangeSemanticAnalysis.is_indeterminate`), it never needs to wait for
+    or defer to citation verification either way.
     """
     behavior_changes = [
         item for item in (
@@ -400,10 +401,10 @@ def parse_semantic_analysis(raw: dict[str, Any]) -> ChangeSemanticAnalysis:
         likely_boundary_types=_filtered_boundary_types(raw.get("likely_boundary_types")),
         local_risks=_as_str_list(raw.get("local_risks"), cap=MAX_LIST_ITEMS),
         uncertainties=_as_str_list(raw.get("uncertainties"), cap=MAX_LIST_ITEMS),
-        verification_state=(
-            SEMANTIC_VERIFICATION_INDETERMINATE if is_indeterminate
-            else SEMANTIC_VERIFICATION_UNVERIFIED
-        ),
+        # Always the safe default here -- the real, evidence-only value is
+        # computed by `_apply_verification` once citations can be checked.
+        verification_state=SEMANTIC_VERIFICATION_UNVERIFIED,
+        is_indeterminate=is_indeterminate,
         indeterminate_reason=indeterminate_reason,
         indeterminate_detail=indeterminate_detail,
     )
@@ -454,29 +455,117 @@ def generate_pr_semantic_analysis(
         return None, ["pr_semantic_analysis unavailable: model output was not valid JSON."]
 
     analysis = parse_semantic_analysis(raw)
-    analysis = _apply_verification(analysis, repo_root=repo_root)
+    analysis = _apply_verification(analysis, repo_root=repo_root, diff_text=diff_text)
     return analysis, [f"pr_semantic_analysis_prompt_chars={len(prompt)}"]
 
 
+def _normalize(text: str) -> str:
+    """Same whitespace-collapsing normalization as
+    `impact.citation_check._normalize` — duplicated rather than imported
+    (it's one line) to keep this diff-specific fallback isolated from that
+    shared, already-tested module rather than reaching into its private
+    internals."""
+    return " ".join(text.split())
+
+
+def _removed_lines_by_file(diff_text: str) -> dict[str, list[str]]:
+    """Group a unified diff's own removed (`-`-prefixed) content lines by
+    the file they were removed from — nothing more. Used only as the
+    bounded fallback in `_verify_citation` below: a citation to code a diff
+    *deletes* can never be found in the post-diff working tree no matter
+    how accurate it is, but the diff text itself (already available to
+    `pr_semantic_analysis` — no extra read) still has it.
+
+    Deliberately narrow: no rename/binary-diff handling, no hunk-header
+    line-number tracking. A citation verified this way only proves the
+    quoted text was genuinely removed by *this diff* for *that file* —
+    never where in the old file it lived, and never anything beyond what
+    this one diff's own text already contains.
+    """
+    current_file: str | None = None
+    removed: dict[str, list[str]] = {}
+    for line in diff_text.splitlines():
+        if line.startswith("+++ "):
+            path = line[4:].strip()
+            current_file = path[2:] if path.startswith("b/") else (None if path == "/dev/null" else path)
+        elif line.startswith("--- ") or line.startswith("diff --git"):
+            continue
+        elif current_file and line.startswith("-"):
+            removed.setdefault(current_file, []).append(line[1:])
+    return removed
+
+
+def _strip_leading_diff_marker(line: str) -> str:
+    """Strip one leading `-`/`+` diff-line marker, if present. The model is
+    shown the diff itself and sometimes copies a removed line's own `-`
+    prefix straight into `quoted_text` (observed empirically: a real,
+    otherwise-correct citation to a deleted line, quoted as
+    `"-  if (...) {"` rather than `"  if (...) {"`) — that marker isn't part
+    of the source code, and left in, it silently breaks the substring match
+    against `_removed_lines_by_file`'s already-marker-stripped store.
+    Applied per line, not just to the first, since a multi-line citation can
+    carry the marker on every line it copied from the diff."""
+    return line[1:] if line[:1] in ("-", "+") else line
+
+
+def _verify_citation_against_removed_lines(
+    *, file: str, quoted_text: str, diff_text: str,
+) -> tuple[bool, str]:
+    """The bounded removed-lines fallback itself: does `quoted_text` appear
+    among the lines this diff removed from `file`? Scoped to this one diff
+    and this one file only — never a repo-wide or history-wide search."""
+    removed_for_file = _removed_lines_by_file(diff_text).get(file, [])
+    if not removed_for_file:
+        return False, f"no removed lines for {file} in this diff"
+    window = _normalize("\n".join(removed_for_file))
+    quoted_lines = "\n".join(_strip_leading_diff_marker(line) for line in quoted_text.splitlines())
+    if _normalize(quoted_lines) in window:
+        return True, f"citation confirmed among this diff's own removed lines for {file}"
+    return False, f"quoted text not found among this diff's removed lines for {file} either"
+
+
+def _verify_citation(
+    citation: SemanticCitation, *, repo_root: Path, diff_text: str,
+) -> tuple[bool, str]:
+    """Verify one citation: first against the real, current repository
+    (`impact.citation_check.verify_citation` — catches the common case,
+    including anything the diff added or left unchanged), then, only if
+    that fails, against this diff's own removed lines for the same file
+    (catches an accurate citation to code the diff deletes, which by
+    definition can never be found in the post-diff tree). Either source
+    counting is enough — a deletion claim is not weaker evidence than an
+    addition claim, just differently located.
+    """
+    verified, reason = verify_citation(
+        file=citation.file, line=citation.line,
+        citation_text=citation.quoted_text, repo_root=repo_root,
+    )
+    if verified:
+        return True, reason
+    fallback_verified, fallback_reason = _verify_citation_against_removed_lines(
+        file=citation.file, quoted_text=citation.quoted_text, diff_text=diff_text,
+    )
+    if fallback_verified:
+        return True, fallback_reason
+    return False, f"{reason}; {fallback_reason}"
+
+
 def _verify_behavior_change_citations(
-    behavior_change: SemanticBehaviorChange, *, repo_root: Path,
+    behavior_change: SemanticBehaviorChange, *, repo_root: Path, diff_text: str,
 ) -> SemanticBehaviorChange:
-    """Re-check every citation on one `behavior_change` against the real
-    repository, reusing `impact.citation_check.verify_citation` — the same
-    "re-read the real file, don't trust the quote" discipline already
-    proven out for the impact-guide's own candidate citations. Returns a
-    new `SemanticBehaviorChange` (Pydantic models are immutable-by-
-    convention here) with `citations_verified`/`citation_notes` populated;
-    everything else is unchanged."""
+    """Re-check every citation on one `behavior_change`, via `_verify_citation`
+    — the same "re-read the real evidence, don't trust the quote" discipline
+    already proven out for the impact-guide's own candidate citations, now
+    with the bounded removed-lines fallback for deletion claims (see
+    `_verify_citation`). Returns a new `SemanticBehaviorChange` (Pydantic
+    models are immutable-by-convention here) with `citations_verified`/
+    `citation_notes` populated; everything else is unchanged."""
     if not behavior_change.citations:
         return behavior_change
     verified_count = 0
     notes: list[str] = []
     for citation in behavior_change.citations:
-        verified, reason = verify_citation(
-            file=citation.file, line=citation.line,
-            citation_text=citation.quoted_text, repo_root=repo_root,
-        )
+        verified, reason = _verify_citation(citation, repo_root=repo_root, diff_text=diff_text)
         if verified:
             verified_count += 1
         notes.append(reason)
@@ -489,12 +578,12 @@ def _compute_verification_state(
     behavior_changes: list[SemanticBehaviorChange],
 ) -> str:
     """Deterministic, evidence-only rollup across every `behavior_change`'s
-    (already-verified) citations — never the model's own confidence.
-    `verified` only when EVERY citation on EVERY claim checked out (and at
-    least one citation exists at all); `unverified` when none did (including
-    no citations supplied anywhere); `partially_verified` otherwise. Callers
-    only reach this when the analysis is NOT already indeterminate — see
-    `_apply_verification`, which checks that first and short-circuits."""
+    (already-verified) citations — never the model's own confidence, and
+    never gated on `is_indeterminate` (see that field's docstring: the two
+    axes are orthogonal, so this always runs). `verified` only when EVERY
+    citation on EVERY claim checked out (and at least one citation exists
+    at all); `unverified` when none did (including no citations supplied
+    anywhere); `partially_verified` otherwise."""
     total = sum(len(item.citations) for item in behavior_changes)
     verified = sum(item.citations_verified for item in behavior_changes)
     if total == 0:
@@ -507,7 +596,7 @@ def _compute_verification_state(
 
 
 def _apply_verification(
-    analysis: ChangeSemanticAnalysis, *, repo_root: Path,
+    analysis: ChangeSemanticAnalysis, *, repo_root: Path, diff_text: str,
 ) -> ChangeSemanticAnalysis:
     """The one place citation verification and `verification_state` rollup
     happen — called once, right after parsing, from
@@ -515,24 +604,21 @@ def _apply_verification(
     itself so parsing stays filesystem-free and directly testable (see
     `test_pr_semantic_analysis.py`'s parsing tests, none of which touch disk).
 
-    An indeterminate self-report (already recorded by `parse_semantic_analysis`)
-    always wins: citation verification still runs and is still recorded on
-    each `behavior_change` for transparency, but it never overwrites
-    `verification_state` away from `indeterminate` — the model's structured
-    "the answer depends on something this repo can't tell you" is a
-    different question from "did your cited evidence check out," and a
-    well-cited mechanism-level trace does not resolve that question either
-    way.
+    `verification_state` is always recomputed from citations here,
+    unconditionally — `is_indeterminate`/`indeterminate_reason`/
+    `indeterminate_detail` (already recorded by `parse_semantic_analysis`)
+    are passed through untouched. The two are orthogonal: a fully-cited,
+    verified mechanism trace and "the real-world significance is
+    indeterminate" are different questions, and neither one gates the
+    other — see `ChangeSemanticAnalysis.is_indeterminate`.
     """
     verified_changes = [
-        _verify_behavior_change_citations(item, repo_root=repo_root)
+        _verify_behavior_change_citations(item, repo_root=repo_root, diff_text=diff_text)
         for item in analysis.behavior_changes
     ]
-    verification_state = (
-        analysis.verification_state
-        if analysis.verification_state == SEMANTIC_VERIFICATION_INDETERMINATE
-        else _compute_verification_state(verified_changes)
-    )
     return analysis.model_copy(
-        update={"behavior_changes": verified_changes, "verification_state": verification_state}
+        update={
+            "behavior_changes": verified_changes,
+            "verification_state": _compute_verification_state(verified_changes),
+        }
     )
