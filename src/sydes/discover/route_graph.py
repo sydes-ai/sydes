@@ -99,18 +99,48 @@ def _module_path_candidates(source: str) -> list[str]:
     return [f"{base}.py", f"{base}/__init__.py"]
 
 
-def _import_target_candidates(parent_file: str, source: str) -> list[str]:
+def _is_python_relative_import(source: str) -> bool:
+    """A Python relative import (`.sibling`, `..pkg.mod`) is dots-then-dotted-
+    identifiers with NO slash, ever -- a JS/TS relative path always has at
+    least one slash after its leading dot(s) (`./x`, `../x`), so this shape
+    is unambiguous and never misclassifies a JS import."""
+    return source.startswith(".") and "/" not in source
+
+
+def _python_relative_import_candidates(parent_file: str, source: str) -> list[str]:
+    """Resolve Python's own relative-import semantics: each leading dot
+    counts a package level above the importing file's own package (one dot
+    = the current package, not a filesystem '.'), and the dotted remainder
+    is a submodule path -- NOT the literal path-join treatment the generic
+    branch below applies to JS-style `./x` imports, which would be wrong
+    here (`.routers.openai_compatible` is not a directory named
+    `.routers.openai_compatible`)."""
+    level = len(source) - len(source.lstrip("."))
+    remainder = source[level:]
     base = Path(parent_file).parent
-    raw = (base / source).as_posix()
-    candidates: list[str] = []
-    if Path(raw).suffix:
-        candidates.append(raw)
+    for _ in range(max(0, level - 1)):
+        base = base.parent
+    if not remainder:
+        return [(base / "__init__.py").as_posix()]
+    rel = remainder.replace(".", "/")
+    return [(base / f"{rel}.py").as_posix(), (base / rel / "__init__.py").as_posix()]
+
+
+def _import_target_candidates(parent_file: str, source: str) -> list[str]:
+    if _is_python_relative_import(source):
+        candidates = _python_relative_import_candidates(parent_file, source)
     else:
-        for ext in _EXTS:
-            candidates.append(raw + ext)
-        for ext in _EXTS:
-            candidates.append((Path(raw) / f"index{ext}").as_posix())
-    candidates.extend(_module_path_candidates(source))
+        base = Path(parent_file).parent
+        raw = (base / source).as_posix()
+        candidates = []
+        if Path(raw).suffix:
+            candidates.append(raw)
+        else:
+            for ext in _EXTS:
+                candidates.append(raw + ext)
+            for ext in _EXTS:
+                candidates.append((Path(raw) / f"index{ext}").as_posix())
+        candidates.extend(_module_path_candidates(source))
     seen: set[str] = set()
     ordered: list[str] = []
     for item in candidates:
@@ -128,7 +158,7 @@ def _build_route_graph_for_repo(repo_payload: dict) -> dict:
     containers: dict[str, _Container] = {}
     containers_by_file_symbol: dict[tuple[str, str], str] = {}
     default_export_symbol_by_file: dict[str, str] = {}
-    imports_by_file: dict[str, dict[str, list[str]]] = {}
+    imports_by_file: dict[str, dict[str, list[tuple[str, str]]]] = {}
     unresolved_imports: list[dict] = []
 
     for file_item in files_payload:
@@ -157,19 +187,29 @@ def _build_route_graph_for_repo(repo_payload: dict) -> dict:
             if export.get("kind") in {"default", "commonjs"} and isinstance(export.get("symbol"), str):
                 default_export_symbol_by_file.setdefault(file_path, export["symbol"])
 
-        local_map: dict[str, list[str]] = {}
+        local_map: dict[str, list[tuple[str, str]]] = {}
         for imp in file_item.get("imports") or []:
             local = imp.get("local")
             source = imp.get("source")
             if not isinstance(local, str) or not isinstance(source, str):
                 continue
+            # The name as declared in ITS OWN file, not the local alias this
+            # file imported it under (`from .routers.books import router as
+            # books_router` -- the container is registered as `router` in
+            # books.py; `books_router` is never a name that file knows about).
+            # Older import records with no "imported" field (a plain JS
+            # default/named import) fall back to `local`, matching the prior
+            # behavior exactly for those forms.
+            imported = imp.get("imported")
+            imported = imported if isinstance(imported, str) else local
             # One local name can have several plausible sources (a module and
             # the package containing it). Accumulate rather than overwrite, so
             # the more specific candidate is not lost.
             existing = local_map.setdefault(local, [])
             for candidate in _import_target_candidates(file_path, source):
-                if candidate not in existing:
-                    existing.append(candidate)
+                pair = (candidate, imported)
+                if pair not in existing:
+                    existing.append(pair)
         imports_by_file[file_path] = local_map
 
     declarations: list[_Declaration] = []
@@ -192,7 +232,7 @@ def _build_route_graph_for_repo(repo_payload: dict) -> dict:
                 lookup_names.append(module_ref)
 
             for lookup in lookup_names:
-                for target_file in imports_by_file.get(file_path, {}).get(lookup, []):
+                for target_file, imported_name in imports_by_file.get(file_path, {}).get(lookup, []):
                     if module_ref and lookup == module_ref:
                         cid = containers_by_file_symbol.get((target_file, attribute))
                         if cid:
@@ -205,6 +245,14 @@ def _build_route_graph_for_repo(repo_payload: dict) -> dict:
                     cid = containers_by_file_symbol.get((target_file, lookup))
                     if cid:
                         return cid
+                    # A direct (non-dotted) import bound to a local alias
+                    # (`from .routers.books import router as books_router`):
+                    # the container is registered under its ORIGINAL name in
+                    # the target file, never the importing file's own alias.
+                    if imported_name != lookup:
+                        cid = containers_by_file_symbol.get((target_file, imported_name))
+                        if cid:
+                            return cid
             return None
 
         for call in file_item.get("route_calls") or []:
@@ -260,7 +308,7 @@ def _build_route_graph_for_repo(repo_payload: dict) -> dict:
                 resolved_child_id = resolve_local_symbol(child_symbol)
 
             if isinstance(child_symbol, str) and child_symbol:
-                for target_file in imports_by_file.get(file_path, {}).get(child_symbol, []):
+                for target_file, _imported_name in imports_by_file.get(file_path, {}).get(child_symbol, []):
                     if target_file not in default_export_symbol_by_file and target_file not in [f for f, _ in containers_by_file_symbol.keys()]:
                         unresolved_imports.append(
                             {

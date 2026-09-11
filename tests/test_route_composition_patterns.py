@@ -215,6 +215,76 @@ def test_pattern_2_holds_when_the_parent_mounts_a_prefixed_container(tmp_path: P
     assert "GET /books/{book_id}" not in routes
 
 
+def test_pattern_2_relative_import_with_alias_is_composed(tmp_path: Path) -> None:
+    """A container obtained via Python's own relative-import syntax, bound
+    to a local alias (`from .routers.books import router as books_router`),
+    still composes with a prefix supplied at the mount site.
+
+    A real production repo (Kokoro-FastAPI) hit exactly this shape and
+    silently lost the mount prefix: `_import_target_candidates` only knew
+    JS-style `./x` relative paths, never Python's dotted `.x.y` package-
+    relative syntax, and separately `_extract_python_imports` did not
+    parse the `as` alias at all, recording the whole phrase `"router as
+    books_router"` as one literal local name -- so `books_router` (the name
+    actually used at the mount call) was never found in either case.
+    """
+    root = tmp_path / "repo"
+    _write(
+        root,
+        "api/routers/books.py",
+        "from framework import APIRouter\n"
+        "\n"
+        'router = APIRouter(prefix="/books")\n'
+        "\n"
+        '@router.get("/{book_id}")\n'
+        "def get_book(book_id):\n"
+        "    return {}\n",
+    )
+    _write(
+        root,
+        "api/main.py",
+        "from framework import App\n"
+        "from .routers.books import router as books_router\n"
+        "\n"
+        "app = App()\n"
+        'app.include_router(books_router, prefix="/api")\n',
+    )
+
+    routes = _routes(root)
+    assert "GET /api/books/{book_id}" in routes
+    assert "GET /books/{book_id}" not in routes
+
+
+def test_pattern_2_relative_import_without_alias_is_composed(tmp_path: Path) -> None:
+    """Same relative-import shape with no `as` clause -- isolates the
+    dotted-relative-path resolution from the alias-parsing fix."""
+    root = tmp_path / "repo"
+    _write(
+        root,
+        "api/routers/books.py",
+        "from framework import APIRouter\n"
+        "\n"
+        'router = APIRouter(prefix="/books")\n'
+        "\n"
+        '@router.get("/{book_id}")\n'
+        "def get_book(book_id):\n"
+        "    return {}\n",
+    )
+    _write(
+        root,
+        "api/main.py",
+        "from framework import App\n"
+        "from .routers.books import router\n"
+        "\n"
+        "app = App()\n"
+        'app.include_router(router, prefix="/api")\n',
+    )
+
+    routes = _routes(root)
+    assert "GET /api/books/{book_id}" in routes
+    assert "GET /books/{book_id}" not in routes
+
+
 # --------------------------------------------------------------------------
 # Pattern 3 — nested composition
 # --------------------------------------------------------------------------
