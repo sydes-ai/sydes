@@ -18,6 +18,10 @@ from sydes.verify.models import (
     OBLIGATION_STATE_CONSISTENCY,
     OBLIGATION_VALIDATION,
     ORIGIN_TRACE_SINK,
+    SEMANTIC_VERIFICATION_INDETERMINATE,
+    SEMANTIC_VERIFICATION_PARTIALLY_VERIFIED,
+    SEMANTIC_VERIFICATION_UNVERIFIED,
+    SEMANTIC_VERIFICATION_VERIFIED,
     VERIFICATION_FAILED,
     VERIFICATION_PASSED,
     VERIFICATION_UNKNOWN,
@@ -29,6 +33,28 @@ from sydes.verify.models import (
     ChangeVerificationResult,
     VerificationObligation,
 )
+
+#: Human-readable label per `ChangeSemanticAnalysis.verification_state`,
+#: shown in the "CHANGE ANALYSIS" section header so a reader never has to
+#: infer evidence quality from prose — this is exactly the signal the
+#: hostile-case benchmark found buried and easy to miss when left as prose
+#: only (see `pr_semantic_analysis.py`).
+_SEMANTIC_VERIFICATION_LABELS = {
+    SEMANTIC_VERIFICATION_VERIFIED: "citations verified",
+    SEMANTIC_VERIFICATION_PARTIALLY_VERIFIED: "partially verified",
+    SEMANTIC_VERIFICATION_UNVERIFIED: "unverified",
+    SEMANTIC_VERIFICATION_INDETERMINATE: "indeterminate",
+}
+
+#: Machine-readable `indeterminate_reason` -> a short human phrase, used only
+#: for rendering; the machine-readable code itself is what a downstream
+#: consumer should branch on (see `sydes.verify.models.SEMANTIC_INDETERMINATE_REASONS`).
+_INDETERMINATE_REASON_LABELS = {
+    "deployment_config_required": "depends on deployment/runtime configuration not in this repository",
+    "runtime_only_behavior": "depends on state only known at runtime (e.g. feature flags, request data)",
+    "external_system_state_required": "depends on another service/system not in this repository",
+    "insufficient_repository_evidence": "the diff and surrounding context alone are not enough to say",
+}
 
 #: `AcceptedImpact.status` values, duplicated here rather than imported from
 #: `sydes.impact` — the renderer depends only on `sydes.verify.models`, the
@@ -517,12 +543,25 @@ def _render_change_analysis_default(result: ChangeVerificationResult, lines: lis
         or analysis.investigation_hints or analysis.uncertainties
     ):
         return
-    _header(lines, "CHANGE ANALYSIS")
+    label = _SEMANTIC_VERIFICATION_LABELS.get(analysis.verification_state, analysis.verification_state)
+    _header(lines, f"CHANGE ANALYSIS ({label})")
+    if analysis.verification_state == SEMANTIC_VERIFICATION_INDETERMINATE:
+        reason_text = _INDETERMINATE_REASON_LABELS.get(
+            analysis.indeterminate_reason or "", analysis.indeterminate_reason or "unspecified"
+        )
+        lines.append(f"Cannot be established from this repository alone: {reason_text}.")
+        if analysis.indeterminate_detail:
+            lines.append(analysis.indeterminate_detail)
+        lines.append("")
     if analysis.change_summary:
         lines.append(analysis.change_summary)
     if analysis.behavior_changes:
         lines.append("")
-        lines.append("Likely behavioral changes")
+        lines.append(
+            "Likely behavioral changes"
+            if analysis.verification_state == SEMANTIC_VERIFICATION_VERIFIED
+            else "Likely behavioral changes (unverified hypotheses — see citations in --verbose)"
+        )
         for item in analysis.behavior_changes[:_CHANGE_ANALYSIS_DEFAULT_CAP]:
             lines.append(f"  • {item.description}")
     if analysis.investigation_hints:
@@ -541,7 +580,21 @@ def _render_change_analysis_verbose(analysis: ChangeSemanticAnalysis, lines: lis
     """Fuller detail than the concise report's `CHANGE ANALYSIS` section:
     evidence/confidence per behavior change, important symbols, investigation
     hints with their concepts/boundary-type hints, and local risks — still
-    entirely `origin=ORIGIN_LLM_HYPOTHESIS`, never evidence."""
+    entirely `origin=ORIGIN_LLM_HYPOTHESIS`, never evidence.
+
+    Unlike the concise report, this renders each behavior_change's
+    `citations` and their verification outcome directly — the provenance
+    the concise report only summarizes via the section-header label."""
+    label = _SEMANTIC_VERIFICATION_LABELS.get(analysis.verification_state, analysis.verification_state)
+    lines.append(f"  Verification: {label}")
+    if analysis.verification_state == SEMANTIC_VERIFICATION_INDETERMINATE:
+        reason_text = _INDETERMINATE_REASON_LABELS.get(
+            analysis.indeterminate_reason or "", analysis.indeterminate_reason or "unspecified"
+        )
+        lines.append(f"    Cannot be established from this repository alone: {reason_text}.")
+        if analysis.indeterminate_detail:
+            lines.append(f"    {analysis.indeterminate_detail}")
+    lines.append("")
     if analysis.change_summary:
         lines.append(f"  {analysis.change_summary}")
         lines.append("")
@@ -552,6 +605,12 @@ def _render_change_analysis_verbose(analysis: ChangeSemanticAnalysis, lines: lis
             lines.append(f"      symbols: {', '.join(item.changed_symbols)}")
         for evidence in item.evidence:
             lines.append(f"      evidence: {evidence}")
+        if item.citations:
+            lines.append(f"      citations: {item.citations_verified}/{len(item.citations)} verified")
+            for citation, note in zip(item.citations, item.citation_notes, strict=False):
+                lines.append(f"        {citation.file}:{citation.line} — {note}")
+        else:
+            lines.append("      citations: none supplied")
     if analysis.important_symbols:
         lines.append("")
         lines.append("  Important symbols:")
