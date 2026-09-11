@@ -1,0 +1,88 @@
+{
+  "method": "Real CBM queries (mcp__codebase-memory-mcp__trace_path / search_graph) against the actual indexed Kokoro-FastAPI checkout, read live during this experiment -- not re-derived from Sydes' own CBMClient plumbing, but the same underlying graph Sydes' CBM backend would supply as call_edges/usage_edges. Project: Users-ksnaik-sample_repos-Kokoro-FastAPI. Cases 1-6 queried on branch py-real-01-max-output-duration (the branch actually indexed); cases 7-8 queried against the SAME index, justified because api/src/services/audio.py, api/src/services/tts_service.py, and the _process_chunk call chain are baseline files untouched by either PR6 or PR7 and are identical across both branches.",
+  "cases": [
+    {
+      "case": "1_dev_model",
+      "query": "trace_path(generate_audio_stream, inbound, depth=3)",
+      "result": {
+        "callers_total": 5,
+        "callers": ["stream_audio_chunks", "TTSService.generate_audio", "create_speech", "create_captioned_speech", "create_dialogue"],
+        "truncated": false
+      },
+      "cross_check": "trace_path(model_status, outbound, depth=3) -> callees_total=3, exhaustive: ModelManager.status/_auto_unload_enabled/_auto_unload_timeout only",
+      "classification": "GRAPH_HAS_STRONG_NEGATIVE_EVIDENCE",
+      "notes": "model_status is absent from generate_audio_stream's real, exhaustive (untruncated) inbound-caller set at depth 3, AND model_status's own real, exhaustive outbound callee set contains nothing related. Both directions checked, both complete."
+    },
+    {
+      "case": "2_generate_from_phonemes",
+      "query": "trace_path(generate_from_phonemes, outbound) -- name AMBIGUOUS: 2 real matches (route handler in development.py, TTSService method in tts_service.py). CBM itself refused to guess and returned suggestions.",
+      "result": {
+        "route_handler_callees_total": 3,
+        "route_handler_callees": ["AudioNormalizer", "StreamingAudioWriter", "str"],
+        "known_gap": "Manual source reading confirms the route handler DOES call `await tts_service.generate_from_phonemes(...)` (an instance method on a locally-scoped variable). This real call is ABSENT from CBM's own traced callee list -- a genuine, empirically-confirmed graph incompleteness for this exact handler, not merely a theoretical caveat."
+      },
+      "classification": "GRAPH_UNKNOWN",
+      "notes": "Fails the completeness certificate on its own stated terms ('all relevant direct calls in the handler are structurally extracted') -- independently verified false for this handler. The manual oracle still says FALSE (TTSService.generate_from_phonemes calls backend._get_pipeline().generate_from_tokens, never generate_audio_stream), but the GRAPH cannot honestly certify that; it is silent about a call it doesn't even represent. Reported as GRAPH_UNKNOWN, not GRAPH_HAS_STRONG_NEGATIVE_EVIDENCE, precisely because of this rule."
+    },
+    {
+      "case": "3_dev_reload",
+      "query": "trace_path(reload_model, outbound, depth=3)",
+      "result": { "callees_total": 16, "truncated": false, "contains_generate_audio_or_stream": false },
+      "classification": "GRAPH_HAS_STRONG_NEGATIVE_EVIDENCE",
+      "notes": "Exhaustive (16/16, no truncation signal), covers model_manager/kokoro_v1 methods and one unrelated web AudioService.cancel call. No path to generate_audio/generate_audio_stream."
+    },
+    {
+      "case": "4_dev_unload",
+      "query": "trace_path(unload_model, outbound, depth=3)",
+      "result": { "callees_total": 6, "truncated": false, "contains_generate_audio_or_stream": false },
+      "classification": "GRAPH_HAS_STRONG_NEGATIVE_EVIDENCE",
+      "notes": "Exhaustive, same pattern as case 3."
+    },
+    {
+      "case": "5_settings",
+      "query": "search_graph(name_pattern='Duration|duration_ceiling|max_output_duration') and search_graph(name_pattern='^Settings$')",
+      "result": {
+        "Settings_class_node": "EXISTS (api/src/core/config.py:22-112, in=3, out=0)",
+        "settings_singleton_node": "EXISTS (in=65, out=0)",
+        "max_output_duration_s_field_node": "DOES NOT EXIST as a separate node",
+        "_within_duration_ceiling_node": "DOES NOT EXIST",
+        "Duration_type_alias_node": "DOES NOT EXIST"
+      },
+      "classification": "GRAPH_UNKNOWN",
+      "notes": "Not merely an unmodeled RELATION -- the intermediate NODES needed to represent this chain (the type alias, the validator function) were never created by CBM's own extractor for this file/shape. Feeding Sydes' generic _FactIndex traversal real CBM edges cannot rescue this: there is nothing to feed it. This is empirically confirmed, not inferred from the schema docstring alone."
+    },
+    {
+      "case": "6_within_duration_ceiling",
+      "query": "search_graph(name_pattern='.*_within_duration_ceiling.*')",
+      "result": { "total": 0 },
+      "classification": "GRAPH_UNKNOWN",
+      "notes": "Same finding as case 5, sharing the same missing node."
+    },
+    {
+      "case": "7_convert_audio",
+      "query": "trace_path(convert_audio, inbound, depth=3) and trace_path(_process_chunk, outbound, depth=2)",
+      "result": {
+        "convert_audio_callers_total": 6,
+        "convert_audio_callers": ["create_captioned_speech", "create_speech", "stream_audio_chunks", "_process_chunk", "generate_audio", "generate_audio_stream"],
+        "process_chunk_callees_total": 20,
+        "process_chunk_callees_contain_normalizer_symbols": false
+      },
+      "classification": "GRAPH_HAS_STRONG_NEGATIVE_EVIDENCE",
+      "notes": "convert_audio IS reachable from POST /audio/speech (3 hops via create_speech -> generate_audio_stream -> _process_chunk -> convert_audio) -- that part is TRUE. What's FALSE is any relation from the changed normalizer symbols (handle_url/handle_email/_speak_url_symbols) to convert_audio: _process_chunk's real, exhaustive (20/20) callee list contains no normalizer-related symbol. Both neighborhoods (convert_audio's callers, _process_chunk's callees) are exhaustively enumerated with no truncation signal."
+    },
+    {
+      "case": "8_trim_audio",
+      "query": "same as case 7 (trim_audio is called from the same _process_chunk, already checked exhaustively)",
+      "result": { "process_chunk_callees_contain_normalizer_symbols": false },
+      "classification": "GRAPH_HAS_STRONG_NEGATIVE_EVIDENCE",
+      "notes": "Same evidence and reasoning as case 7."
+    }
+  ],
+  "summary": {
+    "GRAPH_HAS_STRONG_NEGATIVE_EVIDENCE": 5,
+    "GRAPH_UNKNOWN": 3,
+    "false_reachability": 0,
+    "identity_ambiguity_encountered": 1,
+    "note_on_case_2": "CBM's own trace_path tool refused to silently guess between the two same-named symbols and returned an explicit ambiguous status with disambiguation suggestions -- a real, working safety mechanism already present in the tool, not something this experiment had to build."
+  }
+}

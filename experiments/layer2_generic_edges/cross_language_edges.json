@@ -1,0 +1,378 @@
+{
+  "typescript": [
+    {
+      "kind": "field_or_param_type_reference",
+      "language": "typescript",
+      "file": "src/modules/user/database/user.repository.ts",
+      "user_symbol": "UserRepository",
+      "used_symbol": "UserModel",
+      "line": 35
+    }
+  ],
+  "java": [
+    {
+      "kind": "call_argument_reference",
+      "language": "java",
+      "file": "demo-mq-rabbitmq/src/main/java/com/xkcoding/mq/rabbitmq/config/RabbitMqConfig.java",
+      "user_symbol": "fanoutBinding1",
+      "used_symbol": "fanoutExchange",
+      "line": 77
+    },
+    {
+      "kind": "call_argument_reference",
+      "language": "java",
+      "file": "demo-mq-rabbitmq/src/main/java/com/xkcoding/mq/rabbitmq/config/RabbitMqConfig.java",
+      "user_symbol": "fanoutBinding1",
+      "used_symbol": "directOneQueue",
+      "line": 77
+    },
+    {
+      "kind": "call_argument_reference",
+      "language": "java",
+      "file": "demo-mq-rabbitmq/src/main/java/com/xkcoding/mq/rabbitmq/config/RabbitMqConfig.java",
+      "user_symbol": "fanoutBinding2",
+      "used_symbol": "fanoutExchange",
+      "line": 88
+    },
+    {
+      "kind": "call_argument_reference",
+      "language": "java",
+      "file": "demo-mq-rabbitmq/src/main/java/com/xkcoding/mq/rabbitmq/config/RabbitMqConfig.java",
+      "user_symbol": "fanoutBinding2",
+      "used_symbol": "queueTwo",
+      "line": 88
+    },
+    {
+      "kind": "call_argument_reference",
+      "language": "java",
+      "file": "demo-mq-rabbitmq/src/main/java/com/xkcoding/mq/rabbitmq/config/RabbitMqConfig.java",
+      "user_symbol": "topicBinding1",
+      "used_symbol": "topicExchange",
+      "line": 111
+    },
+    {
+      "kind": "call_argument_reference",
+      "language": "java",
+      "file": "demo-mq-rabbitmq/src/main/java/com/xkcoding/mq/rabbitmq/config/RabbitMqConfig.java",
+      "user_symbol": "topicBinding1",
+      "used_symbol": "fanoutExchange",
+      "line": 111
+    },
+    {
+      "kind": "call_argument_reference",
+      "language": "java",
+      "file": "demo-mq-rabbitmq/src/main/java/com/xkcoding/mq/rabbitmq/config/RabbitMqConfig.java",
+      "user_symbol": "topicBinding2",
+      "used_symbol": "topicExchange",
+      "line": 122
+    },
+    {
+      "kind": "call_argument_reference",
+      "language": "java",
+      "file": "demo-mq-rabbitmq/src/main/java/com/xkcoding/mq/rabbitmq/config/RabbitMqConfig.java",
+      "user_symbol": "topicBinding2",
+      "used_symbol": "queueTwo",
+      "line": 122
+    },
+    {
+      "kind": "call_argument_reference",
+      "language": "java",
+      "file": "demo-mq-rabbitmq/src/main/java/com/xkcoding/mq/rabbitmq/config/RabbitMqConfig.java",
+      "user_symbol": "topicBinding3",
+      "used_symbol": "topicExchange",
+      "line": 133
+    },
+    {
+      "kind": "call_argument_reference",
+      "language": "java",
+      "file": "demo-mq-rabbitmq/src/main/java/com/xkcoding/mq/rabbitmq/config/RabbitMqConfig.java",
+      "user_symbol": "topicBinding3",
+      "used_symbol": "queueThree",
+      "line": 133
+    },
+    {
+      "kind": "call_argument_reference",
+      "language": "java",
+      "file": "demo-mq-rabbitmq/src/main/java/com/xkcoding/mq/rabbitmq/config/RabbitMqConfig.java",
+      "user_symbol": "delayBinding",
+      "used_symbol": "delayExchange",
+      "line": 162
+    },
+    {
+      "kind": "call_argument_reference",
+      "language": "java",
+      "file": "demo-mq-rabbitmq/src/main/java/com/xkcoding/mq/rabbitmq/config/RabbitMqConfig.java",
+      "user_symbol": "delayBinding",
+      "used_symbol": "delayQueue",
+      "line": 162
+    }
+  ],
+  "go": [
+    {
+      "kind": "field_or_param_type_reference",
+      "language": "go",
+      "file": "token/paseto_maker.go",
+      "user_symbol": "NewPasetoMaker",
+      "used_symbol": "PasetoMaker",
+      "line": 23
+    },
+    {
+      "kind": "field_or_param_type_reference",
+      "language": "go",
+      "file": "token/paseto_maker.go",
+      "user_symbol": "CreateToken",
+      "used_symbol": "PasetoMaker",
+      "line": 32
+    },
+    {
+      "kind": "field_or_param_type_reference",
+      "language": "go",
+      "file": "token/paseto_maker.go",
+      "user_symbol": "CreateToken",
+      "used_symbol": "TokenType",
+      "line": 32
+    },
+    {
+      "kind": "field_or_param_type_reference",
+      "language": "go",
+      "file": "token/paseto_maker.go",
+      "user_symbol": "CreateToken",
+      "used_symbol": "Payload",
+      "line": 32
+    },
+    {
+      "kind": "field_or_param_type_reference",
+      "language": "go",
+      "file": "token/paseto_maker.go",
+      "user_symbol": "VerifyToken",
+      "used_symbol": "PasetoMaker",
+      "line": 43
+    },
+    {
+      "kind": "field_or_param_type_reference",
+      "language": "go",
+      "file": "token/paseto_maker.go",
+      "user_symbol": "VerifyToken",
+      "used_symbol": "TokenType",
+      "line": 43
+    },
+    {
+      "kind": "field_or_param_type_reference",
+      "language": "go",
+      "file": "token/paseto_maker.go",
+      "user_symbol": "VerifyToken",
+      "used_symbol": "Payload",
+      "line": 43
+    },
+    {
+      "kind": "field_or_param_type_reference",
+      "language": "go",
+      "file": "token/paseto_maker.go",
+      "user_symbol": "VerifyToken",
+      "used_symbol": "Payload",
+      "line": 44
+    },
+    {
+      "kind": "field_or_param_type_reference",
+      "language": "go",
+      "file": "token/jwt_maker.go",
+      "user_symbol": "NewJWTMaker",
+      "used_symbol": "JWTMaker",
+      "line": 23
+    },
+    {
+      "kind": "field_or_param_type_reference",
+      "language": "go",
+      "file": "token/jwt_maker.go",
+      "user_symbol": "CreateToken",
+      "used_symbol": "JWTMaker",
+      "line": 27
+    },
+    {
+      "kind": "field_or_param_type_reference",
+      "language": "go",
+      "file": "token/jwt_maker.go",
+      "user_symbol": "CreateToken",
+      "used_symbol": "TokenType",
+      "line": 27
+    },
+    {
+      "kind": "field_or_param_type_reference",
+      "language": "go",
+      "file": "token/jwt_maker.go",
+      "user_symbol": "CreateToken",
+      "used_symbol": "Payload",
+      "line": 27
+    },
+    {
+      "kind": "field_or_param_type_reference",
+      "language": "go",
+      "file": "token/jwt_maker.go",
+      "user_symbol": "VerifyToken",
+      "used_symbol": "JWTMaker",
+      "line": 39
+    },
+    {
+      "kind": "field_or_param_type_reference",
+      "language": "go",
+      "file": "token/jwt_maker.go",
+      "user_symbol": "VerifyToken",
+      "used_symbol": "TokenType",
+      "line": 39
+    },
+    {
+      "kind": "field_or_param_type_reference",
+      "language": "go",
+      "file": "token/jwt_maker.go",
+      "user_symbol": "VerifyToken",
+      "used_symbol": "Payload",
+      "line": 39
+    },
+    {
+      "kind": "field_or_param_type_reference",
+      "language": "go",
+      "file": "token/jwt_maker.go",
+      "user_symbol": "VerifyToken",
+      "used_symbol": "Payload",
+      "line": 48
+    },
+    {
+      "kind": "field_or_param_type_reference",
+      "language": "go",
+      "file": "token/jwt_maker.go",
+      "user_symbol": "VerifyToken",
+      "used_symbol": "Payload",
+      "line": 56
+    },
+    {
+      "kind": "field_or_param_type_reference",
+      "language": "go",
+      "file": "token/payload.go",
+      "user_symbol": "Payload",
+      "used_symbol": "TokenType",
+      "line": 27
+    },
+    {
+      "kind": "field_or_param_type_reference",
+      "language": "go",
+      "file": "token/payload.go",
+      "user_symbol": "NewPayload",
+      "used_symbol": "TokenType",
+      "line": 35
+    },
+    {
+      "kind": "field_or_param_type_reference",
+      "language": "go",
+      "file": "token/payload.go",
+      "user_symbol": "NewPayload",
+      "used_symbol": "Payload",
+      "line": 35
+    },
+    {
+      "kind": "field_or_param_type_reference",
+      "language": "go",
+      "file": "token/payload.go",
+      "user_symbol": "NewPayload",
+      "used_symbol": "Payload",
+      "line": 41
+    },
+    {
+      "kind": "field_or_param_type_reference",
+      "language": "go",
+      "file": "token/payload.go",
+      "user_symbol": "Valid",
+      "used_symbol": "Payload",
+      "line": 53
+    },
+    {
+      "kind": "field_or_param_type_reference",
+      "language": "go",
+      "file": "token/payload.go",
+      "user_symbol": "Valid",
+      "used_symbol": "TokenType",
+      "line": 53
+    },
+    {
+      "kind": "field_or_param_type_reference",
+      "language": "go",
+      "file": "token/payload.go",
+      "user_symbol": "GetExpirationTime",
+      "used_symbol": "Payload",
+      "line": 63
+    },
+    {
+      "kind": "field_or_param_type_reference",
+      "language": "go",
+      "file": "token/payload.go",
+      "user_symbol": "GetIssuedAt",
+      "used_symbol": "Payload",
+      "line": 69
+    },
+    {
+      "kind": "field_or_param_type_reference",
+      "language": "go",
+      "file": "token/payload.go",
+      "user_symbol": "GetNotBefore",
+      "used_symbol": "Payload",
+      "line": 75
+    },
+    {
+      "kind": "field_or_param_type_reference",
+      "language": "go",
+      "file": "token/payload.go",
+      "user_symbol": "GetIssuer",
+      "used_symbol": "Payload",
+      "line": 81
+    },
+    {
+      "kind": "field_or_param_type_reference",
+      "language": "go",
+      "file": "token/payload.go",
+      "user_symbol": "GetSubject",
+      "used_symbol": "Payload",
+      "line": 85
+    },
+    {
+      "kind": "field_or_param_type_reference",
+      "language": "go",
+      "file": "token/payload.go",
+      "user_symbol": "GetAudience",
+      "used_symbol": "Payload",
+      "line": 89
+    }
+  ],
+  "rust": [
+    {
+      "kind": "field_or_param_type_reference",
+      "language": "rust",
+      "file": "contrib/dyn_templates/src/template.rs",
+      "user_symbol": "try_custom",
+      "used_symbol": "TemplateFairing",
+      "line": 139
+    },
+    {
+      "kind": "field_or_param_type_reference",
+      "language": "rust",
+      "file": "contrib/dyn_templates/src/template.rs",
+      "user_symbol": "render",
+      "used_symbol": "Template",
+      "line": 175
+    },
+    {
+      "kind": "field_or_param_type_reference",
+      "language": "rust",
+      "file": "contrib/dyn_templates/src/template.rs",
+      "user_symbol": "render",
+      "used_symbol": "Template",
+      "line": 178
+    },
+    {
+      "kind": "call_argument_reference",
+      "language": "rust",
+      "file": "contrib/dyn_templates/src/template.rs",
+      "user_symbol": "finalize",
+      "used_symbol": "info",
+      "line": 255
+    }
+  ]
+}

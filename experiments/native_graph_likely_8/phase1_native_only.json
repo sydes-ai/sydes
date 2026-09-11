@@ -1,0 +1,398 @@
+[
+  {
+    "case": "1_dev_model",
+    "classification": "NOT_REACHED_IN_AVAILABLE_GRAPH",
+    "interpreter_strict_native": {
+      "affected": [],
+      "notes": [
+        "no entrypoint symbols were supplied by the backend; nothing could be reached even if the change is reachable in principle"
+      ],
+      "unresolved_changed_symbols": null
+    },
+    "interpreter_bridged_entrypoints": {
+      "affected": [],
+      "notes": [],
+      "unresolved_changed_symbols": null
+    },
+    "call_follower": {
+      "status": "not_reached",
+      "followed_calls": [],
+      "unresolved_calls": [
+        {
+          "call": "JSONResponse",
+          "reason": "not_found"
+        },
+        {
+          "call": "model_manager.status",
+          "reason": "not_found"
+        },
+        {
+          "call": "HTTPException",
+          "reason": "not_found"
+        },
+        {
+          "call": "HTTPException",
+          "reason": "not_found"
+        }
+      ],
+      "skipped_calls": [],
+      "summary": {
+        "functions_followed": 0,
+        "files_visited": 1,
+        "steps_added": 6
+      }
+    },
+    "build_ms": 228.67558314464986
+  },
+  {
+    "case": "2_generate_from_phonemes",
+    "classification": "TRUNCATED",
+    "interpreter_strict_native": {
+      "affected": [],
+      "notes": [
+        "no entrypoint symbols were supplied by the backend; nothing could be reached even if the change is reachable in principle"
+      ],
+      "unresolved_changed_symbols": null
+    },
+    "interpreter_bridged_entrypoints": {
+      "affected": [],
+      "notes": [],
+      "unresolved_changed_symbols": null
+    },
+    "call_follower": {
+      "status": "truncated",
+      "followed_calls": [
+        {
+          "call": "StreamingAudioWriter",
+          "resolved_to": "StreamingAudioWriter",
+          "file": "api/src/services/streaming_audio_writer.py",
+          "importance": 0,
+          "called_from_statement": "writer = StreamingAudioWriter(format=\"wav\", sample_rate=24000, channels=1)"
+        },
+        {
+          "call": "AudioNormalizer",
+          "resolved_to": "AudioNormalizer",
+          "file": "api/src/services/audio.py",
+          "importance": 0,
+          "called_from_statement": "normalizer = AudioNormalizer()"
+        }
+      ],
+      "unresolved_calls": [
+        {
+          "call": "tts_service.generate_from_phonemes",
+          "reason": "not_found"
+        },
+        {
+          "call": "StreamingResponse",
+          "reason": "not_found"
+        },
+        {
+          "call": "generate_chunks",
+          "reason": "not_found"
+        },
+        {
+          "call": "isinstance",
+          "reason": "not_found"
+        },
+        {
+          "call": "ValueError",
+          "reason": "not_found"
+        },
+        {
+          "call": "ValueError",
+          "reason": "not_found"
+        }
+      ],
+      "skipped_calls": [
+        {
+          "call": "StreamingAudioWriter",
+          "reason": "truncated_to_2_steps"
+        },
+        {
+          "call": "AudioNormalizer",
+          "reason": "max_steps"
+        }
+      ],
+      "summary": {
+        "functions_followed": 2,
+        "files_visited": 3,
+        "steps_added": 40
+      }
+    },
+    "build_ms": 228.67558314464986
+  },
+  {
+    "case": "3_dev_reload",
+    "classification": "NOT_REACHED_IN_AVAILABLE_GRAPH",
+    "interpreter_strict_native": {
+      "affected": [],
+      "notes": [
+        "no entrypoint symbols were supplied by the backend; nothing could be reached even if the change is reachable in principle"
+      ],
+      "unresolved_changed_symbols": null
+    },
+    "interpreter_bridged_entrypoints": {
+      "affected": [],
+      "notes": [],
+      "unresolved_changed_symbols": null
+    },
+    "call_follower": {
+      "status": "not_reached",
+      "followed_calls": [],
+      "unresolved_calls": [
+        {
+          "call": "model_manager.reload",
+          "reason": "not_found"
+        },
+        {
+          "call": "JSONResponse",
+          "reason": "not_found"
+        },
+        {
+          "call": "model_manager.status",
+          "reason": "not_found"
+        },
+        {
+          "call": "HTTPException",
+          "reason": "not_found"
+        },
+        {
+          "call": "HTTPException",
+          "reason": "not_found"
+        },
+        {
+          "call": "HTTPException",
+          "reason": "not_found"
+        },
+        {
+          "call": "str",
+          "reason": "not_found"
+        }
+      ],
+      "skipped_calls": [],
+      "summary": {
+        "functions_followed": 0,
+        "files_visited": 1,
+        "steps_added": 15
+      }
+    },
+    "build_ms": 228.67558314464986
+  },
+  {
+    "case": "4_dev_unload",
+    "classification": "NOT_REACHED_IN_AVAILABLE_GRAPH",
+    "interpreter_strict_native": {
+      "affected": [],
+      "notes": [
+        "no entrypoint symbols were supplied by the backend; nothing could be reached even if the change is reachable in principle"
+      ],
+      "unresolved_changed_symbols": null
+    },
+    "interpreter_bridged_entrypoints": {
+      "affected": [],
+      "notes": [],
+      "unresolved_changed_symbols": null
+    },
+    "call_follower": {
+      "status": "not_reached",
+      "followed_calls": [],
+      "unresolved_calls": [
+        {
+          "call": "model_manager.unload",
+          "reason": "not_found"
+        },
+        {
+          "call": "JSONResponse",
+          "reason": "not_found"
+        },
+        {
+          "call": "HTTPException",
+          "reason": "not_found"
+        },
+        {
+          "call": "HTTPException",
+          "reason": "not_found"
+        },
+        {
+          "call": "HTTPException",
+          "reason": "not_found"
+        },
+        {
+          "call": "str",
+          "reason": "not_found"
+        }
+      ],
+      "skipped_calls": [],
+      "summary": {
+        "functions_followed": 0,
+        "files_visited": 1,
+        "steps_added": 15
+      }
+    },
+    "build_ms": 228.67558314464986
+  },
+  {
+    "case": "5_settings",
+    "classification": "TRUNCATED",
+    "interpreter_strict_native": {
+      "affected": [],
+      "notes": [
+        "no entrypoint symbols were supplied by the backend; nothing could be reached even if the change is reachable in principle"
+      ],
+      "unresolved_changed_symbols": null
+    },
+    "interpreter_bridged_entrypoints": {
+      "affected": [],
+      "notes": [],
+      "unresolved_changed_symbols": null
+    },
+    "call_follower": {
+      "status": "truncated",
+      "followed_calls": [
+        {
+          "call": "get_tts_service",
+          "resolved_to": "get_tts_service",
+          "file": "api/src/routers/openai_compatible.py",
+          "importance": 5,
+          "called_from_statement": "tts_service = await get_tts_service()"
+        }
+      ],
+      "unresolved_calls": [],
+      "skipped_calls": [
+        {
+          "call": "get_tts_service",
+          "reason": "max_steps"
+        }
+      ],
+      "summary": {
+        "functions_followed": 1,
+        "files_visited": 1,
+        "steps_added": 184
+      }
+    },
+    "build_ms": 228.67558314464986
+  },
+  {
+    "case": "6_within_duration_ceiling",
+    "classification": "TRUNCATED",
+    "interpreter_strict_native": {
+      "affected": [],
+      "notes": [
+        "no entrypoint symbols were supplied by the backend; nothing could be reached even if the change is reachable in principle"
+      ],
+      "unresolved_changed_symbols": null
+    },
+    "interpreter_bridged_entrypoints": {
+      "affected": [],
+      "notes": [],
+      "unresolved_changed_symbols": null
+    },
+    "call_follower": {
+      "status": "truncated",
+      "followed_calls": [
+        {
+          "call": "get_tts_service",
+          "resolved_to": "get_tts_service",
+          "file": "api/src/routers/openai_compatible.py",
+          "importance": 5,
+          "called_from_statement": "tts_service = await get_tts_service()"
+        }
+      ],
+      "unresolved_calls": [],
+      "skipped_calls": [
+        {
+          "call": "get_tts_service",
+          "reason": "max_steps"
+        }
+      ],
+      "summary": {
+        "functions_followed": 1,
+        "files_visited": 1,
+        "steps_added": 184
+      }
+    },
+    "build_ms": 228.67558314464986
+  },
+  {
+    "case": "7_convert_audio",
+    "classification": "TRUNCATED",
+    "interpreter_strict_native": {
+      "affected": [],
+      "notes": [
+        "no entrypoint symbols were supplied by the backend; nothing could be reached even if the change is reachable in principle"
+      ],
+      "unresolved_changed_symbols": null
+    },
+    "interpreter_bridged_entrypoints": {
+      "affected": [],
+      "notes": [],
+      "unresolved_changed_symbols": null
+    },
+    "call_follower": {
+      "status": "truncated",
+      "followed_calls": [
+        {
+          "call": "get_tts_service",
+          "resolved_to": "get_tts_service",
+          "file": "api/src/routers/openai_compatible.py",
+          "importance": 5,
+          "called_from_statement": "tts_service = await get_tts_service()"
+        }
+      ],
+      "unresolved_calls": [],
+      "skipped_calls": [
+        {
+          "call": "get_tts_service",
+          "reason": "max_steps"
+        }
+      ],
+      "summary": {
+        "functions_followed": 1,
+        "files_visited": 1,
+        "steps_added": 183
+      }
+    },
+    "build_ms": 196.66008302010596
+  },
+  {
+    "case": "8_trim_audio",
+    "classification": "TRUNCATED",
+    "interpreter_strict_native": {
+      "affected": [],
+      "notes": [
+        "no entrypoint symbols were supplied by the backend; nothing could be reached even if the change is reachable in principle"
+      ],
+      "unresolved_changed_symbols": null
+    },
+    "interpreter_bridged_entrypoints": {
+      "affected": [],
+      "notes": [],
+      "unresolved_changed_symbols": null
+    },
+    "call_follower": {
+      "status": "truncated",
+      "followed_calls": [
+        {
+          "call": "get_tts_service",
+          "resolved_to": "get_tts_service",
+          "file": "api/src/routers/openai_compatible.py",
+          "importance": 5,
+          "called_from_statement": "tts_service = await get_tts_service()"
+        }
+      ],
+      "unresolved_calls": [],
+      "skipped_calls": [
+        {
+          "call": "get_tts_service",
+          "reason": "max_steps"
+        }
+      ],
+      "summary": {
+        "functions_followed": 1,
+        "files_visited": 1,
+        "steps_added": 183
+      }
+    },
+    "build_ms": 196.66008302010596
+  }
+]

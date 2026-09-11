@@ -1,0 +1,1554 @@
+[
+  {
+    "kind": "class_field_type_reference",
+    "user_file": "api/src/structures/schemas.py",
+    "user_symbol": "CaptionedSpeechResponse",
+    "used_file": "api/src/structures/schemas.py",
+    "used_symbol": "WordTimestamp",
+    "line": 117
+  },
+  {
+    "kind": "class_field_type_reference",
+    "user_file": "api/src/structures/schemas.py",
+    "user_symbol": "VoiceAlias",
+    "used_file": "api/src/structures/schemas.py",
+    "used_symbol": "Rate",
+    "line": 163
+  },
+  {
+    "kind": "class_field_type_reference",
+    "user_file": "api/src/structures/schemas.py",
+    "user_symbol": "VoiceAliasesMixin",
+    "used_file": "api/src/structures/schemas.py",
+    "used_symbol": "AliasMap",
+    "line": 187
+  },
+  {
+    "kind": "class_field_type_reference",
+    "user_file": "api/src/structures/schemas.py",
+    "user_symbol": "OpenAISpeechRequest",
+    "used_file": "api/src/structures/schemas.py",
+    "used_symbol": "InputText",
+    "line": 205
+  },
+  {
+    "kind": "class_field_type_reference",
+    "user_file": "api/src/structures/schemas.py",
+    "user_symbol": "OpenAISpeechRequest",
+    "used_file": "api/src/structures/schemas.py",
+    "used_symbol": "Rate",
+    "line": 220
+  },
+  {
+    "kind": "class_field_type_reference",
+    "user_file": "api/src/structures/schemas.py",
+    "user_symbol": "OpenAISpeechRequest",
+    "used_file": "api/src/structures/schemas.py",
+    "used_symbol": "LangCode",
+    "line": 233
+  },
+  {
+    "kind": "class_field_type_reference",
+    "user_file": "api/src/structures/schemas.py",
+    "user_symbol": "OpenAISpeechRequest",
+    "used_file": "api/src/structures/schemas.py",
+    "used_symbol": "Volume",
+    "line": 237
+  },
+  {
+    "kind": "class_field_type_reference",
+    "user_file": "api/src/structures/schemas.py",
+    "user_symbol": "OpenAISpeechRequest",
+    "used_file": "api/src/structures/schemas.py",
+    "used_symbol": "NormalizationOptions",
+    "line": 240
+  },
+  {
+    "kind": "class_field_type_reference",
+    "user_file": "api/src/structures/schemas.py",
+    "user_symbol": "OpenAISpeechRequest",
+    "used_file": "api/src/structures/schemas.py",
+    "used_symbol": "Duration",
+    "line": 252
+  },
+  {
+    "kind": "class_field_type_reference",
+    "user_file": "api/src/structures/schemas.py",
+    "user_symbol": "DialogueTurn",
+    "used_file": "api/src/structures/schemas.py",
+    "used_symbol": "InputText",
+    "line": 268
+  },
+  {
+    "kind": "class_field_type_reference",
+    "user_file": "api/src/structures/schemas.py",
+    "user_symbol": "DialogueRequest",
+    "used_file": "api/src/structures/schemas.py",
+    "used_symbol": "DialogueTurn",
+    "line": 298
+  },
+  {
+    "kind": "class_field_type_reference",
+    "user_file": "api/src/structures/schemas.py",
+    "user_symbol": "DialogueRequest",
+    "used_file": "api/src/structures/schemas.py",
+    "used_symbol": "Rate",
+    "line": 320
+  },
+  {
+    "kind": "class_field_type_reference",
+    "user_file": "api/src/structures/schemas.py",
+    "user_symbol": "DialogueRequest",
+    "used_file": "api/src/structures/schemas.py",
+    "used_symbol": "LangCode",
+    "line": 329
+  },
+  {
+    "kind": "class_field_type_reference",
+    "user_file": "api/src/structures/schemas.py",
+    "user_symbol": "DialogueRequest",
+    "used_file": "api/src/structures/schemas.py",
+    "used_symbol": "Volume",
+    "line": 333
+  },
+  {
+    "kind": "class_field_type_reference",
+    "user_file": "api/src/structures/schemas.py",
+    "user_symbol": "DialogueRequest",
+    "used_file": "api/src/structures/schemas.py",
+    "used_symbol": "NormalizationOptions",
+    "line": 336
+  },
+  {
+    "kind": "class_field_type_reference",
+    "user_file": "api/src/structures/schemas.py",
+    "user_symbol": "CaptionedSpeechRequest",
+    "used_file": "api/src/structures/schemas.py",
+    "used_symbol": "InputText",
+    "line": 368
+  },
+  {
+    "kind": "class_field_type_reference",
+    "user_file": "api/src/structures/schemas.py",
+    "user_symbol": "CaptionedSpeechRequest",
+    "used_file": "api/src/structures/schemas.py",
+    "used_symbol": "Rate",
+    "line": 377
+  },
+  {
+    "kind": "class_field_type_reference",
+    "user_file": "api/src/structures/schemas.py",
+    "user_symbol": "CaptionedSpeechRequest",
+    "used_file": "api/src/structures/schemas.py",
+    "used_symbol": "LangCode",
+    "line": 390
+  },
+  {
+    "kind": "class_field_type_reference",
+    "user_file": "api/src/structures/schemas.py",
+    "user_symbol": "CaptionedSpeechRequest",
+    "used_file": "api/src/structures/schemas.py",
+    "used_symbol": "Volume",
+    "line": 394
+  },
+  {
+    "kind": "class_field_type_reference",
+    "user_file": "api/src/structures/schemas.py",
+    "user_symbol": "CaptionedSpeechRequest",
+    "used_file": "api/src/structures/schemas.py",
+    "used_symbol": "NormalizationOptions",
+    "line": 397
+  },
+  {
+    "kind": "function_parameter_type_reference",
+    "user_file": "api/src/structures/schemas.py",
+    "user_symbol": "_reject_tag_breaking_aliases",
+    "used_file": "api/src/structures/schemas.py",
+    "used_symbol": "AliasMap",
+    "line": 173
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/structures/schemas.py",
+    "user_symbol": "TURN_VOICE_PATTERN",
+    "used_file": "api/src/structures/schemas.py",
+    "used_symbol": "VOICE_NAME_BODY",
+    "line": 156
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/structures/schemas.py",
+    "user_symbol": "LangCode",
+    "used_file": "api/src/structures/schemas.py",
+    "used_symbol": "_known_lang_code",
+    "line": 47
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/structures/schemas.py",
+    "user_symbol": "_within_input_limit",
+    "used_file": "api/src/structures/schemas.py",
+    "used_symbol": "value",
+    "line": 54
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/structures/schemas.py",
+    "user_symbol": "InputText",
+    "used_file": "api/src/structures/schemas.py",
+    "used_symbol": "_within_input_limit",
+    "line": 61
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/structures/schemas.py",
+    "user_symbol": "Duration",
+    "used_file": "api/src/structures/schemas.py",
+    "used_symbol": "DURATION_MIN",
+    "line": 82
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/structures/schemas.py",
+    "user_symbol": "Duration",
+    "used_file": "api/src/structures/schemas.py",
+    "used_symbol": "_within_duration_ceiling",
+    "line": 82
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/structures/schemas.py",
+    "user_symbol": "clamp_rate",
+    "used_file": "api/src/structures/schemas.py",
+    "used_symbol": "value",
+    "line": 88
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/structures/schemas.py",
+    "user_symbol": "_validate_voice_aliases",
+    "used_file": "api/src/structures/schemas.py",
+    "used_symbol": "value",
+    "line": 195
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/structures/schemas.py",
+    "user_symbol": "_reject_tag_breaking_voice",
+    "used_file": "api/src/structures/schemas.py",
+    "used_symbol": "value",
+    "line": 274
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/structures/schemas.py",
+    "user_symbol": "separator",
+    "used_file": "api/src/structures/schemas.py",
+    "used_symbol": "pause",
+    "line": 349
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/structures/schemas.py",
+    "user_symbol": "_within_input_limit",
+    "used_file": "api/src/structures/schemas.py",
+    "used_symbol": "value",
+    "line": 56
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/core/config.py",
+    "user_symbol": "unrecognized_env_file_keys",
+    "used_file": "api/src/core/config.py",
+    "used_symbol": "env_file",
+    "line": 125
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/routers/openai_compatible.py",
+    "user_symbol": "path",
+    "used_file": "api/src/routers/openai_compatible.py",
+    "used_symbol": "api_dir",
+    "line": 33
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/routers/openai_compatible.py",
+    "user_symbol": "voices",
+    "used_file": "api/src/routers/openai_compatible.py",
+    "used_symbol": "voice_input",
+    "line": 157
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/routers/openai_compatible.py",
+    "user_symbol": "process_and_validate_voices",
+    "used_file": "api/src/routers/openai_compatible.py",
+    "used_symbol": "voices",
+    "line": 187
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/routers/openai_compatible.py",
+    "user_symbol": "process_and_validate_voice_tags",
+    "used_file": "api/src/routers/openai_compatible.py",
+    "used_symbol": "tags",
+    "line": 227
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/routers/openai_compatible.py",
+    "user_symbol": "return_timestamps",
+    "used_file": "api/src/routers/openai_compatible.py",
+    "used_symbol": "request",
+    "line": 266
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/routers/openai_compatible.py",
+    "user_symbol": "resolve_voice_alias",
+    "used_file": "api/src/routers/openai_compatible.py",
+    "used_symbol": "target",
+    "line": 124
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/routers/openai_compatible.py",
+    "user_symbol": "process_and_validate_voices",
+    "used_file": "api/src/routers/openai_compatible.py",
+    "used_symbol": "voice_input",
+    "line": 153
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/routers/openai_compatible.py",
+    "user_symbol": "process_and_validate_voices",
+    "used_file": "api/src/routers/openai_compatible.py",
+    "used_symbol": "voices",
+    "line": 162
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/routers/openai_compatible.py",
+    "user_symbol": "match",
+    "used_file": "api/src/routers/openai_compatible.py",
+    "used_symbol": "token",
+    "line": 164
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/routers/openai_compatible.py",
+    "user_symbol": "stream_audio_chunks",
+    "used_file": "api/src/routers/openai_compatible.py",
+    "used_symbol": "voice_name",
+    "line": 265
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/routers/openai_compatible.py",
+    "user_symbol": "stream_audio_chunks",
+    "used_file": "api/src/routers/openai_compatible.py",
+    "used_symbol": "voice_name",
+    "line": 269
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/routers/openai_compatible.py",
+    "user_symbol": "stream_audio_chunks",
+    "used_file": "api/src/routers/openai_compatible.py",
+    "used_symbol": "writer",
+    "line": 269
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/routers/openai_compatible.py",
+    "user_symbol": "stream_audio_chunks",
+    "used_file": "api/src/routers/openai_compatible.py",
+    "used_symbol": "return_timestamps",
+    "line": 269
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/routers/openai_compatible.py",
+    "user_symbol": "stream_audio_chunks",
+    "used_file": "api/src/routers/openai_compatible.py",
+    "used_symbol": "timings",
+    "line": 269
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/routers/openai_compatible.py",
+    "user_symbol": "create_speech",
+    "used_file": "api/src/routers/openai_compatible.py",
+    "used_symbol": "request",
+    "line": 332
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/routers/openai_compatible.py",
+    "user_symbol": "download_name",
+    "used_file": "api/src/routers/openai_compatible.py",
+    "used_symbol": "name",
+    "line": 591
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/routers/openai_compatible.py",
+    "user_symbol": "download_audio_file",
+    "used_file": "api/src/routers/openai_compatible.py",
+    "used_symbol": "file_path",
+    "line": 593
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/routers/openai_compatible.py",
+    "user_symbol": "download_audio_file",
+    "used_file": "api/src/routers/openai_compatible.py",
+    "used_symbol": "content_type",
+    "line": 593
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/routers/openai_compatible.py",
+    "user_symbol": "download_audio_file",
+    "used_file": "api/src/routers/openai_compatible.py",
+    "used_symbol": "download_name",
+    "line": 593
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/routers/openai_compatible.py",
+    "user_symbol": "combine_voices",
+    "used_file": "api/src/routers/openai_compatible.py",
+    "used_symbol": "request",
+    "line": 773
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/routers/openai_compatible.py",
+    "user_symbol": "_load_core_json",
+    "used_file": "api/src/routers/openai_compatible.py",
+    "used_symbol": "path",
+    "line": 35
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/routers/openai_compatible.py",
+    "user_symbol": "alias_rate",
+    "used_file": "api/src/routers/openai_compatible.py",
+    "used_symbol": "target",
+    "line": 130
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/routers/openai_compatible.py",
+    "user_symbol": "name",
+    "used_file": "api/src/routers/openai_compatible.py",
+    "used_symbol": "tts_service",
+    "line": 228
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/routers/openai_compatible.py",
+    "user_symbol": "name",
+    "used_file": "api/src/routers/openai_compatible.py",
+    "used_symbol": "available_voices",
+    "line": 228
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/routers/openai_compatible.py",
+    "user_symbol": "stream_audio_chunks",
+    "used_file": "api/src/routers/openai_compatible.py",
+    "used_symbol": "is_disconnected",
+    "line": 285
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/routers/openai_compatible.py",
+    "user_symbol": "create_speech",
+    "used_file": "api/src/routers/openai_compatible.py",
+    "used_symbol": "request",
+    "line": 320
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/routers/openai_compatible.py",
+    "user_symbol": "voice_name",
+    "used_file": "api/src/routers/openai_compatible.py",
+    "used_symbol": "tts_service",
+    "line": 325
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/routers/openai_compatible.py",
+    "user_symbol": "create_speech",
+    "used_file": "api/src/routers/openai_compatible.py",
+    "used_symbol": "tts_service",
+    "line": 329
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/routers/openai_compatible.py",
+    "user_symbol": "generator",
+    "used_file": "api/src/routers/openai_compatible.py",
+    "used_symbol": "tts_service",
+    "line": 354
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/routers/openai_compatible.py",
+    "user_symbol": "generator",
+    "used_file": "api/src/routers/openai_compatible.py",
+    "used_symbol": "request",
+    "line": 354
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/routers/openai_compatible.py",
+    "user_symbol": "generator",
+    "used_file": "api/src/routers/openai_compatible.py",
+    "used_symbol": "writer",
+    "line": 354
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/routers/openai_compatible.py",
+    "user_symbol": "generator",
+    "used_file": "api/src/routers/openai_compatible.py",
+    "used_symbol": "voice_name",
+    "line": 354
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/routers/openai_compatible.py",
+    "user_symbol": "generator",
+    "used_file": "api/src/routers/openai_compatible.py",
+    "used_symbol": "timings",
+    "line": 354
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/routers/openai_compatible.py",
+    "user_symbol": "create_speech",
+    "used_file": "api/src/routers/openai_compatible.py",
+    "used_symbol": "content_type",
+    "line": 428
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/routers/openai_compatible.py",
+    "user_symbol": "create_speech",
+    "used_file": "api/src/routers/openai_compatible.py",
+    "used_symbol": "output",
+    "line": 488
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/routers/openai_compatible.py",
+    "user_symbol": "create_speech",
+    "used_file": "api/src/routers/openai_compatible.py",
+    "used_symbol": "content_type",
+    "line": 488
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/routers/openai_compatible.py",
+    "user_symbol": "create_speech",
+    "used_file": "api/src/routers/openai_compatible.py",
+    "used_symbol": "headers",
+    "line": 488
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/routers/openai_compatible.py",
+    "user_symbol": "content_type",
+    "used_file": "api/src/routers/openai_compatible.py",
+    "used_symbol": "file_path",
+    "line": 588
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/routers/openai_compatible.py",
+    "user_symbol": "download_name",
+    "used_file": "api/src/routers/openai_compatible.py",
+    "used_symbol": "file_path",
+    "line": 591
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/routers/openai_compatible.py",
+    "user_symbol": "voice_string",
+    "used_file": "api/src/routers/openai_compatible.py",
+    "used_symbol": "request",
+    "line": 777
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/routers/openai_compatible.py",
+    "user_symbol": "voice_string",
+    "used_file": "api/src/routers/openai_compatible.py",
+    "used_symbol": "tts_service",
+    "line": 777
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/routers/openai_compatible.py",
+    "user_symbol": "combine_voices",
+    "used_file": "api/src/routers/openai_compatible.py",
+    "used_symbol": "voice_string",
+    "line": 778
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/routers/openai_compatible.py",
+    "user_symbol": "parsed",
+    "used_file": "api/src/routers/openai_compatible.py",
+    "used_symbol": "weight",
+    "line": 172
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/routers/openai_compatible.py",
+    "user_symbol": "stream_audio_chunks",
+    "used_file": "api/src/routers/openai_compatible.py",
+    "used_symbol": "request",
+    "line": 281
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/routers/openai_compatible.py",
+    "user_symbol": "temp_writer",
+    "used_file": "api/src/routers/openai_compatible.py",
+    "used_symbol": "output_format",
+    "line": 364
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/routers/openai_compatible.py",
+    "user_symbol": "create_speech",
+    "used_file": "api/src/routers/openai_compatible.py",
+    "used_symbol": "content_type",
+    "line": 412
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/routers/openai_compatible.py",
+    "user_symbol": "create_speech",
+    "used_file": "api/src/routers/openai_compatible.py",
+    "used_symbol": "headers",
+    "line": 412
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/routers/openai_compatible.py",
+    "user_symbol": "audio_data",
+    "used_file": "api/src/routers/openai_compatible.py",
+    "used_symbol": "voice_name",
+    "line": 445
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/routers/openai_compatible.py",
+    "user_symbol": "audio_data",
+    "used_file": "api/src/routers/openai_compatible.py",
+    "used_symbol": "writer",
+    "line": 445
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/routers/openai_compatible.py",
+    "user_symbol": "temp_writer",
+    "used_file": "api/src/routers/openai_compatible.py",
+    "used_symbol": "output_format",
+    "line": 464
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/routers/openai_compatible.py",
+    "user_symbol": "process_and_validate_voices",
+    "used_file": "api/src/routers/openai_compatible.py",
+    "used_symbol": "parsed",
+    "line": 175
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/routers/openai_compatible.py",
+    "user_symbol": "create_speech",
+    "used_file": "api/src/routers/openai_compatible.py",
+    "used_symbol": "output",
+    "line": 474
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/routers/openai_compatible.py",
+    "user_symbol": "process_and_validate_voices",
+    "used_file": "api/src/routers/openai_compatible.py",
+    "used_symbol": "available_voices",
+    "line": 182
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/routers/development.py",
+    "user_symbol": "generate_from_phonemes",
+    "used_file": "api/src/routers/development.py",
+    "used_symbol": "get_tts_service",
+    "line": 101
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/routers/development.py",
+    "user_symbol": "create_captioned_speech",
+    "used_file": "api/src/routers/development.py",
+    "used_symbol": "get_tts_service",
+    "line": 221
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/routers/development.py",
+    "user_symbol": "unload_model",
+    "used_file": "api/src/routers/development.py",
+    "used_symbol": "get_tts_service",
+    "line": 475
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/routers/development.py",
+    "user_symbol": "reload_model",
+    "used_file": "api/src/routers/development.py",
+    "used_symbol": "get_tts_service",
+    "line": 503
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/routers/development.py",
+    "user_symbol": "model_status",
+    "used_file": "api/src/routers/development.py",
+    "used_symbol": "get_tts_service",
+    "line": 533
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/routers/development.py",
+    "user_symbol": "create_dialogue",
+    "used_file": "api/src/routers/development.py",
+    "used_symbol": "speech_request",
+    "line": 209
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/routers/development.py",
+    "user_symbol": "voice_name",
+    "used_file": "api/src/routers/development.py",
+    "used_symbol": "tts_service",
+    "line": 234
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/routers/development.py",
+    "user_symbol": "create_captioned_speech",
+    "used_file": "api/src/routers/development.py",
+    "used_symbol": "tts_service",
+    "line": 238
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/routers/development.py",
+    "user_symbol": "generator",
+    "used_file": "api/src/routers/development.py",
+    "used_symbol": "tts_service",
+    "line": 259
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/routers/development.py",
+    "user_symbol": "generator",
+    "used_file": "api/src/routers/development.py",
+    "used_symbol": "writer",
+    "line": 259
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/routers/development.py",
+    "user_symbol": "generator",
+    "used_file": "api/src/routers/development.py",
+    "used_symbol": "voice_name",
+    "line": 259
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/routers/development.py",
+    "user_symbol": "create_captioned_speech",
+    "used_file": "api/src/routers/development.py",
+    "used_symbol": "content",
+    "line": 411
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/routers/development.py",
+    "user_symbol": "create_captioned_speech",
+    "used_file": "api/src/routers/development.py",
+    "used_symbol": "headers",
+    "line": 331
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/routers/development.py",
+    "user_symbol": "audio_data",
+    "used_file": "api/src/routers/development.py",
+    "used_symbol": "voice_name",
+    "line": 387
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/routers/development.py",
+    "user_symbol": "audio_data",
+    "used_file": "api/src/routers/development.py",
+    "used_symbol": "writer",
+    "line": 387
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/routers/development.py",
+    "user_symbol": "chunk_bytes",
+    "used_file": "api/src/routers/development.py",
+    "used_symbol": "normalized_audio",
+    "line": 128
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/routers/development.py",
+    "user_symbol": "base64_output",
+    "used_file": "api/src/routers/development.py",
+    "used_symbol": "output",
+    "line": 401
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/routers/development.py",
+    "user_symbol": "content",
+    "used_file": "api/src/routers/development.py",
+    "used_symbol": "base64_output",
+    "line": 403
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/routers/development.py",
+    "user_symbol": "content",
+    "used_file": "api/src/routers/development.py",
+    "used_symbol": "content_type",
+    "line": 403
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/routers/development.py",
+    "user_symbol": "single_output",
+    "used_file": "api/src/routers/development.py",
+    "used_symbol": "base64_chunk",
+    "line": 357
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/routers/development.py",
+    "user_symbol": "single_output",
+    "used_file": "api/src/routers/development.py",
+    "used_symbol": "content_type",
+    "line": 357
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/routers/development.py",
+    "user_symbol": "dual_output",
+    "used_file": "api/src/routers/development.py",
+    "used_symbol": "base64_chunk",
+    "line": 306
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/routers/development.py",
+    "user_symbol": "dual_output",
+    "used_file": "api/src/routers/development.py",
+    "used_symbol": "content_type",
+    "line": 306
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/services/tts_service.py",
+    "user_symbol": "_load_voice_from_path",
+    "used_file": "api/src/services/tts_service.py",
+    "used_symbol": "path",
+    "line": 184
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/services/tts_service.py",
+    "user_symbol": "combined_path",
+    "used_file": "api/src/services/tts_service.py",
+    "used_symbol": "temp_dir",
+    "line": 257
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/services/tts_service.py",
+    "user_symbol": "get_voices_path",
+    "used_file": "api/src/services/tts_service.py",
+    "used_symbol": "combined_tensor",
+    "line": 259
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/services/tts_service.py",
+    "user_symbol": "get_voices_path",
+    "used_file": "api/src/services/tts_service.py",
+    "used_symbol": "combined_path",
+    "line": 259
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/services/tts_service.py",
+    "user_symbol": "_split_multi_voice",
+    "used_file": "api/src/services/tts_service.py",
+    "used_symbol": "segment_lang",
+    "line": 304
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/services/tts_service.py",
+    "user_symbol": "_split_multi_voice",
+    "used_file": "api/src/services/tts_service.py",
+    "used_symbol": "normalization_options",
+    "line": 304
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/services/tts_service.py",
+    "user_symbol": "generate_audio_stream",
+    "used_file": "api/src/services/tts_service.py",
+    "used_symbol": "normalization_options",
+    "line": 353
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/services/tts_service.py",
+    "user_symbol": "generate_audio",
+    "used_file": "api/src/services/tts_service.py",
+    "used_symbol": "normalization_options",
+    "line": 530
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/services/tts_service.py",
+    "user_symbol": "generate_audio",
+    "used_file": "api/src/services/tts_service.py",
+    "used_symbol": "word_timestamps",
+    "line": 551
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/services/tts_service.py",
+    "user_symbol": "_process_chunk",
+    "used_file": "api/src/services/tts_service.py",
+    "used_symbol": "backend",
+    "line": 101
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/services/tts_service.py",
+    "user_symbol": "get_voices_path",
+    "used_file": "api/src/services/tts_service.py",
+    "used_symbol": "split_voice",
+    "line": 203
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/services/tts_service.py",
+    "user_symbol": "get_voices_path",
+    "used_file": "api/src/services/tts_service.py",
+    "used_symbol": "split_voice",
+    "line": 216
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/services/tts_service.py",
+    "user_symbol": "combined_tensor",
+    "used_file": "api/src/services/tts_service.py",
+    "used_symbol": "path",
+    "line": 235
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/services/tts_service.py",
+    "user_symbol": "generate_audio",
+    "used_file": "api/src/services/tts_service.py",
+    "used_symbol": "output_parts",
+    "line": 552
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/services/tts_service.py",
+    "user_symbol": "generate_from_phonemes",
+    "used_file": "api/src/services/tts_service.py",
+    "used_symbol": "backend",
+    "line": 587
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/services/tts_service.py",
+    "user_symbol": "get_voices_path",
+    "used_file": "api/src/services/tts_service.py",
+    "used_symbol": "split_voice",
+    "line": 240
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/services/tts_service.py",
+    "user_symbol": "voice_tensor",
+    "used_file": "api/src/services/tts_service.py",
+    "used_symbol": "path",
+    "line": 245
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/services/tts_service.py",
+    "user_symbol": "generate_audio_stream",
+    "used_file": "api/src/services/tts_service.py",
+    "used_symbol": "voice_name",
+    "line": 488
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/services/tts_service.py",
+    "user_symbol": "generate_audio_stream",
+    "used_file": "api/src/services/tts_service.py",
+    "used_symbol": "stream_normalizer",
+    "line": 488
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/services/tts_service.py",
+    "user_symbol": "generate_audio_stream",
+    "used_file": "api/src/services/tts_service.py",
+    "used_symbol": "pipeline_lang_code",
+    "line": 488
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/services/tts_service.py",
+    "user_symbol": "voice_tensor",
+    "used_file": "api/src/services/tts_service.py",
+    "used_symbol": "voice_name",
+    "line": 135
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/services/tts_service.py",
+    "user_symbol": "chunk_data",
+    "used_file": "api/src/services/tts_service.py",
+    "used_symbol": "voice_tensor",
+    "line": 138
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/services/tts_service.py",
+    "user_symbol": "trimmed",
+    "used_file": "api/src/services/tts_service.py",
+    "used_symbol": "chunk_data",
+    "line": 171
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/services/tts_service.py",
+    "user_symbol": "path",
+    "used_file": "api/src/services/tts_service.py",
+    "used_symbol": "voice_name",
+    "line": 208
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/services/tts_service.py",
+    "user_symbol": "silence_audio",
+    "used_file": "api/src/services/tts_service.py",
+    "used_symbol": "silence_samples",
+    "line": 364
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/services/tts_service.py",
+    "user_symbol": "pause_chunk",
+    "used_file": "api/src/services/tts_service.py",
+    "used_symbol": "silence_audio",
+    "line": 365
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/services/tts_service.py",
+    "user_symbol": "generate_audio_stream",
+    "used_file": "api/src/services/tts_service.py",
+    "used_symbol": "voice_name",
+    "line": 414
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/services/tts_service.py",
+    "user_symbol": "generate_audio_stream",
+    "used_file": "api/src/services/tts_service.py",
+    "used_symbol": "stream_normalizer",
+    "line": 414
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/services/tts_service.py",
+    "user_symbol": "generate_audio_stream",
+    "used_file": "api/src/services/tts_service.py",
+    "used_symbol": "pipeline_lang_code",
+    "line": 414
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/services/tts_service.py",
+    "user_symbol": "formatted_pause_chunk",
+    "used_file": "api/src/services/tts_service.py",
+    "used_symbol": "pause_chunk",
+    "line": 371
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/services/tts_service.py",
+    "user_symbol": "formatted_pause_chunk",
+    "used_file": "api/src/services/tts_service.py",
+    "used_symbol": "stream_normalizer",
+    "line": 371
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/services/tts_service.py",
+    "user_symbol": "generate_audio_stream",
+    "used_file": "api/src/services/tts_service.py",
+    "used_symbol": "entry",
+    "line": 467
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/services/tts_service.py",
+    "user_symbol": "generate_from_phonemes",
+    "used_file": "api/src/services/tts_service.py",
+    "used_symbol": "pipeline_lang_code",
+    "line": 599
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/services/tts_service.py",
+    "user_symbol": "generate_audio_stream",
+    "used_file": "api/src/services/tts_service.py",
+    "used_symbol": "current_offset",
+    "line": 399
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/services/tts_service.py",
+    "user_symbol": "entry",
+    "used_file": "api/src/services/tts_service.py",
+    "used_symbol": "chunk_start_offset",
+    "line": 462
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/services/tts_service.py",
+    "user_symbol": "entry",
+    "used_file": "api/src/services/tts_service.py",
+    "used_symbol": "current_offset",
+    "line": 463
+  },
+  {
+    "kind": "function_parameter_type_reference",
+    "user_file": "api/src/services/audio.py",
+    "user_symbol": "convert_audio",
+    "used_file": "api/src/services/audio.py",
+    "used_symbol": "AudioNormalizer",
+    "line": 138
+  },
+  {
+    "kind": "function_parameter_type_reference",
+    "user_file": "api/src/services/audio.py",
+    "user_symbol": "trim_audio",
+    "used_file": "api/src/services/audio.py",
+    "used_symbol": "AudioNormalizer",
+    "line": 203
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/services/audio.py",
+    "user_symbol": "find_first_last_non_silent",
+    "used_file": "api/src/services/audio.py",
+    "used_symbol": "split_character",
+    "line": 52
+  },
+  {
+    "kind": "call_argument_reference",
+    "user_file": "api/src/services/audio.py",
+    "user_symbol": "audio_chunk",
+    "used_file": "api/src/services/audio.py",
+    "used_symbol": "normalizer",
+    "line": 176
+  },
+  {
+    "kind": "function_parameter_type_reference",
+    "user_file": "api/src/inference/model_manager.py",
+    "user_symbol": "get_manager",
+    "used_file": "api/src/core/model_config.py",
+    "used_symbol": "ModelConfig",
+    "line": 312,
+    "resolution": "cross_file_import"
+  },
+  {
+    "kind": "function_parameter_type_reference",
+    "user_file": "api/src/inference/model_manager.py",
+    "user_symbol": "__init__",
+    "used_file": "api/src/core/model_config.py",
+    "used_symbol": "ModelConfig",
+    "line": 24,
+    "resolution": "cross_file_import"
+  },
+  {
+    "kind": "function_parameter_type_reference",
+    "user_file": "api/src/routers/development.py",
+    "user_symbol": "phonemize_text",
+    "used_file": "api/src/structures/text_schemas.py",
+    "used_symbol": "PhonemeRequest",
+    "line": 54,
+    "resolution": "cross_file_import"
+  },
+  {
+    "kind": "function_parameter_type_reference",
+    "user_file": "api/src/routers/development.py",
+    "user_symbol": "generate_from_phonemes",
+    "used_file": "api/src/structures/text_schemas.py",
+    "used_symbol": "GenerateFromPhonemesRequest",
+    "line": 98,
+    "resolution": "cross_file_import"
+  },
+  {
+    "kind": "function_parameter_type_reference",
+    "user_file": "api/src/routers/development.py",
+    "user_symbol": "generate_from_phonemes",
+    "used_file": "api/src/services/tts_service.py",
+    "used_symbol": "TTSService",
+    "line": 98,
+    "resolution": "cross_file_import"
+  },
+  {
+    "kind": "function_parameter_type_reference",
+    "user_file": "api/src/routers/development.py",
+    "user_symbol": "create_dialogue",
+    "used_file": "api/src/structures/__init__.py",
+    "used_symbol": "DialogueRequest",
+    "line": 181,
+    "resolution": "cross_file_import"
+  },
+  {
+    "kind": "function_parameter_type_reference",
+    "user_file": "api/src/routers/development.py",
+    "user_symbol": "create_captioned_speech",
+    "used_file": "api/src/structures/__init__.py",
+    "used_symbol": "CaptionedSpeechRequest",
+    "line": 217,
+    "resolution": "cross_file_import"
+  },
+  {
+    "kind": "function_parameter_type_reference",
+    "user_file": "api/src/routers/development.py",
+    "user_symbol": "create_captioned_speech",
+    "used_file": "api/src/services/tts_service.py",
+    "used_symbol": "TTSService",
+    "line": 217,
+    "resolution": "cross_file_import"
+  },
+  {
+    "kind": "function_parameter_type_reference",
+    "user_file": "api/src/routers/development.py",
+    "user_symbol": "unload_model",
+    "used_file": "api/src/services/tts_service.py",
+    "used_symbol": "TTSService",
+    "line": 474,
+    "resolution": "cross_file_import"
+  },
+  {
+    "kind": "function_parameter_type_reference",
+    "user_file": "api/src/routers/development.py",
+    "user_symbol": "reload_model",
+    "used_file": "api/src/services/tts_service.py",
+    "used_symbol": "TTSService",
+    "line": 502,
+    "resolution": "cross_file_import"
+  },
+  {
+    "kind": "function_parameter_type_reference",
+    "user_file": "api/src/routers/development.py",
+    "user_symbol": "model_status",
+    "used_file": "api/src/services/tts_service.py",
+    "used_symbol": "TTSService",
+    "line": 532,
+    "resolution": "cross_file_import"
+  },
+  {
+    "kind": "function_parameter_type_reference",
+    "user_file": "api/src/routers/openai_compatible.py",
+    "user_symbol": "_alias_target",
+    "used_file": "api/src/structures/schemas.py",
+    "used_symbol": "AliasMap",
+    "line": 97,
+    "resolution": "cross_file_import"
+  },
+  {
+    "kind": "function_parameter_type_reference",
+    "user_file": "api/src/routers/openai_compatible.py",
+    "user_symbol": "resolve_voice_alias",
+    "used_file": "api/src/structures/schemas.py",
+    "used_symbol": "AliasMap",
+    "line": 119,
+    "resolution": "cross_file_import"
+  },
+  {
+    "kind": "function_parameter_type_reference",
+    "user_file": "api/src/routers/openai_compatible.py",
+    "user_symbol": "alias_rate",
+    "used_file": "api/src/structures/schemas.py",
+    "used_symbol": "AliasMap",
+    "line": 127,
+    "resolution": "cross_file_import"
+  },
+  {
+    "kind": "function_parameter_type_reference",
+    "user_file": "api/src/routers/openai_compatible.py",
+    "user_symbol": "process_and_validate_voices",
+    "used_file": "api/src/services/tts_service.py",
+    "used_symbol": "TTSService",
+    "line": 133,
+    "resolution": "cross_file_import"
+  },
+  {
+    "kind": "function_parameter_type_reference",
+    "user_file": "api/src/routers/openai_compatible.py",
+    "user_symbol": "process_and_validate_voices",
+    "used_file": "api/src/structures/schemas.py",
+    "used_symbol": "AliasMap",
+    "line": 133,
+    "resolution": "cross_file_import"
+  },
+  {
+    "kind": "function_parameter_type_reference",
+    "user_file": "api/src/routers/openai_compatible.py",
+    "user_symbol": "process_and_validate_voice_tags",
+    "used_file": "api/src/services/tts_service.py",
+    "used_symbol": "TTSService",
+    "line": 203,
+    "resolution": "cross_file_import"
+  },
+  {
+    "kind": "function_parameter_type_reference",
+    "user_file": "api/src/routers/openai_compatible.py",
+    "user_symbol": "process_and_validate_voice_tags",
+    "used_file": "api/src/structures/schemas.py",
+    "used_symbol": "AliasMap",
+    "line": 203,
+    "resolution": "cross_file_import"
+  },
+  {
+    "kind": "function_parameter_type_reference",
+    "user_file": "api/src/routers/openai_compatible.py",
+    "user_symbol": "apply_alias_rate",
+    "used_file": "api/src/structures/__init__.py",
+    "used_symbol": "OpenAISpeechRequest",
+    "line": 238,
+    "resolution": "cross_file_import"
+  },
+  {
+    "kind": "function_parameter_type_reference",
+    "user_file": "api/src/routers/openai_compatible.py",
+    "user_symbol": "apply_alias_rate",
+    "used_file": "api/src/structures/schemas.py",
+    "used_symbol": "CaptionedSpeechRequest",
+    "line": 238,
+    "resolution": "cross_file_import"
+  },
+  {
+    "kind": "function_parameter_type_reference",
+    "user_file": "api/src/routers/openai_compatible.py",
+    "user_symbol": "stream_audio_chunks",
+    "used_file": "api/src/services/tts_service.py",
+    "used_symbol": "TTSService",
+    "line": 256,
+    "resolution": "cross_file_import"
+  },
+  {
+    "kind": "function_parameter_type_reference",
+    "user_file": "api/src/routers/openai_compatible.py",
+    "user_symbol": "stream_audio_chunks",
+    "used_file": "api/src/structures/__init__.py",
+    "used_symbol": "OpenAISpeechRequest",
+    "line": 256,
+    "resolution": "cross_file_import"
+  },
+  {
+    "kind": "function_parameter_type_reference",
+    "user_file": "api/src/routers/openai_compatible.py",
+    "user_symbol": "stream_audio_chunks",
+    "used_file": "api/src/structures/schemas.py",
+    "used_symbol": "CaptionedSpeechRequest",
+    "line": 256,
+    "resolution": "cross_file_import"
+  },
+  {
+    "kind": "function_parameter_type_reference",
+    "user_file": "api/src/routers/openai_compatible.py",
+    "user_symbol": "stream_audio_chunks",
+    "used_file": "api/src/services/streaming_audio_writer.py",
+    "used_symbol": "StreamingAudioWriter",
+    "line": 256,
+    "resolution": "cross_file_import"
+  },
+  {
+    "kind": "function_parameter_type_reference",
+    "user_file": "api/src/routers/openai_compatible.py",
+    "user_symbol": "create_speech",
+    "used_file": "api/src/structures/__init__.py",
+    "used_symbol": "OpenAISpeechRequest",
+    "line": 299,
+    "resolution": "cross_file_import"
+  },
+  {
+    "kind": "function_parameter_type_reference",
+    "user_file": "api/src/routers/ssml.py",
+    "user_symbol": "apply_ssml",
+    "used_file": "api/src/structures/schemas.py",
+    "used_symbol": "OpenAISpeechRequest",
+    "line": 63,
+    "resolution": "cross_file_import"
+  },
+  {
+    "kind": "function_parameter_type_reference",
+    "user_file": "api/src/routers/ssml.py",
+    "user_symbol": "apply_ssml",
+    "used_file": "api/src/structures/schemas.py",
+    "used_symbol": "CaptionedSpeechRequest",
+    "line": 63,
+    "resolution": "cross_file_import"
+  },
+  {
+    "kind": "function_parameter_type_reference",
+    "user_file": "api/src/routers/ssml.py",
+    "user_symbol": "translate_ssml_text",
+    "used_file": "api/src/structures/text_schemas.py",
+    "used_symbol": "SsmlRequest",
+    "line": 91,
+    "resolution": "cross_file_import"
+  },
+  {
+    "kind": "function_parameter_type_reference",
+    "user_file": "api/src/services/audio.py",
+    "user_symbol": "convert_audio",
+    "used_file": "api/src/inference/base.py",
+    "used_symbol": "AudioChunk",
+    "line": 138,
+    "resolution": "cross_file_import"
+  },
+  {
+    "kind": "function_parameter_type_reference",
+    "user_file": "api/src/services/audio.py",
+    "user_symbol": "convert_audio",
+    "used_file": "api/src/services/streaming_audio_writer.py",
+    "used_symbol": "StreamingAudioWriter",
+    "line": 138,
+    "resolution": "cross_file_import"
+  },
+  {
+    "kind": "function_parameter_type_reference",
+    "user_file": "api/src/services/audio.py",
+    "user_symbol": "trim_audio",
+    "used_file": "api/src/inference/base.py",
+    "used_symbol": "AudioChunk",
+    "line": 203,
+    "resolution": "cross_file_import"
+  },
+  {
+    "kind": "function_parameter_type_reference",
+    "user_file": "api/src/services/text_processing/normalizer.py",
+    "user_symbol": "normalize_text",
+    "used_file": "api/src/structures/schemas.py",
+    "used_symbol": "NormalizationOptions",
+    "line": 420,
+    "resolution": "cross_file_import"
+  },
+  {
+    "kind": "function_parameter_type_reference",
+    "user_file": "api/src/services/text_processing/text_processor.py",
+    "user_symbol": "smart_split",
+    "used_file": "api/src/structures/schemas.py",
+    "used_symbol": "NormalizationOptions",
+    "line": 184,
+    "resolution": "cross_file_import"
+  },
+  {
+    "kind": "function_parameter_type_reference",
+    "user_file": "api/src/services/tts_service.py",
+    "user_symbol": "_process_chunk",
+    "used_file": "api/src/services/streaming_audio_writer.py",
+    "used_symbol": "StreamingAudioWriter",
+    "line": 54,
+    "resolution": "cross_file_import"
+  },
+  {
+    "kind": "function_parameter_type_reference",
+    "user_file": "api/src/services/tts_service.py",
+    "user_symbol": "_process_chunk",
+    "used_file": "api/src/services/audio.py",
+    "used_symbol": "AudioNormalizer",
+    "line": 54,
+    "resolution": "cross_file_import"
+  },
+  {
+    "kind": "function_parameter_type_reference",
+    "user_file": "api/src/services/tts_service.py",
+    "user_symbol": "_split_multi_voice",
+    "used_file": "api/src/structures/schemas.py",
+    "used_symbol": "NormalizationOptions",
+    "line": 265,
+    "resolution": "cross_file_import"
+  },
+  {
+    "kind": "function_parameter_type_reference",
+    "user_file": "api/src/services/tts_service.py",
+    "user_symbol": "generate_audio_stream",
+    "used_file": "api/src/services/streaming_audio_writer.py",
+    "used_symbol": "StreamingAudioWriter",
+    "line": 319,
+    "resolution": "cross_file_import"
+  },
+  {
+    "kind": "function_parameter_type_reference",
+    "user_file": "api/src/services/tts_service.py",
+    "user_symbol": "generate_audio_stream",
+    "used_file": "api/src/structures/schemas.py",
+    "used_symbol": "NormalizationOptions",
+    "line": 319,
+    "resolution": "cross_file_import"
+  },
+  {
+    "kind": "function_parameter_type_reference",
+    "user_file": "api/src/services/tts_service.py",
+    "user_symbol": "generate_audio",
+    "used_file": "api/src/services/streaming_audio_writer.py",
+    "used_symbol": "StreamingAudioWriter",
+    "line": 511,
+    "resolution": "cross_file_import"
+  },
+  {
+    "kind": "function_parameter_type_reference",
+    "user_file": "api/src/services/tts_service.py",
+    "user_symbol": "generate_audio",
+    "used_file": "api/src/structures/schemas.py",
+    "used_symbol": "NormalizationOptions",
+    "line": 511,
+    "resolution": "cross_file_import"
+  }
+]
