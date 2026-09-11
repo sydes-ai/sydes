@@ -1,0 +1,32 @@
+{
+  "justification_for_entering_phase_4": "Phase 2/3 showed: (a) 5 of the 6 false candidates receive defensible, exhaustive negative evidence from unmodified existing traversal + real CBM edges; (b) both legitimate misses (cases 5, 6) reduce to a small, generic, non-framework-specific structural relationship (name referenced inside a module-level type-alias assignment; name referenced inside a class field's type annotation) that is genuinely absent from both Sydes' own StructuralFacts and CBM's real extracted graph -- confirmed empirically, not assumed from the schema docstring alone.",
+  "algorithm": "Two generic, syntactic AST extractors, wired to emit the EXACT `usage_edges` dict shape StructuralFacts already defines. Neither contains any framework name, decorator name, or symbol name specific to this repository -- both are pure, generic Python-AST-shape recognizers: (1) extract_module_level_assignment_argument_usages: for every module-level `NAME = <expr>`, emit a usage edge to every locally-defined name referenced anywhere inside <expr>. (2) extract_class_field_type_usages: for every class-body annotated assignment `field: <annotation>`, emit a usage edge from the class to every locally-defined name referenced inside <annotation>.",
+  "no_hardcoded_framework_or_symbol_names": true,
+  "ran_against": "api/src/structures/schemas.py, real file, py-real-01-max-output-duration branch",
+  "chain_found": [
+    {
+      "hop": 1,
+      "edge_kind": "assignment_argument_reference",
+      "user_symbol": "Duration",
+      "used_symbol": "_within_duration_ceiling",
+      "line": 81,
+      "real_source_line": "Duration = Annotated[float, Field(ge=DURATION_MIN), AfterValidator(_within_duration_ceiling)]"
+    },
+    {
+      "hop": 2,
+      "edge_kind": "class_field_type_reference",
+      "user_symbol": "OpenAISpeechRequest",
+      "used_symbol": "Duration",
+      "line": 252,
+      "real_source_line": "max_duration_seconds: Optional[Duration] = Field(default=None, ...)"
+    }
+  ],
+  "chain_status": "2 of 3 hops empirically demonstrated on the real repository with a generic, non-framework-specific extractor. Chaining hop 1 and hop 2 gives: _within_duration_ceiling -> Duration -> OpenAISpeechRequest -- exactly the two hops that were previously unrepresented in either graph (Phase 2 finding).",
+  "third_hop_not_completed": {
+    "needed": "OpenAISpeechRequest (used as the type of create_speech's `request` parameter) -> create_speech",
+    "why_not_completed_this_session": "This hop is CROSS-FILE (OpenAISpeechRequest is imported into api/src/routers/openai_compatible.py from api/src/structures/schemas.py), and a naive same-file-only name check (as used for hops 1-2, deliberately kept minimal) does not resolve it. The correct way to complete it is NOT to write a new cross-file resolver here: `sydes.trace.call_follower._resolve_call` already contains exactly the needed import-aware name-to-file resolution (used today for CALL edges). Extending the SAME resolver to also resolve a parameter annotation's bare name is a small integration change, not new algorithmic work -- but it touches shared, already-tested production code and was not attempted in this experiment's time budget.",
+    "recommendation": "If this direction is pursued, add `function_parameter_type_reference` as a third generic usage-edge kind, resolved via the existing `call_follower._build_file_maps`/`_resolve_call` import machinery rather than a new one."
+  },
+  "still_not_reachable_without_hop_3": "Because the chain does not yet reach create_speech (the entrypoint's handler), cases 5 and 6 are NOT promoted to REACHABLE by this prototype as it stands. This is the honest, expected outcome given the explicit scope decision above -- see phase5 discussion for how this should be scored.",
+  "risk_check": "Re-read both extractor functions before running: neither contains a literal 'Annotated', 'AfterValidator', 'pydantic', 'Field', or '_within_duration_ceiling' anywhere in the algorithm. The only place those literal strings appear in this experiment's own files is this summary JSON and oracle.md, both scoring/fixture artifacts, never the algorithm."
+}
