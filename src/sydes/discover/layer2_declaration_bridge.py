@@ -33,26 +33,24 @@ enforces for CALLS/USAGE edges generally.
 from __future__ import annotations
 
 import ast
-import os
-import re
 from pathlib import Path
 from typing import Any
 
-LAYER2_ENV_VAR = "SYDES_LAYER2_GENERIC_EDGES"
-LAYER2_SOURCE = "layer2_declaration_reference"
+from sydes.discover.layer2_shared import (
+    LAYER2_ENV_VAR,
+    LAYER2_SOURCE,
+    citation_verified,
+    defining_file_for,
+    files_by_path,
+    layer2_generic_edges_enabled,
+    qualified_name_for,
+)
 
 CALL_ARGUMENT_REFERENCE = "call_argument_reference"
 CLASS_FIELD_TYPE_REFERENCE = "class_field_type_reference"
 FUNCTION_PARAMETER_TYPE_REFERENCE = "function_parameter_type_reference"
 
 _SYMBOL_KINDS = ("function", "class", "class_method")
-
-
-def layer2_generic_edges_enabled() -> bool:
-    """Re-read on every call (not cached at import time) so it can be
-    toggled mid-process, e.g. in tests — same pattern as
-    `observability/trace.py`'s `SYDES_TRACE_DIR` check."""
-    return os.environ.get(LAYER2_ENV_VAR, "").strip().lower() in {"1", "true", "yes"}
 
 
 # --- same-file extractors (ast-shape recognizers, no framework/library name) ----
@@ -177,70 +175,6 @@ def _extract_call_argument_references(source: str, tree: ast.Module, *, file: st
 # --- Sydes' own already-computed symbol_index (no second full-repo scan) ---
 
 
-def _files_by_path(symbol_index: dict[str, Any]) -> dict[str, dict[str, Any]]:
-    result: dict[str, dict[str, Any]] = {}
-    for repo_payload in symbol_index.get("repos", []) or []:
-        for file_item in repo_payload.get("files", []) or []:
-            path = file_item.get("path")
-            if isinstance(path, str):
-                result[path] = file_item
-    return result
-
-
-def _qualified_name_for(file: str, short_name: str, files_by_path: dict[str, dict[str, Any]]) -> str:
-    """Look up the backend's own canonical qualified name for (file,
-    short_name) from the already-computed symbol index, so a Layer 2 edge
-    resolves to the SAME `SymbolIdentity` tier-1 key the changed symbol
-    itself already carries (`change.symbols[*].cbm_qualified_name`) --
-    without this, an edge with no qualified name resolves at tier 3
-    (file+short_name) while the changed symbol resolves at tier 1 (its own
-    canonical qualified name), two different keys for the same real
-    symbol that would silently never connect in `_FactIndex`. This is not
-    hypothetical: found empirically running this exact bridge against the
-    real Kokoro-FastAPI PR6 diff, where `_within_duration_ceiling` has a
-    real `cbm_qualified_name` in the symbol index despite CBM's own call
-    graph never mentioning it at all."""
-    file_item = files_by_path.get(file)
-    if file_item is None:
-        return ""
-    for entry in file_item.get("symbols", []) or []:
-        if entry.get("name") == short_name:
-            qualified = entry.get("cbm_qualified_name") or entry.get("qualified_name")
-            if isinstance(qualified, str) and qualified:
-                return qualified
-    return ""
-
-
-def _defining_file_for(file: str, symbol_name: str, files_by_path: dict[str, dict[str, Any]]) -> str:
-    """If `file` re-exports `symbol_name` via a one-hop import (a package
-    `__init__.py` barrel) rather than defining it itself, follow that one
-    hop to the file that actually defines it. Bounded to one hop, the same
-    discipline validated in the citation-verifier research round: without
-    this, a cross-file edge resolved through a barrel re-export would carry
-    a DIFFERENT `used_file` than the same symbol's own same-file
-    declaration edges use for its identity -- two `SymbolIdentity`s for one
-    real symbol, silently never connecting in `_FactIndex`, not a
-    hypothetical (traced through the real `structures/__init__.py`
-    re-exporting `OpenAISpeechRequest` from `.schemas` case)."""
-    file_item = files_by_path.get(file)
-    if file_item is None:
-        return file
-    defined = {
-        s.get("name") for s in file_item.get("symbols", []) or []
-        if s.get("kind") in _SYMBOL_KINDS
-    }
-    if symbol_name in defined:
-        return file
-    import_entry = next(
-        (imp for imp in file_item.get("imports", []) or []
-         if imp.get("local") == symbol_name and imp.get("resolved_file")),
-        None,
-    )
-    if import_entry is None:
-        return file
-    return str(import_entry["resolved_file"])
-
-
 def _extract_cross_file_parameter_type_references(
     source: str, tree: ast.Module, *, file: str, files_by_path: dict[str, dict[str, Any]],
 ) -> list[dict[str, Any]]:
@@ -271,7 +205,7 @@ def _extract_cross_file_parameter_type_references(
                 if import_entry is None:
                     continue
                 resolved_file = str(import_entry["resolved_file"])
-                defining_file = _defining_file_for(resolved_file, name, files_by_path)
+                defining_file = defining_file_for(resolved_file, name, files_by_path)
                 edges.append({
                     "kind": FUNCTION_PARAMETER_TYPE_REFERENCE,
                     "user_file": file, "user_symbol": node.name,
@@ -280,56 +214,6 @@ def _extract_cross_file_parameter_type_references(
                     "resolution": "cross_file_import",
                 })
     return edges
-
-
-# --- citation verification (mandatory gate; trimmed from Phase B's verifier) ---
-
-_CONTEXT_WINDOW = 2
-_MAX_STATEMENT_LINES = 15
-
-
-def _statement_span(lines: list[str], line_idx: int) -> tuple[int, int]:
-    start = max(0, line_idx - _CONTEXT_WINDOW)
-    depth = 0
-    idx = line_idx
-    while idx < len(lines) and idx < line_idx + _MAX_STATEMENT_LINES:
-        depth += lines[idx].count("(") + lines[idx].count("[") - lines[idx].count(")") - lines[idx].count("]")
-        idx += 1
-        if depth <= 0:
-            break
-    end = min(len(lines), max(idx, line_idx + 1))
-    return start, end
-
-
-def _whole_word_present(name: str, text: str) -> bool:
-    if not name:
-        return False
-    return re.search(rf"(?<![A-Za-z0-9_]){re.escape(name)}(?![A-Za-z0-9_])", text) is not None
-
-
-def _citation_verified(edge: dict[str, Any], repo_root: Path, source_cache: dict[str, list[str]]) -> bool:
-    """Re-read the actual cited file/line and confirm the claimed
-    `used_symbol` really appears there, as a whole identifier, within its
-    own (possibly multi-line) statement span. A fabricated or stale
-    citation fails here, not a hypothesis -- a direct re-read of the file
-    this edge itself names."""
-    user_file = edge.get("user_file")
-    line = edge.get("line")
-    used_symbol = edge.get("used_symbol")
-    if not user_file or not used_symbol or not isinstance(line, int):
-        return False
-    lines = source_cache.get(user_file)
-    if lines is None:
-        path = repo_root / user_file
-        if not path.is_file():
-            return False
-        lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
-        source_cache[user_file] = lines
-    if not (1 <= line <= len(lines)):
-        return False
-    start, end = _statement_span(lines, line - 1)
-    window_text = "\n".join(lines[start:end])
-    return _whole_word_present(used_symbol, window_text)
 
 
 # --- entry point ------------------------------------------------------------
@@ -349,7 +233,7 @@ def bridge_layer2_declaration_reference_edges(
     if not py_files:
         return []
 
-    files_by_path = _files_by_path(symbol_index)
+    by_path = files_by_path(symbol_index)
     source_cache: dict[str, list[str]] = {}
     candidates: list[dict[str, Any]] = []
 
@@ -366,19 +250,19 @@ def bridge_layer2_declaration_reference_edges(
         candidates.extend(_extract_function_parameter_type_references(source, tree, file=rel))
         candidates.extend(_extract_call_argument_references(source, tree, file=rel))
         candidates.extend(
-            _extract_cross_file_parameter_type_references(source, tree, file=rel, files_by_path=files_by_path)
+            _extract_cross_file_parameter_type_references(source, tree, file=rel, files_by_path=by_path)
         )
 
     verified: list[dict[str, Any]] = []
     for edge in candidates:
-        if not _citation_verified(edge, repo_root, source_cache):
+        if not citation_verified(edge, repo_root, source_cache):
             continue
         verified.append({
             "repo": repo,
             "user_file": edge["user_file"], "user_symbol": edge["user_symbol"],
-            "user_qualified_name": _qualified_name_for(edge["user_file"], edge["user_symbol"], files_by_path),
+            "user_qualified_name": qualified_name_for(edge["user_file"], edge["user_symbol"], by_path),
             "used_file": edge["used_file"], "used_symbol": edge["used_symbol"],
-            "used_qualified_name": _qualified_name_for(edge["used_file"], edge["used_symbol"], files_by_path),
+            "used_qualified_name": qualified_name_for(edge["used_file"], edge["used_symbol"], by_path),
             "source": LAYER2_SOURCE,
         })
     return verified

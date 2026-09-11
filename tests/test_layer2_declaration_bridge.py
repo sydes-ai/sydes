@@ -179,15 +179,15 @@ def test_fabricated_citation_rejected(tmp_path, monkeypatch):
     file must never be admitted -- exercised here by injecting a stale
     citation directly against the internal verifier, mirroring Phase B's
     own fabricated-citation regression test."""
-    from sydes.discover.layer2_declaration_bridge import _citation_verified
+    from sydes.discover.layer2_shared import citation_verified
 
     monkeypatch.setenv(LAYER2_ENV_VAR, "1")
     _write(tmp_path, "a.py", "class Foo:\n    bar: Baz\n\nclass Baz:\n    pass\n")
     real_edge = {"user_file": "a.py", "used_symbol": "Baz", "line": 2}
     fabricated_edge = {"user_file": "a.py", "used_symbol": "ThisNameIsNotInTheFile", "line": 2}
     cache: dict = {}
-    assert _citation_verified(real_edge, tmp_path, cache) is True
-    assert _citation_verified(fabricated_edge, tmp_path, cache) is False
+    assert citation_verified(real_edge, tmp_path, cache) is True
+    assert citation_verified(fabricated_edge, tmp_path, cache) is False
 
 
 def test_multiline_call_citation_verified(tmp_path, monkeypatch):

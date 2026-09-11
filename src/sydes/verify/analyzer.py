@@ -41,6 +41,7 @@ from sydes.core.models import (
 from sydes.discover.endpoints import discover_endpoints
 from sydes.discover.interface_bridge import bridge_interface_call_edges
 from sydes.discover.layer2_declaration_bridge import bridge_layer2_declaration_reference_edges
+from sydes.discover.layer2_treesitter_bridge import bridge_layer2_treesitter_edges
 from sydes.discover.member_call_bridge import bridge_member_call_edges
 from sydes.code_intelligence import get_code_intelligence
 from sydes.code_intelligence.base import StructuralFacts
@@ -1643,6 +1644,23 @@ def analyze_change(
     if layer2_edges:
         structural.usage_edges.extend(layer2_edges)
         result.diagnostics.append(f"layer2_declaration_reference_edges_added={len(layer2_edges)}")
+
+    # Same relation, TypeScript/Java/Go via tree-sitter (same-file only; no
+    # cross-file resolution yet for these languages). Requires the optional
+    # `sydes[treesitter]` extra -- a no-op, not an error, when it isn't
+    # installed. See discover/layer2_treesitter_bridge.py.
+    changed_non_python_files = [
+        item.path for item in change.files
+        if item.repo == primary.name and item.change_type != CHANGE_DELETED
+        and Path(item.path).suffix.lower() in {".ts", ".tsx", ".java", ".go"}
+    ]
+    layer2_treesitter_edges = bridge_layer2_treesitter_edges(
+        repo=primary.name, repo_root=primary_root,
+        changed_files=changed_non_python_files, symbol_index=structural.symbol_index,
+    )
+    if layer2_treesitter_edges:
+        structural.usage_edges.extend(layer2_treesitter_edges)
+        result.diagnostics.append(f"layer2_treesitter_edges_added={len(layer2_treesitter_edges)}")
 
     # Which entrypoints the change reaches: the impact interpreter is the
     # primary source when CBM supplied a call graph, since it resolves
