@@ -314,11 +314,19 @@ def _extract_python_imports(line: str) -> list[dict[str, str]]:
     if from_match:
         source = from_match.group("source")
         for raw in from_match.group("names").split(","):
-            name = raw.strip()
-            if not name or name == "*":
+            entry = raw.strip()
+            if not entry or entry == "*":
                 continue
-            imports.append({"local": name, "imported": name, "source": f"{source}.{name}"})
-            imports.append({"local": name, "imported": name, "source": source})
+            # `name as alias`: a mount always refers to the receiver by its
+            # LOCAL (aliased) name -- `from .routers.x import router as
+            # openai_router` is later looked up as `openai_router`, not
+            # `router`. A plain `from X import name` has no `as`, so
+            # `local` falls back to the name itself.
+            imported, _, alias = entry.partition(" as ")
+            imported = imported.strip()
+            local = alias.strip() if alias else imported
+            imports.append({"local": local, "imported": imported, "source": f"{source}.{imported}"})
+            imports.append({"local": local, "imported": imported, "source": source})
         return imports
     plain_match = _PY_IMPORT_RE.match(line)
     if plain_match:
