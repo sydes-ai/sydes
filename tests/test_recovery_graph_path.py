@@ -17,13 +17,14 @@ from sydes.recovery.tools import RepoTools
 
 class _FakeGraph:
     """Stands in for `CBMGraphTools`: `resolve_qualified_name`,
-    `reachability_slice`, `decorated_symbols` -- exactly the three methods
-    `propose_graph_path` calls, nothing else."""
+    `reachability_slice`, `decorated_symbols`, `methods_of` -- exactly the
+    methods `propose_graph_path` calls, nothing else."""
 
-    def __init__(self, *, qn_map=None, slices=None, decorated=None):
+    def __init__(self, *, qn_map=None, slices=None, decorated=None, methods=None):
         self.qn_map = qn_map or {}
         self.slices = slices or {}
         self.decorated_rows = decorated or []
+        self.methods_map = methods or {}
         self.resolve_calls: list[tuple[str, str]] = []
         self.slice_calls: list[tuple[str, ...]] = []
 
@@ -37,6 +38,9 @@ class _FakeGraph:
 
     def decorated_symbols(self):
         return self.decorated_rows
+
+    def methods_of(self, class_qualified_name):
+        return self.methods_map.get(class_qualified_name, [])
 
 
 def _calls_edge(caller_qn, caller_file, caller_line, callee_qn, callee_file) -> dict:
@@ -198,5 +202,50 @@ def test_decorator_bridge_connects_an_otherwise_unreachable_target(tmp_path: Pat
     assert [n.symbol for n in path.nodes] == ["create", "CreateThing", "ThingHandler", "validate"]
     # the bridge hop's evidence is the decorator's own source, not a CALLS/USAGE site
     bridge_edge = path.edges[1]
-    assert "ThingHandler" in bridge_edge.relationship
-    assert "CreateThing" in bridge_edge.evidence[0].fact
+    assert "@Handles(CreateThing)" in bridge_edge.evidence[0].fact
+    assert bridge_edge.evidence[0].file == "handler.ts"
+
+
+def test_decorator_bridge_on_a_class_continues_via_its_own_methods(tmp_path: Path):
+    """The measured real-world shape: a class-level decorator/annotation
+    has NO CALLS/USAGE edge of its own at all (a class declaration doesn't
+    "call" anything) -- the edges that actually reach the target live on
+    one of its METHODS. `methods_of` is what lets the search continue past
+    a decorated class instead of dead-ending on it.
+    """
+    _write(tmp_path, "controller.ts", "dispatches CreateThing\n")
+    _write(tmp_path, "handler.ts", "@Handles(CreateThing)\nclass ThingHandler {\n  execute() {}\n}\n")
+    _write(tmp_path, "validate.ts", "export function validate() {}\n")
+
+    graph = _FakeGraph(
+        qn_map={
+            ("create", "controller.ts"): "pkg.Controller.create",
+            ("validate", "validate.ts"): "pkg.Thing.validate",
+        },
+        slices={
+            ("pkg.Controller.create",): _slice(
+                {"pkg.Controller.create": "controller.ts", "pkg.CreateThing": "controller.ts"},
+                [_calls_edge("pkg.Controller.create", "controller.ts", 1, "pkg.CreateThing", "controller.ts")],
+            ),
+            # The class itself, seeded alone, has NOTHING -- only seeding
+            # with its method (as `methods_of` supplies) finds the edge.
+            ("pkg.ThingHandler",): _slice({}, []),
+            ("pkg.ThingHandler", "pkg.ThingHandler.execute"): _slice(
+                {"pkg.ThingHandler.execute": "handler.ts", "pkg.Thing.validate": "validate.ts"},
+                [_calls_edge("pkg.ThingHandler.execute", "handler.ts", 3, "pkg.Thing.validate", "validate.ts")],
+            ),
+        },
+        decorated=[
+            {
+                "qualified_name": "pkg.ThingHandler", "file": "handler.ts",
+                "decorators": "@Handles(CreateThing)", "lines": "1-4",
+            },
+        ],
+        methods={"pkg.ThingHandler": ["pkg.ThingHandler.execute"]},
+    )
+    target = EntityRef(symbol="validate", file="validate.ts")
+    entrypoints = [EntityRef(symbol="create", file="controller.ts")]
+
+    path = propose_graph_path(entrypoints, target, graph=graph, tools=_repo(tmp_path))
+    assert path is not None
+    assert [n.symbol for n in path.nodes] == ["create", "CreateThing", "ThingHandler", "execute", "validate"]

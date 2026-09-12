@@ -119,14 +119,22 @@ class CBMGraphTools:
         """A bounded CALLS/USAGE neighborhood reachable from `seed_qualified_names`
         -- reuses `sydes.code_intelligence.graph_slice.build_graph_slice`
         exactly as the main structural pipeline does (same hop-batched,
-        capped BFS, same seed-scoped `CBMClient` queries), just with a
-        deeper default budget: this is a one-shot lookup for a specific
-        unresolved hop, not a per-run neighborhood fetch. Returns `None`
-        (never raises) when CBM is unavailable for this repository."""
+        capped BFS, same seed-scoped `CBMClient` queries), with a deeper
+        default depth AND generous node/edge/call budgets: this is a
+        one-shot lookup for a specific unresolved hop (at most a handful
+        per recovery run), not the main pipeline's per-run neighborhood
+        fetch that runs on every `verify-change` invocation regardless of
+        whether anything is unresolved -- the cost/depth tradeoff that
+        keeps THAT one cheap does not apply here. Measured directly: the
+        main pipeline's own defaults (8 graph calls, 400 nodes) truncated
+        before reaching a real target three fan-out seeds and six hops
+        away in a live repository; these limits are set well above what
+        that required. Returns `None` (never raises) when CBM is
+        unavailable for this repository."""
         project = self._ensure_project()
         if project is None or self._client is None:
             return None
-        limits = GraphSliceLimits(max_depth=max_depth)
+        limits = GraphSliceLimits(max_depth=max_depth, max_nodes=2000, max_edges=6000, max_graph_calls=40)
         return build_graph_slice(
             self._client, project, self._repo_root.name, seed_qualified_names, limits=limits,
         )
@@ -158,5 +166,17 @@ class CBMGraphTools:
             return []
         try:
             return self._client.decorated_symbols(project)
+        except CodeIntelligenceError:
+            return []
+
+    def methods_of(self, class_qualified_name: str) -> list[str]:
+        """Every method declared under `class_qualified_name` -- see
+        `CBMClient.methods_of`. `[]` (never raises) when CBM is
+        unavailable or the class has no methods."""
+        project = self._ensure_project()
+        if project is None or self._client is None:
+            return []
+        try:
+            return self._client.methods_of(project, class_qualified_name)
         except CodeIntelligenceError:
             return []

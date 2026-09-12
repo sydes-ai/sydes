@@ -470,6 +470,7 @@ class CBMClient:
         query: str | None = None,
         label: str | None = None,
         file_pattern: str | None = None,
+        qn_pattern: str | None = None,
         fields: list[str] | None = None,
         limit: int = 100,
     ) -> dict[str, Any]:
@@ -483,9 +484,31 @@ class CBMClient:
             arguments["label"] = label
         if file_pattern:
             arguments["file_pattern"] = file_pattern
+        if qn_pattern:
+            arguments["qn_pattern"] = qn_pattern
         if fields:
             arguments["fields"] = fields
         return self._session.call_tool("search_graph", arguments)
+
+    def methods_of(self, project: str, class_qualified_name: str) -> list[str]:
+        """Every Method's own qualified name declared under
+        `class_qualified_name` -- needed because a class-level decorator's
+        OWN qualified name (e.g. from `decorated_symbols`) often has no
+        CALLS/USAGE edges of its own at all; the edges live on its
+        methods. A caller that reached the class via a decorator bridge
+        (see `sydes.recovery.graph_path`) still needs somewhere to
+        continue a reachability search FROM -- its methods are that
+        somewhere, generically, for any language/class shape."""
+        payload = self._session.call_tool(
+            "search_graph",
+            {
+                "project": project, "label": "Method",
+                "qn_pattern": f"^{re.escape(class_qualified_name)}\\.",
+                "format": "json", "limit": 200,
+            },
+        )
+        rows, _has_more = _search_rows(payload)
+        return [str(row["qualified_name"]) for row in rows if row.get("qualified_name")]
 
     def code_snippet(self, project: str, qualified_name: str) -> dict[str, Any]:
         """Source for one symbol, for evidence rather than for parsing."""
@@ -651,9 +674,19 @@ class CBMClient:
         Everything here is a *fact about a symbol*, not framework knowledge:
         `route_method`/`route_path` are properties CBM set, and `decorators`
         is verbatim source it captured. Interpreting them is the caller's job.
+
+        Includes `Class` alongside `Function`/`Method`: a class-level
+        decorator/annotation (binding the whole class to a message/event
+        type, registering it as a component, etc.) is exactly as common a
+        reflection/DI wiring point as a method-level one -- omitting it
+        left a real, measured gap (a class decorated this way never
+        showed up here at all). `route_method`/`route_path`/`signature`
+        are function/method-shaped properties and simply come back empty
+        for a `Class` row, which is fine: the decorator/annotation source
+        text is the fact this method exists to surface either way.
         """
         out: list[dict[str, Any]] = []
-        for label in ("Function", "Method"):
+        for label in ("Function", "Method", "Class"):
             offset = 0
             while True:
                 payload = self._session.call_tool(

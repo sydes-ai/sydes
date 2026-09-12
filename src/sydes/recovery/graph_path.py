@@ -114,40 +114,97 @@ def _bfs_path(
     return None
 
 
-def _find_decorator_bridge(
+#: A generic, language-wide naming convention (not a framework rule): a
+#: type/class/message name is conventionally PascalCase, while a property,
+#: field, or parameter name starts lowercase. Filtering matches on this
+#: shape is what keeps a short, common, lowercase identifier used as some
+#: unrelated decorator's string argument (a CLI flag's description, a
+#: config key) from being treated as a real cross-reference -- a bare
+#: identifier match alone is far too permissive to spend the one bridge
+#: attempt on.
+_TYPE_SHAPED_RE = re.compile(r"^[A-Z][A-Za-z0-9]{3,}$")
+
+
+def _find_decorator_bridges(
     graph: CBMGraphTools, reached_qualified_names: set[str],
-) -> tuple[_Node, _Node] | None:
-    """One decorator/annotation bridge: a symbol, ANYWHERE in the repo,
-    whose decorator source mentions the bare name of a symbol already
-    reached -- the generic shape every reflection/DI-style dispatch
-    framework shares (a decorator argument names a type/message that some
-    OTHER decorated symbol is registered to handle). Returns
-    `(referenced_node, decorated_node)` for the first match found, or
-    `None`. A real match still has to pass `sydes.recovery.verify`'s
-    Layer 0/1/2 like any other edge -- this only proposes it.
+) -> list[tuple[_Node, _Node]]:
+    """Every decorator/annotation bridge: a symbol, ANYWHERE in the repo,
+    whose decorator source mentions the (type-shaped) bare name of a
+    symbol already reached -- the generic shape every reflection/DI-style
+    dispatch framework shares (a decorator argument names a type/message
+    that some OTHER decorated symbol is registered to handle). Returns
+    EVERY qualifying match, not just the first -- `propose_graph_path`
+    tries all of them in its one bridging round rather than gambling the
+    whole attempt on whichever happened to be found first; a genuinely
+    coincidental match still has to pass `sydes.recovery.verify`'s Layer
+    0/1/2 like any other edge, so proposing more than one costs at most a
+    few extra (cheap, batched) verifier judgments, never a correctness risk.
     """
-    reached_bare = {_short_name(qn): qn for qn in reached_qualified_names}
+    reached_bare = {_short_name(qn): qn for qn in reached_qualified_names if _TYPE_SHAPED_RE.match(_short_name(qn))}
     if not reached_bare:
-        return None
+        return []
+    bridges: list[tuple[_Node, _Node]] = []
+    seen_decorated: set[str] = set()
     for row in graph.decorated_symbols():
         decorators = str(row.get("decorators") or "")
         if not decorators:
             continue
-        tokens = set(_IDENTIFIER_RE.findall(decorators))
+        tokens = {t for t in _IDENTIFIER_RE.findall(decorators) if _TYPE_SHAPED_RE.match(t)}
         matched_bare = tokens & reached_bare.keys()
         if not matched_bare:
             continue
-        referenced_qn = reached_bare[next(iter(matched_bare))]
         decorated_qn = str(row.get("qualified_name") or "")
         decorated_file = str(row.get("file") or "")
-        if not decorated_qn or not decorated_file:
+        if not decorated_qn or not decorated_file or decorated_qn in seen_decorated:
             continue
+        seen_decorated.add(decorated_qn)
         start_line, _end_line = _parse_lines(row.get("lines"))
-        return (
-            _Node(qualified_name=referenced_qn, file=""),
-            _Node(qualified_name=decorated_qn, file=decorated_file, line=start_line),
-        )
-    return None
+        for bare in matched_bare:
+            bridges.append((
+                _Node(qualified_name=reached_bare[bare], file=""),
+                _Node(qualified_name=decorated_qn, file=decorated_file, line=start_line),
+            ))
+    return bridges
+
+
+#: Bounds how many already-reached, type-shaped nodes get expanded into
+#: their own member methods (see `_expand_type_shaped_nodes`) -- a
+#: generous but real cap, not "no limit", since each expansion is its own
+#: CBM lookup.
+_MAX_CLASS_EXPANSIONS = 20
+
+
+def _expand_type_shaped_nodes(
+    graph: CBMGraphTools, adjacency: dict[str, list[tuple[str, dict]]],
+    reached_qns: set[str], file_by_qn: dict[str, str], *, already_expanded: set[str],
+) -> bool:
+    """Constructing or otherwise referencing a class very often makes ITS
+    OWN methods reachable next (a constructor validating its own state
+    being the single most common shape) -- a plain CALLS/USAGE edge to a
+    class only names the class, never the method inside it that runs as a
+    result, exactly the same gap `methods_of` already closes for a
+    decorator-bridged class (see `propose_graph_path`), just applied here
+    to ANY already-reached, type-shaped node instead of only ones reached
+    via a decorator bridge. Scoped to type-shaped (PascalCase) names, the
+    same generic, language-wide convention `_find_decorator_bridges` uses
+    to avoid treating every lowercase property/variable name as a class.
+    Mutates `adjacency`/`file_by_qn`/`reached_qns` in place; returns
+    whether anything new was actually added (nothing to retry a BFS over
+    otherwise)."""
+    candidates = [
+        qn for qn in reached_qns
+        if qn not in already_expanded and _TYPE_SHAPED_RE.match(_short_name(qn))
+    ][:_MAX_CLASS_EXPANSIONS]
+    added = False
+    for qn in candidates:
+        already_expanded.add(qn)
+        methods = graph.methods_of(qn)
+        for method_qn in methods:
+            file_by_qn.setdefault(method_qn, file_by_qn.get(qn, ""))
+            adjacency.setdefault(qn, []).append((method_qn, {"_defines_method": True}))
+            reached_qns.add(method_qn)
+            added = True
+    return added
 
 
 def _entity_ref(node: _Node, *, file_by_qn: dict[str, str]) -> EntityRef:
@@ -163,6 +220,13 @@ def _edge_evidence(
     (cite the caller's own file at the edge's line) or a decorator bridge
     (cite the decorated symbol's own declaration, whose source is exactly
     what names the referenced symbol)."""
+    if edge.get("_defines_method"):
+        file = file_by_qn.get(to_qn, "")
+        content = tools.read_file(file)
+        return (
+            f"{_short_name(from_qn)} (declared in this file) defines the method {_short_name(to_qn)}.",
+            [RecoveredEvidence(file=file, line_start=None, line_end=None, fact=content[:500])],
+        )
     if edge.get("_bridge"):
         file = file_by_qn.get(to_qn, "")
         line = edge.get("line")
@@ -229,35 +293,60 @@ def propose_graph_path(
     reached_qns: set[str] = set(entry_qns) | slice_node_qns
     hops = _bfs_path(adjacency, entry_qns, target_qn)
 
-    bridges_used = 0
-    while hops is None and bridges_used < _MAX_DECORATOR_BRIDGES:
-        bridge = _find_decorator_bridge(graph, reached_qns)
-        if bridge is None:
-            break
-        referenced_node, decorated_node = bridge
-        bridges_used += 1
-        file_by_qn[decorated_node.qualified_name] = decorated_node.file
-        # The bridge is just one more edge FROM the already-reached node it
-        # references TO the decorated symbol -- inserted into the SAME
-        # adjacency graph the original entrypoints search, never a new BFS
-        # source of its own. Treating the decorated symbol as a fresh
-        # "seed" would let the shortest-path search start there directly,
-        # silently discarding the real chain back to the entrypoint.
-        adjacency.setdefault(referenced_node.qualified_name, []).append((
-            decorated_node.qualified_name,
-            {"_bridge": True, "line": decorated_node.line},
-        ))
-        extra_slice = graph.reachability_slice([decorated_node.qualified_name], max_depth=max_depth)
-        if extra_slice is not None:
-            for node in extra_slice.nodes.values():
-                qn = str(node.get("qualified_name") or "")
-                if qn:
-                    file_by_qn.setdefault(qn, str(node.get("file") or ""))
-                    reached_qns.add(qn)
-            for src, dsts in _build_adjacency(extra_slice.edges).items():
-                adjacency.setdefault(src, []).extend(dsts)
-        reached_qns.add(decorated_node.qualified_name)
+    expanded_classes: set[str] = set()
+    if hops is None and _expand_type_shaped_nodes(graph, adjacency, reached_qns, file_by_qn, already_expanded=expanded_classes):
         hops = _bfs_path(adjacency, entry_qns, target_qn)
+
+    bridge_rounds = 0
+    while hops is None and bridge_rounds < _MAX_DECORATOR_BRIDGES:
+        bridges = _find_decorator_bridges(graph, reached_qns)
+        if not bridges:
+            break
+        bridge_rounds += 1
+        # One ROUND tries every qualifying bridge found this round, not
+        # just the first -- see `_find_decorator_bridges`' own docstring
+        # for why gambling the single round on one candidate is unsafe.
+        for referenced_node, decorated_node in bridges:
+            file_by_qn[decorated_node.qualified_name] = decorated_node.file
+            # The bridge is just one more edge FROM the already-reached node
+            # it references TO the decorated symbol -- inserted into the
+            # SAME adjacency graph the original entrypoints search, never a
+            # new BFS source of its own. Treating the decorated symbol as a
+            # fresh "seed" would let the shortest-path search start there
+            # directly, silently discarding the real chain back to the
+            # entrypoint.
+            adjacency.setdefault(referenced_node.qualified_name, []).append((
+                decorated_node.qualified_name,
+                {"_bridge": True, "line": decorated_node.line},
+            ))
+            # The decorated symbol is very often a CLASS: a class-level
+            # decorator/annotation has no CALLS/USAGE edge of its own (a
+            # class declaration doesn't "call" anything) -- its methods do.
+            # `methods_of` is a harmless no-op extra lookup when the
+            # decorated symbol already IS a method (returns nothing to add).
+            member_methods = graph.methods_of(decorated_node.qualified_name)
+            for method_qn in member_methods:
+                file_by_qn.setdefault(method_qn, decorated_node.file)
+                adjacency.setdefault(decorated_node.qualified_name, []).append((
+                    method_qn, {"_defines_method": True},
+                ))
+            seed_qns = [decorated_node.qualified_name, *member_methods]
+            extra_slice = graph.reachability_slice(seed_qns, max_depth=max_depth)
+            if extra_slice is not None:
+                for node in extra_slice.nodes.values():
+                    qn = str(node.get("qualified_name") or "")
+                    if qn:
+                        file_by_qn.setdefault(qn, str(node.get("file") or ""))
+                        reached_qns.add(qn)
+                for src, dsts in _build_adjacency(extra_slice.edges).items():
+                    adjacency.setdefault(src, []).extend(dsts)
+            reached_qns.add(decorated_node.qualified_name)
+            reached_qns.update(member_methods)
+        hops = _bfs_path(adjacency, entry_qns, target_qn)
+        if hops is None and _expand_type_shaped_nodes(
+            graph, adjacency, reached_qns, file_by_qn, already_expanded=expanded_classes,
+        ):
+            hops = _bfs_path(adjacency, entry_qns, target_qn)
 
     if hops is None:
         return None

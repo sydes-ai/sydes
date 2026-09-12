@@ -361,4 +361,7 @@ def test_symbols_without_decorators_or_routes_are_skipped() -> None:
 
     records = CBMClient(session).decorated_symbols("proj")
 
-    assert [record["name"] for record in records] == ["routed", "routed"]
+    # One sweep per label (Function, Method, Class -- see that method's own
+    # docstring for why Class is included alongside the other two), each
+    # returning this same canned page.
+    assert [record["name"] for record in records] == ["routed", "routed", "routed"]
