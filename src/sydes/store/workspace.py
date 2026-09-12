@@ -57,8 +57,22 @@ def resolve_store_root(root: Path | None = None) -> Path:
 
 
 def compute_workspace_id(repos: list[RepoRef]) -> str:
-    """Compute a stable workspace id from repository inputs."""
-    canonical = [f"{repo.name}={Path(repo.root).as_posix()}" for repo in repos]
+    """Compute a stable workspace id from repository inputs.
+
+    Each root is canonicalized (``expanduser().resolve()``) before hashing, so
+    the same physical repository always yields the same id regardless of
+    whether a caller passes a relative path, a `~`-relative path, or a
+    symlinked path whose target is the same directory. Callers that already
+    normalize their own `RepoRef.root` (e.g. `analyzer.py`'s `normalized_
+    repos`) are unaffected, since resolving an already-resolved path is a
+    no-op -- this is the single place that guarantees every caller (CLI
+    artifact save, analyzer-internal FileFactStore/SystemModelStore, routes,
+    trace) agrees on the same id for the same repository.
+    """
+    canonical = [
+        f"{repo.name}={Path(repo.root).expanduser().resolve().as_posix()}"
+        for repo in repos
+    ]
     payload = "\n".join(sorted(canonical)).encode("utf-8")
     digest = hashlib.sha256(payload).hexdigest()
     return digest[:16]

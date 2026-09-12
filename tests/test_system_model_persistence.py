@@ -378,6 +378,53 @@ def test_append_verification_record_retains_history_not_overwrite(tmp_path: Path
     assert reloaded.latest_for(record_id).established_at_commit == "sha2"
 
 
+# --------------------------------------------------------------------------
+# 5. CLI artifact and analyzer-internal state must agree on the workspace id
+# --------------------------------------------------------------------------
+
+def test_relative_repo_path_lands_cli_artifact_and_system_model_in_same_workspace(
+    repo: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Regression for a real bug: the CLI computed `workspace_id` from the
+    raw `--repo` path while `analyzer.py` computed its own internal
+    `workspace_id` from the `.resolve()`d path, so a relative `--repo` (a
+    very common invocation, e.g. `--repo api=.`) could save
+    `change_verification.json` in a different workspace directory than the
+    one `SystemModelStore`/`FileFactStore` actually wrote to. Fixed by
+    canonicalizing inside `compute_workspace_id` itself, so every caller
+    agrees regardless of whether it pre-normalizes."""
+    import os
+
+    base_sha = _head_sha(repo)
+    _apply_validation_and_test(repo)
+    _git(repo, "add", "."), _git(repo, "commit", "-qm", "add validation + test")
+
+    monkeypatch.chdir(tmp_path)
+    out = tmp_path / "run.json"
+    outcome = runner.invoke(
+        app,
+        [
+            "verify-change", "--base", base_sha, "--llm-policy", "never",
+            "--repo", "svc=svc", "--json", str(out), "--persist-system-model",
+        ],
+    )
+    assert outcome.exit_code == 0, outcome.output
+    result = ChangeVerificationResult.model_validate(json.loads(out.read_text(encoding="utf-8")))
+
+    artifact_note = next(note for note in result.notes if note.startswith("Saved change verification artifact:"))
+    artifact_path = Path(artifact_note.split(": ", 1)[1])
+    # workspace_dir/artifacts/<run_id>/change_verification.json -> workspace_dir
+    cli_workspace_dir = artifact_path.parent.parent.parent
+
+    sydes_home = Path(os.environ["SYDES_HOME"]).expanduser()
+    system_model_path = _system_model_path(sydes_home, result)
+
+    assert system_model_path.parent == cli_workspace_dir, (
+        f"CLI artifact workspace {cli_workspace_dir} != analyzer-internal "
+        f"system_model workspace {system_model_path.parent} for the same relative --repo"
+    )
+
+
 def test_compute_fingerprint_treats_a_missing_dependency_file_as_not_present(tmp_path: Path) -> None:
     repo_root = tmp_path / "svc"
     repo_root.mkdir()

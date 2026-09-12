@@ -38,6 +38,58 @@ def test_compute_workspace_id_is_stable_for_repo_set() -> None:
     assert compute_workspace_id(repos_a) == compute_workspace_id(repos_b)
 
 
+def test_compute_workspace_id_agrees_for_relative_and_absolute_path(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A relative `--repo` path and its resolved absolute equivalent must
+    hash to the same workspace id.
+
+    This is the regression the CLI/analyzer divergence bug hit: the CLI
+    passed `RepoRef.root` straight from `--repo api=.` (relative), while
+    `analyzer.py` internally normalized it to an absolute, `.resolve()`d
+    path before computing its own workspace id -- landing the CLI-facing
+    artifact and the analyzer's internal `FileFactStore`/`SystemModelStore`
+    in physically different workspace directories for the exact same run.
+    """
+    repo_dir = tmp_path / "svc"
+    repo_dir.mkdir()
+    monkeypatch.chdir(tmp_path)
+
+    relative_repos = [RepoRef(name="api", root="svc")]
+    absolute_repos = [RepoRef(name="api", root=str(repo_dir.resolve()))]
+
+    assert compute_workspace_id(relative_repos) == compute_workspace_id(absolute_repos)
+
+
+def test_compute_workspace_id_agrees_for_symlinked_and_real_path(tmp_path: Path) -> None:
+    """A symlink to a repo and the repo's real path must hash to the same
+    workspace id -- the same underlying repository must not fragment across
+    two different workspace directories depending on which path a caller
+    happened to pass in."""
+    real_dir = tmp_path / "real_repo"
+    real_dir.mkdir()
+    symlink_dir = tmp_path / "symlinked_repo"
+    symlink_dir.symlink_to(real_dir)
+
+    real_repos = [RepoRef(name="api", root=str(real_dir))]
+    symlinked_repos = [RepoRef(name="api", root=str(symlink_dir))]
+
+    assert compute_workspace_id(real_repos) == compute_workspace_id(symlinked_repos)
+
+
+def test_compute_workspace_id_agrees_for_user_relative_path(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A `~`-relative path and its expanded absolute equivalent must hash the
+    same, since `compute_workspace_id` expands `~` before resolving."""
+    monkeypatch.setenv("HOME", str(tmp_path))
+    repo_dir = tmp_path / "svc"
+    repo_dir.mkdir()
+
+    home_relative_repos = [RepoRef(name="api", root="~/svc")]
+    absolute_repos = [RepoRef(name="api", root=str(repo_dir.resolve()))]
+
+    assert compute_workspace_id(home_relative_repos) == compute_workspace_id(absolute_repos)
+
+
 def test_ensure_workspace_creates_layout_and_index(tmp_path: Path) -> None:
     """Workspace directories and index file should be created when missing."""
     paths = ensure_workspace(workspace_id="abc123", root=tmp_path)
