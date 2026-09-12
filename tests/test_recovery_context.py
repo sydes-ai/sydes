@@ -13,6 +13,7 @@ from sydes.core.models import EndpointCandidate
 from sydes.recovery.context import build_context
 from sydes.recovery.trigger import RecoveryTrigger
 from sydes.verify.models import (
+    AffectedBoundary,
     ChangedSymbol,
     ChangeSet,
     ChangeSummary,
@@ -119,3 +120,66 @@ def test_repo_known_routes_drops_incomplete_candidates_and_dedupes():
 def test_repo_known_routes_empty_when_no_routes_discovered():
     context = build_context(_result("src/deep/value.ts"), _trigger(), include_repo_routes=True)
     assert context.repo_known_routes == ()
+
+
+# ---------------------------------------------------------------------------
+# entrypoint_entities: `propose_graph_path`'s only source of candidate
+# entrypoints (see `sydes.recovery.graph_path`). A background/queue-triggered
+# change (a task consumer, a servlet filter -- no HTTP route, no established
+# `AffectedFlow`) previously had NOTHING feed a real entrypoint into this
+# list at all: `affected_flows` requires a handler already resolved (exactly
+# what's unresolved when recovery triggers), and `known_routes` is HTTP-only.
+# `affected_boundaries` (api/callable/async/external) is the only place a
+# non-HTTP entrypoint-like handler is recorded.
+# ---------------------------------------------------------------------------
+
+
+def _result_with_boundaries(changed_file: str, boundaries: list[AffectedBoundary]) -> ChangeVerificationResult:
+    result = _result(changed_file)
+    result.affected_boundaries = boundaries
+    return result
+
+
+def test_entrypoint_entities_includes_an_affected_boundarys_symbol():
+    boundary = AffectedBoundary(
+        id="boundary:1", kind="async", subtype="queue_consumer",
+        symbol="RedisTaskProcessor.ProcessTask", file="worker/processor.go", status="inferred",
+    )
+    context = build_context(_result_with_boundaries("worker/task.go", [boundary]), _trigger())
+    assert any(
+        e.symbol == "RedisTaskProcessor.ProcessTask" and e.file == "worker/processor.go"
+        for e in context.entrypoint_entities
+    )
+
+
+def test_entrypoint_entities_excludes_a_self_referential_boundary():
+    """Regression: a boundary whose own `.symbol` IS one of its
+    `.changed_symbols` (the changed method itself, flagged as its own
+    entrypoint-like handler) must never become a candidate seed --
+    otherwise `propose_graph_path`'s `target in sources` shortcut fires
+    immediately, silently pre-empting a real chain to an actual upstream
+    entrypoint from ever being searched for. This exact case broke a
+    previously-working real path in a live repo."""
+    boundary = AffectedBoundary(
+        id="boundary:1", kind="async", subtype="queue_consumer",
+        symbol="RedisTaskProcessor.ProcessTask", file="worker/processor.go",
+        changed_symbols=["RedisTaskProcessor.ProcessTask"], status="inferred",
+    )
+    context = build_context(_result_with_boundaries("worker/task.go", [boundary]), _trigger())
+    assert context.entrypoint_entities == ()
+
+
+def test_entrypoint_entities_skips_a_boundary_missing_symbol_or_file():
+    boundary = AffectedBoundary(id="boundary:1", kind="async", symbol=None, file=None)
+    context = build_context(_result_with_boundaries("worker/task.go", [boundary]), _trigger())
+    assert context.entrypoint_entities == ()
+
+
+def test_entrypoint_entities_dedupes_a_boundary_matching_an_existing_route():
+    route = EndpointCandidate(method="POST", path="/logout", handler="AuthController.logout", file="auth.ts", repo=REPO)
+    boundary = AffectedBoundary(id="boundary:1", kind="api", symbol="AuthController.logout", file="auth.ts")
+    result = _result("auth.ts", known_routes=[route])
+    result.affected_boundaries = [boundary]
+    context = build_context(result, _trigger())
+    matches = [e for e in context.entrypoint_entities if e.symbol == "AuthController.logout" and e.file == "auth.ts"]
+    assert len(matches) == 1

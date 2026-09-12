@@ -510,6 +510,37 @@ class CBMClient:
         rows, _has_more = _search_rows(payload)
         return [str(row["qualified_name"]) for row in rows if row.get("qualified_name")]
 
+    def symbol_flags(self, project: str, qualified_names: list[str]) -> dict[str, dict[str, bool]]:
+        """`is_test`/`is_entry_point` for exactly these qualified names, via
+        CBM's own already-documented per-node property mechanism
+        (`search_graph`'s `fields`, the same one `methods_of` above uses for
+        `qualified_name`) -- not a new raw Cypher sweep, and never a
+        whole-repo scan: only ever called with a handful of slice-local
+        candidate roots (see `sydes.recovery.graph_path`'s topology
+        fallback). A qualified name absent from the result (unresolved, or
+        CBM has no such node) is simply absent from the returned mapping --
+        the caller treats that the same as both flags being `False`.
+        """
+        if not qualified_names:
+            return {}
+        pattern = "^(" + "|".join(re.escape(qn) for qn in qualified_names) + ")$"
+        payload = self._session.call_tool(
+            "search_graph",
+            {
+                "project": project, "qn_pattern": pattern,
+                "fields": ["is_test", "is_entry_point"],
+                "format": "json", "limit": len(qualified_names) + 10,
+            },
+        )
+        rows, _has_more = _search_rows(payload)
+        out: dict[str, dict[str, bool]] = {}
+        for row in rows:
+            qn = str(row.get("qualified_name") or "")
+            if not qn:
+                continue
+            out[qn] = {"is_test": bool(row.get("is_test")), "is_entry_point": bool(row.get("is_entry_point"))}
+        return out
+
     def code_snippet(self, project: str, qualified_name: str) -> dict[str, Any]:
         """Source for one symbol, for evidence rather than for parsing."""
         return self._session.call_tool(
@@ -661,6 +692,43 @@ class CBMClient:
             f"ORDER BY a.qualified_name, b.qualified_name LIMIT {int(limit)}"
         )
         rows, malformed = parse_rows(self._query_graph(project, query), columns=4)
+        self.malformed_rows += malformed
+        return rows
+
+    def override_edges_for_seeds(
+        self, project: str, seed_qualified_names: list[str], *, limit: int = 1000,
+    ) -> list[list[str]]:
+        """OVERRIDE edges where either endpoint's qualified name is in
+        `seed_qualified_names` -- the bounded, seed-scoped alternative in
+        the same shape `call_edges_for_seeds` returns, so a caller can
+        treat the two identically.
+
+        Stored direction is `(concrete_override)-[:OVERRIDE]->(virtual_or_
+        interface_method)` -- this is CBM's own, already-computed
+        resolution of exactly the classic "call graph construction under
+        dynamic dispatch" problem (Class Hierarchy Analysis and its
+        refinements): which concrete method actually runs for a
+        virtual/interface call site. Rows are returned REVERSED
+        (interface/virtual method first, concrete override second) so a
+        caller can plug them into the same caller->callee traversal
+        CALLS rows use without inventing a second edge shape: a call that
+        reaches the interface/virtual method can continue on into every
+        concrete method that overrides it, in every language CBM resolves
+        this for (Go's implicit interfaces included, per the `OVERRIDE`
+        edges observed against a live Go index) -- nothing here names a
+        language or framework.
+        """
+        if not seed_qualified_names:
+            return []
+        seeds = _qualified_list_literal(seed_qualified_names)
+        query = (
+            "MATCH (a)-[:OVERRIDE]->(b) WHERE a.file_path <> '' AND b.file_path <> '' "
+            f"AND (a.qualified_name IN {seeds} OR b.qualified_name IN {seeds}) "
+            "RETURN b.qualified_name, b.file_path, b.start_line, "
+            "a.qualified_name, a.file_path, a.start_line "
+            f"ORDER BY a.qualified_name, a.start_line, b.qualified_name LIMIT {int(limit)}"
+        )
+        rows, malformed = parse_rows(self._query_graph(project, query), columns=6)
         self.malformed_rows += malformed
         return rows
 

@@ -29,6 +29,19 @@ Zero framework-specific code: every query here is keyed on generic graph
 facts (CALLS, USAGE, DECORATES, symbol names) that CBM already extracts the
 same way for every language it parses -- nothing here names a framework,
 a decorator, or an annotation by name.
+
+Topology fallback (see `_slice_local_roots`, used from `propose_graph_path`
+when no known entrypoint reaches the target at all): a non-HTTP execution
+boundary (a process's own `main`, a background worker, a queue consumer) has
+no route/flow feeding it into `entrypoint_entities` today, so the search
+would otherwise never even start. Rather than name what an "entrypoint"
+means per language, this reverses the question: seed a bounded reachability
+slice from the TARGET itself (already bidirectional by construction -- see
+`graph_slice.build_graph_slice`'s seed-scoped fetch), and treat whatever has
+no incoming edge within that same slice as a candidate upstream root. A
+candidate discovered this way is never reported as equivalent to a real,
+already-known entrypoint -- see `RecoveredPath.root_boundary_status` in
+`sydes.recovery.schema`.
 """
 
 from __future__ import annotations
@@ -38,7 +51,9 @@ import re
 from dataclasses import dataclass
 
 from sydes.recovery.graph_tools import CBMGraphTools
-from sydes.recovery.schema import EntityRef, RecoveredEdge, RecoveredEvidence, RecoveredPath
+from sydes.recovery.schema import (
+    EntityRef, ROOT_CANDIDATE_BOUNDARY, ROOT_VERIFIED_BOUNDARY, RecoveredEdge, RecoveredEvidence, RecoveredPath,
+)
 from sydes.recovery.tools import RepoTools
 
 #: How many additional decorator-bridge hops (see module docstring) may be
@@ -269,14 +284,15 @@ def _locate_and_cite(tools: RepoTools, file: str, needle: str, *, hint_line: int
     match_idx = None
     if needle:
         pattern = re.compile(rf"\b{re.escape(needle)}\b")
-        # An import/include statement is the single most common reason the
-        # FIRST textual mention of an identifier is not actually evidence
-        # of anything -- every language surfaced so far (import ... from,
+        # An import/include statement is the single most common reason a
+        # textual mention of an identifier is not actually evidence of
+        # anything -- every language surfaced so far (import ... from,
         # from ... import, import ...;) shares the same recognizable
-        # shape. Prefer the first match that ISN'T one; only fall back to
-        # an import-line match if nothing else mentions the identifier at
+        # shape. Collect every OTHER match; only fall back to an
+        # import-line match if nothing else mentions the identifier at
         # all (still real content, just weaker).
         import_match_idx = None
+        candidates: list[int] = []
         for i, line in enumerate(numbered_lines):
             if not pattern.search(line):
                 continue
@@ -285,14 +301,38 @@ def _locate_and_cite(tools: RepoTools, file: str, needle: str, *, hint_line: int
                 if import_match_idx is None:
                     import_match_idx = i
                 continue
-            match_idx = i
-            break
-        if match_idx is None:
+            candidates.append(i)
+        if candidates:
+            # Nearest to the caller's own recorded line, not simply the
+            # FIRST textual occurrence in the file: a symbol's own
+            # declaration very often appears earlier in the file than a
+            # sibling method's call to it, and citing the declaration
+            # instead of the call site doesn't show the interaction this
+            # edge actually claims -- measured directly (a real repo cited
+            # a callee's own definition instead of its call site, and the
+            # citation was correctly judged insufficient downstream).
+            match_idx = (
+                min(candidates, key=lambda i: abs(i - (hint_line - 1)))
+                if hint_line is not None else candidates[0]
+            )
+        else:
             match_idx = import_match_idx
     if match_idx is None and hint_line is not None:
         match_idx = max(0, hint_line - 1)
     if match_idx is None:
         match_idx = 0
+    # `numbered_lines` may be a TRUNCATED prefix of the real file --
+    # `RepoTools.read_file` caps its total output at a fixed character
+    # budget, silently dropping the tail of a long file. A `match_idx`
+    # computed above (in particular a `hint_line`-derived one, which is a
+    # real source line number, not bounded by what was actually read) can
+    # land past the end of what's actually in `numbered_lines` -- clamping
+    # here is what keeps that from producing a start>end or out-of-range
+    # slice that renders as an empty citation (measured directly: a real
+    # repo produced `line_start=149, line_end=142` this way, on a file cut
+    # short by the read budget).
+    if numbered_lines:
+        match_idx = min(match_idx, len(numbered_lines) - 1)
     start = max(0, match_idx - _CITATION_WINDOW_LINES)
     end = min(len(numbered_lines), match_idx + _CITATION_WINDOW_LINES + 1)
     fact = "\n".join(numbered_lines[start:end])[:_CITATION_MAX_CHARS]
@@ -314,6 +354,21 @@ def _edge_evidence(
             f"{_short_name(from_qn)} (declared in this file) defines the method {_short_name(to_qn)}.",
             [evidence],
         )
+    if edge.get("_override"):
+        # A virtual/interface call reaching `from_qn` can continue into
+        # `to_qn`, the concrete method CBM already resolved as overriding
+        # it (see `CBMClient.override_edges_for_seeds`) -- not a textual
+        # call site (dynamic dispatch has none to cite), so the evidence
+        # is `to_qn`'s own declaration, the only real, re-readable content
+        # this relationship has.
+        file = str(edge.get("callee_file") or file_by_qn.get(to_qn, ""))
+        line = edge.get("callee_line")
+        line_int = int(line) if isinstance(line, (int, str)) and str(line).isdigit() else None
+        evidence = _locate_and_cite(tools, file, _short_name(to_qn), hint_line=line_int)
+        return (
+            f"{_short_name(to_qn)} is a concrete override/implementation of the virtual or interface method {_short_name(from_qn)}.",
+            [evidence],
+        )
     if edge.get("_bridge"):
         file = file_by_qn.get(to_qn, "")
         evidence = _locate_and_cite(tools, file, _short_name(from_qn), hint_line=edge.get("line"))
@@ -330,6 +385,47 @@ def _edge_evidence(
         f"Static analysis found a {kind} reference from {_short_name(from_qn)} to {_short_name(to_qn)}.",
         [evidence],
     )
+
+
+def _slice_local_roots(
+    graph: CBMGraphTools, adjacency: dict[str, list[tuple[str, dict]]], reached_qns: set[str], target_qn: str,
+) -> tuple[list[str], dict[str, dict[str, bool]]]:
+    """Every node in an already-fetched, bounded slice that has NO incoming
+    `CALLS`/`USAGE`/`OVERRIDE` edge from any other node IN THAT SAME SLICE --
+    a purely topological, language-agnostic property, not a name or a
+    framework convention. Used only as the topology fallback's candidate
+    pool (see `propose_graph_path`): when no already-known entrypoint
+    reaches the target, these are the upstream-most points this specific
+    bounded neighborhood actually contains, i.e. exactly where a
+    reverse-from-target walk runs out.
+
+    Deliberately NOT a claim that any of these IS a real system boundary --
+    a slice is bounded (`GraphSliceLimits`), so "no incoming edge in this
+    slice" can mean either "genuinely nothing calls this" (a real root) or
+    "the real caller simply wasn't fetched" (truncation). Both cases are
+    handled identically downstream: every candidate here is only ever a
+    BFS source to try, still subject to the exact same
+    `sydes.recovery.verify` Layer 0/1/2 judging as any other proposed edge
+    -- being wrong here costs a little wasted search, never a false
+    conclusion.
+
+    Test nodes are excluded via CBM's own already-computed `is_test`
+    property (`CBMGraphTools.symbol_flags`) -- a test calling the changed
+    symbol directly (measured, real shape: a unit test is very often the
+    ONLY direct caller of a newly-changed function) would otherwise look
+    exactly like a legitimate root by this same in-degree-0 test alone.
+
+    Returns `(surviving_candidates, flags)` -- `flags` is the SAME
+    `symbol_flags` lookup already spent filtering test nodes, returned so
+    the caller can also read `is_entry_point` off it for whichever
+    candidate is ultimately selected, without a second CBM call.
+    """
+    destinations = {dst for edges in adjacency.values() for dst, _ in edges}
+    candidates = sorted((reached_qns - destinations) - {target_qn})
+    if not candidates:
+        return [], {}
+    flags = graph.symbol_flags(candidates)
+    return [qn for qn in candidates if not flags.get(qn, {}).get("is_test", False)], flags
 
 
 def propose_graph_path(
@@ -363,28 +459,35 @@ def propose_graph_path(
         if qn:
             entry_qns.append(qn)
             file_by_qn[qn] = ep.file
-    if not entry_qns:
-        return None
 
-    slice_ = graph.reachability_slice(entry_qns, max_depth=max_depth)
-    if slice_ is None:
-        return None
-    slice_node_qns = {str(node.get("qualified_name") or "") for node in slice_.nodes.values()} - {""}
-    for node in slice_.nodes.values():
-        qn = str(node.get("qualified_name") or "")
-        if qn:
-            file_by_qn.setdefault(qn, str(node.get("file") or ""))
-
-    adjacency = _build_adjacency(slice_.edges)
-    reached_qns: set[str] = set(entry_qns) | slice_node_qns
-    hops = _bfs_path(adjacency, entry_qns, target_qn)
-
+    # No known entrypoint at all is no longer an immediate `None` -- the
+    # topology fallback below (seeded from `target_qn` itself, never from
+    # `entry_qns`) still gets a chance once the normal entrypoint-seeded
+    # search below is skipped for lack of any `entry_qns` to seed it with.
+    adjacency: dict[str, list[tuple[str, dict]]] = {}
+    reached_qns: set[str] = set(entry_qns)
+    hops: list[tuple[str, str, dict]] | None = None
     expanded_classes: set[str] = set()
-    if hops is None and _expand_type_shaped_nodes(graph, adjacency, reached_qns, file_by_qn, already_expanded=expanded_classes):
+
+    if entry_qns:
+        slice_ = graph.reachability_slice(entry_qns, max_depth=max_depth)
+        if slice_ is None:
+            return None
+        slice_node_qns = {str(node.get("qualified_name") or "") for node in slice_.nodes.values()} - {""}
+        for node in slice_.nodes.values():
+            qn = str(node.get("qualified_name") or "")
+            if qn:
+                file_by_qn.setdefault(qn, str(node.get("file") or ""))
+
+        adjacency = _build_adjacency(slice_.edges)
+        reached_qns = set(entry_qns) | slice_node_qns
         hops = _bfs_path(adjacency, entry_qns, target_qn)
 
+        if hops is None and _expand_type_shaped_nodes(graph, adjacency, reached_qns, file_by_qn, already_expanded=expanded_classes):
+            hops = _bfs_path(adjacency, entry_qns, target_qn)
+
     bridge_rounds = 0
-    while hops is None and bridge_rounds < _MAX_DECORATOR_BRIDGES:
+    while entry_qns and hops is None and bridge_rounds < _MAX_DECORATOR_BRIDGES:
         bridges = _find_decorator_bridges(graph, reached_qns)
         if not bridges:
             break
@@ -434,13 +537,75 @@ def propose_graph_path(
         ):
             hops = _bfs_path(adjacency, entry_qns, target_qn)
 
+    # Topology fallback: no known entrypoint (there may have been none at
+    # all, or none of them reached `target_qn` above) -- try discovering an
+    # upstream root from the target's OWN reachability slice instead of
+    # giving up. Seeded from `target_qn`, never from `entry_qns`: a slice
+    # already seeded from a known entrypoint reflects THAT entrypoint's
+    # neighborhood, not necessarily the target's full upstream reach within
+    # budget, and the two are not interchangeable for this purpose.
+    root_boundary_status = ROOT_VERIFIED_BOUNDARY
+    used_topology_fallback = False
+    if hops is None:
+        topo_slice = graph.reachability_slice([target_qn], max_depth=max_depth)
+        if topo_slice is not None:
+            topo_node_qns = {str(n.get("qualified_name") or "") for n in topo_slice.nodes.values()} - {""}
+            for n in topo_slice.nodes.values():
+                qn = str(n.get("qualified_name") or "")
+                if qn:
+                    file_by_qn.setdefault(qn, str(n.get("file") or ""))
+            topo_adjacency = _build_adjacency(topo_slice.edges)
+            topo_reached = topo_node_qns | {target_qn}
+            candidate_roots, root_flags = _slice_local_roots(graph, topo_adjacency, topo_reached, target_qn)
+            # Independently-corroborated candidates (CBM's own `is_entry_point`)
+            # are tried FIRST, on their own -- not merged into one combined
+            # multi-source BFS with every other candidate. A slice-local root
+            # with no incoming edge is often something structurally trivial
+            # (an interface/virtual method's OWN declaration, one hop from
+            # the target via the very `OVERRIDE` edge that connects them) that
+            # is topologically "closer" than a genuine, deeper root like
+            # `main` -- shortest-path BFS would silently prefer the spurious
+            # one-hop shortcut over the real chain if both were sourced
+            # together. Trying the verified group alone first is what keeps a
+            # real, corroborated root from losing to a shorter but
+            # meaningless one; the full (uncorroborated) group is only tried
+            # if no verified candidate reaches the target at all.
+            verified_candidates = [qn for qn in candidate_roots if root_flags.get(qn, {}).get("is_entry_point")]
+            topo_hops = _bfs_path(topo_adjacency, verified_candidates, target_qn) if verified_candidates else None
+            if topo_hops is not None:
+                hops = topo_hops
+                adjacency = topo_adjacency
+                reached_qns = topo_reached
+                used_topology_fallback = True
+                root_boundary_status = ROOT_VERIFIED_BOUNDARY
+            elif candidate_roots:
+                # No verified candidate reached the target at all (the
+                # branch above already tried and failed) -- whatever this
+                # combined attempt finds, if anything, necessarily starts
+                # from an uncorroborated candidate. `is_entry_point` (CBM's
+                # own, already-computed signal) is used above ONLY to
+                # corroborate a root already found by topology, never to
+                # decide which nodes get tried as roots in the first place
+                # -- measured directly across three languages, this flag
+                # alone is NOT a reliable cross-language "is this a process
+                # entrypoint" signal (correct for a Go `main`, absent for
+                # Java's, populated with unrelated leaf functions for one
+                # TS repo).
+                topo_hops = _bfs_path(topo_adjacency, candidate_roots, target_qn)
+                if topo_hops is not None:
+                    hops = topo_hops
+                    adjacency = topo_adjacency
+                    reached_qns = topo_reached
+                    used_topology_fallback = True
+                    root_boundary_status = ROOT_CANDIDATE_BOUNDARY
+
     if hops is None:
         return None
 
-    # `hops[0][0]` is whichever entrypoint the search actually started
-    # from -- `_bfs_path` may reach `target_qn` fastest from any of
-    # `entry_qns`, not necessarily the first one. An empty `hops` means
-    # `target_qn` itself was among `entry_qns` (the zero-hop case).
+    # `hops[0][0]` is whichever root the search actually started from --
+    # `_bfs_path` may reach `target_qn` fastest from any of its sources, not
+    # necessarily the first one. An empty `hops` means `target_qn` itself
+    # was among the sources (the zero-hop case).
     start_qn = hops[0][0] if hops else target_qn
     nodes: list[EntityRef] = [_entity_ref(_Node(qualified_name=start_qn, file=""), file_by_qn=file_by_qn)]
     edges: list[RecoveredEdge] = []
@@ -455,18 +620,26 @@ def propose_graph_path(
         ))
         nodes.append(_entity_ref(_Node(qualified_name=to_qn, file=""), file_by_qn=file_by_qn))
 
-    entrypoint_label = next(
-        (
-            ep for ep in entrypoints
-            if (ep.qualified_name or graph.resolve_qualified_name(ep.symbol, ep.file)) == start_qn
-        ),
-        entrypoints[0],
-    )
+    if used_topology_fallback:
+        # Not one of `entrypoints` at all -- discovered from graph shape,
+        # not passed in. See `root_boundary_status` above for how much
+        # confidence that discovery earns.
+        entrypoint_symbol = _short_name(start_qn)
+    else:
+        entrypoint_label = next(
+            (
+                ep for ep in entrypoints
+                if (ep.qualified_name or graph.resolve_qualified_name(ep.symbol, ep.file)) == start_qn
+            ),
+            entrypoints[0],
+        )
+        entrypoint_symbol = entrypoint_label.symbol
     # `target_node` must exactly match the LAST node's `.symbol` (per
     # `sydes.recovery.verify._derive_path_outcome`'s strict lookup) --
     # that's whatever this function actually computed it to be, which may
     # differ in class-qualification convention from the caller's own
     # `target.symbol`, not necessarily that original string.
     return RecoveredPath(
-        entrypoint=entrypoint_label.symbol, target_node=nodes[-1].symbol, nodes=nodes, edges=edges,
+        entrypoint=entrypoint_symbol, target_node=nodes[-1].symbol, nodes=nodes, edges=edges,
+        root_boundary_status=root_boundary_status,
     )

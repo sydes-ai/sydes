@@ -49,6 +49,7 @@ from sydes.recovery.schema import (
     EntityRef,
     MAX_BRIDGE_NODES,
     PathRecoveryResult,
+    ROOT_VERIFIED_BOUNDARY,
     RecoveredEdge,
     RecoveredEvidence,
     RecoveredPath,
@@ -129,6 +130,16 @@ class RecoveryRunStats:
     #: candidate edge (graph-proposed and LLM-proposed alike) together.
     graph_paths_proposed: int = 0
     graph_paths_established: int = 0
+    #: Of `graph_paths_established` above, how many have a root that is
+    #: only `ROOT_CANDIDATE_BOUNDARY` (see `sydes.recovery.graph_path`'s
+    #: topology fallback and `sydes.recovery.schema`) -- a real, fully
+    #: edge-proven chain, but to an upstream root CBM's graph shape
+    #: suggested rather than one already known (an HTTP route, an
+    #: established flow). Never fold this into `graph_paths_established`
+    #: without also surfacing this count: an established chain with an
+    #: unverified root is not the same claim as reaching a real,
+    #: already-known entrypoint.
+    graph_paths_established_unverified_boundary: int = 0
     #: How many single-edge retries (see `RecoveryBudget.max_edge_retries`)
     #: were actually attempted, and how many of those turned a no-evidence
     #: edge into one with evidence -- `attempted - succeeded` is exactly
@@ -402,8 +413,12 @@ def recover(
             graph=graph, use_graph_path_search=use_graph_path_search,
         )
         path_recovery = verify_paths(draft_paths, changed_files=changed_files, tools=tools, client=client, stats=stats)
-        stats.graph_paths_established = sum(
-            1 for p in path_recovery.paths[: stats.graph_paths_proposed] if p.status == STATUS_ESTABLISHED
+        graph_established_paths = [
+            p for p in path_recovery.paths[: stats.graph_paths_proposed] if p.status == STATUS_ESTABLISHED
+        ]
+        stats.graph_paths_established = len(graph_established_paths)
+        stats.graph_paths_established_unverified_boundary = sum(
+            1 for p in graph_established_paths if p.root_boundary_status != ROOT_VERIFIED_BOUNDARY
         )
         test_recovery = verify_tests(draft_tests, changed_files=changed_files, tools=tools, client=client, stats=stats)
 

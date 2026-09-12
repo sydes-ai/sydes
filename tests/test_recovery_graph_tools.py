@@ -43,8 +43,14 @@ class _FakeClient:
     def usage_edges_for_seeds(self, project, seed_qualified_names, *, limit=1000):
         return []
 
+    def override_edges_for_seeds(self, project, seed_qualified_names, *, limit=1000):
+        return []
+
     def decorated_symbols(self, project, *, page_size=500):
         return [{"qualified_name": "pkg.Decorated", "file": "d.ts", "decorators": "@Foo(Bar)"}]
+
+    def symbol_flags(self, project, qualified_names):
+        return {"pkg.main": {"is_test": False, "is_entry_point": True}} if "pkg.main" in qualified_names else {}
 
     def close(self):
         self.closed = True
@@ -150,3 +156,21 @@ def test_reachability_slice_finds_seeded_neighborhood(tmp_path: Path):
 def test_reachability_slice_unavailable_returns_none_not_raise(tmp_path: Path):
     tools = CBMGraphTools(tmp_path, client_factory=_AlwaysFailsFactory())
     assert tools.reachability_slice(["pkg.a"]) is None
+
+
+def test_symbol_flags_delegates_to_client(tmp_path: Path):
+    client = _FakeClient()
+    tools = CBMGraphTools(tmp_path, client_factory=lambda: client)
+    assert tools.symbol_flags(["pkg.main", "pkg.other"]) == {
+        "pkg.main": {"is_test": False, "is_entry_point": True},
+    }
+
+
+def test_symbol_flags_empty_input_is_a_noop(tmp_path: Path):
+    tools = CBMGraphTools(tmp_path, client_factory=lambda: _FakeClient())
+    assert tools.symbol_flags([]) == {}
+
+
+def test_symbol_flags_unavailable_returns_empty_dict_not_raise(tmp_path: Path):
+    tools = CBMGraphTools(tmp_path, client_factory=_AlwaysFailsFactory())
+    assert tools.symbol_flags(["pkg.main"]) == {}

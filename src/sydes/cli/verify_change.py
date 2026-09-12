@@ -339,7 +339,8 @@ def _run_ai_recovery(
         f"edge_retries_attempted={outcome.stats.edge_retries_attempted} "
         f"edge_retries_succeeded={outcome.stats.edge_retries_succeeded} "
         f"graph_paths_proposed={outcome.stats.graph_paths_proposed} "
-        f"graph_paths_established={outcome.stats.graph_paths_established}"
+        f"graph_paths_established={outcome.stats.graph_paths_established} "
+        f"graph_paths_established_unverified_boundary={outcome.stats.graph_paths_established_unverified_boundary}"
     )
 
     if json_output is not None:

@@ -56,6 +56,23 @@ STATUS_UNRESOLVED = "unresolved"
 TEST_STATUS_ACCEPTED = "accepted"
 TEST_STATUS_REJECTED = "rejected"
 
+#: A `RecoveredPath`'s ROOT-node boundary confidence -- entirely
+#: independent of `RecoveredPath.status` (which judges the EDGE CHAIN,
+#: never the root). `sydes.recovery.graph_path`'s topology fallback can
+#: propose an upstream root it discovered by pure graph shape (no caller
+#: within a bounded, already-fetched slice) when no known entrypoint
+#: reaches the target -- that discovery is a graph-shape OBSERVATION, not
+#: proof the root is a genuine system boundary, so it is never reported as
+#: equivalent to a real, already-known entrypoint (an HTTP route, an
+#: established flow). A chain can be fully `established` while its root
+#: is still only a `ROOT_CANDIDATE_BOUNDARY` -- callers that report an
+#: overall verdict must keep the two facts separate, never collapse
+#: "edges established" into "fully verified end-to-end system flow" when
+#: the root itself carries this status.
+ROOT_VERIFIED_BOUNDARY = "verified_boundary"
+ROOT_CANDIDATE_BOUNDARY = "candidate_boundary"
+ROOT_INTERNAL_NODE = "internal_node"
+
 #: An AI-recovered path/edge/test that repository evidence supports.
 PROVENANCE_AI_RECOVERY = "ai_recovery"
 #: A path/edge/test the agent could not establish even after the retry
@@ -184,6 +201,16 @@ class RecoveredPath(BaseModel):
     edges: list[RecoveredEdge] = Field(default_factory=list)
     status: str = STATUS_UNRESOLVED
     unresolved_suffix: list[RecoveredEdge] = Field(default_factory=list)
+    #: See `ROOT_VERIFIED_BOUNDARY`/`ROOT_CANDIDATE_BOUNDARY` above.
+    #: Defaults to `ROOT_VERIFIED_BOUNDARY`: every path built the normal
+    #: way, from a known entrypoint, is presumed a real system boundary --
+    #: exactly today's existing behavior, unchanged. Only
+    #: `sydes.recovery.graph_path`'s topology fallback ever sets this to
+    #: `ROOT_CANDIDATE_BOUNDARY`. Survives Stage C verification untouched
+    #: (`sydes.recovery.verify._derive_path_outcome` copies every field it
+    #: doesn't explicitly overwrite), so this reflects the PROPOSER's
+    #: classification of the root, never something Stage C judges.
+    root_boundary_status: str = ROOT_VERIFIED_BOUNDARY
 
 
 class RecoveredTest(BaseModel):

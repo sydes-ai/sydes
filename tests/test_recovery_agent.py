@@ -496,7 +496,51 @@ def test_use_graph_path_search_establishes_a_path_with_zero_llm_search_calls(rep
     assert outcome.path_recovery.status == STATUS_ESTABLISHED
     assert outcome.stats.graph_paths_proposed == 1
     assert outcome.stats.graph_paths_established == 1
+    assert outcome.stats.graph_paths_established_unverified_boundary == 0
     assert outcome.stats.llm_calls == 2  # exactly discovery + one verifier call, nothing else
+
+
+def test_use_graph_path_search_established_with_unverified_root_boundary_is_counted_separately(
+    repo: Path, monkeypatch,
+):
+    """A graph-proposed path whose root came from the topology fallback
+    (`root_boundary_status=ROOT_CANDIDATE_BOUNDARY`, see
+    `sydes.recovery.graph_path`) can still have every edge established --
+    but that must never look identical, in the stats, to a path reaching an
+    already-known entrypoint. `graph_paths_established_unverified_boundary`
+    is what keeps the two distinguishable without inspecting each path."""
+    from sydes.recovery.schema import ROOT_CANDIDATE_BOUNDARY, EntityRef, RecoveredEdge, RecoveredEvidence, RecoveredPath
+
+    graph_path = RecoveredPath(
+        entrypoint="main", target_node="handler",
+        nodes=[EntityRef(symbol="main", file="handler.ts"), EntityRef(symbol="handler", file="handler.ts")],
+        edges=[RecoveredEdge(**{
+            "from": EntityRef(symbol="main", file="handler.ts"),
+            "to": EntityRef(symbol="handler", file="handler.ts"),
+        }, relationship="static analysis found a CALLS reference from main to handler", evidence=[
+            RecoveredEvidence(file="handler.ts", line_start=1, line_end=1, fact="route registers handler"),
+        ])],
+        root_boundary_status=ROOT_CANDIDATE_BOUNDARY,
+    )
+    monkeypatch.setattr(
+        "sydes.recovery.agent.propose_graph_path", lambda entrypoints, target, *, graph, tools: graph_path,
+    )
+    client = SequencedClient([_no_path_discovery(), _verdicts(True)])
+    import dataclasses
+
+    from sydes.recovery.schema import EntityRef as _EntityRef
+
+    context = dataclasses.replace(
+        _context(changed_files=("handler.ts",)),
+        changed_symbol_entities=(_EntityRef(symbol="handler", file="handler.ts"),),
+    )
+    outcome = recover(
+        context, repo_root=repo, client=client, trigger_reason="no established path", use_graph_path_search=True,
+        budget=RecoveryBudget(max_pipeline_retries=0),
+    )
+    assert outcome.path_recovery.status == STATUS_ESTABLISHED
+    assert outcome.stats.graph_paths_established == 1
+    assert outcome.stats.graph_paths_established_unverified_boundary == 1
 
 
 def test_use_graph_path_search_off_by_default_never_calls_propose_graph_path(repo: Path, monkeypatch):

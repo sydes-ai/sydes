@@ -76,10 +76,13 @@ class RecoveryContext:
     #: real entity to seed a graph query with, not a formatted prompt
     #: string; not itself shown in any prompt.
     changed_symbol_entities: tuple[EntityRef, ...] = ()
-    #: Structured counterpart of `known_entrypoints` + `repo_known_routes`
-    #: combined -- every entrypoint this run knows about, already-diff-tied
-    #: or not, as `EntityRef`s a graph query can seed from. Same
-    #: `sydes.recovery.graph_path`-only purpose as `changed_symbol_entities`.
+    #: Structured counterpart of `known_entrypoints` + `repo_known_routes`,
+    #: PLUS every `AffectedBoundary` this run detected (api/callable/async/
+    #: external -- the only source of a non-HTTP entrypoint like a queue
+    #: consumer or servlet filter) -- every entrypoint this run knows
+    #: about, already-diff-tied or not, as `EntityRef`s a graph query can
+    #: seed from. Same `sydes.recovery.graph_path`-only purpose as
+    #: `changed_symbol_entities`.
     entrypoint_entities: tuple[EntityRef, ...] = ()
 
 
@@ -178,6 +181,37 @@ def _entrypoint_entities(result: ChangeVerificationResult, known_routes: list) -
             continue
         seen.add(key)
         out.append(EntityRef(symbol=route.handler, file=route.file))
+    # `affected_boundaries` (api/callable/async/external -- see
+    # `verify.models.AffectedBoundary`) is the only place this run records
+    # a NON-HTTP entrypoint-like handler (a queue consumer, an async task
+    # runner, a servlet filter): `affected_flows`/`known_routes` above are
+    # both HTTP-route-shaped, so a background/queue-triggered change has no
+    # other source feeding a real entrypoint into `propose_graph_path`.
+    # Included regardless of `status` (`"proven"` or `"inferred"`): this is
+    # only a CANDIDATE seed for a graph search, exactly like
+    # `repo_known_routes` above -- naming it here is not evidence of
+    # anything by itself, and a graph path built from it still has to pass
+    # `sydes.recovery.verify`'s unmodified Layer 0/1/2 like any other edge.
+    for boundary in result.affected_boundaries:
+        if not (boundary.symbol and boundary.file):
+            continue
+        if boundary.symbol in boundary.changed_symbols:
+            # Self-referential: this boundary's own "entrypoint-like
+            # handler" IS one of the changed symbols itself (a task/queue
+            # consumer whose handler method is what changed), not a
+            # distinct upstream caller. Adding it as a candidate seed
+            # would make the changed target trivially "reachable from
+            # itself" -- `propose_graph_path`'s `target in sources` check
+            # returns the degenerate zero-hop shape immediately, silently
+            # pre-empting a real chain to an actual entrypoint from ever
+            # being searched for. Measured directly: this exact case broke
+            # a previously-working real path in a live repo.
+            continue
+        key = (boundary.symbol, boundary.file)
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(EntityRef(symbol=boundary.symbol, file=boundary.file))
     return tuple(out)
 
 

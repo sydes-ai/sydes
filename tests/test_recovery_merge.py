@@ -10,6 +10,7 @@ from sydes.recovery.merge import build_recovery_view, summarize_for_notes
 from sydes.recovery.schema import (
     EntityRef,
     PathRecoveryResult,
+    ROOT_CANDIDATE_BOUNDARY,
     RecoveredEdge,
     RecoveredPath,
     RecoveredTest,
@@ -117,3 +118,26 @@ def test_summarize_for_notes_established_path_never_claims_structural_provenance
 def test_summarize_for_notes_distinguishes_partial_from_established():
     note = summarize_for_notes(PathRecoveryResult(status=STATUS_PARTIAL, paths=[_partial_path()]), TestRecoveryResult())
     assert "partial" in note.lower()
+
+
+def test_build_path_recovery_view_includes_root_boundary_status():
+    view = build_recovery_view(PathRecoveryResult(status=STATUS_ESTABLISHED, paths=[_established_path()]), TestRecoveryResult())
+    assert view["path_recovery"]["paths"][0]["root_boundary_status"] == "verified_boundary"
+
+
+def test_summarize_for_notes_warns_when_an_established_path_has_an_unverified_root():
+    """An established chain to a root `sydes.recovery.graph_path`'s
+    topology fallback merely suggested (never one already known) must
+    never be reported the same way as reaching a real entrypoint -- the
+    note has to say so explicitly, not silently fold it into 'established
+    N path(s)'."""
+    path = _established_path().model_copy(update={"root_boundary_status": ROOT_CANDIDATE_BOUNDARY})
+    note = summarize_for_notes(PathRecoveryResult(status=STATUS_ESTABLISHED, paths=[path]), TestRecoveryResult())
+    assert "established 1 path" in note
+    assert "UNVERIFIED" in note
+    assert path.entrypoint in note
+
+
+def test_summarize_for_notes_established_verified_path_carries_no_unverified_warning():
+    note = summarize_for_notes(PathRecoveryResult(status=STATUS_ESTABLISHED, paths=[_established_path()]), TestRecoveryResult())
+    assert "UNVERIFIED" not in note

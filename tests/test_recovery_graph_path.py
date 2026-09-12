@@ -11,22 +11,26 @@ from pathlib import Path
 
 from sydes.code_intelligence.graph_slice import GraphSlice
 from sydes.recovery.graph_path import propose_graph_path
-from sydes.recovery.schema import EntityRef, STATUS_UNRESOLVED
+from sydes.recovery.schema import (
+    EntityRef, ROOT_CANDIDATE_BOUNDARY, ROOT_VERIFIED_BOUNDARY, STATUS_UNRESOLVED,
+)
 from sydes.recovery.tools import RepoTools
 
 
 class _FakeGraph:
     """Stands in for `CBMGraphTools`: `resolve_qualified_name`,
-    `reachability_slice`, `decorated_symbols`, `methods_of` -- exactly the
-    methods `propose_graph_path` calls, nothing else."""
+    `reachability_slice`, `decorated_symbols`, `methods_of`, `symbol_flags`
+    -- exactly the methods `propose_graph_path` calls, nothing else."""
 
-    def __init__(self, *, qn_map=None, slices=None, decorated=None, methods=None):
+    def __init__(self, *, qn_map=None, slices=None, decorated=None, methods=None, flags=None):
         self.qn_map = qn_map or {}
         self.slices = slices or {}
         self.decorated_rows = decorated or []
         self.methods_map = methods or {}
+        self.flags_map = flags or {}
         self.resolve_calls: list[tuple[str, str]] = []
         self.slice_calls: list[tuple[str, ...]] = []
+        self.symbol_flags_calls: list[tuple[str, ...]] = []
 
     def resolve_qualified_name(self, bare_name, file):
         self.resolve_calls.append((bare_name, file))
@@ -41,6 +45,10 @@ class _FakeGraph:
 
     def methods_of(self, class_qualified_name):
         return self.methods_map.get(class_qualified_name, [])
+
+    def symbol_flags(self, qualified_names):
+        self.symbol_flags_calls.append(tuple(sorted(qualified_names)))
+        return {qn: self.flags_map[qn] for qn in qualified_names if qn in self.flags_map}
 
 
 def _calls_edge(caller_qn, caller_file, caller_line, callee_qn, callee_file) -> dict:
@@ -247,6 +255,75 @@ def test_type_shaped_expansion_cap_does_not_arbitrarily_exclude_the_needed_class
     assert [n.symbol for n in path.nodes] == ["create", "Address", "validate"]
 
 
+def test_evidence_prefers_the_occurrence_nearest_the_recorded_call_site(tmp_path: Path):
+    """A callee's own declaration very often appears earlier in the file
+    than the actual call site inside a different function -- citing the
+    FIRST textual match (the declaration) instead of the occurrence
+    nearest the caller's own recorded line doesn't show the interaction
+    this edge claims. Regression for a real, measured case: a real repo's
+    citation for a CALLS edge showed the callee's own declaration, not the
+    call, and was (correctly) judged insufficient downstream.
+    """
+    lines = ["// decoy"] * 3
+    lines.append("function target() {}")  # real line 4: the decoy/declaration match
+    lines += ["// filler"] * 20
+    lines.append("call target()")  # real line 25: the actual call site
+    lines += ["// filler"] * 5
+    _write(tmp_path, "mod.ts", "\n".join(lines) + "\n")
+
+    graph = _FakeGraph(
+        qn_map={("create", "controller.ts"): "pkg.Controller.create"},
+        slices={
+            ("pkg.Controller.create",): _slice(
+                {"pkg.Controller.create": "controller.ts", "pkg.Mod.target": "mod.ts"},
+                [_calls_edge("pkg.Controller.create", "mod.ts", 25, "pkg.Mod.target", "mod.ts")],
+            ),
+        },
+    )
+    target = EntityRef(symbol="target", file="mod.ts", qualified_name="pkg.Mod.target")
+    entrypoints = [EntityRef(symbol="create", file="controller.ts", qualified_name="pkg.Controller.create")]
+
+    path = propose_graph_path(entrypoints, target, graph=graph, tools=_repo(tmp_path))
+    assert path is not None
+    evidence = path.edges[0].evidence[0]
+    assert evidence.line_start <= 25 <= evidence.line_end
+    assert "call target()" in evidence.fact
+    assert "function target()" not in evidence.fact
+
+
+def test_evidence_citation_is_never_empty_when_the_file_read_is_truncated(tmp_path: Path):
+    """`RepoTools.read_file` caps its total output at a fixed character
+    budget -- a hint/match line beyond what was actually read must not
+    produce a start>end or out-of-range slice that renders as an empty
+    citation. Regression for a real, measured case: a real repo's citation
+    came back `line_start=149, line_end=142` (reversed, empty) on a file
+    long enough to be truncated before reaching the recorded line.
+    """
+    filler = "x" * 12
+    lines = [f"line {i} {filler}" for i in range(1, 341)]
+    lines[339] = "call farAwaySymbol()"  # real line 340 -- past the ~6000-char read budget
+    _write(tmp_path, "mod.ts", "\n".join(lines) + "\n")
+
+    graph = _FakeGraph(
+        qn_map={("create", "controller.ts"): "pkg.Controller.create"},
+        slices={
+            ("pkg.Controller.create",): _slice(
+                {"pkg.Controller.create": "controller.ts", "pkg.Mod.farAwaySymbol": "mod.ts"},
+                [_calls_edge("pkg.Controller.create", "mod.ts", 340, "pkg.Mod.farAwaySymbol", "mod.ts")],
+            ),
+        },
+    )
+    target = EntityRef(symbol="farAwaySymbol", file="mod.ts", qualified_name="pkg.Mod.farAwaySymbol")
+    entrypoints = [EntityRef(symbol="create", file="controller.ts", qualified_name="pkg.Controller.create")]
+
+    path = propose_graph_path(entrypoints, target, graph=graph, tools=_repo(tmp_path))
+    assert path is not None
+    evidence = path.edges[0].evidence[0]
+    assert evidence.fact.strip() != ""
+    assert evidence.line_start is not None and evidence.line_end is not None
+    assert evidence.line_start <= evidence.line_end
+
+
 def test_decorator_bridge_on_a_class_continues_via_its_own_methods(tmp_path: Path):
     """The measured real-world shape: a class-level decorator/annotation
     has NO CALLS/USAGE edge of its own at all (a class declaration doesn't
@@ -290,3 +367,168 @@ def test_decorator_bridge_on_a_class_continues_via_its_own_methods(tmp_path: Pat
     path = propose_graph_path(entrypoints, target, graph=graph, tools=_repo(tmp_path))
     assert path is not None
     assert [n.symbol for n in path.nodes] == ["create", "CreateThing", "ThingHandler", "execute", "validate"]
+
+
+# ---------------------------------------------------------------------------
+# Topology fallback: no known entrypoint at all (a background worker, a
+# queue consumer -- nothing HTTP-route-shaped feeds `entrypoint_entities`
+# today). Seeded from the TARGET instead, using the exact same
+# `reachability_slice`/`_build_adjacency`/`_bfs_path` machinery -- the real
+# case this exists for: Go's `main -> runTaskProcessor -> ... ->
+# ProcessTaskSendVerifyEmail`, where `entrypoints` is empty.
+# ---------------------------------------------------------------------------
+
+
+def test_topology_fallback_discovers_a_verified_root_with_no_known_entrypoint(tmp_path: Path):
+    """The core scenario this fallback exists for: `entrypoints=[]` (no
+    HTTP route, no established flow reaches this target). Seeded from the
+    target, the slice already contains the whole upstream chain; `main`
+    survives as the only slice-local, non-test root, and CBM's own
+    `is_entry_point` flag corroborates it as a genuine boundary -- so the
+    root is reported as VERIFIED, not merely a candidate.
+    """
+    _write(tmp_path, "main.go", "func main() {\n  runTask()\n}\n")
+    _write(tmp_path, "worker.go", "func runTask() {\n  validate()\n}\n")
+    _write(tmp_path, "address.go", "func validate() {}\n")
+
+    graph = _FakeGraph(
+        slices={
+            ("pkg.Address.validate",): _slice(
+                {"pkg.main": "main.go", "pkg.runTask": "worker.go", "pkg.Address.validate": "address.go"},
+                [
+                    _calls_edge("pkg.main", "main.go", 2, "pkg.runTask", "worker.go"),
+                    _calls_edge("pkg.runTask", "worker.go", 2, "pkg.Address.validate", "address.go"),
+                ],
+            ),
+        },
+        flags={"pkg.main": {"is_test": False, "is_entry_point": True}},
+    )
+    target = EntityRef(symbol="validate", file="address.go", qualified_name="pkg.Address.validate")
+
+    path = propose_graph_path([], target, graph=graph, tools=_repo(tmp_path))
+    assert path is not None
+    assert path.entrypoint == "main"
+    assert [n.symbol for n in path.nodes] == ["main", "runTask", "validate"]
+    assert path.root_boundary_status == ROOT_VERIFIED_BOUNDARY
+    assert path.status == STATUS_UNRESOLVED  # draft only -- verify.py still has to judge each edge
+
+
+def test_topology_fallback_prefers_a_verified_root_over_a_shorter_unverified_one(tmp_path: Path):
+    """Regression for a real, measured failure: a slice-local root that is
+    only ONE hop from the target (e.g. an interface/virtual method's OWN
+    declaration, connected to its concrete override by the very edge that
+    relates them) is topologically closer than a genuine, deeper root like
+    `main` -- naive shortest-path BFS over ALL candidates together picks
+    the shorter, structurally-trivial one every time. Verified candidates
+    (`is_entry_point=True`) must be tried FIRST, on their own, so a real
+    root is never discarded in favor of a shorter but meaningless one.
+    """
+    _write(tmp_path, "main.go", "func main() {\n  runTask()\n}\n")
+    _write(tmp_path, "worker.go", "func runTask() {\n  validate()\n}\n")
+    _write(tmp_path, "address.go", "func validate() {}\n")
+
+    graph = _FakeGraph(
+        slices={
+            ("pkg.Address.validate",): _slice(
+                {
+                    "pkg.main": "main.go", "pkg.runTask": "worker.go",
+                    "pkg.Address.validate": "address.go", "pkg.Iface.validate": "address.go",
+                },
+                [
+                    _calls_edge("pkg.main", "main.go", 2, "pkg.runTask", "worker.go"),
+                    _calls_edge("pkg.runTask", "worker.go", 2, "pkg.Address.validate", "address.go"),
+                    # The spurious one-hop shortcut: an unrelated, unverified
+                    # node with a direct edge straight to the target.
+                    _calls_edge("pkg.Iface.validate", "address.go", 1, "pkg.Address.validate", "address.go"),
+                ],
+            ),
+        },
+        flags={
+            "pkg.main": {"is_test": False, "is_entry_point": True},
+            "pkg.Iface.validate": {"is_test": False, "is_entry_point": False},
+        },
+    )
+    target = EntityRef(symbol="validate", file="address.go", qualified_name="pkg.Address.validate")
+
+    path = propose_graph_path([], target, graph=graph, tools=_repo(tmp_path))
+    assert path is not None
+    assert path.entrypoint == "main"
+    assert [n.symbol for n in path.nodes] == ["main", "runTask", "validate"]
+    assert path.root_boundary_status == ROOT_VERIFIED_BOUNDARY
+
+
+def test_topology_fallback_root_without_is_entry_point_is_only_a_candidate(tmp_path: Path):
+    """Same shape as above, but CBM has no `is_entry_point` signal for the
+    discovered root (measured directly: this happens for real -- CBM
+    flagged Go's `main` but not Java's or a real TS bootstrap function).
+    The chain is still proposed, but the root must not be reported as an
+    already-verified boundary just because the topology happened to find
+    it."""
+    _write(tmp_path, "main.go", "func main() {\n  runTask()\n}\n")
+    _write(tmp_path, "worker.go", "func runTask() {\n  validate()\n}\n")
+    _write(tmp_path, "address.go", "func validate() {}\n")
+
+    graph = _FakeGraph(
+        slices={
+            ("pkg.Address.validate",): _slice(
+                {"pkg.main": "main.go", "pkg.runTask": "worker.go", "pkg.Address.validate": "address.go"},
+                [
+                    _calls_edge("pkg.main", "main.go", 2, "pkg.runTask", "worker.go"),
+                    _calls_edge("pkg.runTask", "worker.go", 2, "pkg.Address.validate", "address.go"),
+                ],
+            ),
+        },
+        # no flags at all -- CBM reports no is_entry_point signal here
+    )
+    target = EntityRef(symbol="validate", file="address.go", qualified_name="pkg.Address.validate")
+
+    path = propose_graph_path([], target, graph=graph, tools=_repo(tmp_path))
+    assert path is not None
+    assert path.root_boundary_status == ROOT_CANDIDATE_BOUNDARY
+
+
+def test_topology_fallback_excludes_a_test_caller_from_candidate_roots(tmp_path: Path):
+    """A unit test calling the changed symbol directly is very often its
+    ONLY caller in a bounded slice -- without excluding it via CBM's own
+    `is_test`, it would look exactly like a legitimate root by the same
+    in-degree-0 property alone. With no other candidate, the fallback must
+    find nothing, not silently accept the test as a root."""
+    _write(tmp_path, "address_test.go", "func TestValidate() {\n  validate()\n}\n")
+    _write(tmp_path, "address.go", "func validate() {}\n")
+
+    graph = _FakeGraph(
+        slices={
+            ("pkg.Address.validate",): _slice(
+                {"pkg.TestValidate": "address_test.go", "pkg.Address.validate": "address.go"},
+                [_calls_edge("pkg.TestValidate", "address_test.go", 2, "pkg.Address.validate", "address.go")],
+            ),
+        },
+        flags={"pkg.TestValidate": {"is_test": True, "is_entry_point": False}},
+    )
+    target = EntityRef(symbol="validate", file="address.go", qualified_name="pkg.Address.validate")
+
+    assert propose_graph_path([], target, graph=graph, tools=_repo(tmp_path)) is None
+
+
+def test_topology_fallback_is_not_attempted_when_a_known_entrypoint_already_succeeds(tmp_path: Path):
+    """No wasted cost: when the normal, known-entrypoint-seeded search
+    already finds the target, the topology fallback (its own extra
+    `reachability_slice` + `symbol_flags` calls) must never even run."""
+    _write(tmp_path, "controller.ts", "call validate()\n")
+    _write(tmp_path, "address.ts", "export function validate() {}\n")
+    graph = _FakeGraph(
+        slices={
+            ("pkg.Controller.create",): _slice(
+                {"pkg.Controller.create": "controller.ts", "pkg.Address.validate": "address.ts"},
+                [_calls_edge("pkg.Controller.create", "controller.ts", 1, "pkg.Address.validate", "address.ts")],
+            ),
+        },
+    )
+    target = EntityRef(symbol="validate", file="address.ts", qualified_name="pkg.Address.validate")
+    entrypoints = [EntityRef(symbol="create", file="controller.ts", qualified_name="pkg.Controller.create")]
+
+    path = propose_graph_path(entrypoints, target, graph=graph, tools=_repo(tmp_path))
+    assert path is not None
+    assert path.root_boundary_status == ROOT_VERIFIED_BOUNDARY
+    assert ("pkg.Address.validate",) not in graph.slice_calls
+    assert graph.symbol_flags_calls == []

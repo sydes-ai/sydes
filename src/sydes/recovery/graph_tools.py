@@ -116,27 +116,32 @@ class CBMGraphTools:
     def reachability_slice(
         self, seed_qualified_names: list[str], *, max_depth: int = 4,
     ) -> GraphSlice | None:
-        """A bounded CALLS/USAGE neighborhood reachable from `seed_qualified_names`
-        -- reuses `sydes.code_intelligence.graph_slice.build_graph_slice`
-        exactly as the main structural pipeline does (same hop-batched,
-        capped BFS, same seed-scoped `CBMClient` queries), with a deeper
-        default depth AND generous node/edge/call budgets: this is a
-        one-shot lookup for a specific unresolved hop (at most a handful
-        per recovery run), not the main pipeline's per-run neighborhood
-        fetch that runs on every `verify-change` invocation regardless of
-        whether anything is unresolved -- the cost/depth tradeoff that
-        keeps THAT one cheap does not apply here. Measured directly: the
-        main pipeline's own defaults (8 graph calls, 400 nodes) truncated
-        before reaching a real target three fan-out seeds and six hops
-        away in a live repository; these limits are set well above what
-        that required. Returns `None` (never raises) when CBM is
-        unavailable for this repository."""
+        """A bounded CALLS/USAGE/OVERRIDE neighborhood reachable from
+        `seed_qualified_names` -- reuses
+        `sydes.code_intelligence.graph_slice.build_graph_slice` exactly as
+        the main structural pipeline does (same hop-batched, capped BFS,
+        same seed-scoped `CBMClient` queries), with a deeper default depth
+        AND generous node/edge/call budgets: this is a one-shot lookup for
+        a specific unresolved hop (at most a handful per recovery run),
+        not the main pipeline's per-run neighborhood fetch that runs on
+        every `verify-change` invocation regardless of whether anything is
+        unresolved -- the cost/depth tradeoff that keeps THAT one cheap
+        does not apply here. Measured directly: the main pipeline's own
+        defaults (8 graph calls, 400 nodes) truncated before reaching a
+        real target three fan-out seeds and six hops away in a live
+        repository; these limits are set well above what that required.
+        OVERRIDE is requested here (unlike the main pipeline's own slice)
+        so a virtual/interface call site can continue traversal into its
+        concrete implementation(s) -- see `CBMClient.override_edges_for_seeds`.
+        Returns `None` (never raises) when CBM is unavailable for this
+        repository."""
         project = self._ensure_project()
         if project is None or self._client is None:
             return None
         limits = GraphSliceLimits(max_depth=max_depth, max_nodes=2000, max_edges=6000, max_graph_calls=40)
         return build_graph_slice(
             self._client, project, self._repo_root.name, seed_qualified_names, limits=limits,
+            edge_kinds=("calls", "usage", "override"),
         )
 
     def resolve_qualified_name(self, bare_name: str, file: str) -> str | None:
@@ -180,3 +185,16 @@ class CBMGraphTools:
             return self._client.methods_of(project, class_qualified_name)
         except CodeIntelligenceError:
             return []
+
+    def symbol_flags(self, qualified_names: list[str]) -> dict[str, dict[str, bool]]:
+        """`is_test`/`is_entry_point` for exactly these qualified names --
+        see `CBMClient.symbol_flags`. `{}` (never raises) when CBM is
+        unavailable; a name missing from the result carries both flags as
+        `False` by the caller's own convention, not this method's."""
+        project = self._ensure_project()
+        if project is None or self._client is None or not qualified_names:
+            return {}
+        try:
+            return self._client.symbol_flags(project, qualified_names)
+        except CodeIntelligenceError:
+            return {}

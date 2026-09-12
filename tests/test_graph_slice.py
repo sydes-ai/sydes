@@ -41,13 +41,16 @@ class FakeGraphClient:
     can express "this graph, seeded from here" directly."""
 
     def __init__(self, *, call_rows: list[list[str]] | None = None,
-                 usage_rows: list[list[str]] | None = None) -> None:
-        # Each row matches CBMClient.call_edges_for_seeds'/usage_edges_for_seeds'
-        # own return shape (see cbm_client.py).
+                 usage_rows: list[list[str]] | None = None,
+                 override_rows: list[list[str]] | None = None) -> None:
+        # Each row matches CBMClient.call_edges_for_seeds'/usage_edges_for_seeds'/
+        # override_edges_for_seeds' own return shape (see cbm_client.py).
         self._call_rows = call_rows or []
         self._usage_rows = usage_rows or []
+        self._override_rows = override_rows or []
         self.call_edges_for_seeds_calls: list[tuple[str, tuple[str, ...], int]] = []
         self.usage_edges_for_seeds_calls: list[tuple[str, tuple[str, ...], int]] = []
+        self.override_edges_for_seeds_calls: list[tuple[str, tuple[str, ...], int]] = []
 
     def call_edges_for_seeds(self, project: str, seeds: list[str], *, limit: int = 1000) -> list[list[str]]:
         self.call_edges_for_seeds_calls.append((project, tuple(seeds), limit))
@@ -61,9 +64,23 @@ class FakeGraphClient:
         rows = [r for r in self._usage_rows if r[0] in seed_set or r[2] in seed_set]
         return rows[:limit]
 
+    def override_edges_for_seeds(self, project: str, seeds: list[str], *, limit: int = 1000) -> list[list[str]]:
+        # Rows are already in `override_edges_for_seeds`' own RETURNED shape
+        # (interface/virtual method first, concrete override second) --
+        # this fake mirrors what CBMClient hands back, not the raw stored
+        # `(concrete)-[:OVERRIDE]->(interface)` edge direction.
+        self.override_edges_for_seeds_calls.append((project, tuple(seeds), limit))
+        seed_set = set(seeds)
+        rows = [r for r in self._override_rows if r[0] in seed_set or r[3] in seed_set]
+        return rows[:limit]
+
     @property
     def total_calls(self) -> int:
-        return len(self.call_edges_for_seeds_calls) + len(self.usage_edges_for_seeds_calls)
+        return (
+            len(self.call_edges_for_seeds_calls)
+            + len(self.usage_edges_for_seeds_calls)
+            + len(self.override_edges_for_seeds_calls)
+        )
 
 
 def call_row(caller: str, callee: str, *, caller_file: str = "app/svc.py",
@@ -74,6 +91,13 @@ def call_row(caller: str, callee: str, *, caller_file: str = "app/svc.py",
 def usage_row(user: str, used: str, *, user_file: str = "app/svc.py",
               used_file: str = "app/svc.py") -> list[str]:
     return [user, user_file, used, used_file]
+
+
+def override_row(virtual: str, override: str, *, virtual_file: str = "app/svc.py",
+                  override_file: str = "app/svc.py") -> list[str]:
+    """A row in `override_edges_for_seeds`' own returned shape: the
+    virtual/interface method first, the concrete override second."""
+    return [virtual, virtual_file, "1", override, override_file, "2"]
 
 
 def _identity(file: str, symbol: str, qualified: str | None = None) -> SymbolIdentity:
@@ -536,3 +560,70 @@ def test_node_and_edge_counts_reflect_the_merged_deduplicated_slice() -> None:
     assert result.node_count() == 4
     assert len(graph_slice_call_edges(result)) == 2
     assert len(graph_slice_usage_edges(result)) == 1
+
+
+# --------------------------------------------------------------------------
+# OVERRIDE edges: opt-in via `edge_kinds`, for a virtual/interface call site
+# to continue traversal into its concrete implementation(s). Not requested
+# by default -- every existing caller (the main structural pipeline) must
+# see zero behavior change, and must never even touch the attribute (a
+# client stub without `override_edges_for_seeds` must not break).
+# --------------------------------------------------------------------------
+
+
+def test_override_edges_are_not_fetched_by_default() -> None:
+    client = FakeGraphClient(
+        call_rows=[call_row("mod.caller", "iface.Method")],
+        override_rows=[override_row("iface.Method", "impl.Method")],
+    )
+    result = build_graph_slice(client, "proj", REPO, ["mod.caller"], limits=GraphSliceLimits(max_depth=2))
+
+    assert client.override_edges_for_seeds_calls == []
+    assert "impl.Method" not in _node_names(result)
+
+
+def test_a_client_without_override_support_is_unaffected_when_not_requested() -> None:
+    """A stub/older client that doesn't define `override_edges_for_seeds`
+    at all must not break a caller that never asks for `"override"` --
+    the attribute must never even be touched in that case."""
+    class _NoOverrideClient:
+        def call_edges_for_seeds(self, project, seeds, *, limit=1000):
+            return [call_row("mod.caller", "mod.callee")] if "mod.caller" in seeds else []
+
+        def usage_edges_for_seeds(self, project, seeds, *, limit=1000):
+            return []
+
+    result = build_graph_slice(_NoOverrideClient(), "proj", REPO, ["mod.caller"], limits=GraphSliceLimits(max_depth=1))
+    assert "mod.callee" in _node_names(result)
+
+
+def test_override_edges_extend_traversal_when_requested() -> None:
+    """A call reaching the interface/virtual method must be able to
+    continue into the concrete override CBM already resolved for it --
+    exactly the shape a virtual/interface dispatch hop needs, without any
+    language/framework-specific rule."""
+    client = FakeGraphClient(
+        call_rows=[call_row("mod.caller", "iface.Method")],
+        override_rows=[override_row("iface.Method", "impl.Method")],
+        usage_rows=[usage_row("impl.Method", "mod.target")],
+    )
+    result = build_graph_slice(
+        client, "proj", REPO, ["mod.caller"],
+        limits=GraphSliceLimits(max_depth=3), edge_kinds=("calls", "usage", "override"),
+    )
+
+    assert client.override_edges_for_seeds_calls
+    assert "impl.Method" in _node_names(result)
+    assert "mod.target" in _node_names(result)
+    override_edges = [e for e in result.edges if e.get("_override")]
+    assert len(override_edges) == 1
+    assert override_edges[0]["caller_qualified_name"] == "iface.Method"
+    assert override_edges[0]["callee_qualified_name"] == "impl.Method"
+    # Reversed relative to the fake's own row order (virtual first,
+    # override second) is the point: this is what lets the SAME
+    # caller/callee-shaped adjacency traversal continue through it --
+    # `graph_slice_call_edges` (used elsewhere by the main pipeline, never
+    # against a slice that requested "override") can't distinguish the two
+    # by shape alone, only the `_override` marker does; both the real
+    # CALLS edge and the override-marked one carry `caller_qualified_name`.
+    assert len(graph_slice_call_edges(result)) == 2

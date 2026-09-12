@@ -162,18 +162,32 @@ def build_graph_slice(
     *,
     limits: GraphSliceLimits | None = None,
     cache: GraphQueryCache | None = None,
+    edge_kinds: tuple[str, ...] = ("calls", "usage"),
 ) -> GraphSlice:
-    """Fetch a bounded CALLS/USAGE neighborhood around `seed_symbols`.
+    """Fetch a bounded neighborhood around `seed_symbols`, over whichever
+    of `edge_kinds` are requested (default: CALLS/USAGE only, exactly the
+    prior behavior -- every existing caller is unaffected).
 
     Hop-batched breadth-first expansion: at each hop, every symbol newly
     discovered at the previous hop (the seeds themselves at hop 0) is sent
-    in ONE `call_edges_for_seeds` call and ONE `usage_edges_for_seeds` call
-    — not one call per symbol — via `CBMClient`'s existing seed-scoped
-    query methods. Expansion stops, and `truncated` is set, the moment any
-    cap is reached: `max_depth` hops completed, `max_nodes`/`max_edges`
-    exceeded, or `max_graph_calls` spent. A `page_limit`-sized page that
-    comes back full is itself a truncation signal (more edges exist for
-    that hop than were fetched) even if no other cap fired yet.
+    in ONE seed-scoped fetch per requested edge kind — not one call per
+    symbol — via `CBMClient`'s existing seed-scoped query methods
+    (`call_edges_for_seeds`/`usage_edges_for_seeds`/`override_edges_for_seeds`).
+    Expansion stops, and `truncated` is set, the moment any cap is reached:
+    `max_depth` hops completed, `max_nodes`/`max_edges` exceeded, or
+    `max_graph_calls` spent. A `page_limit`-sized page that comes back full
+    is itself a truncation signal (more edges exist for that hop than were
+    fetched) even if no other cap fired yet.
+
+    `"override"` rows (CBM's already-computed resolution of a virtual/
+    interface call site to its concrete implementation(s) -- see
+    `CBMClient.override_edges_for_seeds`) are folded into the SAME
+    caller/callee edge shape CALLS rows use, reversed so the interface/
+    virtual method reads as the "caller" side -- this is what lets a
+    caller->callee-only adjacency traversal continue through a
+    virtual/interface dispatch hop without a separate edge shape to
+    handle. Not requested by default: only callers that explicitly ask
+    for `"override"` pay for or see it.
 
     Deterministic: hop order and within-hop query text are both fixed, so
     two calls with the same seeds/limits over the same graph state produce
@@ -182,6 +196,14 @@ def build_graph_slice(
     """
     limits = limits or GraphSliceLimits()
     cache = cache if cache is not None else GraphQueryCache()
+    # Resolved lazily, per requested kind: a test double or older client
+    # stub that doesn't define `override_edges_for_seeds` must not break
+    # any caller that never asks for `"override"` -- eagerly building a
+    # dict of all three bound methods up front would touch that attribute
+    # unconditionally, whether or not it's ever used.
+    fetcher_names = {
+        "calls": "call_edges_for_seeds", "usage": "usage_edges_for_seeds", "override": "override_edges_for_seeds",
+    }
 
     seeds = [s for s in dict.fromkeys(seed_symbols) if s]  # de-dup, preserve order
     slice_ = GraphSlice(seed_symbols=tuple(seeds))
@@ -202,10 +224,8 @@ def build_graph_slice(
         visited.update(frontier)
         next_frontier: list[str] = []
 
-        for edge_kind, fetch_method in (
-            ("calls", client.call_edges_for_seeds),
-            ("usage", client.usage_edges_for_seeds),
-        ):
+        for edge_kind in edge_kinds:
+            fetch_method = getattr(client, fetcher_names[edge_kind])
             if slice_.source_call_count >= limits.max_graph_calls:
                 slice_.truncated = True
                 slice_.truncation_reason = "max_graph_calls reached"
@@ -226,11 +246,11 @@ def build_graph_slice(
                 )
 
             for row in rows:
-                if edge_kind == "calls":
+                if edge_kind in ("calls", "override"):
                     caller_q, caller_file, caller_line, callee_q, callee_file, callee_line = (
                         (row + [None] * 6)[:6]
                     )
-                    edge_key = ("calls", str(caller_q), str(callee_q), str(caller_file))
+                    edge_key = (edge_kind, str(caller_q), str(callee_q), str(caller_file))
                     if edge_key in seen_edges:
                         continue
                     seen_edges.add(edge_key)
@@ -242,7 +262,7 @@ def build_graph_slice(
                         _node_key(callee_q, callee_file),
                         {"qualified_name": callee_q, "file": callee_file, "line": callee_line},
                     )
-                    slice_.edges.append({
+                    edge_dict = {
                         "repo": repo,
                         "caller_file": caller_file,
                         "caller_symbol": _short_name(caller_q),
@@ -253,7 +273,16 @@ def build_graph_slice(
                         "callee_qualified_name": callee_q,
                         "callee_line": callee_line,
                         "source": "cbm_graph_slice",
-                    })
+                    }
+                    if edge_kind == "override":
+                        # Marked, not a different shape: lets a consumer
+                        # (e.g. `sydes.recovery.graph_path`) describe this
+                        # hop honestly (a dispatch resolution, not a
+                        # textual call site) while every existing
+                        # caller/callee-shaped consumer keeps working
+                        # unchanged.
+                        edge_dict["_override"] = True
+                    slice_.edges.append(edge_dict)
                     for candidate in (caller_q, callee_q):
                         if candidate and candidate not in visited:
                             next_frontier.append(str(candidate))
