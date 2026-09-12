@@ -65,7 +65,13 @@ from sydes.impact import (
 )
 from sydes.discover.target_match import resolve_trace_target
 from sydes.observability import trace as _trace
+from sydes.store.system_model import SystemModelStore
 from sydes.store.workspace import compute_workspace_id
+from sydes.verify.system_model_reconcile import (
+    reconcile as reconcile_system_model,
+    restore_from_records,
+    should_skip_test_execution,
+)
 from sydes.generate.contracts import build_api_contract_from_routes
 from sydes.generate.tests import generate_test_matrix, match_route_contract
 from sydes.llm.client import LLMClient, LLMClientError, create_default_llm_client
@@ -167,6 +173,15 @@ class VerifyChangeOptions:
     #: recognises), or `always`. Conservative default: no LLM call happens
     #: for impact analysis unless this is explicitly set.
     impact_guide: str = GUIDE_OFF
+    #: MVP persistent-system-model capability (canonical flow/symbol
+    #: entities, a REACHES relation, and VerificationRecord history — see
+    #: `sydes.store.system_model`/`sydes.verify.system_model_reconcile`).
+    #: Off by default: no existing behavior changes unless explicitly
+    #: opted in. When on, an obligation whose result was already
+    #: established under the exact same `head` commit (and whose tracked
+    #: inputs are unchanged) restores that result instead of re-running the
+    #: test suite; every other case runs the suite exactly as today.
+    persist_system_model: bool = False
     diagnostics: list[str] = field(default_factory=list)
 
 
@@ -1468,6 +1483,7 @@ def analyze_change(
             "run_tests": options.run_tests,
             "test_timeout_seconds": options.test_timeout_seconds,
             "impact_guide": options.impact_guide,
+            "persist_system_model": options.persist_system_model,
         },
         repos=[{"name": item.name, "root": item.root} for item in normalized_repos],
     )
@@ -1488,6 +1504,10 @@ def analyze_change(
     # Route, symbol, and graph facts all come from one incremental index; the
     # analysis below is unchanged and simply reads from it.
     workspace_id = compute_workspace_id(normalized_repos)
+    system_model_store: SystemModelStore | None = None
+    if options.persist_system_model:
+        system_model_store = SystemModelStore.for_workspace(workspace_id)
+        system_model_store.load()
     # Edges are deliberately NOT materialized here. A repository-wide
     # CALLS/USAGE sweep costs in proportion to total repository edge count
     # rather than change size, and every consumer of those edges starts from
@@ -1993,7 +2013,10 @@ def analyze_change(
     result.runtime_dependencies = infer_runtime_dependencies(
         files=repo_files, flows=result.affected_flows, changed_files=changed_files
     )
-    _run_test_execution(result, options, repo_files, primary_root, changed_files)
+    _run_test_execution(
+        result, options, repo_files, primary_root, changed_files,
+        system_model_store=system_model_store, repos=normalized_repos,
+    )
 
     for flow in result.affected_flows:
         resolve_flow_status(flow)
@@ -2007,6 +2030,10 @@ def analyze_change(
         counts=result.summary.counts,
         reasons=result.summary.risk_reasons,
     )
+    if system_model_store is not None:
+        reconcile_system_model(
+            result, system_model_store, repos=normalized_repos, run_id=trace_run_id,
+        )
     return result
 
 
@@ -2034,8 +2061,32 @@ def _run_test_execution(
     repo_files,
     repo_root: Path,
     changed_files: set[str],
+    *,
+    system_model_store: SystemModelStore | None = None,
+    repos: list[RepoRef] | None = None,
 ) -> None:
-    """Run the repository's own test suite once and resolve obligations from it."""
+    """Run the repository's own test suite once and resolve obligations from
+    it — unless every obligation in this run is already restorable from an
+    identical prior run's persisted `VerificationRecord` (MVP persistent-
+    system-model capability, `options.persist_system_model`; see
+    `sydes.verify.system_model_reconcile` for the v1 safety rule: this only
+    ever applies across an EXACT repeat of the same `head` commit, never a
+    different one, no matter how well its tracked inputs still match)."""
+    if options.run_tests and system_model_store is not None:
+        restorable = should_skip_test_execution(result, system_model_store, repos=repos or [])
+        if restorable is not None:
+            restore_from_records(result, restorable)
+            for flow in result.affected_flows:
+                for obligation in flow.obligations:
+                    if obligation.id not in restorable:
+                        # No mapped tests -- never depended on the suite in
+                        # the first place (see should_skip_test_execution's
+                        # docstring); resolve it exactly as this always
+                        # would, without a suite run.
+                        resolve_obligation_status(obligation, None)
+                    _trace_test_decision(flow, obligation)
+            return
+
     settings = ExecutionSettings(
         enabled=options.run_tests, timeout_seconds=options.test_timeout_seconds
     )

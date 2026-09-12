@@ -124,6 +124,21 @@ def verify_change_command(
             ),
         ),
     ] = False,
+    persist_system_model: Annotated[
+        bool,
+        typer.Option(
+            "--persist-system-model",
+            help=(
+                "MVP: persist canonical flow/symbol entities and per-obligation "
+                "verification history across runs (off by default; never changes "
+                "the verdict). When on, an obligation already established under "
+                "the exact same head commit (with unchanged tracked inputs) "
+                "restores that result instead of re-running the test suite; a "
+                "different commit always runs the suite normally, even if the "
+                "tracked inputs still match — see sydes.verify.system_model_reconcile."
+            ),
+        ),
+    ] = False,
 ) -> None:
     """Analyze a change, run the tests that verify it, and report the evidence."""
     try:
@@ -143,6 +158,7 @@ def verify_change_command(
         run_tests=not no_run_tests,
         test_timeout_seconds=test_timeout,
         impact_guide=impact_guide,
+        persist_system_model=persist_system_model,
     )
 
     try:
