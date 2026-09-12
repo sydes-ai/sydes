@@ -265,43 +265,93 @@ def _entity_ref(node: _Node, *, file_by_qn: dict[str, str]) -> EntityRef:
 #: class/method declaration, is a handful of lines away, not on it.
 _CITATION_WINDOW_LINES = 6
 _CITATION_MAX_CHARS = 800
+#: How far past `hint_line` to search for `needle` with a BOUNDED read,
+#: before falling back to a whole-file read. `RepoTools.read_file` caps
+#: total output at a fixed character budget regardless of range -- a
+#: normal, unremarkable ~800-line file already exceeds that budget well
+#: before reaching line 200, so a whole-file read silently never reaches a
+#: real call site that's merely a few dozen lines past a hint (measured
+#: directly: a real repo's citation for a genuine CALLS edge -- caller
+#: declared at line 300, actual call at line 330 -- came back showing
+#: unrelated code from around line 160, because the whole-file read
+#: truncated long before either line). A bounded read centered on the hint
+#: stays far under that budget for any hint this close, regardless of how
+#: long the file is.
+_SEARCH_WINDOW_LINES = 60
+
+_LINE_PREFIX_RE = re.compile(r"^(\d+): ?")
+
+
+def _parse_numbered_lines(content: str) -> list[tuple[int, str]]:
+    """`(real_line_number, "N: text")` pairs, parsed from the "N: " prefix
+    `RepoTools.read_file` itself puts on every line -- read from the
+    prefix, not inferred from list position, since a BOUNDED read (any
+    `start_line` other than 1) means position and real line number are not
+    the same thing. Silently skips anything that isn't a numbered line
+    (e.g. `read_file`'s own `"ERROR: ..."` string on a missing file)."""
+    if not content:
+        return []
+    out: list[tuple[int, str]] = []
+    for raw in content.split("\n"):
+        match = _LINE_PREFIX_RE.match(raw)
+        if match:
+            out.append((int(match.group(1)), raw))
+    return out
+
+
+def _search_needle(numbered: list[tuple[int, str]], needle: str) -> tuple[list[int], int | None]:
+    """Real line numbers where `needle` appears as a whole identifier,
+    outside an import-shaped line -- plus the first import-shaped match's
+    line number, kept separately as a last-resort fallback. An
+    import/include statement is the single most common reason a textual
+    mention of an identifier is not actually evidence of anything -- every
+    language surfaced so far (import ... from, from ... import,
+    import ...;) shares the same recognizable shape."""
+    pattern = re.compile(rf"\b{re.escape(needle)}\b")
+    candidates: list[int] = []
+    import_match: int | None = None
+    for line_no, raw in numbered:
+        if not pattern.search(raw):
+            continue
+        content_after_prefix = raw.split(":", 1)[-1]
+        if re.match(r"^\s*(import\b|from\s+\S+\s+import\b)", content_after_prefix):
+            if import_match is None:
+                import_match = line_no
+            continue
+        candidates.append(line_no)
+    return candidates, import_match
 
 
 def _locate_and_cite(tools: RepoTools, file: str, needle: str, *, hint_line: int | None) -> RecoveredEvidence:
-    """Reads `file` once, searches its (already line-numbered, per
-    `RepoTools.read_file`) content for the first line mentioning `needle`
-    as a whole identifier, and cites a real window of surrounding lines --
-    never just the one line a graph edge happens to record a number for,
-    which is routinely a declaration/signature line that never itself
-    mentions the other endpoint. Falls back to `hint_line` (whatever
-    approximate line the caller does have, e.g. a symbol's own recorded
-    start line) when the needle isn't found as literal text -- still a
-    real citation, just a less targeted one; `sydes.recovery.verify`'s
-    Layer 1/2 independently judges whether it is actually sufficient.
+    """Searches for `needle` (a whole identifier) near `hint_line` first,
+    via a BOUNDED read (see `_SEARCH_WINDOW_LINES`), falling back to a
+    whole-file read only when that bounded search finds nothing at all (or
+    there is no `hint_line` to center on) -- never the reverse, since a
+    whole-file read is what silently truncates before reaching a real
+    reference in anything but a short file. Cites a real window of
+    surrounding lines around whichever line is actually found, never just
+    the one line a graph edge happens to record a number for, which is
+    routinely a declaration/signature line that never itself mentions the
+    other endpoint. `sydes.recovery.verify`'s Layer 1/2 independently
+    judges whether the result is actually sufficient.
     """
-    content = tools.read_file(file)
-    numbered_lines = content.split("\n") if content else []
-    match_idx = None
+    numbered: list[tuple[int, str]] = []
+    if hint_line is not None:
+        lo = max(1, hint_line - _SEARCH_WINDOW_LINES)
+        hi = hint_line + _SEARCH_WINDOW_LINES
+        numbered = _parse_numbered_lines(tools.read_file(file, start_line=lo, end_line=hi))
+
+    match_line: int | None = None
     if needle:
-        pattern = re.compile(rf"\b{re.escape(needle)}\b")
-        # An import/include statement is the single most common reason a
-        # textual mention of an identifier is not actually evidence of
-        # anything -- every language surfaced so far (import ... from,
-        # from ... import, import ...;) shares the same recognizable
-        # shape. Collect every OTHER match; only fall back to an
-        # import-line match if nothing else mentions the identifier at
-        # all (still real content, just weaker).
-        import_match_idx = None
-        candidates: list[int] = []
-        for i, line in enumerate(numbered_lines):
-            if not pattern.search(line):
-                continue
-            content_after_prefix = line.split(":", 1)[-1]
-            if re.match(r"^\s*(import\b|from\s+\S+\s+import\b)", content_after_prefix):
-                if import_match_idx is None:
-                    import_match_idx = i
-                continue
-            candidates.append(i)
+        candidates, import_match = _search_needle(numbered, needle) if numbered else ([], None)
+        if not candidates and import_match is None:
+            # No hint_line at all, or the bounded window around it didn't
+            # contain `needle` anywhere -- fall back to a whole-file
+            # search, exactly the prior behavior. A real reference this
+            # far from its hint is rare; this only costs an extra read
+            # when the bounded attempt above didn't already succeed.
+            numbered = _parse_numbered_lines(tools.read_file(file))
+            candidates, import_match = _search_needle(numbered, needle)
         if candidates:
             # Nearest to the caller's own recorded line, not simply the
             # FIRST textual occurrence in the file: a symbol's own
@@ -311,32 +361,25 @@ def _locate_and_cite(tools: RepoTools, file: str, needle: str, *, hint_line: int
             # edge actually claims -- measured directly (a real repo cited
             # a callee's own definition instead of its call site, and the
             # citation was correctly judged insufficient downstream).
-            match_idx = (
-                min(candidates, key=lambda i: abs(i - (hint_line - 1)))
-                if hint_line is not None else candidates[0]
+            match_line = (
+                min(candidates, key=lambda ln: abs(ln - hint_line)) if hint_line is not None else candidates[0]
             )
         else:
-            match_idx = import_match_idx
-    if match_idx is None and hint_line is not None:
-        match_idx = max(0, hint_line - 1)
-    if match_idx is None:
-        match_idx = 0
-    # `numbered_lines` may be a TRUNCATED prefix of the real file --
-    # `RepoTools.read_file` caps its total output at a fixed character
-    # budget, silently dropping the tail of a long file. A `match_idx`
-    # computed above (in particular a `hint_line`-derived one, which is a
-    # real source line number, not bounded by what was actually read) can
-    # land past the end of what's actually in `numbered_lines` -- clamping
-    # here is what keeps that from producing a start>end or out-of-range
-    # slice that renders as an empty citation (measured directly: a real
-    # repo produced `line_start=149, line_end=142` this way, on a file cut
-    # short by the read budget).
-    if numbered_lines:
-        match_idx = min(match_idx, len(numbered_lines) - 1)
-    start = max(0, match_idx - _CITATION_WINDOW_LINES)
-    end = min(len(numbered_lines), match_idx + _CITATION_WINDOW_LINES + 1)
-    fact = "\n".join(numbered_lines[start:end])[:_CITATION_MAX_CHARS]
-    return RecoveredEvidence(file=file, line_start=start + 1 if numbered_lines else None, line_end=end or None, fact=fact)
+            match_line = import_match
+    if match_line is None:
+        match_line = hint_line if hint_line is not None else (numbered[0][0] if numbered else 1)
+
+    # The final citation is always a FRESH, small, bounded read centered on
+    # `match_line` -- regardless of which of the reads above found it --
+    # so this can never inherit a stale, truncated buffer from either
+    # earlier attempt.
+    disp_lo = max(1, match_line - _CITATION_WINDOW_LINES)
+    disp_hi = match_line + _CITATION_WINDOW_LINES
+    disp_numbered = _parse_numbered_lines(tools.read_file(file, start_line=disp_lo, end_line=disp_hi))
+    if not disp_numbered:
+        return RecoveredEvidence(file=file, line_start=None, line_end=None, fact="")
+    fact = "\n".join(text for _, text in disp_numbered)[:_CITATION_MAX_CHARS]
+    return RecoveredEvidence(file=file, line_start=disp_numbered[0][0], line_end=disp_numbered[-1][0], fact=fact)
 
 
 def _edge_evidence(

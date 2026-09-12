@@ -379,6 +379,44 @@ def test_decorator_bridge_on_a_class_continues_via_its_own_methods(tmp_path: Pat
 # ---------------------------------------------------------------------------
 
 
+def test_evidence_citation_reaches_a_real_call_beyond_the_whole_file_read_budget(tmp_path: Path):
+    """Regression for a real, measured failure on a real fork PR: CBM's own
+    recorded `caller_line` for a CALLS edge is very often the caller's OWN
+    declaration line, not the exact call-site line a few dozen lines into
+    its body (here: hint_line=300, the real call is at line 330) -- and
+    `RepoTools.read_file`'s fixed character budget means a WHOLE-FILE read
+    silently truncates before reaching either line on any normal-length
+    file (a real ~800-line file truncated before line 170). The bounded,
+    hint-centered read this function now tries FIRST must still find the
+    real call 30 lines past the hint, where a whole-file read already
+    cannot.
+    """
+    filler = "x" * 12
+    lines = [f"line {i} {filler}" for i in range(1, 341)]
+    lines[329] = "call farAwaySymbol()"  # real line 330 -- 30 lines past hint_line=300
+    _write(tmp_path, "mod.ts", "\n".join(lines) + "\n")
+
+    graph = _FakeGraph(
+        qn_map={("create", "controller.ts"): "pkg.Controller.create"},
+        slices={
+            ("pkg.Controller.create",): _slice(
+                {"pkg.Controller.create": "controller.ts", "pkg.Mod.farAwaySymbol": "mod.ts"},
+                # caller_line=300: the DECLARATION line, not the real call
+                # site at 330 -- exactly the real-world CBM shape.
+                [_calls_edge("pkg.Controller.create", "mod.ts", 300, "pkg.Mod.farAwaySymbol", "mod.ts")],
+            ),
+        },
+    )
+    target = EntityRef(symbol="farAwaySymbol", file="mod.ts", qualified_name="pkg.Mod.farAwaySymbol")
+    entrypoints = [EntityRef(symbol="create", file="controller.ts", qualified_name="pkg.Controller.create")]
+
+    path = propose_graph_path(entrypoints, target, graph=graph, tools=_repo(tmp_path))
+    assert path is not None
+    evidence = path.edges[0].evidence[0]
+    assert "call farAwaySymbol()" in evidence.fact
+    assert evidence.line_start <= 330 <= evidence.line_end
+
+
 def test_topology_fallback_discovers_a_verified_root_with_no_known_entrypoint(tmp_path: Path):
     """The core scenario this fallback exists for: `entrypoints=[]` (no
     HTTP route, no established flow reaches this target). Seeded from the
