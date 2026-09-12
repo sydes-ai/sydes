@@ -58,6 +58,16 @@ class RecoveryContext:
     #: routes-config constant, not a literal string) — never used for
     #: identity; only `file` + `symbol` are.
     declarative_entrypoints: tuple[str, ...] = ()
+    #: Every route the run's own deterministic, language-agnostic route
+    #: discovery found in this repo — not filtered to ones already tied to
+    #: the diff (see `known_entrypoints` above for that narrower set).
+    #: Opt-in (see `build_context`'s `include_repo_routes`): empty unless
+    #: explicitly requested, so this is additive to discovery's prompt, not
+    #: a default behavior change. A hint, exactly like
+    #: `declarative_entrypoints` above — Stage B still has to prove the
+    #: connection from any of these to the changed behavior; naming a route
+    #: here is not by itself evidence of anything.
+    repo_known_routes: tuple[str, ...] = ()
 
 
 def _diff_summary(result: ChangeVerificationResult) -> str:
@@ -152,13 +162,39 @@ def _declarative_entrypoints(repo_root: Path | None, changed_files: tuple[str, .
     )
 
 
+def _repo_known_routes(result: ChangeVerificationResult) -> tuple[str, ...]:
+    """Every deterministically-discovered route this run found for the
+    repo, formatted the same way `declarative_entrypoints` is — method,
+    path, handler, file, nothing framework-specific. Only routes with a
+    complete method/path/handler/file are shown; an incomplete candidate
+    is not a usable anchor and would just add noise. Order and dedup by
+    (method, path, handler, file) since discovery can legitimately surface
+    the same route more than once across passes."""
+    seen: set[tuple[str, str, str, str]] = set()
+    out: list[str] = []
+    for route in result.known_routes:
+        if not (route.method and route.path and route.handler and route.file):
+            continue
+        key = (route.method, route.path, route.handler, route.file)
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(f"{route.method} {route.path} -> {route.handler} ({route.file})")
+    return tuple(out)
+
+
 def build_context(
     result: ChangeVerificationResult, trigger: RecoveryTrigger, *, repo_root: Path | None = None,
+    include_repo_routes: bool = False,
 ) -> RecoveryContext:
     """`repo_root` is optional so callers that don't need
     `declarative_entrypoints` (or are constructing a context in a test)
     aren't forced to supply one — omitting it just leaves that field
-    empty, never an error."""
+    empty, never an error.
+
+    `include_repo_routes` gates `repo_known_routes` (see that field's own
+    docstring on `RecoveryContext`) — off by default, so this is additive
+    to what discovery is shown, never a default behavior change."""
     changed_files = _changed_files(result)
     return RecoveryContext(
         reason_first_pass_stopped=trigger.reason,
@@ -172,4 +208,5 @@ def build_context(
         unresolved_gaps=tuple(result.analysis_notes),
         changed_files=changed_files,
         declarative_entrypoints=_declarative_entrypoints(repo_root, changed_files),
+        repo_known_routes=_repo_known_routes(result) if include_repo_routes else (),
     )

@@ -1628,6 +1628,7 @@ def analyze_change(
         strict_llm=False,
         route_index_batch=structural.route_index,
     )
+    result.known_routes = routes.routes
     result.diagnostics.extend(
         note for note in routes.notes if "coverage" in note or "routes" in note.lower()
     )

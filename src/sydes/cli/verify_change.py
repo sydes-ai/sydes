@@ -139,6 +139,26 @@ def verify_change_command(
             ),
         ),
     ] = False,
+    recovery_route_context: Annotated[
+        bool,
+        typer.Option(
+            "--recovery-route-context",
+            help=(
+                "Give AI recovery (see --no-ai-recovery) the full list of routes "
+                "this run's own deterministic route discovery found in the repo, "
+                "not only the ones already connected to this diff. Off by "
+                "default. This exists for the same reason "
+                "`declarative_entrypoints` already does: recovery's discovery "
+                "step has no other deterministic anchor when the changed "
+                "behavior is far (in file-tree distance) from the HTTP route "
+                "that reaches it, and without one it can propose the wrong "
+                "kind of node as the entrypoint entirely. A route named here "
+                "is a hint only; sydes.recovery.verify still independently "
+                "proves or rejects every hop before anything is merged into "
+                "the canonical result — see sydes.recovery.canonical_merge."
+            ),
+        ),
+    ] = False,
 ) -> None:
     """Analyze a change, run the tests that verify it, and report the evidence."""
     try:
@@ -176,7 +196,10 @@ def verify_change_command(
         raise typer.BadParameter(str(exc), param_hint="--repo") from exc
 
     if not no_ai_recovery:
-        _run_ai_recovery(result, repo_root=Path(repos[0].root), model_spec=model, json_output=json_output)
+        _run_ai_recovery(
+            result, repo_root=Path(repos[0].root), model_spec=model, json_output=json_output,
+            include_repo_routes=recovery_route_context,
+        )
 
     workspace_id = compute_workspace_id(repos)
     run_id = create_run_id()
@@ -209,6 +232,7 @@ def verify_change_command(
 
 def _run_ai_recovery(
     result: ChangeVerificationResult, *, repo_root: Path, model_spec: str | None, json_output: Path | None,
+    include_repo_routes: bool = False,
 ) -> None:
     """The entire AI-recovery integration surface, run automatically by
     default (see `--no-ai-recovery`): evaluate the trigger, run one
@@ -221,7 +245,11 @@ def _run_ai_recovery(
     broken recovery pass can never fail a normal `verify-change` run or
     leave a misleading trace. `summary.verdict`/`risk`/`headline` and
     CBM's graph are never touched here, whether recovery establishes
-    something or not — see `canonical_merge` for exactly what is."""
+    something or not — see `canonical_merge` for exactly what is.
+
+    `include_repo_routes` (see `--recovery-route-context`) only changes
+    what discovery is SHOWN; `sydes.recovery.verify`'s Layer 0/1/2 proof
+    requirements are exactly the same either way."""
     trigger = evaluate_trigger(result)
     if trigger is None:
         typer.echo("AI recovery (experimental): no high-value gap found; skipped.")
@@ -234,7 +262,7 @@ def _run_ai_recovery(
         typer.echo(f"AI recovery (experimental): could not create LLM client: {exc}")
         return
 
-    context = build_context(result, trigger, repo_root=repo_root)
+    context = build_context(result, trigger, repo_root=repo_root, include_repo_routes=include_repo_routes)
     try:
         outcome = recover(context, repo_root=repo_root, client=client, trigger_reason=trigger.reason)
     except RecoveryError as exc:

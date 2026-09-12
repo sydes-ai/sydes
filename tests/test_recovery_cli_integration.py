@@ -71,3 +71,35 @@ def test_recovery_error_during_the_loop_leaves_result_intact(tmp_path: Path, mon
     _run_ai_recovery(result, repo_root=tmp_path, model_spec=None, json_output=None)
 
     assert result.notes == original_notes
+
+
+def test_include_repo_routes_defaults_to_false_and_is_threaded_to_build_context(tmp_path: Path, monkeypatch):
+    """`--recovery-route-context` must default to off (no behavior change
+    for existing callers) and, when passed, must actually reach
+    `build_context` rather than being silently dropped."""
+    from sydes.recovery.schema import RecoveryError
+    from sydes.verify.models import AcceptedImpact
+
+    result = _result()
+    result.accepted_impacts = [AcceptedImpact(id="i1", label="something", status="proven")]
+
+    from sydes.recovery.context import build_context as _real_build_context
+
+    seen: dict[str, object] = {}
+
+    def _spy_build_context(res, trigger, *, repo_root=None, include_repo_routes=False):
+        seen["include_repo_routes"] = include_repo_routes
+        return _real_build_context(res, trigger, repo_root=repo_root, include_repo_routes=include_repo_routes)
+
+    def _boom_recover(*_args, **_kwargs):
+        raise RecoveryError("stop before any LLM call")
+
+    monkeypatch.setattr("sydes.cli.verify_change.create_default_llm_client", lambda *a, **k: object())
+    monkeypatch.setattr("sydes.cli.verify_change.build_context", _spy_build_context)
+    monkeypatch.setattr("sydes.cli.verify_change.recover", _boom_recover)
+
+    _run_ai_recovery(result, repo_root=tmp_path, model_spec=None, json_output=None)
+    assert seen["include_repo_routes"] is False
+
+    _run_ai_recovery(result, repo_root=tmp_path, model_spec=None, json_output=None, include_repo_routes=True)
+    assert seen["include_repo_routes"] is True

@@ -11,7 +11,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-from sydes.core.models import EvidenceRef, RepoRef
+from sydes.core.models import EndpointCandidate, EvidenceRef, RepoRef
 
 # Change classification.
 CHANGE_ADDED = "added"
@@ -812,3 +812,15 @@ class ChangeVerificationResult(BaseModel):
     cross_repo_impacts: list[CrossRepoImpact] = Field(default_factory=list)
     notes: list[str] = Field(default_factory=list)
     diagnostics: list[str] = Field(default_factory=list)
+    #: Every route `discover_endpoints` found for this repo, regardless of
+    #: whether the diff ever connected to it — the same deterministic,
+    #: language-agnostic route discovery every `verify-change` run already
+    #: performs, just retained here instead of discarded once
+    #: `affected_flows` is built. Always populated (cheap: no extra work,
+    #: reuses the run's own route discovery); consumed only by
+    #: `sydes.recovery.context` when explicitly opted into, and never read
+    #: by the renderer or by `_compute_summary` — see that module for why
+    #: an entrypoint discovery gap (not merely a verification gap) needs
+    #: this list instead of `affected_flows`/`accepted_impacts`, which only
+    #: contain entrypoints already tied to the diff.
+    known_routes: list[EndpointCandidate] = Field(default_factory=list)

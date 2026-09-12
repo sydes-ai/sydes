@@ -14,7 +14,7 @@ import pytest
 from sydes.llm.client import LLMRequest, LLMResponse
 from sydes.recovery.agent import RecoveryRunStats
 from sydes.recovery.context import RecoveryContext
-from sydes.recovery.discovery import discover_candidate
+from sydes.recovery.discovery import _build_initial_prompt, discover_candidate
 from sydes.recovery.schema import RecoveryError
 
 
@@ -105,3 +105,21 @@ def test_discover_candidate_genuine_single_node_zero_hop_path_is_valid(repo: Pat
     assert path is not None
     assert [n.symbol for n in path.nodes] == ["a"]
     assert tests == []
+
+
+def test_prompt_shows_no_routes_available_when_repo_known_routes_empty():
+    prompt = _build_initial_prompt(_context())
+    assert "repo_known_routes" in prompt
+    assert "(none available)" in prompt
+
+
+def test_prompt_lists_repo_known_routes_when_present():
+    context = RecoveryContext(
+        reason_first_pass_stopped="no established path", gap_kinds=("no_established_flow",),
+        diff_summary="- modified app/handler.ts", changed_symbols=(), current_result_summary="",
+        cbm_fragments="", known_entrypoints=(), test_candidates=(), unresolved_gaps=(),
+        repo_known_routes=("POST /v1/users -> UserController.createUser (src/user/controller.ts)",),
+    )
+    prompt = _build_initial_prompt(context)
+    assert "POST /v1/users -> UserController.createUser (src/user/controller.ts)" in prompt
+    assert "(none available)" not in prompt

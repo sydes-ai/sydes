@@ -87,6 +87,13 @@ def _build_initial_prompt(context: RecoveryContext) -> str:
         "declarative_entrypoints (decorator-shape matches near the changed files -- hints, not proof; see above):",
         *([f"  - {e}" for e in context.declarative_entrypoints] if context.declarative_entrypoints else ["  (none found)"]),
         "",
+        "repo_known_routes (every route this repo's own deterministic route discovery found, anywhere in the "
+        "repo -- NOT filtered to routes already connected to this diff, and NOT proof of anything: the entrypoint "
+        "for this change is very often one of these even when its controller/handler file is far from the changed "
+        "file, but a separate step still has to prove the connection. Check this list, not only "
+        "declarative_entrypoints, before deciding no plausible entrypoint exists):",
+        *([f"  - {e}" for e in context.repo_known_routes] if context.repo_known_routes else ["  (none available)"]),
+        "",
         "test_candidates (files this diff changed that look test-related):",
         *([f"  - {t}" for t in context.test_candidates] if context.test_candidates else ["  (none flagged)"]),
         "",
