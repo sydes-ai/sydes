@@ -379,6 +379,43 @@ def test_decorator_bridge_on_a_class_continues_via_its_own_methods(tmp_path: Pat
 # ---------------------------------------------------------------------------
 
 
+def test_evidence_prefers_a_farther_forward_call_over_a_nearer_backward_declaration(tmp_path: Path):
+    """Regression for a real, measured failure distinct from the
+    first-match bug above: `hint_line` is the CALLER's own declaration
+    line, so the real call can only appear AT OR AFTER it -- but a
+    callee's own declaration living earlier in the file (an ordinary
+    layout: helpers declared above the functions that use them) can still
+    be numerically NEARER to the hint than the real, farther-but-forward
+    call site. Plain nearest-by-distance picks the wrong one. Real shape:
+    hint_line=100, callee declared at 70 (distance 30, backward), real
+    call at 145 (distance 45, forward) -- naive nearest picks 70.
+    """
+    lines = ["// filler"] * 400
+    lines[69] = "function farHelper() {}"  # real line 70: callee's own declaration, BEFORE the hint
+    lines[144] = "call farHelper()"  # real line 145: the actual call site, AFTER the hint
+    _write(tmp_path, "mod.ts", "\n".join(lines) + "\n")
+
+    graph = _FakeGraph(
+        qn_map={("create", "controller.ts"): "pkg.Controller.create"},
+        slices={
+            ("pkg.Controller.create",): _slice(
+                {"pkg.Controller.create": "mod.ts", "pkg.Mod.farHelper": "mod.ts"},
+                # caller_line=100: the caller's OWN declaration, not the
+                # real call site at 145.
+                [_calls_edge("pkg.Controller.create", "mod.ts", 100, "pkg.Mod.farHelper", "mod.ts")],
+            ),
+        },
+    )
+    target = EntityRef(symbol="farHelper", file="mod.ts", qualified_name="pkg.Mod.farHelper")
+    entrypoints = [EntityRef(symbol="create", file="controller.ts", qualified_name="pkg.Controller.create")]
+
+    path = propose_graph_path(entrypoints, target, graph=graph, tools=_repo(tmp_path))
+    assert path is not None
+    evidence = path.edges[0].evidence[0]
+    assert "call farHelper()" in evidence.fact
+    assert "function farHelper()" not in evidence.fact
+
+
 def test_evidence_citation_reaches_a_real_call_beyond_the_whole_file_read_budget(tmp_path: Path):
     """Regression for a real, measured failure on a real fork PR: CBM's own
     recorded `caller_line` for a CALLS edge is very often the caller's OWN

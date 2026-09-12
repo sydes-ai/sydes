@@ -361,8 +361,26 @@ def _locate_and_cite(tools: RepoTools, file: str, needle: str, *, hint_line: int
             # edge actually claims -- measured directly (a real repo cited
             # a callee's own definition instead of its call site, and the
             # citation was correctly judged insufficient downstream).
+            #
+            # Among candidates, one AT OR AFTER `hint_line` is preferred
+            # over a nearer one BEFORE it: `hint_line` is, in the shape
+            # CBM actually records for a CALLS/USAGE edge, the CALLER's own
+            # declaration start line -- and a call the caller makes can
+            # only appear textually at or after where the caller itself
+            # begins, never before it. A callee's own declaration living
+            # earlier in the file (a common, ordinary layout: helpers
+            # declared above the functions that use them) can still be
+            # numerically NEARER to `hint_line` than the real call site
+            # despite being the wrong endpoint entirely -- measured
+            # directly (a real repo's callee was declared 42 lines before
+            # the hint while its real call site was 55 lines after; plain
+            # nearest-by-distance picked the declaration). Only candidates
+            # before the hint are considered at all when nothing qualifies
+            # at or after it.
+            forward = [ln for ln in candidates if hint_line is not None and ln >= hint_line]
+            pool = forward or candidates
             match_line = (
-                min(candidates, key=lambda ln: abs(ln - hint_line)) if hint_line is not None else candidates[0]
+                min(pool, key=lambda ln: abs(ln - hint_line)) if hint_line is not None else candidates[0]
             )
         else:
             match_line = import_match
