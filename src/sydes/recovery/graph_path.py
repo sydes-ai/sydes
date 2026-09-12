@@ -183,7 +183,20 @@ def _find_decorator_bridges(
 #: their own member methods (see `_expand_type_shaped_nodes`) -- a
 #: generous but real cap, not "no limit", since each expansion is its own
 #: CBM lookup.
-_MAX_CLASS_EXPANSIONS = 20
+#:
+#: Root-caused, not guessed: this was 20, and the candidate list is sorted
+#: on the full qualified name (needed for determinism -- see that sort's
+#: own comment) which is prefixed by file path, not by anything about
+#: usefulness. A live run had 55 type-shaped candidates in a single
+#: reachability round; the one this specific case needed (a value object
+#: named `Address`) sorted outside the first 20 purely because of where
+#: its file happens to fall alphabetically among the others -- silently
+#: excluding it from expansion regardless of how many turns/bridge rounds
+#: ran, no error, no truncation flag, nothing to indicate why the search
+#: failed. 300 comfortably covers the type-shaped subset of a reachability
+#: slice bounded at 2000 total nodes (`GraphSliceLimits.max_nodes`) without
+#: being unbounded.
+_MAX_CLASS_EXPANSIONS = 300
 
 
 def _expand_type_shaped_nodes(

@@ -206,6 +206,47 @@ def test_decorator_bridge_connects_an_otherwise_unreachable_target(tmp_path: Pat
     assert bridge_edge.evidence[0].file == "handler.ts"
 
 
+def test_type_shaped_expansion_cap_does_not_arbitrarily_exclude_the_needed_class(tmp_path: Path):
+    """Regression for a real, measured failure: `_MAX_CLASS_EXPANSIONS`
+    used to be 20, and candidates are (still, for determinism) sorted by
+    FULL qualified name -- a string dominated by an irrelevant path
+    prefix, unrelated to which candidate is actually useful. With enough
+    decoy type-shaped nodes sorting ahead of the one that matters (here,
+    plain alphabetical luck: "aaa..." decoys before "pkg.Address"), the
+    needed class fell outside the cap and its own methods -- the only way
+    to reach the target -- never got expanded, deterministically failing
+    every time no matter how many bridge rounds ran. Real case: 55
+    type-shaped candidates in one round, the needed one excluded by the
+    old cap of 20.
+    """
+    _write(tmp_path, "controller.ts", "new Address(props)\n")
+    _write(tmp_path, "address.ts", "class Address {\n  validate() {}\n}\n")
+
+    decoy_qns = [f"aaa.decoy.Decoy{i:02d}" for i in range(30)]  # 30 > the old cap of 20
+    nodes = {"pkg.Controller.create": "controller.ts", "pkg.Address": "address.ts"}
+    nodes.update({qn: "decoy.ts" for qn in decoy_qns})
+
+    graph = _FakeGraph(
+        qn_map={
+            ("create", "controller.ts"): "pkg.Controller.create",
+            ("validate", "address.ts"): "pkg.Address.validate",
+        },
+        slices={
+            ("pkg.Controller.create",): _slice(
+                nodes,
+                [_calls_edge("pkg.Controller.create", "controller.ts", 1, "pkg.Address", "address.ts")],
+            ),
+        },
+        methods={"pkg.Address": ["pkg.Address.validate"]},
+    )
+    target = EntityRef(symbol="validate", file="address.ts")
+    entrypoints = [EntityRef(symbol="create", file="controller.ts")]
+
+    path = propose_graph_path(entrypoints, target, graph=graph, tools=_repo(tmp_path))
+    assert path is not None
+    assert [n.symbol for n in path.nodes] == ["create", "Address", "validate"]
+
+
 def test_decorator_bridge_on_a_class_continues_via_its_own_methods(tmp_path: Path):
     """The measured real-world shape: a class-level decorator/annotation
     has NO CALLS/USAGE edge of its own at all (a class declaration doesn't
