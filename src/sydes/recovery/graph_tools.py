@@ -23,9 +23,11 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Any
 
 from sydes.code_intelligence.base import CodeIntelligenceError
 from sydes.code_intelligence.cbm_client import CBMClient
+from sydes.code_intelligence.graph_slice import GraphSlice, GraphSliceLimits, build_graph_slice
 
 #: Same spirit as `sydes.recovery.tools`'s `_MAX_READ_CHARS` -- one graph
 #: query must not blow past the prompt budget on its own.
@@ -110,3 +112,51 @@ class CBMGraphTools:
         except CodeIntelligenceError as exc:
             return f"ERROR: {exc}"
         return json.dumps(payload, separators=(",", ":"))[:_MAX_OBSERVATION_CHARS]
+
+    def reachability_slice(
+        self, seed_qualified_names: list[str], *, max_depth: int = 4,
+    ) -> GraphSlice | None:
+        """A bounded CALLS/USAGE neighborhood reachable from `seed_qualified_names`
+        -- reuses `sydes.code_intelligence.graph_slice.build_graph_slice`
+        exactly as the main structural pipeline does (same hop-batched,
+        capped BFS, same seed-scoped `CBMClient` queries), just with a
+        deeper default budget: this is a one-shot lookup for a specific
+        unresolved hop, not a per-run neighborhood fetch. Returns `None`
+        (never raises) when CBM is unavailable for this repository."""
+        project = self._ensure_project()
+        if project is None or self._client is None:
+            return None
+        limits = GraphSliceLimits(max_depth=max_depth)
+        return build_graph_slice(
+            self._client, project, self._repo_root.name, seed_qualified_names, limits=limits,
+        )
+
+    def resolve_qualified_name(self, bare_name: str, file: str) -> str | None:
+        """CBM's own qualified name for a symbol Sydes knows only by its
+        short display name and file (e.g. a route handler from
+        `discover_endpoints`) -- required to seed a `reachability_slice`
+        or match `decorated_symbols`, both of which are keyed by CBM's
+        qualified name. `None` (never a guess) when unavailable or no
+        match."""
+        project = self._ensure_project()
+        if project is None or self._client is None:
+            return None
+        try:
+            return self._client.resolve_qualified_name(project, bare_name, file)
+        except CodeIntelligenceError:
+            return None
+
+    def decorated_symbols(self) -> list[dict[str, Any]]:
+        """Every symbol in the repo carrying decorator/annotation source or
+        route metadata (see `CBMClient.decorated_symbols`) -- a fact about
+        the symbol, not framework knowledge; interpreting it (e.g.
+        correlating one symbol's decorator argument against another
+        symbol's name) is entirely the caller's job. Returns `[]` (never
+        raises) when CBM is unavailable."""
+        project = self._ensure_project()
+        if project is None or self._client is None:
+            return []
+        try:
+            return self._client.decorated_symbols(project)
+        except CodeIntelligenceError:
+            return []

@@ -43,6 +43,7 @@ from sydes.recovery.context import RecoveryContext
 from sydes.recovery.discovery import discover_candidate
 from sydes.recovery.entrypoint_heuristic import find_declarative_entrypoints
 from sydes.recovery.evidence import decompose_relationship, prove_relationship, prove_test_claim
+from sydes.recovery.graph_path import propose_graph_path
 from sydes.recovery.graph_tools import CBMGraphTools
 from sydes.recovery.schema import (
     EntityRef,
@@ -120,6 +121,14 @@ class RecoveryRunStats:
     files_read: list[str] = field(default_factory=list)
     recursive_decompositions_attempted: int = 0
     recursive_decompositions_used: int = 0
+    #: How many candidate paths `sydes.recovery.graph_path.propose_graph_path`
+    #: proposed (one attempt per changed symbol, see `recover`), and how
+    #: many of those the SAME `verify_paths` call every other candidate
+    #: path goes through actually established -- zero LLM calls spent on
+    #: either number beyond the one shared Layer-2 batch judging every
+    #: candidate edge (graph-proposed and LLM-proposed alike) together.
+    graph_paths_proposed: int = 0
+    graph_paths_established: int = 0
     #: How many single-edge retries (see `RecoveryBudget.max_edge_retries`)
     #: were actually attempted, and how many of those turned a no-evidence
     #: edge into one with evidence -- `attempted - succeeded` is exactly
@@ -272,16 +281,37 @@ def _direct_entrypoint_edge(node: EntityRef, repo_root: Path) -> RecoveredEdge |
 
 def _run_pipeline_once(
     context: RecoveryContext, *, tools: RepoTools, client: LLMClient, budget: RecoveryBudget,
-    stats: RecoveryRunStats, repo_root: Path,
+    stats: RecoveryRunStats, repo_root: Path, graph: CBMGraphTools, use_graph_path_search: bool = False,
 ) -> tuple[list[RecoveredPath], list]:
     """Stages A + B (draft assembly). Stage C (verification) is applied
-    once by the caller, separately for paths and for tests."""
+    once by the caller, separately for paths and for tests.
+
+    `use_graph_path_search`, when on, tries a deterministic candidate path
+    per changed symbol FIRST (see `sydes.recovery.graph_path`) -- built
+    entirely from CBM's already-indexed graph, no LLM call spent proposing
+    or proving it. Every graph-proposed path is added to `draft_paths`
+    alongside whatever the LLM discovery loop below separately proposes;
+    both go through the exact same `verify_paths` call downstream (in
+    `recover`), batched into the same Layer-2 judging pass -- a graph
+    proposal is never trusted more or less than an LLM one just because of
+    where it came from, and it costs nothing extra if it turns out
+    unhelpful (Layer 0/1 reject it before any LLM call, same as any other
+    edge that fails those cheap checks).
+    """
+    draft_paths: list[RecoveredPath] = []
+    if use_graph_path_search:
+        entrypoints = list(context.entrypoint_entities)
+        for target in context.changed_symbol_entities:
+            graph_path = propose_graph_path(entrypoints, target, graph=graph, tools=tools)
+            if graph_path is not None:
+                stats.graph_paths_proposed += 1
+                draft_paths.append(graph_path)
+
     candidate_path, candidate_tests = discover_candidate(
         context, tools=tools, client=client,
         max_turns=budget.max_discovery_turns, max_response_chars=budget.max_response_chars, stats=stats,
     )
 
-    draft_paths: list[RecoveredPath] = []
     if candidate_path is not None:
         # Shortest-sufficient-path applied at evidence-completion time, not
         # only at final composition: nothing past target_node is proven at
@@ -334,6 +364,7 @@ def recover(
     client: LLMClient,
     trigger_reason: str,
     budget: RecoveryBudget | None = None,
+    use_graph_path_search: bool = False,
 ) -> RecoveryOutcome:
     """Run the full discover -> prove (with recursion) -> verify -> compose
     pipeline, with at most one full-pipeline retry if PATH recovery does
@@ -344,6 +375,12 @@ def recover(
     Path recovery and test recovery are verified completely independently
     (`verify_paths`/`verify_tests`) and neither result depends on or is
     discarded by the other's outcome.
+
+    `use_graph_path_search` (see `sydes.recovery.graph_path`, off by
+    default) is tried only on the FIRST pipeline attempt, never on a
+    pipeline retry -- it is deterministic (same repo state, same inputs,
+    same CBM graph), so retrying it would spend CBM calls to reproduce the
+    identical result rather than find anything new.
 
     Never raises on a clean failure path: the CLI's AI-recovery hook (on by
     default, opt out with `--no-ai-recovery`) is responsible for catching
@@ -362,8 +399,12 @@ def recover(
     try:
         draft_paths, draft_tests = _run_pipeline_once(
             result_context, tools=tools, client=client, budget=active_budget, stats=stats, repo_root=repo_root,
+            graph=graph, use_graph_path_search=use_graph_path_search,
         )
         path_recovery = verify_paths(draft_paths, changed_files=changed_files, tools=tools, client=client, stats=stats)
+        stats.graph_paths_established = sum(
+            1 for p in path_recovery.paths[: stats.graph_paths_proposed] if p.status == STATUS_ESTABLISHED
+        )
         test_recovery = verify_tests(draft_tests, changed_files=changed_files, tools=tools, client=client, stats=stats)
 
         while (
@@ -373,6 +414,7 @@ def recover(
             stats.pipeline_retries += 1
             retry_paths, retry_tests = _run_pipeline_once(
                 result_context, tools=tools, client=client, budget=active_budget, stats=stats, repo_root=repo_root,
+                graph=graph,  # use_graph_path_search left False: deterministic, no point repeating it
             )
             retry_path_recovery = verify_paths(retry_paths, changed_files=changed_files, tools=tools, client=client, stats=stats)
             if _status_rank(retry_path_recovery.status) > _status_rank(path_recovery.status):

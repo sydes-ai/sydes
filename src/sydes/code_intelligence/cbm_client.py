@@ -29,6 +29,7 @@ from collections import deque
 from dataclasses import dataclass, field
 import json
 import os
+import re
 from pathlib import Path
 import shutil
 import subprocess
@@ -678,6 +679,31 @@ class CBMClient:
                     break
                 offset += page_size
         return out
+
+    def resolve_qualified_name(self, project: str, bare_name: str, file_path: str) -> str | None:
+        """CBM's own qualified name for the symbol named `bare_name`
+        declared in `file_path` -- every edge query (`all_call_edges`,
+        `decorated_symbols`, ...) is keyed by this qualified name, not by
+        the short display name Sydes' own structural pipeline uses
+        elsewhere, so a caller with only the short name/file (e.g. a route
+        handler from `discover_endpoints`) needs this to seed a graph
+        query. Exact `(file, name)` match preferred; falls back to the
+        first candidate if the exact file isn't found (a caller-supplied
+        file path may not match CBM's own normalization exactly). `None`
+        (never a guess) when nothing matches at all.
+        """
+        short_name = bare_name.rsplit(".", 1)[-1]
+        payload = self._session.call_tool(
+            "search_graph",
+            {"project": project, "name_pattern": f"^{re.escape(short_name)}$", "format": "json", "limit": 10},
+        )
+        rows, _has_more = _search_rows(payload)
+        if not rows:
+            return None
+        for row in rows:
+            if str(row.get("file") or "") == file_path:
+                return str(row.get("qualified_name") or "") or None
+        return str(rows[0].get("qualified_name") or "") or None
 
     # -- internals --------------------------------------------------------
 

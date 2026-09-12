@@ -189,6 +189,25 @@ def verify_change_command(
             ),
         ),
     ] = 0,
+    recovery_graph_path_search: Annotated[
+        bool,
+        typer.Option(
+            "--recovery-graph-path-search",
+            help=(
+                "Before the LLM-driven discover/prove loop, try a "
+                "deterministic candidate path per changed symbol built "
+                "entirely from CBM's already-indexed graph (CALLS/USAGE "
+                "edges plus a generic decorator/annotation-argument "
+                "correlation) -- see sydes.recovery.graph_path. Off by "
+                "default. Costs no extra LLM calls beyond the one shared "
+                "Layer-2 judging pass every candidate edge already goes "
+                "through: a graph-proposed path is judged by "
+                "sydes.recovery.verify exactly like an LLM-proposed one, "
+                "never trusted more or less because of where it came "
+                "from."
+            ),
+        ),
+    ] = False,
 ) -> None:
     """Analyze a change, run the tests that verify it, and report the evidence."""
     try:
@@ -230,6 +249,7 @@ def verify_change_command(
             result, repo_root=Path(repos[0].root), model_spec=model, json_output=json_output,
             include_repo_routes=recovery_route_context,
             max_edge_turns=recovery_max_edge_turns, max_edge_retries=recovery_max_edge_retries,
+            use_graph_path_search=recovery_graph_path_search,
         )
 
     workspace_id = compute_workspace_id(repos)
@@ -264,6 +284,7 @@ def verify_change_command(
 def _run_ai_recovery(
     result: ChangeVerificationResult, *, repo_root: Path, model_spec: str | None, json_output: Path | None,
     include_repo_routes: bool = False, max_edge_turns: int | None = None, max_edge_retries: int = 0,
+    use_graph_path_search: bool = False,
 ) -> None:
     """The entire AI-recovery integration surface, run automatically by
     default (see `--no-ai-recovery`): evaluate the trigger, run one
@@ -301,7 +322,10 @@ def _run_ai_recovery(
             budget_kwargs["max_edge_turns"] = max_edge_turns
         budget = RecoveryBudget(**budget_kwargs)
     try:
-        outcome = recover(context, repo_root=repo_root, client=client, trigger_reason=trigger.reason, budget=budget)
+        outcome = recover(
+            context, repo_root=repo_root, client=client, trigger_reason=trigger.reason, budget=budget,
+            use_graph_path_search=use_graph_path_search,
+        )
     except RecoveryError as exc:
         typer.echo(f"AI recovery (experimental): failed, first-pass result left unchanged: {exc}")
         return
@@ -313,7 +337,9 @@ def _run_ai_recovery(
         f"turns={outcome.stats.turns} llm_calls={outcome.stats.llm_calls} "
         f"tokens={outcome.stats.prompt_tokens}+{outcome.stats.completion_tokens} "
         f"edge_retries_attempted={outcome.stats.edge_retries_attempted} "
-        f"edge_retries_succeeded={outcome.stats.edge_retries_succeeded}"
+        f"edge_retries_succeeded={outcome.stats.edge_retries_succeeded} "
+        f"graph_paths_proposed={outcome.stats.graph_paths_proposed} "
+        f"graph_paths_established={outcome.stats.graph_paths_established}"
     )
 
     if json_output is not None:

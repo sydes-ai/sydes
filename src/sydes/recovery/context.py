@@ -23,6 +23,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from sydes.recovery.entrypoint_heuristic import find_declarative_entrypoints, nearby_files
+from sydes.recovery.schema import EntityRef
 from sydes.recovery.trigger import RecoveryTrigger
 from sydes.verify.models import ChangeVerificationResult
 
@@ -68,6 +69,18 @@ class RecoveryContext:
     #: connection from any of these to the changed behavior; naming a route
     #: here is not by itself evidence of anything.
     repo_known_routes: tuple[str, ...] = ()
+    #: Structured counterpart of `changed_symbols` above -- the diff's own
+    #: ground-truth changed symbols as `EntityRef`s, `qualified_name` set
+    #: to `ChangedSymbol.cbm_qualified_name` when the first pass already
+    #: resolved it. Exists for `sydes.recovery.graph_path`, which needs a
+    #: real entity to seed a graph query with, not a formatted prompt
+    #: string; not itself shown in any prompt.
+    changed_symbol_entities: tuple[EntityRef, ...] = ()
+    #: Structured counterpart of `known_entrypoints` + `repo_known_routes`
+    #: combined -- every entrypoint this run knows about, already-diff-tied
+    #: or not, as `EntityRef`s a graph query can seed from. Same
+    #: `sydes.recovery.graph_path`-only purpose as `changed_symbol_entities`.
+    entrypoint_entities: tuple[EntityRef, ...] = ()
 
 
 def _diff_summary(result: ChangeVerificationResult) -> str:
@@ -131,6 +144,41 @@ def _known_entrypoints(result: ChangeVerificationResult) -> tuple[str, ...]:
         if impact.route_method and impact.route_path:
             out.add(f"{impact.route_method} {impact.route_path}")
     return tuple(sorted(out))
+
+
+def _changed_symbol_entities(result: ChangeVerificationResult) -> tuple[EntityRef, ...]:
+    out: list[EntityRef] = []
+    for symbol in result.change.symbols:
+        if not symbol.file:
+            continue
+        out.append(EntityRef(
+            symbol=symbol.qualified_name or symbol.name, file=symbol.file,
+            qualified_name=symbol.cbm_qualified_name,
+        ))
+    return tuple(out)
+
+
+def _entrypoint_entities(result: ChangeVerificationResult, known_routes: list) -> tuple[EntityRef, ...]:
+    seen: set[tuple[str, str]] = set()
+    out: list[EntityRef] = []
+    for flow in result.affected_flows:
+        if not flow.handler:
+            continue
+        file = flow.artifact_refs.get("route_file") or flow.artifact_refs.get("handler_file") or ""
+        key = (flow.handler, file)
+        if not file or key in seen:
+            continue
+        seen.add(key)
+        out.append(EntityRef(symbol=flow.handler, file=file))
+    for route in known_routes:
+        if not (route.handler and route.file):
+            continue
+        key = (route.handler, route.file)
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(EntityRef(symbol=route.handler, file=route.file))
+    return tuple(out)
 
 
 def _changed_files(result: ChangeVerificationResult) -> tuple[str, ...]:
@@ -209,4 +257,6 @@ def build_context(
         changed_files=changed_files,
         declarative_entrypoints=_declarative_entrypoints(repo_root, changed_files),
         repo_known_routes=_repo_known_routes(result) if include_repo_routes else (),
+        changed_symbol_entities=_changed_symbol_entities(result),
+        entrypoint_entities=_entrypoint_entities(result, result.known_routes),
     )

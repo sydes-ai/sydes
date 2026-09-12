@@ -446,3 +446,67 @@ def test_decomposition_chain_respects_max_bridge_nodes(repo: Path):
     ])
     outcome = recover(_context(), repo_root=repo, client=client, trigger_reason="no established path", budget=budget)
     assert [n.symbol for n in outcome.path_recovery.paths[0].nodes] == ["route", "a", "handler"]
+
+
+def test_use_graph_path_search_establishes_a_path_with_zero_llm_search_calls(repo: Path, monkeypatch):
+    """`use_graph_path_search=True`: a deterministic graph-proposed path
+    (see `sydes.recovery.graph_path`) still goes through the SAME
+    `verify_paths` Layer 0/1/2 pipeline as an LLM-proposed one -- one
+    verifier call to judge its one edge -- but Stage A/B never spends a
+    single LLM call searching for or proving that edge. The LLM discovery
+    call still runs (test candidates are independent of path recovery),
+    but returns no candidate path of its own, so the graph-proposed one is
+    the only path in play."""
+    from sydes.recovery.schema import EntityRef, RecoveredEdge, RecoveredEvidence, RecoveredPath
+
+    graph_path = RecoveredPath(
+        entrypoint="GET /x", target_node="handler",
+        nodes=[EntityRef(symbol="route", file="handler.ts"), EntityRef(symbol="handler", file="handler.ts")],
+        edges=[RecoveredEdge(**{
+            "from": EntityRef(symbol="route", file="handler.ts"),
+            "to": EntityRef(symbol="handler", file="handler.ts"),
+        }, relationship="static analysis found a CALLS reference from route to handler", evidence=[
+            RecoveredEvidence(file="handler.ts", line_start=1, line_end=1, fact="route registers handler"),
+        ])],
+    )
+    monkeypatch.setattr(
+        "sydes.recovery.agent.propose_graph_path", lambda entrypoints, target, *, graph, tools: graph_path,
+    )
+    client = SequencedClient([
+        _no_path_discovery(),  # Stage A still runs for test candidates; proposes no path of its own
+        _verdicts(True),       # ONE verifier call, for the graph-proposed edge
+    ])
+    # `changed_symbol_entities`/`entrypoint_entities` are what
+    # `_run_pipeline_once` actually iterates to call `propose_graph_path`
+    # (see `sydes.recovery.context.build_context`) -- `_context()`'s
+    # plain-string fields alone don't drive it.
+    import dataclasses
+
+    from sydes.recovery.schema import EntityRef as _EntityRef
+
+    context = dataclasses.replace(
+        _context(changed_files=("handler.ts",)),
+        changed_symbol_entities=(_EntityRef(symbol="handler", file="handler.ts"),),
+        entrypoint_entities=(_EntityRef(symbol="route", file="handler.ts"),),
+    )
+    outcome = recover(
+        context, repo_root=repo, client=client, trigger_reason="no established path", use_graph_path_search=True,
+        budget=RecoveryBudget(max_pipeline_retries=0),
+    )
+    assert outcome.path_recovery.status == STATUS_ESTABLISHED
+    assert outcome.stats.graph_paths_proposed == 1
+    assert outcome.stats.graph_paths_established == 1
+    assert outcome.stats.llm_calls == 2  # exactly discovery + one verifier call, nothing else
+
+
+def test_use_graph_path_search_off_by_default_never_calls_propose_graph_path(repo: Path, monkeypatch):
+    def _boom(*_args, **_kwargs):
+        raise AssertionError("propose_graph_path must not be called when use_graph_path_search is False")
+
+    monkeypatch.setattr("sydes.recovery.agent.propose_graph_path", _boom)
+    client = SequencedClient([_no_path_discovery()])
+    outcome = recover(
+        _context(), repo_root=repo, client=client, trigger_reason="no established path",
+        budget=RecoveryBudget(max_pipeline_retries=0),
+    )
+    assert outcome.stats.graph_paths_proposed == 0
