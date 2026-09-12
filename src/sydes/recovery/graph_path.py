@@ -140,7 +140,18 @@ def _find_decorator_bridges(
     0/1/2 like any other edge, so proposing more than one costs at most a
     few extra (cheap, batched) verifier judgments, never a correctness risk.
     """
-    reached_bare = {_short_name(qn): qn for qn in reached_qualified_names if _TYPE_SHAPED_RE.match(_short_name(qn))}
+    # A list per bare name, not a single winner: two reached symbols
+    # legitimately sharing a bare name (e.g. two different classes each
+    # with their own "execute" method) is common, and picking only one
+    # arbitrarily -- especially from a `set`, whose iteration order Python
+    # does not guarantee is stable across processes -- was a measured, real
+    # source of the same repo/diff finding a path on one run and not the
+    # next. Every reached candidate for a matched bare name is tried.
+    reached_bare: dict[str, list[str]] = {}
+    for qn in sorted(reached_qualified_names):
+        bare = _short_name(qn)
+        if _TYPE_SHAPED_RE.match(bare):
+            reached_bare.setdefault(bare, []).append(qn)
     if not reached_bare:
         return []
     bridges: list[tuple[_Node, _Node]] = []
@@ -159,11 +170,12 @@ def _find_decorator_bridges(
             continue
         seen_decorated.add(decorated_qn)
         start_line, _end_line = _parse_lines(row.get("lines"))
-        for bare in matched_bare:
-            bridges.append((
-                _Node(qualified_name=reached_bare[bare], file=""),
-                _Node(qualified_name=decorated_qn, file=decorated_file, line=start_line),
-            ))
+        for bare in sorted(matched_bare):
+            for referenced_qn in reached_bare[bare]:
+                bridges.append((
+                    _Node(qualified_name=referenced_qn, file=""),
+                    _Node(qualified_name=decorated_qn, file=decorated_file, line=start_line),
+                ))
     return bridges
 
 
@@ -191,10 +203,16 @@ def _expand_type_shaped_nodes(
     Mutates `adjacency`/`file_by_qn`/`reached_qns` in place; returns
     whether anything new was actually added (nothing to retry a BFS over
     otherwise)."""
-    candidates = [
+    # Sorted, not iterated straight off the set: Python randomizes string
+    # hashing per-process by default, so `reached_qns`' iteration order
+    # (and therefore WHICH candidates survive the `_MAX_CLASS_EXPANSIONS`
+    # cap) would otherwise differ between runs on the exact same repo
+    # state -- this was a measured, real source of run-to-run flakiness in
+    # whether a path was found at all, not a hypothetical one.
+    candidates = sorted(
         qn for qn in reached_qns
         if qn not in already_expanded and _TYPE_SHAPED_RE.match(_short_name(qn))
-    ][:_MAX_CLASS_EXPANSIONS]
+    )[:_MAX_CLASS_EXPANSIONS]
     added = False
     for qn in candidates:
         already_expanded.add(qn)
