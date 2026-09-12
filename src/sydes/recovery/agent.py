@@ -78,12 +78,26 @@ class RecoveryBudget:
     unproven relationship, enforced in `_prove_hop_with_recursion` (not
     configurable — "one attempt" is a correctness property, not a tuning
     knob).
+
+    `max_edge_retries` bounds how many additional, fresh attempts a SINGLE
+    edge gets after both the direct proof and recursive decomposition
+    still leave it with no evidence at all — same `prove_relationship`
+    call, same prompt, no new reasoning strategy, just another try (an
+    LLM call is not guaranteed to search the same way twice). Zero by
+    default (no behavior change for existing callers). This is a search-
+    capacity knob, not a correctness property like decomposition's cap:
+    raising it never changes what counts as evidence or how an edge is
+    judged — `sydes.recovery.verify`'s Layer 0/1/2 pipeline is identical
+    either way, and a retry that still finds nothing is reported exactly
+    like a single unresolved attempt, never treated as weaker or
+    stronger evidence for having been retried.
     """
 
     max_discovery_turns: int = 6
     max_edge_turns: int = 4
     max_bridge_nodes: int = MAX_BRIDGE_NODES
     max_pipeline_retries: int = 1
+    max_edge_retries: int = 0
     max_response_chars: int = 4000
 
 
@@ -106,6 +120,12 @@ class RecoveryRunStats:
     files_read: list[str] = field(default_factory=list)
     recursive_decompositions_attempted: int = 0
     recursive_decompositions_used: int = 0
+    #: How many single-edge retries (see `RecoveryBudget.max_edge_retries`)
+    #: were actually attempted, and how many of those turned a no-evidence
+    #: edge into one with evidence -- `attempted - succeeded` is exactly
+    #: how many retries changed nothing.
+    edge_retries_attempted: int = 0
+    edge_retries_succeeded: int = 0
 
 
 @dataclass
@@ -125,6 +145,32 @@ def _status_rank(status: str) -> int:
     return {STATUS_ESTABLISHED: 2, STATUS_PARTIAL: 1, STATUS_UNRESOLVED: 0}.get(status, 0)
 
 
+def _prove_once_more_if_still_unresolved(
+    edge: RecoveredEdge, from_entity: EntityRef, to_entity: EntityRef, path_context: str, *,
+    tools: RepoTools, client: LLMClient, budget: RecoveryBudget, stats: RecoveryRunStats,
+) -> RecoveredEdge:
+    """`RecoveryBudget.max_edge_retries` applied to one already-attempted
+    edge: if it still has no evidence at all, try `prove_relationship`
+    again, up to that many additional times, the exact same call every
+    time — no new strategy, just another roll. Stops at the first attempt
+    that finds evidence; returns the last attempt (still empty) if none
+    do. A no-op (returns `edge` unchanged) when the edge already has
+    evidence or the budget is zero."""
+    current = edge
+    for _ in range(max(0, budget.max_edge_retries)):
+        if current.evidence:
+            break
+        stats.edge_retries_attempted += 1
+        retry = prove_relationship(
+            from_entity, to_entity, path_context, tools=tools, client=client,
+            max_turns=budget.max_edge_turns, max_response_chars=budget.max_response_chars, stats=stats,
+        )
+        if retry.evidence:
+            stats.edge_retries_succeeded += 1
+        current = retry
+    return current
+
+
 def _prove_hop_with_recursion(
     from_entity: EntityRef, to_entity: EntityRef, path_context: str, *, tools: RepoTools, client: LLMClient,
     budget: RecoveryBudget, stats: RecoveryRunStats,
@@ -137,6 +183,12 @@ def _prove_hop_with_recursion(
     If decomposition finds nothing (or is itself unproductive), the
     original, unresolved direct edge is returned as-is — never fabricated,
     never silently dropped.
+
+    `budget.max_edge_retries` (see that field's docstring) applies AFTER
+    this — to the direct edge when decomposition never runs or finds
+    nothing, and to each decomposed sub-edge that still comes back with no
+    evidence — never in place of decomposition, only after it has already
+    had its one attempt.
     """
     direct = prove_relationship(
         from_entity, to_entity, path_context, tools=tools, client=client,
@@ -152,16 +204,23 @@ def _prove_hop_with_recursion(
     )
     intermediates = intermediates[: budget.max_bridge_nodes]
     if not intermediates:
+        direct = _prove_once_more_if_still_unresolved(
+            direct, from_entity, to_entity, path_context,
+            tools=tools, client=client, budget=budget, stats=stats,
+        )
         return [direct]
 
     stats.recursive_decompositions_used += 1
     chain = [from_entity, *intermediates, to_entity]
     edges: list[RecoveredEdge] = []
     for a, b in zip(chain, chain[1:]):
+        sub_context = f"{path_context} (intermediate hop found via recursive decomposition)"
         edge = prove_relationship(
-            a, b, f"{path_context} (intermediate hop found via recursive decomposition)",
-            tools=tools, client=client,
+            a, b, sub_context, tools=tools, client=client,
             max_turns=budget.max_edge_turns, max_response_chars=budget.max_response_chars, stats=stats,
+        )
+        edge = _prove_once_more_if_still_unresolved(
+            edge, a, b, sub_context, tools=tools, client=client, budget=budget, stats=stats,
         )
         edges.append(edge.model_copy(update={"from_decomposition": True}))
     return edges

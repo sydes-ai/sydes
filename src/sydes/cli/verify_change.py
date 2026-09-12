@@ -14,7 +14,7 @@ from sydes.code_intelligence.base import CodeIntelligenceError
 from sydes.core.models import RepoRef
 from sydes.ingest.repos import parse_repo_specs
 from sydes.llm.client import LLMClientError, create_default_llm_client
-from sydes.recovery.agent import recover
+from sydes.recovery.agent import RecoveryBudget, recover
 from sydes.recovery.canonical_merge import merge_verified_recovery_into_result
 from sydes.recovery.context import build_context
 from sydes.recovery.merge import build_recovery_view, summarize_for_notes
@@ -159,6 +159,36 @@ def verify_change_command(
             ),
         ),
     ] = False,
+    recovery_max_edge_turns: Annotated[
+        int | None,
+        typer.Option(
+            "--recovery-max-edge-turns",
+            help=(
+                "Override AI recovery's per-hop tool-call turn budget "
+                "(sydes.recovery.agent.RecoveryBudget.max_edge_turns, default "
+                "4). A pure search-capacity knob: raising it lets Stage B "
+                "spend more turns searching for one hop's evidence before "
+                "giving up; it changes nothing about what counts as "
+                "evidence or how sydes.recovery.verify judges it. Unset "
+                "keeps the default."
+            ),
+        ),
+    ] = None,
+    recovery_max_edge_retries: Annotated[
+        int,
+        typer.Option(
+            "--recovery-max-edge-retries",
+            help=(
+                "How many additional, fresh attempts a single recovery "
+                "edge gets (same prove_relationship call, same prompt) "
+                "after both the direct proof and recursive decomposition "
+                "still leave it with no evidence at all. 0 (default): no "
+                "retry, identical to previous behavior. A search-capacity "
+                "knob only — sydes.recovery.verify's proof requirements "
+                "are unchanged either way."
+            ),
+        ),
+    ] = 0,
 ) -> None:
     """Analyze a change, run the tests that verify it, and report the evidence."""
     try:
@@ -199,6 +229,7 @@ def verify_change_command(
         _run_ai_recovery(
             result, repo_root=Path(repos[0].root), model_spec=model, json_output=json_output,
             include_repo_routes=recovery_route_context,
+            max_edge_turns=recovery_max_edge_turns, max_edge_retries=recovery_max_edge_retries,
         )
 
     workspace_id = compute_workspace_id(repos)
@@ -232,7 +263,7 @@ def verify_change_command(
 
 def _run_ai_recovery(
     result: ChangeVerificationResult, *, repo_root: Path, model_spec: str | None, json_output: Path | None,
-    include_repo_routes: bool = False,
+    include_repo_routes: bool = False, max_edge_turns: int | None = None, max_edge_retries: int = 0,
 ) -> None:
     """The entire AI-recovery integration surface, run automatically by
     default (see `--no-ai-recovery`): evaluate the trigger, run one
@@ -263,8 +294,14 @@ def _run_ai_recovery(
         return
 
     context = build_context(result, trigger, repo_root=repo_root, include_repo_routes=include_repo_routes)
+    budget = None
+    if max_edge_turns is not None or max_edge_retries:
+        budget_kwargs: dict[str, int] = {"max_edge_retries": max_edge_retries}
+        if max_edge_turns is not None:
+            budget_kwargs["max_edge_turns"] = max_edge_turns
+        budget = RecoveryBudget(**budget_kwargs)
     try:
-        outcome = recover(context, repo_root=repo_root, client=client, trigger_reason=trigger.reason)
+        outcome = recover(context, repo_root=repo_root, client=client, trigger_reason=trigger.reason, budget=budget)
     except RecoveryError as exc:
         typer.echo(f"AI recovery (experimental): failed, first-pass result left unchanged: {exc}")
         return
@@ -274,7 +311,9 @@ def _run_ai_recovery(
     typer.echo(
         f"AI recovery (experimental): path={outcome.path_recovery.status} test={outcome.test_recovery.status} "
         f"turns={outcome.stats.turns} llm_calls={outcome.stats.llm_calls} "
-        f"tokens={outcome.stats.prompt_tokens}+{outcome.stats.completion_tokens}"
+        f"tokens={outcome.stats.prompt_tokens}+{outcome.stats.completion_tokens} "
+        f"edge_retries_attempted={outcome.stats.edge_retries_attempted} "
+        f"edge_retries_succeeded={outcome.stats.edge_retries_succeeded}"
     )
 
     if json_output is not None:

@@ -358,6 +358,79 @@ def test_no_second_decomposition_after_first_fails(repo: Path):
     assert outcome.path_recovery.status == STATUS_UNRESOLVED
 
 
+def test_edge_retry_disabled_by_default_leaves_edge_unresolved(repo: Path):
+    """`max_edge_retries` defaults to 0 -- a direct proof and an
+    unproductive decomposition must leave the edge unresolved with no
+    further LLM call attempted at all (SequencedClient would raise if the
+    code tried one anyway)."""
+    client = SequencedClient([
+        _discovery_final(["route", "handler"], "handler"),
+        _atomic_final(""),         # direct: nothing found
+        _decompose_final([]),      # decomposition: nothing found either
+    ])
+    budget = RecoveryBudget(max_pipeline_retries=0)  # isolate edge-retry behavior from pipeline-retry
+    outcome = recover(_context(), repo_root=repo, client=client, trigger_reason="no established path", budget=budget)
+    assert outcome.path_recovery.status == STATUS_UNRESOLVED
+    assert outcome.stats.edge_retries_attempted == 0
+    assert budget.max_edge_retries == 0  # confirms this is really the RecoveryBudget default
+
+
+def test_edge_retry_succeeds_on_the_extra_attempt(repo: Path):
+    """`max_edge_retries=1`: after direct proof and decomposition both find
+    nothing, one more `prove_relationship` attempt is made -- and this
+    time it finds real evidence, so the edge (and the whole two-node path)
+    establishes."""
+    client = SequencedClient([
+        _discovery_final(["route", "handler"], "handler"),
+        _atomic_final(""),                     # direct: nothing found
+        _decompose_final([]),                  # decomposition: nothing found
+        _atomic_final("registers and dispatches to"),  # retry: found it this time
+        _verdicts(True),
+    ])
+    budget = RecoveryBudget(max_edge_retries=1, max_pipeline_retries=0)
+    outcome = recover(_context(), repo_root=repo, client=client, trigger_reason="no established path", budget=budget)
+    assert outcome.path_recovery.status == STATUS_ESTABLISHED
+    assert outcome.stats.edge_retries_attempted == 1
+    assert outcome.stats.edge_retries_succeeded == 1
+
+
+def test_edge_retry_still_unresolved_stays_unresolved_not_fabricated(repo: Path):
+    """A retry that ALSO finds nothing must not be treated as evidence of
+    anything -- the edge, and the path, stay unresolved, and the retry is
+    counted as attempted but not succeeded."""
+    client = SequencedClient([
+        _discovery_final(["route", "handler"], "handler"),
+        _atomic_final(""),
+        _decompose_final([]),
+        _atomic_final(""),  # retry also finds nothing
+    ])
+    budget = RecoveryBudget(max_edge_retries=1, max_pipeline_retries=0)
+    outcome = recover(_context(), repo_root=repo, client=client, trigger_reason="no established path", budget=budget)
+    assert outcome.path_recovery.status == STATUS_UNRESOLVED
+    assert outcome.stats.edge_retries_attempted == 1
+    assert outcome.stats.edge_retries_succeeded == 0
+
+
+def test_edge_retry_applies_to_a_failed_decomposed_sub_edge_too(repo: Path):
+    """The retry budget applies per-edge, including a sub-edge produced by
+    recursive decomposition -- not only the original direct edge."""
+    (repo / "handler.ts").write_text("mid registers handler\nline2\n")
+    client = SequencedClient([
+        _discovery_final(["route", "handler"], "handler"),
+        _atomic_final(""),                     # direct: nothing found
+        _decompose_final(["mid"]),             # decompose into one intermediate
+        _atomic_final("route registers mid"),   # route -> mid: proven immediately
+        _atomic_final(""),                      # mid -> handler: unproven first try
+        _atomic_final("mid registers handler"), # mid -> handler: retry succeeds
+        _verdicts(True, True),
+    ])
+    budget = RecoveryBudget(max_edge_retries=1, max_pipeline_retries=0)
+    outcome = recover(_context(), repo_root=repo, client=client, trigger_reason="no established path", budget=budget)
+    assert outcome.path_recovery.status == STATUS_ESTABLISHED
+    assert outcome.stats.edge_retries_attempted == 1
+    assert outcome.stats.edge_retries_succeeded == 1
+
+
 def test_decomposition_chain_respects_max_bridge_nodes(repo: Path):
     """More intermediates than the budget allows are truncated, not used
     wholesale -- confirmed by the exact number of atomic-completion calls
