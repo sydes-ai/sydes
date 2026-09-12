@@ -212,37 +212,92 @@ def _entity_ref(node: _Node, *, file_by_qn: dict[str, str]) -> EntityRef:
     return EntityRef(symbol=_short_name(node.qualified_name), file=file, qualified_name=node.qualified_name)
 
 
+#: How many lines of context to show on each side of whatever line an
+#: evidence citation actually locates -- a single line (the caller's own
+#: declaration, a class's own start line) routinely shows neither endpoint
+#: by itself: the actual call site, or a decorator sitting just above a
+#: class/method declaration, is a handful of lines away, not on it.
+_CITATION_WINDOW_LINES = 6
+_CITATION_MAX_CHARS = 800
+
+
+def _locate_and_cite(tools: RepoTools, file: str, needle: str, *, hint_line: int | None) -> RecoveredEvidence:
+    """Reads `file` once, searches its (already line-numbered, per
+    `RepoTools.read_file`) content for the first line mentioning `needle`
+    as a whole identifier, and cites a real window of surrounding lines --
+    never just the one line a graph edge happens to record a number for,
+    which is routinely a declaration/signature line that never itself
+    mentions the other endpoint. Falls back to `hint_line` (whatever
+    approximate line the caller does have, e.g. a symbol's own recorded
+    start line) when the needle isn't found as literal text -- still a
+    real citation, just a less targeted one; `sydes.recovery.verify`'s
+    Layer 1/2 independently judges whether it is actually sufficient.
+    """
+    content = tools.read_file(file)
+    numbered_lines = content.split("\n") if content else []
+    match_idx = None
+    if needle:
+        pattern = re.compile(rf"\b{re.escape(needle)}\b")
+        # An import/include statement is the single most common reason the
+        # FIRST textual mention of an identifier is not actually evidence
+        # of anything -- every language surfaced so far (import ... from,
+        # from ... import, import ...;) shares the same recognizable
+        # shape. Prefer the first match that ISN'T one; only fall back to
+        # an import-line match if nothing else mentions the identifier at
+        # all (still real content, just weaker).
+        import_match_idx = None
+        for i, line in enumerate(numbered_lines):
+            if not pattern.search(line):
+                continue
+            content_after_prefix = line.split(":", 1)[-1]
+            if re.match(r"^\s*(import\b|from\s+\S+\s+import\b)", content_after_prefix):
+                if import_match_idx is None:
+                    import_match_idx = i
+                continue
+            match_idx = i
+            break
+        if match_idx is None:
+            match_idx = import_match_idx
+    if match_idx is None and hint_line is not None:
+        match_idx = max(0, hint_line - 1)
+    if match_idx is None:
+        match_idx = 0
+    start = max(0, match_idx - _CITATION_WINDOW_LINES)
+    end = min(len(numbered_lines), match_idx + _CITATION_WINDOW_LINES + 1)
+    fact = "\n".join(numbered_lines[start:end])[:_CITATION_MAX_CHARS]
+    return RecoveredEvidence(file=file, line_start=start + 1 if numbered_lines else None, line_end=end or None, fact=fact)
+
+
 def _edge_evidence(
     from_qn: str, to_qn: str, edge: dict, *, tools: RepoTools, file_by_qn: dict[str, str],
 ) -> tuple[str, list[RecoveredEvidence]]:
     """A generic relationship description plus one real, re-readable
     evidence citation for one hop -- either a structural CALLS/USAGE edge
-    (cite the caller's own file at the edge's line) or a decorator bridge
-    (cite the decorated symbol's own declaration, whose source is exactly
-    what names the referenced symbol)."""
+    (search the caller's own file for the callee's name, cite the window
+    around it) or a decorator bridge/class-defines-method fact (search for
+    the referenced identifier or method name the same way)."""
     if edge.get("_defines_method"):
         file = file_by_qn.get(to_qn, "")
-        content = tools.read_file(file)
+        evidence = _locate_and_cite(tools, file, _short_name(to_qn), hint_line=None)
         return (
             f"{_short_name(from_qn)} (declared in this file) defines the method {_short_name(to_qn)}.",
-            [RecoveredEvidence(file=file, line_start=None, line_end=None, fact=content[:500])],
+            [evidence],
         )
     if edge.get("_bridge"):
         file = file_by_qn.get(to_qn, "")
-        line = edge.get("line")
-        content = tools.read_file(file, start_line=line, end_line=line) if line else tools.read_file(file)
+        evidence = _locate_and_cite(tools, file, _short_name(from_qn), hint_line=edge.get("line"))
         return (
             f"{_short_name(to_qn)} carries a decorator/annotation whose source references {_short_name(from_qn)}.",
-            [RecoveredEvidence(file=file, line_start=line, line_end=line, fact=content[:500])],
+            [evidence],
         )
     kind = "CALLS" if "caller_qualified_name" in edge else "USAGE"
     file = str(edge.get("caller_file") or edge.get("user_file") or file_by_qn.get(from_qn, ""))
     line = edge.get("caller_line")
     line_int = int(line) if isinstance(line, (int, str)) and str(line).isdigit() else None
-    content = tools.read_file(file, start_line=line_int, end_line=line_int) if line_int else tools.read_file(file)
+    evidence = _locate_and_cite(tools, file, _short_name(to_qn), hint_line=line_int)
     return (
         f"Static analysis found a {kind} reference from {_short_name(from_qn)} to {_short_name(to_qn)}.",
-        [RecoveredEvidence(file=file, line_start=line_int, line_end=line_int, fact=content[:500])],
+        [evidence],
     )
 
 
