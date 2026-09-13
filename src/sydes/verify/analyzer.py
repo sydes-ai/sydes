@@ -1152,6 +1152,46 @@ def _select_via_impact_interpreter(
             # discovery already found, never anything the guide guessed.
             candidate = candidate.model_copy(update={"impact_status": IMPACT_STATUS_INFERRED})
         selected.append(candidate)
+
+    # Backstop: a route Sydes already discovered and merged into
+    # `routes.routes` — deterministically, or via the LLM-discovery fallback
+    # when deterministic route composition found nothing at all for this
+    # repo/language — must not be silently dropped just because the impact
+    # interpreter's own reachability analysis (bounded by the structural
+    # backend's own entrypoint facts, which know nothing about a route the
+    # LLM fallback alone found) never produced a matching "http_route"
+    # entrypoint for it. Confirmed directly: a real Rust/axum PR had a
+    # `routes.routes` entry at 0.97 confidence with the correct method/path/
+    # handler, yet fell through entirely to a route-blind AI-recovery flow
+    # because `reconciled` never carried a matching entrypoint for it.
+    #
+    # Matched purely on (file, handler-symbol) identity — the same generic
+    # identity `_match_endpoint_candidate` above already prefers over a
+    # method+path guess — never on route syntax/shape or any framework's
+    # own vocabulary, so this applies equally regardless of which language
+    # or routing library the handler's declaration came from.
+    changed_keys: set[tuple[str, str]] = set()
+    for symbol in changed:
+        file = symbol.get("file")
+        if not file:
+            continue
+        for name in (symbol.get("name"), symbol.get("qualified_name")):
+            if name:
+                changed_keys.add((file, name))
+                changed_keys.add((file, str(name).rsplit(".", 1)[-1]))
+
+    for candidate in routes.routes:
+        if not candidate.file or not candidate.handler:
+            continue
+        handler_keys = {candidate.handler, str(candidate.handler).rsplit(".", 1)[-1]}
+        if not any((candidate.file, key) in changed_keys for key in handler_keys):
+            continue
+        dedupe_key = f"{candidate.method}:{candidate.path}:{candidate.file}"
+        if dedupe_key in seen:
+            continue
+        seen.add(dedupe_key)
+        selected.append(candidate)
+
     return selected, impact_result, guide_notes
 
 
