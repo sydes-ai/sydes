@@ -215,6 +215,29 @@ def test_rows_of_the_wrong_arity_are_dropped_not_mis_split() -> None:
     assert malformed == 1
 
 
+def test_a_row_whose_value_contains_a_space_is_safely_dropped_not_guessed() -> None:
+    """Known, deliberate limitation (Phase 4 investigation): the text
+    fallback splits on whitespace with no column-boundary escaping in CBM's
+    own rendering, so a field value containing an embedded space (e.g. a
+    multi-word signature or docstring) inflates the field count and the
+    whole row is dropped as malformed -- real data loss, not a crash.
+
+    This is intentionally NOT "fixed" by guessing which field absorbed the
+    extra whitespace: nothing in the rendered text says whether the extra
+    token belongs to the first field, the last, or a middle one, and a
+    wrong guess would put one column's text in another one silently --
+    exactly the "invented field" outcome the parser exists to refuse. Safe,
+    lossy rejection is preferred over unsafe, wrong reconstruction. This
+    test pins today's behavior as a known limitation, not a bug to chase
+    silently -- see cbm_client.py's `parse_rows` docstring."""
+    payload = {"_text": "rows: 1\n  file.py multi word value\n"}
+
+    rows, malformed = parse_rows(payload, columns=2)
+
+    assert rows == []
+    assert malformed == 1
+
+
 def test_structured_rows_are_preferred_when_present() -> None:
     payload = {"rows": [["x", "y"]]}
 

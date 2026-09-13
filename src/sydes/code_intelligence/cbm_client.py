@@ -368,6 +368,20 @@ def parse_rows(payload: dict[str, Any], *, columns: int) -> tuple[list[list[str]
     but that is a property of the data rather than a guarantee of the format,
     so every row is checked against the expected arity. A row that does not
     match is dropped and counted rather than silently mis-split.
+
+    Investigated, deliberately not changed: when a field value DOES contain
+    an embedded space (a multi-word signature/docstring, observed in real
+    runs), the naive `str.split()` above inflates the field count and the
+    whole row is dropped -- real, known data loss, not a crash. `query_graph`
+    has no structured/JSON response mode to request instead (its schema
+    offers no `format` parameter), and no escaping in the text format says
+    which field absorbed the extra token, so any repair here would have to
+    guess a column boundary -- exactly the "invented field" outcome this
+    function exists to refuse. Rejecting the row is the safe choice; a
+    parser redesign that could recover it without guessing is a larger,
+    riskier change than this fix covers, and is intentionally left for
+    later rather than attempted here. See
+    `test_a_row_whose_value_contains_a_space_is_safely_dropped_not_guessed`.
     """
     structured = payload.get("rows")
     if isinstance(structured, list):
