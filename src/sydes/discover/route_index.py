@@ -21,9 +21,14 @@ from sydes.discover.deterministic_routes import (
     _TS_METHOD_RE,
     _TS_STATEMENT_KEYWORDS,
     _TS_VERB_DECORATORS,
+    _compose_container_prefix,
     _decorator_name,
     _decorator_path_arg,
+    _decorator_version_arg,
+    _join_open_calls,
     _parse_spring_mapping,
+    _split_args,
+    extract_set_global_prefix,
 )
 from sydes.discover.repo_map import IGNORED_DIRS, build_repo_map
 from sydes.ingest.file_roles import (
@@ -211,32 +216,6 @@ def _extract_exports(line: str) -> list[dict[str, str]]:
     if match:
         exports.append({"kind": "commonjs", "symbol": match.group("symbol")})
     return exports
-
-
-def _join_open_calls(text: str) -> str:
-    """Pull continuation lines up into their opening call.
-
-    Container constructions and mount calls are frequently written across
-    several lines. Content is moved up rather than removed, so every reported
-    line number still points at the construct's first line.
-    """
-    lines = text.splitlines()
-    index = 0
-    while index < len(lines):
-        line = lines[index]
-        depth = line.count("(") - line.count(")")
-        if depth <= 0 or "(" not in line:
-            index += 1
-            continue
-        cursor = index + 1
-        while cursor < len(lines) and depth > 0 and cursor - index <= 8:
-            line = line.rstrip() + " " + lines[cursor].strip()
-            depth += lines[cursor].count("(") - lines[cursor].count(")")
-            lines[cursor] = ""
-            cursor += 1
-        lines[index] = line
-        index = cursor if cursor > index else index + 1
-    return "\n".join(lines)
 
 
 def _looks_like_container_factory(callee: str) -> bool:
@@ -471,6 +450,13 @@ def _extract_index_for_file(relative_path: str, text: str, role: str) -> dict:
     #: than a list.
     rocket_pending_route: tuple[str, str, str] | None = None
 
+    #: `app.setGlobalPrefix(...)` applies to every controller in the whole
+    #: application, not to one container -- unlike everything else tracked
+    #: above, it is a file-level (really repo-level) fact, not part of any
+    #: per-class/per-method state machine. First match in the file wins; a
+    #: real app calls this once.
+    global_prefix: dict | None = None
+
     joined_lines = _join_open_calls(text).splitlines()
     for idx, raw_line in enumerate(joined_lines, start=1):
         line = raw_line.strip()
@@ -481,6 +467,25 @@ def _extract_index_for_file(relative_path: str, text: str, role: str) -> dict:
         # can never collide with an actual comment in any supported language.
         if line.startswith("//") or (line.startswith("#") and not line.startswith("#[")):
             continue
+        # A JSDoc/block comment line (`/**`, `*/`, or an aligned interior
+        # `* ...` line) sitting between a decorator and the class/method it
+        # applies to must not reset the pending-decorator state below --
+        # confirmed directly: `@Controller('auth')` followed by a `/** ... */`
+        # doc comment before `export class AuthController` otherwise loses
+        # the container declaration entirely, the same failure mode as an
+        # ordinary code line in between, just from documentation instead.
+        if line.startswith("/*") or line.startswith("*"):
+            continue
+
+        if global_prefix is None:
+            gp_value, gp_dynamic = extract_set_global_prefix(line)
+            if gp_value is not None or gp_dynamic:
+                global_prefix = {
+                    "value": gp_value,
+                    "dynamic": gp_dynamic,
+                    "line": idx,
+                    "snippet": _trim(raw_line),
+                }
 
         if line.startswith("@"):
             ts_pending_decorators.append(line)
@@ -494,8 +499,10 @@ def _extract_index_for_file(relative_path: str, text: str, role: str) -> dict:
             )
             if container_ann and ts_current_class not in {item["symbol"] for item in containers}:
                 prefix = _decorator_path_arg(container_ann) or ""
+                version = _decorator_version_arg(container_ann)
+                composed_prefix = _compose_container_prefix(prefix, version)
                 containers.append(
-                    {"symbol": ts_current_class, "prefix": prefix, "callee": "ts_decorator_controller"},
+                    {"symbol": ts_current_class, "prefix": composed_prefix, "callee": "ts_decorator_controller"},
                 )
                 router_symbols.append(ts_current_class)
                 signals.add("route_container:ts_decorator_controller")
@@ -724,48 +731,9 @@ def _extract_index_for_file(relative_path: str, text: str, role: str) -> dict:
         "exports": exports,
         "path_literals": path_literals,
         "java_type": java_type,
+        "global_prefix": global_prefix,
     }
 
-
-def _split_args(expr: str) -> list[str]:
-    args: list[str] = []
-    buf: list[str] = []
-    depth = 0
-    quote: str | None = None
-    escape = False
-    for ch in expr:
-        if quote is not None:
-            buf.append(ch)
-            if escape:
-                escape = False
-            elif ch == "\\":
-                escape = True
-            elif ch == quote:
-                quote = None
-            continue
-        if ch in {"'", '"', "`"}:
-            quote = ch
-            buf.append(ch)
-            continue
-        if ch == "(":
-            depth += 1
-            buf.append(ch)
-            continue
-        if ch == ")":
-            depth = max(0, depth - 1)
-            buf.append(ch)
-            continue
-        if ch == "," and depth == 0:
-            part = "".join(buf).strip()
-            if part:
-                args.append(part)
-            buf = []
-            continue
-        buf.append(ch)
-    part = "".join(buf).strip()
-    if part:
-        args.append(part)
-    return args
 
 
 def _extract_handler_hint_from_route_snippet(snippet: str) -> str | None:

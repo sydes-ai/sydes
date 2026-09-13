@@ -29,6 +29,83 @@ def _normalize_express_path(path: str) -> str:
     return _normalize_basic_path(normalized)
 
 
+def _join_open_calls(text: str) -> str:
+    """Pull continuation lines up into their opening call.
+
+    Container constructions and mount calls are frequently written across
+    several lines. Content is moved up rather than removed, so every reported
+    line number still points at the construct's first line.
+
+    Shared by every line-based scanner in this module and in
+    `route_index.py` (which imports it from here) -- a decorator or call
+    argument spanning multiple physical lines (e.g. NestJS's
+    `@Controller({\\n  path: 'auth',\\n  version: '1',\\n})`) must look like
+    one line to any scanner that only ever inspects one line at a time,
+    or its argument is silently lost mid-way through.
+    """
+    lines = text.splitlines()
+    index = 0
+    while index < len(lines):
+        line = lines[index]
+        depth = line.count("(") - line.count(")")
+        if depth <= 0 or "(" not in line:
+            index += 1
+            continue
+        cursor = index + 1
+        while cursor < len(lines) and depth > 0 and cursor - index <= 8:
+            line = line.rstrip() + " " + lines[cursor].strip()
+            depth += lines[cursor].count("(") - lines[cursor].count(")")
+            lines[cursor] = ""
+            cursor += 1
+        lines[index] = line
+        index = cursor if cursor > index else index + 1
+    return "\n".join(lines)
+
+
+def _split_args(expr: str) -> list[str]:
+    """Split a top-level, comma-separated argument list, respecting nested
+    parens and quoted strings so a comma inside either is never mistaken
+    for an argument separator. Shared with `route_index.py`."""
+    args: list[str] = []
+    buf: list[str] = []
+    depth = 0
+    quote: str | None = None
+    escape = False
+    for ch in expr:
+        if quote is not None:
+            buf.append(ch)
+            if escape:
+                escape = False
+            elif ch == "\\":
+                escape = True
+            elif ch == quote:
+                quote = None
+            continue
+        if ch in {"'", '"', "`"}:
+            quote = ch
+            buf.append(ch)
+            continue
+        if ch == "(":
+            depth += 1
+            buf.append(ch)
+            continue
+        if ch == ")":
+            depth = max(0, depth - 1)
+            buf.append(ch)
+            continue
+        if ch == "," and depth == 0:
+            part = "".join(buf).strip()
+            if part:
+                args.append(part)
+            buf = []
+            continue
+        buf.append(ch)
+    part = "".join(buf).strip()
+    if part:
+        args.append(part)
+    return args
+
+
 def _extract_python_decorator_routes(
     repo: str,
     relative_path: str,
@@ -121,6 +198,15 @@ _TS_VERB_DECORATORS = {
 
 _TS_DECORATOR_NAME_RE = re.compile(r"^@(?P<name>[A-Za-z_$][\w$]*)")
 _TS_DECORATOR_STRING_ARG_RE = re.compile(r"^@[A-Za-z_$][\w$]*\s*\(\s*['\"]([^'\"]*)['\"]")
+#: NestJS also accepts an object-literal decorator argument --
+#: `@Controller({ path: 'auth', version: '1' })` -- most often specifically
+#: to attach a per-controller URI version, which a bare string argument
+#: cannot express at all. `_TS_DECORATOR_STRING_ARG_RE` alone silently
+#: treats this shape as "no prefix declared" (confirmed the dominant cause
+#: of real route paths missing their controller segment entirely).
+_TS_DECORATOR_OBJECT_ARG_RE = re.compile(r"^@[A-Za-z_$][\w$]*\s*\(\s*\{(?P<body>.*)\}")
+_TS_OBJECT_PATH_KEY_RE = re.compile(r"\bpath\s*:\s*['\"]([^'\"]*)['\"]")
+_TS_OBJECT_VERSION_KEY_RE = re.compile(r"\bversion\s*:\s*['\"]([^'\"]*)['\"]")
 _TS_CLASS_RE = re.compile(r"^\s*(?:export\s+)?(?:abstract\s+)?class\s+[A-Za-z_$]")
 _TS_METHOD_RE = re.compile(
     r"^\s*(?:(?:public|private|protected|static|abstract|readonly|async)\s+)*"
@@ -136,8 +222,41 @@ def _decorator_name(annotation: str) -> str:
     return match.group("name") if match else ""
 
 
+def _decorator_object_body(annotation: str) -> str | None:
+    """The raw text between `{` and the matching `}` of an object-literal
+    decorator argument, or `None` if the argument isn't object-literal
+    shaped. Requires the decorator's whole argument list to already be on
+    one logical line (see `_join_open_calls`)."""
+    match = _TS_DECORATOR_OBJECT_ARG_RE.match(annotation)
+    return match.group("body") if match else None
+
+
 def _decorator_path_arg(annotation: str) -> str | None:
+    """A decorator's path/prefix argument, from either a bare string
+    (`@Controller('auth')`) or an object literal's `path` key
+    (`@Controller({ path: 'auth', version: '1' })`)."""
     match = _TS_DECORATOR_STRING_ARG_RE.match(annotation)
+    if match:
+        return match.group(1)
+    body = _decorator_object_body(annotation)
+    if body is not None:
+        object_match = _TS_OBJECT_PATH_KEY_RE.search(body)
+        if object_match:
+            return object_match.group(1)
+    return None
+
+
+def _decorator_version_arg(annotation: str) -> str | None:
+    """A decorator's `version` key, only from the object-literal form --
+    there is no equivalent in the bare-string form. Only ever a plain
+    quoted string: an array (`version: ['1', '2']`) or the `VERSION_NEUTRAL`
+    constant both fail to match here, which is the correct, honest
+    "not resolved" outcome rather than a guess at which version to use.
+    """
+    body = _decorator_object_body(annotation)
+    if body is None:
+        return None
+    match = _TS_OBJECT_VERSION_KEY_RE.search(body)
     return match.group(1) if match else None
 
 
@@ -149,18 +268,95 @@ def _compose_ts_path(class_prefix: str, route_path: str) -> str:
     return _normalize_express_path(combined)
 
 
+def _compose_container_prefix(path_prefix: str, version: str | None) -> str:
+    """A container's own composed prefix: its declared `version` (URI
+    versioning inserts this as its own path segment, prefixed `v` -- NestJS's
+    own default convention for `VersioningType.URI`) ahead of its declared
+    `path`. With no version, `path_prefix` passes through completely
+    unchanged -- this must be a strict no-op for every container that
+    doesn't use per-controller versioning, the overwhelming majority of
+    existing callers.
+    """
+    if not version:
+        return path_prefix
+    segments = [f"v{version}"]
+    if path_prefix:
+        segments.append(path_prefix.strip("/"))
+    return "/".join(segments)
+
+
+#: `app.setGlobalPrefix(...)` applies to every controller in a NestJS
+#: application at once -- not to one container, the way `@Controller(...)`
+#: does -- so it needs its own, separate detector rather than reusing the
+#: per-container decorator-argument parsing above.
+_TS_SET_GLOBAL_PREFIX_RE = re.compile(r"(?<![\w.])[A-Za-z_$][\w$]*\.setGlobalPrefix\s*\(")
+_LITERAL_STRING_ONLY_RE = re.compile(r"^['\"]([^'\"]*)['\"]$")
+
+
+def extract_set_global_prefix(line: str) -> tuple[str | None, bool]:
+    """Detect `app.setGlobalPrefix(...)` on one (already call-joined) line.
+
+    Returns `(literal_value, dynamic)`. `literal_value` is set only when the
+    call's first argument is a plain quoted string -- the common case for a
+    hard-coded API prefix. Any other first argument (a config lookup, a
+    variable, a function call -- the actual shape in real code at least as
+    often as a literal) makes `dynamic=True` instead: the call was found,
+    but Sydes cannot statically know what it resolves to, and must say so
+    rather than guess or silently proceed as if no prefix were set at all.
+    """
+    match = _TS_SET_GLOBAL_PREFIX_RE.search(line)
+    if match is None:
+        return None, False
+    open_paren = match.end() - 1
+    depth = 0
+    close_paren = None
+    for pos in range(open_paren, len(line)):
+        if line[pos] == "(":
+            depth += 1
+        elif line[pos] == ")":
+            depth -= 1
+            if depth == 0:
+                close_paren = pos
+                break
+    if close_paren is None:
+        # The call's closing paren never appeared within this (already
+        # call-joined) line -- an unusually long or deeply nested argument
+        # list. Nothing to guess at safely.
+        return None, True
+    args = _split_args(line[open_paren + 1 : close_paren])
+    if not args:
+        return None, True
+    literal_match = _LITERAL_STRING_ONLY_RE.match(args[0].strip())
+    if literal_match:
+        return literal_match.group(1), False
+    return None, True
+
+
 def _extract_typescript_decorator_routes(
     repo: str,
     relative_path: str,
     text: str,
 ) -> list[EndpointCandidate]:
-    lines = text.splitlines()
+    # A decorator argument (string or object-literal) commonly spans several
+    # physical lines; without joining them first, an intervening line such
+    # as `  path: 'auth',` reads as ordinary code and wipes `pending_
+    # decorators` below before the class line is ever reached -- silently
+    # losing the whole container declaration, not just its prefix.
+    lines = _join_open_calls(text).splitlines()
     endpoints: list[EndpointCandidate] = []
     pending_decorators: list[str] = []
     class_prefix = ""
 
     for line in lines:
         stripped = line.strip()
+        if not stripped:
+            continue
+        # A JSDoc/block comment line between a decorator and the class or
+        # method it documents must not reset `pending_decorators` below --
+        # the same failure mode as an ordinary intervening code line, just
+        # triggered by documentation instead.
+        if stripped.startswith("/*") or stripped.startswith("*") or stripped.startswith("//"):
+            continue
         if stripped.startswith("@"):
             pending_decorators.append(stripped)
             continue
@@ -172,7 +368,9 @@ def _extract_typescript_decorator_routes(
             )
             if container_ann:
                 prefix = _decorator_path_arg(container_ann) or ""
-                class_prefix = _normalize_basic_path(prefix) if prefix else ""
+                version = _decorator_version_arg(container_ann)
+                composed = _compose_container_prefix(prefix, version)
+                class_prefix = _normalize_basic_path(composed) if composed else ""
                 if class_prefix == "/":
                     class_prefix = ""
             pending_decorators = []

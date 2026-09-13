@@ -186,3 +186,33 @@ def test_extract_routing_controllers_decorator_routes_with_stacked_decorators() 
     assert "ts_decorators" in frameworks
     post_pets = next(item for item in endpoints if item.method == "POST" and item.path == "/pets")
     assert "@Post()" in (post_pets.evidence[0].snippet or "")
+
+
+def test_extract_nestjs_decorator_routes_with_object_literal_and_version() -> None:
+    """Real bug found evaluating sydes-examples/nestjs-boilerplate#1: NestJS's
+    object-literal `@Controller({ path, version })` form (used to attach a
+    per-controller URI version) was silently treated as "no prefix" by a
+    bare-string-only parser -- and the multi-line form (the real repo's
+    actual shape) additionally needs its continuation lines joined before
+    the object literal is visible to a per-line scanner at all."""
+    source = _candidate(
+        "api",
+        "src/auth/auth.controller.ts",
+        "\n".join(
+            [
+                "@ApiTags('Auth')",
+                "@Controller({",
+                "  path: 'auth',",
+                "  version: '1',",
+                "})",
+                "export class AuthController {",
+                "    @Post('email/login')",
+                "    login() { return null; }",
+                "}",
+            ]
+        ),
+    )
+    endpoints, frameworks = extract_deterministic_routes([source])
+    keys = {(item.method, item.path, item.handler) for item in endpoints}
+    assert ("POST", "/v1/auth/email/login", "login") in keys
+    assert "ts_decorators" in frameworks

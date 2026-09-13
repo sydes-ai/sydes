@@ -12,6 +12,7 @@ lives in `test_mapping`, and deciding whether it passes lives in
 
 from __future__ import annotations
 
+import bisect
 from dataclasses import dataclass, field
 from pathlib import Path
 import re
@@ -102,6 +103,18 @@ def _extract_cases_from_file(scanned: SourceFile) -> list[LocatedTest]:
     """Extract test cases and their referenced routes/identifiers from one file."""
     lines = scanned.text.splitlines()
     starts: list[tuple[int, str, str | None]] = []
+    # Every line where a new scope opens -- a test case, but also a
+    # `describe`/class block -- not just test starts. A case's nominal end
+    # is "one line before the next such boundary", so a `describe(...)`
+    # header sitting between two `it(...)` cases must count as a boundary
+    # too; otherwise it gets silently absorbed into the PRECEDING case's
+    # range. That only ever mattered for route/identifier extraction (which
+    # a describe/class header line never contains anything relevant to)
+    # until `end_line` started being used for diff-hunk overlap: an
+    # untouched case immediately before a newly inserted one can otherwise
+    # appear to "contain" the new case's own opening line, and so appear to
+    # overlap a hunk that starts there.
+    boundary_lines: list[int] = []
     current_suite: str | None = None
     pending_fixture = False
     pending_rust_test = False
@@ -123,27 +136,40 @@ def _extract_cases_from_file(scanned: SourceFile) -> list[LocatedTest]:
             fn_match = _RUST_FN_DEF.match(line)
             if fn_match:
                 starts.append((line_no, fn_match.group("name"), current_suite))
+                boundary_lines.append(line_no)
             pending_rust_test = False
             continue
         suite_match = _JS_SUITE.match(line)
         if suite_match:
             current_suite = suite_match.group("name")
+            boundary_lines.append(line_no)
             continue
         for pattern in (_PY_TEST_DEF, _JS_TEST_CASE, _JAVA_TEST, _GO_TEST_DEF):
             match = pattern.match(line)
             if match:
                 if not pending_fixture:
                     starts.append((line_no, match.group("name"), current_suite))
+                    boundary_lines.append(line_no)
                 pending_fixture = False
                 break
         else:
             class_match = _PY_TEST_CLASS.match(line)
             if class_match:
                 current_suite = class_match.group("name")
+                boundary_lines.append(line_no)
 
     cases: list[LocatedTest] = []
     for position, (line_no, name, suite) in enumerate(starts):
-        end = starts[position + 1][0] - 1 if position + 1 < len(starts) else len(lines)
+        # The nearest boundary of ANY kind (another test, or a `describe`/
+        # class header) strictly after this case's own start -- not just
+        # the next test start -- so a suite header sitting between two
+        # cases is never silently folded into the earlier one's range.
+        next_boundary_pos = bisect.bisect_right(boundary_lines, line_no)
+        end = (
+            boundary_lines[next_boundary_pos] - 1
+            if next_boundary_pos < len(boundary_lines)
+            else len(lines)
+        )
         end = min(end, line_no + _MAX_CASE_LINES)
         body = "\n".join(lines[line_no - 1 : end])
         case = LocatedTest(

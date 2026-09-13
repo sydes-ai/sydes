@@ -340,6 +340,61 @@ def _build_route_graph_for_repo(repo_payload: dict) -> dict:
                 )
             )
 
+    # --- NestJS-style whole-application prefix ---------------------------
+    # `app.setGlobalPrefix('api')` applies to every controller at once; it
+    # does not fit the per-container `own_prefix` model at all (nothing
+    # "declares itself" with this prefix), and there is no mount CALL for it
+    # either (`app.setGlobalPrefix(...)` names no child to mount). Modeled
+    # here as one synthetic container whose `own_prefix` IS the global
+    # prefix, joined to every existing NestJS-decorator container via a
+    # synthetic, zero-contribution `_Mount` -- reusing `prefixes_for`'s
+    # existing parent-chain composition below rather than adding a second,
+    # parallel composition path. Only a literal (statically known) prefix
+    # value is ever composed into a path; a dynamic one (the common case --
+    # e.g. read from application config) is recorded separately as
+    # `global_prefix_dynamic` and surfaced as a diagnostic, never guessed.
+    global_prefix_literal: str | None = None
+    global_prefix_source: dict | None = None
+    global_prefix_dynamic: dict | None = None
+    for file_item in files_payload:
+        fact = file_item.get("global_prefix")
+        if not isinstance(fact, dict):
+            continue
+        file_path = str(file_item.get("path") or "")
+        if fact.get("value") and global_prefix_literal is None:
+            global_prefix_literal = str(fact["value"])
+            global_prefix_source = {
+                "file": file_path, "line": fact.get("line"), "snippet": fact.get("snippet"),
+            }
+        elif fact.get("dynamic") and global_prefix_dynamic is None:
+            global_prefix_dynamic = {
+                "file": file_path, "line": fact.get("line"), "snippet": fact.get("snippet"),
+            }
+
+    if global_prefix_literal and global_prefix_source is not None:
+        global_container_id = f"{repo}::<global_prefix>"
+        containers[global_container_id] = _Container(
+            id=global_container_id,
+            symbol="<global_prefix>",
+            file=global_prefix_source["file"],
+            kind="global_prefix_root",
+            own_prefix=_normalize_basic_path(global_prefix_literal),
+        )
+        for container in list(containers.values()):
+            if container.kind != "ts_decorator_controller":
+                continue
+            mounts.append(
+                _Mount(
+                    parent_container_id=global_container_id,
+                    child_symbol=container.symbol,
+                    child_container_id=container.id,
+                    prefix="",
+                    file=global_prefix_source["file"],
+                    line=global_prefix_source["line"],
+                    snippet=global_prefix_source["snippet"],
+                )
+            )
+
     incoming: dict[str, list[_Mount]] = {}
     for m in mounts:
         if m.child_container_id is None:
@@ -522,6 +577,16 @@ def _build_route_graph_for_repo(repo_payload: dict) -> dict:
         "unresolved_imports": unresolved_imports,
         "unresolved_mounts": unresolved_mounts,
         "unresolved_containers": unresolved_containers,
+        # `value` is only ever a statically-known literal; `dynamic` names a
+        # `setGlobalPrefix(...)` call found with a non-literal argument (its
+        # value could not be determined, e.g. read from application config)
+        # so that gap is reported rather than silently treated as "no
+        # prefix". Both `None` means no such call was found at all.
+        "global_prefix": {
+            "value": global_prefix_literal,
+            "source": global_prefix_source,
+            "dynamic": global_prefix_dynamic,
+        },
         "summary": {
             "containers": len(container_rows),
             "declarations": len(declaration_rows),
@@ -569,6 +634,7 @@ def build_route_graph_facts_from_route_index_batch(route_index_batch: dict) -> d
                 "unresolved_imports": item["unresolved_imports"],
                 "unresolved_mounts": item["unresolved_mounts"],
                 "unresolved_containers": item["unresolved_containers"],
+                "global_prefix": item["global_prefix"],
                 "summary": item["summary"],
             }
             for item in repo_facts

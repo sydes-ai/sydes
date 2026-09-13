@@ -35,7 +35,8 @@ from sydes.verify.models import (
     Hunk,
     VerificationObligation,
 )
-from sydes.verify.test_index import ExistingTestIndex, LocatedTest
+from sydes.verify.source_files import SourceFile
+from sydes.verify.test_index import ExistingTestIndex, LocatedTest, _extract_cases_from_file
 from sydes.verify.test_mapping import (
     _invokes_symbol,
     _route_prefix_mismatch,
@@ -128,6 +129,42 @@ def test_case_changed_in_diff_false_for_untouched_case_in_a_touched_file():
     case = _case("pre-existing case", "it('pre-existing case', () => {\n  doThing();\n});\n", line=10, end_line=12)
     hunks = [Hunk(start_line=200, end_line=210)]  # the diff touched a much later part of the file
     assert case_changed_in_diff(case, hunks) is False
+
+
+def test_untouched_case_immediately_before_a_new_case_is_not_swept_into_its_hunk():
+    """Real bug found rerunning sydes-examples/nestjs-boilerplate#1: a
+    pre-existing case's heuristic `end_line` used to be "next TEST's start
+    minus one", which does not stop at an intervening `describe(...)`
+    header. When a brand-new test is inserted in its own new `describe`
+    block immediately after an untouched one, that untouched case's range
+    swallowed the new block's own opening line -- making it falsely overlap
+    the new hunk. `describe`/class headers must count as boundaries too.
+    """
+    text = (
+        "describe('Auth Module', () => {\n"
+        "  describe('Login', () => {\n"
+        "    it('should successfully for user with confirmed email', () => {\n"
+        "      return request(app).post('/api/v1/auth/email/login').expect(200);\n"
+        "    });\n"
+        "  });\n"
+        "\n"
+        "  describe('Forgot password', () => {\n"
+        "    it('should reset password only once per link', async () => {\n"
+        "      await request(app).post('/api/v1/auth/reset/password');\n"
+        "    });\n"
+        "  });\n"
+        "});\n"
+    )
+    source = SourceFile(repo=REPO, path="test/x.spec.ts", text=text, role="test_usage_candidate", extension=".ts")
+    cases = {c.name: c for c in _extract_cases_from_file(source)}
+    untouched = cases["should successfully for user with confirmed email"]
+    new_case = cases["should reset password only once per link"]
+
+    # The hunk is a pure insertion starting exactly at the new describe
+    # block's own header line.
+    hunk = Hunk(start_line=new_case.line - 1, end_line=new_case.line + 5)
+    assert case_changed_in_diff(untouched, [hunk]) is False
+    assert case_changed_in_diff(new_case, [hunk]) is True
 
 
 def test_case_changed_in_diff_false_when_file_has_no_hunks():

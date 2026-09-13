@@ -1016,6 +1016,21 @@ def discover_endpoints(
                 f"route_graph_composed_routes={summary.get('composed_routes', 0)}, "
                 f"route_graph_unresolved_mounts={summary.get('unresolved_mounts', 0)}"
             )
+            global_prefix = repo_graph_facts.get("global_prefix")
+            if isinstance(global_prefix, dict):
+                if global_prefix.get("value"):
+                    source = global_prefix.get("source") or {}
+                    notes.append(
+                        f"{repo.name}: global_route_prefix={global_prefix['value']!r} "
+                        f"(from {source.get('file')}:{source.get('line')}) applied to affected routes"
+                    )
+                elif global_prefix.get("dynamic"):
+                    dynamic = global_prefix["dynamic"]
+                    notes.append(
+                        f"{repo.name}: a global route prefix is set in {dynamic.get('file')}:{dynamic.get('line')} "
+                        "with a non-literal argument (e.g. read from application config) -- its value could not "
+                        "be statically determined, so discovered route paths may be missing it"
+                    )
         notes.append(
             f"{repo.name}: deterministic_files_scanned={sum(1 for item in deterministic_reads if not item.skipped and item.snippet is not None and (item.role or 'unknown') == FILE_ROLE_SOURCE_ROUTE_CANDIDATE)}, "
             f"deterministic_scan_truncated_files={deterministic_scan_truncated_files}"

@@ -141,6 +141,173 @@ def test_route_index_recognizes_decorator_based_controllers(tmp_path: Path) -> N
     )
 
 
+def test_route_index_recognizes_object_literal_controller_decorator_with_version(tmp_path: Path) -> None:
+    """Real bug found evaluating sydes-examples/nestjs-boilerplate#1: NestJS
+    also accepts an object-literal `@Controller({...})` argument, most often
+    specifically to attach a per-controller URI version -- a bare-string-only
+    parser silently treats this as "no prefix declared" for every controller
+    written this way. Also exercises the multi-line form directly (the real
+    repo's actual shape), which additionally needs continuation lines joined
+    before the object literal's keys are visible to any per-line scanner."""
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    (repo_root / "src").mkdir()
+    (repo_root / "src" / "AuthController.ts").write_text(
+        "\n".join(
+            [
+                "@ApiTags('Auth')",
+                "@Controller({",
+                "  path: 'auth',",
+                "  version: '1',",
+                "})",
+                "export class AuthController {",
+                "    constructor(private service: AuthService) { }",
+                "    @Post('email/login')",
+                "    public login(): Promise<LoginResponse> {",
+                "        return this.service.login();",
+                "    }",
+                "}",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    payload = build_route_index(RepoRef(name="demo", root=str(repo_root)))
+    files = {item["path"]: item for item in payload["files"]}
+    controller = files["src/AuthController.ts"]
+
+    assert "AuthController" in controller["router_symbols"]
+    assert any(
+        item["symbol"] == "AuthController" and item["prefix"] == "v1/auth"
+        for item in controller["containers"]
+    )
+    assert any(
+        call["receiver"] == "AuthController" and call["method"] == "post" and call["handler_hint"] == "login"
+        for call in controller["route_calls"]
+    )
+
+
+def test_route_index_object_literal_controller_single_line(tmp_path: Path) -> None:
+    """The single-line form of the same object-literal argument must resolve
+    identically to the multi-line form above."""
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    (repo_root / "src").mkdir()
+    (repo_root / "src" / "AuthController.ts").write_text(
+        "\n".join(
+            [
+                "@Controller({ path: 'auth', version: '1' })",
+                "export class AuthController {",
+                "    @Get('me')",
+                "    public me(): void { }",
+                "}",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    payload = build_route_index(RepoRef(name="demo", root=str(repo_root)))
+    files = {item["path"]: item for item in payload["files"]}
+    controller = files["src/AuthController.ts"]
+    assert any(
+        item["symbol"] == "AuthController" and item["prefix"] == "v1/auth"
+        for item in controller["containers"]
+    )
+
+
+def test_route_index_controller_decorator_survives_intervening_jsdoc_comment(tmp_path: Path) -> None:
+    """A JSDoc block comment between the decorator and the class it applies
+    to must not be mistaken for ordinary code and reset the pending
+    decorator -- confirmed to silently drop the whole container declaration
+    before this fix."""
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    (repo_root / "src").mkdir()
+    (repo_root / "src" / "AuthController.ts").write_text(
+        "\n".join(
+            [
+                "@Controller('auth')",
+                "/**",
+                " * Handles authentication.",
+                " */",
+                "export class AuthController {",
+                "    @Get('me')",
+                "    public me(): void { }",
+                "}",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    payload = build_route_index(RepoRef(name="demo", root=str(repo_root)))
+    files = {item["path"]: item for item in payload["files"]}
+    controller = files["src/AuthController.ts"]
+    assert any(
+        item["symbol"] == "AuthController" and item["prefix"] == "auth"
+        for item in controller["containers"]
+    )
+
+
+def test_route_index_detects_literal_global_prefix(tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    (repo_root / "src").mkdir()
+    (repo_root / "src" / "main.ts").write_text(
+        "\n".join(
+            [
+                "async function bootstrap() {",
+                "  const app = await NestFactory.create(AppModule);",
+                "  app.setGlobalPrefix('api');",
+                "}",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    payload = build_route_index(RepoRef(name="demo", root=str(repo_root)))
+    files = {item["path"]: item for item in payload["files"]}
+    main = files["src/main.ts"]
+    assert main["global_prefix"] == {
+        "value": "api", "dynamic": False, "line": 3, "snippet": "app.setGlobalPrefix('api');",
+    }
+
+
+def test_route_index_reports_dynamic_global_prefix_without_guessing(tmp_path: Path) -> None:
+    """The real shape found in sydes-examples/nestjs-boilerplate#1: the
+    prefix argument is a config lookup, not a literal. Must be reported as
+    unresolved ("dynamic"), never silently ignored or guessed at."""
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    (repo_root / "src").mkdir()
+    (repo_root / "src" / "main.ts").write_text(
+        "\n".join(
+            [
+                "async function bootstrap() {",
+                "  const app = await NestFactory.create(AppModule);",
+                "  app.setGlobalPrefix(",
+                "    configService.getOrThrow('app.apiPrefix', { infer: true }),",
+                "    {",
+                "      exclude: ['/'],",
+                "    },",
+                "  );",
+                "}",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    payload = build_route_index(RepoRef(name="demo", root=str(repo_root)))
+    files = {item["path"]: item for item in payload["files"]}
+    main = files["src/main.ts"]
+    assert main["global_prefix"]["value"] is None
+    assert main["global_prefix"]["dynamic"] is True
+
+
 def test_route_index_recognizes_spring_controllers_without_a_class_prefix(tmp_path: Path) -> None:
     """Spring MVC is the same class-decorator/method-decorator shape again,
     just with Java syntax and no class-level `@RequestMapping` in this
