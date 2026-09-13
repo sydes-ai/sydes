@@ -255,6 +255,23 @@ class VerificationCounts(BaseModel):
     obligations_unknown: int = 0
     mapped_tests: int = 0
     supporting_tests: int = 0
+    #: The three counts below are deliberately computed over *every*
+    #: obligation (required or not), deduped by test id -- unlike
+    #: `mapped_tests`/`supporting_tests` above, which stay scoped to
+    #: `required` obligations because they feed verdict-adjacent signals
+    #: (AI-recovery triggering, the historic "None identified" render).
+    #: A test-matrix-origin obligation is deliberately never `required`
+    #: (see `derive_obligations`), but real evidence found against one is
+    #: still real evidence a reviewer should see -- these three fields are
+    #: what makes that visible without changing what gates the verdict.
+    #: Always `tests_verifying_behavior <= tests_exercising_flows` and
+    #: `tests_supporting_behavior <= tests_exercising_flows`.
+    tests_exercising_flows: int = 0
+    tests_supporting_behavior: int = 0
+    tests_verifying_behavior: int = 0
+    #: Test cases in a changed test file whose own line range overlaps a
+    #: diff hunk -- test-case granularity, not "file was touched somewhere".
+    changed_test_cases: int = 0
     tests_executed: int = 0
     verification_gaps: int = 0
     runtime_dependencies: int = 0

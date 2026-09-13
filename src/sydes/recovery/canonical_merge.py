@@ -202,6 +202,12 @@ def _merge_recovered_tests(result: ChangeVerificationResult, test_recovery: Test
     # Relevant/mapped, never executed -- recovery does not run anything.
     result.summary.counts.mapped_tests += new_count
     result.summary.counts.supporting_tests += new_count
+    # A recovered test was adversarially verified to demonstrate the claim
+    # (see module docstring), so it counts as real, distinct verifying
+    # evidence too -- keeping these in lockstep with the two counts above
+    # rather than letting them silently drift apart.
+    result.summary.counts.tests_verifying_behavior += new_count
+    result.summary.counts.tests_exercising_flows += new_count
 
 
 def merge_verified_recovery_into_result(

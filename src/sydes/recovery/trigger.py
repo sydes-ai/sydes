@@ -87,8 +87,17 @@ def _missing_test_mapping_despite_new_tests(result: ChangeVerificationResult) ->
     """Non-empty iff at least one test file changed in this diff (added is
     the strongest signal, but a modified existing test file counts too) and
     yet nothing was mapped at all. Returns the candidate file paths so the
-    caller can hand them to the agent as a concrete lead, not just a flag."""
+    caller can hand them to the agent as a concrete lead, not just a flag.
+
+    Checks `tests_verifying_behavior` (every obligation, required or not)
+    alongside the older `mapped_tests` (required obligations only): real
+    evidence found anywhere is a reason to skip recovery, even when it
+    landed on an advisory test-matrix obligation that doesn't gate the
+    verdict.
+    """
     if result.summary.counts.mapped_tests > 0:
+        return ()
+    if result.summary.counts.tests_verifying_behavior > 0:
         return ()
     test_files = _new_or_changed_test_files(result)
     added_test_files = tuple(

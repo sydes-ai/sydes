@@ -59,6 +59,11 @@ class LocatedTest:
     file: str
     name: str
     line: int
+    #: Last line of this case's body, in the same post-image line numbering
+    #: as `line` and as `Hunk.start_line`/`end_line` -- lets a caller test
+    #: whether a diff hunk actually falls inside this specific case, rather
+    #: than only knowing the file was touched somewhere.
+    end_line: int = 0
     suite: str | None = None
     body: str = ""
     route_paths: set[str] = field(default_factory=set)
@@ -146,6 +151,7 @@ def _extract_cases_from_file(scanned: SourceFile) -> list[LocatedTest]:
             file=scanned.path,
             name=name,
             line=line_no,
+            end_line=end,
             suite=suite,
             route_paths={
                 match.group("path")
@@ -167,6 +173,7 @@ def _extract_cases_from_file(scanned: SourceFile) -> list[LocatedTest]:
                 file=scanned.path,
                 name=Path(scanned.path).stem,
                 line=1,
+                end_line=len(lines),
                 route_paths={
                     match.group("path")
                     for match in _ROUTE_LITERAL.finditer(scanned.text)

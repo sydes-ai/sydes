@@ -127,7 +127,7 @@ from sydes.verify.source_files import load_repo_files
 from sydes.verify.symbol_attribution_span import language_for_attribution, symbol_attribution_span
 from sydes.verify.test_execution import ExecutionSettings, run_ci_suite
 from sydes.verify.test_index import build_test_index
-from sydes.verify.test_mapping import map_tests_to_obligation
+from sydes.verify.test_mapping import case_changed_in_diff, map_tests_to_obligation
 
 MAX_FLOWS = 12
 
@@ -736,11 +736,37 @@ def _trace_verification_decisions(
         )
 
 
-def _compute_summary(result: ChangeVerificationResult) -> ChangeSummary:
+def _distinct_test_tier_counts(obligations: list[VerificationObligation]) -> tuple[int, int, int]:
+    """Distinct-test exercise/support/verify counts across *every* obligation
+    on the result -- required or not, deduped by test id.
+
+    A test-matrix-origin obligation is deliberately never `required` (see
+    `derive_obligations`'s reason for that), so restricting this to
+    `required` obligations -- as `mapped_tests`/`supporting_tests` below
+    still do, on purpose, since they feed verdict-adjacent signals -- would
+    make real evidence found only there invisible to a reviewer. `verifying`
+    and `supporting` are kept disjoint (a test that verifies at least one
+    obligation is not double-counted as merely "supporting"), so
+    `exercising == verifying | supporting` always holds.
+    """
+    verifying_ids: set[str] = set()
+    supporting_ids: set[str] = set()
+    for item in obligations:
+        verifying_ids.update(test.id for test in item.mapped_tests)
+        supporting_ids.update(test.id for test in item.supporting_tests)
+    exercising = verifying_ids | supporting_ids
+    supporting_only = supporting_ids - verifying_ids
+    return len(exercising), len(supporting_only), len(verifying_ids)
+
+
+def _compute_summary(
+    result: ChangeVerificationResult, *, changed_test_case_count: int = 0,
+) -> ChangeSummary:
     """Derive risk and verdict from obligation outcomes only."""
     change = result.change
     obligations = [item for flow in result.affected_flows for item in flow.obligations]
     required = [item for item in obligations if item.required]
+    exercising, supporting_only, verifying = _distinct_test_tier_counts(obligations)
 
     def _count(state: str) -> int:
         return sum(1 for item in required if item.status == state)
@@ -775,6 +801,10 @@ def _compute_summary(result: ChangeVerificationResult) -> ChangeSummary:
         obligations_unknown=_count(VERIFICATION_UNKNOWN),
         mapped_tests=sum(len(item.mapped_tests) for item in required),
         supporting_tests=sum(len(item.supporting_tests) for item in required),
+        tests_exercising_flows=exercising,
+        tests_supporting_behavior=supporting_only,
+        tests_verifying_behavior=verifying,
+        changed_test_cases=changed_test_case_count,
         tests_executed=executed,
         verification_gaps=len(result.verification_gaps),
         runtime_dependencies=len(result.runtime_dependencies),
@@ -1803,6 +1833,7 @@ def analyze_change(
     )
 
     changed_files = {item.path for item in change.files}
+    changed_file_hunks = {item.path: item.hunks for item in change.files}
     changed_symbol_names = {item.name for item in change.symbols}
     changed_symbol_names |= {
         item.qualified_name for item in change.symbols if item.qualified_name
@@ -1811,6 +1842,15 @@ def analyze_change(
     repo_files = load_repo_files(primary.name, primary_root)
     test_index = build_test_index(repo_files)
     result.diagnostics.extend(f"{primary.name}: {note}" for note in test_index.notes)
+
+    changed_test_cases = sorted(
+        f"{case.file}::{case.name}"
+        for case in test_index.cases
+        if case.file in changed_files
+        and case_changed_in_diff(case, changed_file_hunks.get(case.file))
+    )
+    if changed_test_cases:
+        result.diagnostics.append(f"changed_test_cases_found: {changed_test_cases}")
 
     # --- one flow per reachable route ------------------------------------
     changed_symbol_keys = {(item.file, item.name) for item in change.symbols}
@@ -1977,15 +2017,18 @@ def analyze_change(
             changed_files=changed_files,
         )
         for obligation in flow.obligations:
-            evidence, supporting = map_tests_to_obligation(
+            evidence, supporting, route_notes = map_tests_to_obligation(
                 obligation=obligation,
                 flow=flow,
                 test_index=test_index,
                 changed_symbol_names=changed_symbol_names,
-                changed_files=changed_files,
+                changed_file_hunks=changed_file_hunks,
             )
             obligation.mapped_tests = evidence
             obligation.supporting_tests = supporting
+            for note in route_notes:
+                if note not in result.diagnostics:
+                    result.diagnostics.append(note)
 
         result.affected_flows.append(flow)
 
@@ -2022,7 +2065,7 @@ def analyze_change(
     for flow in result.affected_flows:
         resolve_flow_status(flow)
     result.accepted_impacts = _build_accepted_impacts(impact_result, result.affected_flows)
-    result.summary = _compute_summary(result)
+    result.summary = _compute_summary(result, changed_test_case_count=len(changed_test_cases))
     _trace.record_final_decision(
         run_id=trace_run_id,
         risk=result.summary.risk,

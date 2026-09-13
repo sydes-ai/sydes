@@ -139,6 +139,19 @@ def test_recovered_test_increments_mapped_tests_count():
     assert result.summary.counts.supporting_tests == 1
 
 
+def test_recovered_test_also_counts_as_distinct_verifying_evidence():
+    """A recovered test is adversarially verified, not merely mapped -- it
+    must move `tests_verifying_behavior`/`tests_exercising_flows` in
+    lockstep with `mapped_tests`, so the recovery trigger's own check of
+    `tests_verifying_behavior` (see `recovery.trigger`) does not go stale
+    relative to what this merge just added."""
+    result = _result()
+    test_recovery = TestRecoveryResult(status=STATUS_ESTABLISHED, tests=[_recovered_test()])
+    merge_verified_recovery_into_result(result, PathRecoveryResult(), test_recovery)
+    assert result.summary.counts.tests_verifying_behavior == 1
+    assert result.summary.counts.tests_exercising_flows == 1
+
+
 def test_recovered_test_never_becomes_executed():
     result = _result()
     test_recovery = TestRecoveryResult(status=STATUS_ESTABLISHED, tests=[_recovered_test()])

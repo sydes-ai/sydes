@@ -99,6 +99,24 @@ def test_trigger_when_test_mapping_missing_despite_a_new_test_file():
     assert "svc_test.py" in trigger.extra_test_candidate_files
 
 
+def test_no_trigger_when_real_evidence_exists_only_on_a_non_required_obligation():
+    """`tests_verifying_behavior` covers every obligation (required or not);
+    `mapped_tests` stays scoped to required ones only (see
+    `VerificationCounts`). Real evidence landing solely on an advisory,
+    non-required obligation must still be recognized here -- it is not a
+    reason to spend an AI-recovery pass looking for what was already
+    found."""
+    result = _result(
+        files=[ChangedFile(repo=REPO, path="svc_test.py", change_type="added", role="test_usage_candidate")],
+        summary=ChangeSummary(
+            verdict=VERDICT_INCOMPLETE,
+            counts=VerificationCounts(mapped_tests=0, tests_verifying_behavior=2),
+        ),
+        affected_flows=[AffectedFlow(id="f1", entry_label="POST /users", impact_status="proven")],
+    )
+    assert evaluate_trigger(result) is None
+
+
 def test_no_trigger_when_tests_are_mapped_even_with_a_changed_test_file():
     result = _result(
         files=[ChangedFile(repo=REPO, path="svc_test.py", change_type="added", role="test_usage_candidate")],

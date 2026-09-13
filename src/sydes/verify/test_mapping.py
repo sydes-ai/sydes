@@ -27,6 +27,7 @@ from sydes.verify.models import (
     TIER_DIRECT_INVOCATION,
     TIER_DIRECT_ROUTE,
     AffectedFlow,
+    Hunk,
     MappedTest,
     VerificationObligation,
 )
@@ -66,11 +67,62 @@ def _route_match(case: LocatedTest, method: str | None, path: str | None) -> str
     return None
 
 
-def _invokes_symbol(case: LocatedTest, symbol: str | None) -> bool:
-    """True when the test imports and calls the given symbol by name.
+def _route_prefix_mismatch(case: LocatedTest, flow_path: str | None) -> str | None:
+    """Detect a likely missing route prefix, as a diagnostic only.
 
-    Requires an actual call site, not a mention: a name appearing in a comment,
-    an import list alone, or an unrelated attribute is not an invocation.
+    `flow.path` sometimes carries only the method-decorator's own path
+    segment (e.g. `/login`) while the route a test actually issues includes
+    a global/controller prefix the flow object never recorded (e.g.
+    `/api/v1/auth/email/login`). That is a route-composition gap upstream of
+    this module, out of scope to fix here -- but silently mapping tests
+    across it would be exactly the kind of filename/heuristic compensation
+    this module exists to refuse. Instead, surface it as a distinct note so
+    the mismatch is visible rather than either silently wrong (mapped) or
+    silently invisible (dropped).
+    """
+    target = _normalize(flow_path)
+    if not target or target == "/":
+        return None
+    for literal in case.route_paths:
+        candidate = _normalize(literal)
+        if candidate is None or candidate == target:
+            continue
+        # `target` always starts with "/" (guaranteed by `_normalize`, which
+        # rejects "/" alone above), so an `endswith` match already lands on
+        # a real path-segment boundary in `candidate` -- no separate
+        # boundary check needed.
+        if candidate.endswith(target):
+            return (
+                f"possible missing route prefix: flow path {flow_path!r} looks like a "
+                f"suffix of {literal!r} used in {case.file}:{case.line} -- route "
+                "composition was not fixed here, so this was not used to map any test"
+            )
+    return None
+
+
+def _body_without_declared_name(case: LocatedTest) -> str:
+    """The case body with its own declared name/description removed.
+
+    A JS/TS case is commonly named after the very route it exercises, e.g.
+    `it('should successfully login: /api/v1/auth/email/login (POST)', ...)`.
+    That string is prose written by a human for a reader, not code -- but
+    "login (POST)" still matches a naive `name\\s*\\(` invocation regex,
+    making the test look like it *calls* a `login` symbol when it never
+    does. The declared name is a known, fixed span (`case.name`, captured by
+    the same regex that found this case), so it can be excluded outright
+    rather than trying to teach the invocation check to see through prose.
+    """
+    if not case.name:
+        return case.body
+    return case.body.replace(case.name, "", 1)
+
+
+def _invokes_symbol(case: LocatedTest, symbol: str | None) -> bool:
+    """True when the test calls the given symbol as code, not merely names it.
+
+    Requires an actual call site, not a mention: a name appearing in a
+    comment, an import list, an unrelated attribute, or the test's own
+    human-written description is not an invocation.
     """
     if not symbol:
         return False
@@ -79,7 +131,13 @@ def _invokes_symbol(case: LocatedTest, symbol: str | None) -> bool:
         return False
     if leaf not in case.identifiers:
         return False
-    return bool(re.search(rf"\b{re.escape(leaf)}\s*\(", case.body))
+    body = _body_without_declared_name(case)
+    # A real call site has the identifier immediately followed by `(` -- no
+    # intervening space. Prose like "login (POST)" always has one; this is
+    # the second, independent guard against exactly that shape, in case the
+    # match happens to fall outside the declared-name span above (e.g. a
+    # comment echoing the case name).
+    return bool(re.search(rf"\b{re.escape(leaf)}\(", body))
 
 
 def _has_assertion(case: LocatedTest) -> bool:
@@ -115,6 +173,22 @@ def _asserts_effect_token(case: LocatedTest, tokens: set[str]) -> str | None:
     return None
 
 
+def case_changed_in_diff(case: LocatedTest, hunks: list[Hunk] | None) -> bool:
+    """True only when a diff hunk actually falls inside *this* case's own
+    line range -- not merely when its file was touched somewhere.
+
+    A file-level check would call every case in a touched test file
+    "changed", including cases that predate the diff by months. `hunks` and
+    `case.line`/`end_line` share the same post-image line numbering (see
+    `Hunk`, `git_change._parse_hunks`), so range overlap is a direct,
+    generic test, not a per-repo heuristic.
+    """
+    if not hunks:
+        return False
+    case_end = case.end_line or case.line
+    return any(case.line <= hunk.end_line and case_end >= hunk.start_line for hunk in hunks)
+
+
 def _mapped(
     case: LocatedTest,
     *,
@@ -122,7 +196,7 @@ def _mapped(
     tier: str,
     source_refs: list[str],
     snippet: str | None,
-    changed_files: set[str],
+    changed_in_diff: bool,
 ) -> MappedTest:
     """Build a mapped-test record carrying its own justification."""
     return MappedTest(
@@ -136,7 +210,7 @@ def _mapped(
         match_rule=rule,
         evidence_tier=tier,
         source_refs=source_refs,
-        changed_in_diff=case.file in changed_files,
+        changed_in_diff=changed_in_diff,
         evidence=[
             EvidenceRef(file=case.file, symbol=case.display_name, label=rule, snippet=snippet)
         ],
@@ -154,16 +228,21 @@ def map_tests_to_obligation(
     flow: AffectedFlow,
     test_index: ExistingTestIndex,
     changed_symbol_names: set[str],
-    changed_files: set[str],
-) -> tuple[list[MappedTest], list[MappedTest]]:
-    """Return (evidence, supporting) tests for one obligation.
+    changed_file_hunks: dict[str, list[Hunk]] | None = None,
+) -> tuple[list[MappedTest], list[MappedTest], list[str]]:
+    """Return (evidence, supporting, route_notes) tests for one obligation.
 
     `evidence` can determine the obligation's status. `supporting` exercises the
     same flow but does not demonstrate this specific claim — it is reported as
-    regression context and can never satisfy the obligation.
+    regression context and can never satisfy the obligation. `route_notes` are
+    diagnostic-only observations (e.g. a likely missing route prefix) that were
+    deliberately never used to map or promote a test — see
+    `_route_prefix_mismatch`.
     """
     evidence: list[MappedTest] = []
     supporting: list[MappedTest] = []
+    route_notes: list[str] = []
+    changed_file_hunks = changed_file_hunks or {}
     target_symbol = flow.handler
     codes = _status_codes_for(obligation)
     sink_tokens = {
@@ -177,12 +256,16 @@ def map_tests_to_obligation(
         )
         exercises = literal is not None or invokes
         if not exercises:
+            mismatch = _route_prefix_mismatch(case, flow.path)
+            if mismatch:
+                route_notes.append(mismatch)
             continue
 
         rule_base = (
             f"issues {flow.method} {literal}" if literal else f"invokes {target_symbol}"
         )
         tier_base = TIER_DIRECT_ROUTE if literal else TIER_DIRECT_INVOCATION
+        changed_in_diff = case_changed_in_diff(case, changed_file_hunks.get(case.file))
 
         # Exercising the flow is necessary but not sufficient; the test must
         # also assert the thing this obligation claims.
@@ -203,12 +286,21 @@ def map_tests_to_obligation(
                         tier=tier_base,
                         source_refs=obligation.source_refs,
                         snippet=literal or target_symbol,
-                        changed_files=changed_files,
+                        changed_in_diff=changed_in_diff,
                     )
                 )
                 continue
 
         elif obligation.kind == OBLIGATION_ROUTE_CONTRACT:
+            # Only a status code this obligation's own statement actually
+            # names can promote a test to evidence here. There used to be a
+            # fallback that promoted *any* assertion-bearing, non-4xx test
+            # when the obligation named no code at all -- that let a plain
+            # successful-login test "verify" fabricated claims like "handles
+            # downstream timeout safely" that it never exercises. An
+            # obligation vague enough to name no code is, by the same
+            # token, too vague to be verified by a generic assertion; it
+            # stays supporting, below.
             asserted = _asserts_status(case, codes) if codes else None
             if asserted:
                 evidence.append(
@@ -218,21 +310,7 @@ def map_tests_to_obligation(
                         tier=tier_base,
                         source_refs=obligation.source_refs,
                         snippet=literal or target_symbol,
-                        changed_files=changed_files,
-                    )
-                )
-                continue
-            # Without a declared status, a success-path contract obligation is
-            # demonstrated by a request that asserts a non-error outcome.
-            if not codes and _has_assertion(case) and not _asserts_status_class(case, "4"):
-                evidence.append(
-                    _mapped(
-                        case,
-                        rule=f"{rule_base} and asserts on the response",
-                        tier=tier_base,
-                        source_refs=obligation.source_refs,
-                        snippet=literal or target_symbol,
-                        changed_files=changed_files,
+                        changed_in_diff=changed_in_diff,
                     )
                 )
                 continue
@@ -252,7 +330,7 @@ def map_tests_to_obligation(
                         tier=TIER_ASSERTED_EFFECT,
                         source_refs=obligation.source_refs,
                         snippet=token,
-                        changed_files=changed_files,
+                        changed_in_diff=changed_in_diff,
                     )
                 )
                 continue
@@ -264,7 +342,7 @@ def map_tests_to_obligation(
                         tier=TIER_ASSERTED_EFFECT,
                         source_refs=obligation.source_refs,
                         snippet="cardinality assertion",
-                        changed_files=changed_files,
+                        changed_in_diff=changed_in_diff,
                     )
                 )
                 continue
@@ -277,8 +355,8 @@ def map_tests_to_obligation(
                 tier=TIER_DECLARED,
                 source_refs=obligation.source_refs,
                 snippet=literal or target_symbol,
-                changed_files=changed_files,
+                changed_in_diff=changed_in_diff,
             )
         )
 
-    return evidence, supporting
+    return evidence, supporting, sorted(set(route_notes))
