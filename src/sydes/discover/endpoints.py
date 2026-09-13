@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
-from typing import Any
+from typing import Any, Collection
 from collections import Counter
 import re
 
@@ -815,6 +815,8 @@ def discover_endpoints(
     rank_top_k: int = 80,
     read_top_n: int = 5,
     route_index_batch: dict | None = None,
+    changed_files: Collection[str] | None = None,
+    adjacent_files: Collection[str] | None = None,
 ) -> RoutesResult:
     """Run end-to-end shallow endpoint discovery across input repositories.
 
@@ -822,6 +824,13 @@ def discover_endpoints(
     index hand it in rather than have discovery rebuild it per repository. The
     payload is the same shape either way, so passing it changes nothing but the
     work done.
+
+    `changed_files` and `adjacent_files` let a caller that already knows what
+    the current diff touched (and, cheaply, what's structurally near it) bias
+    file ranking toward those paths before the fixed per-run file budget
+    (`rank_top_k`/`read_top_n`/the LLM file cap) is applied. Neither changes
+    that budget -- only which files fill it. Omitting both leaves ranking
+    exactly as it was before this parameter existed.
     """
     if llm_policy not in {"auto", "always", "never"}:
         raise ValueError(f"Unsupported llm_policy '{llm_policy}'. Use: auto, always, never.")
@@ -854,7 +863,13 @@ def discover_endpoints(
             max_files=inventory_max_files,
         )
         sense = sense_repo(repo.name, repo.root, inventory)
-        ranked = rank_candidate_files(inventory, sense, top_k=rank_top_k)
+        ranked = rank_candidate_files(
+            inventory,
+            sense,
+            top_k=rank_top_k,
+            changed_paths=changed_files,
+            adjacent_paths=adjacent_files,
+        )
         reads = read_ranked_candidate_files_for_discovery(
             repo.name,
             repo.root,

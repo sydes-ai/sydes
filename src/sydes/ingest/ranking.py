@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Collection
 
 from sydes.core.models import RankedFileCandidate, RepoInventory, RepoSenseSummary
 from sydes.ingest.file_roles import (
@@ -67,6 +68,16 @@ EXTENSION_BY_LANGUAGE_FAMILY = {
     "dotnet": {".cs"},
     "scala": {".scala"},
 }
+
+# Change-awareness: a file the current diff actually touches is direct
+# evidence it's relevant to endpoint discovery -- stronger than any static
+# path/filename guess, so this outweighs every static signal above combined
+# (the largest static combination is well under 10). A file the diff didn't
+# touch but that cheaply-available reachability data says is adjacent to a
+# changed symbol (e.g. an importer/caller of a changed file) gets a smaller
+# boost: still a real signal, but weaker than direct evidence.
+CHANGED_FILE_BOOST = 12.0
+ADJACENT_FILE_BOOST = 3.0
 
 ROLE_SCORE_ADJUSTMENTS = {
     FILE_ROLE_SOURCE_ROUTE_CANDIDATE: 0.5,
@@ -192,24 +203,45 @@ def _score_file(path: str, sense: RepoSenseSummary) -> tuple[float, list[str]]:
     return score, sorted(set(reasons))
 
 
+def _normalized(paths: Collection[str] | None) -> set[str]:
+    return {path.replace("\\", "/") for path in (paths or ())}
+
+
 def rank_candidate_files(
     inventory: RepoInventory,
     sense: RepoSenseSummary,
     *,
     top_k: int = 60,
     min_score: float = 0.1,
+    changed_paths: Collection[str] | None = None,
+    adjacent_paths: Collection[str] | None = None,
 ) -> list[RankedFileCandidate]:
-    """Rank inventory files for likely endpoint-entry discovery usefulness."""
+    """Rank inventory files for likely endpoint-entry discovery usefulness.
+
+    `changed_paths` are files the current diff actually touches; `adjacent_paths`
+    are files cheaply known to be structurally near a changed symbol (e.g. an
+    importer/caller reachability closure the caller already computed). Both are
+    optional -- when neither is given, ranking is identical to before.
+    """
+    changed = _normalized(changed_paths)
+    adjacent = _normalized(adjacent_paths) - changed
     candidates: list[RankedFileCandidate] = []
     for item in inventory.files:
         score, reasons = _score_file(item.path, sense)
+        normalized_path = item.path.replace("\\", "/")
+        if normalized_path in changed:
+            score += CHANGED_FILE_BOOST
+            reasons.append("change:touched")
+        elif normalized_path in adjacent:
+            score += ADJACENT_FILE_BOOST
+            reasons.append("change:adjacent")
         if score < min_score:
             continue
         candidates.append(
             RankedFileCandidate(
                 file=item.path,
                 score=round(score, 3),
-                reasons=reasons,
+                reasons=sorted(set(reasons)),
                 role=classify_candidate_file_role(item.path),
                 repo=inventory.repo,
             )

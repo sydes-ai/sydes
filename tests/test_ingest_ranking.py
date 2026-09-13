@@ -94,3 +94,136 @@ def test_rank_candidate_files_prioritizes_source_over_tests_and_docs() -> None:
     top_files = [item.file for item in ranked[:3]]
     assert "README.md" not in top_files
     assert "tests/test_app.py" not in top_files
+
+
+def test_rank_candidate_files_boosts_a_changed_file_with_a_neutral_name() -> None:
+    """A file the diff actually touches should outrank an unrelated
+    main/server/router file, even when its own path/filename carries none of
+    the static route-signal keywords -- this is the diff-awareness fix, and
+    it must not depend on any framework-specific vocabulary."""
+    inventory = RepoInventory(
+        repo="realworld-axum-sqlx",
+        root="/tmp/realworld-axum-sqlx",
+        files=[
+            InventoryFile(path="src/http/articles/mod.rs"),
+            InventoryFile(path="src/main.rs"),
+        ],
+        file_count=2,
+    )
+    sense = RepoSenseSummary(
+        repo="realworld-axum-sqlx",
+        root="/tmp/realworld-axum-sqlx",
+        dominant_extensions={".rs": 2},
+        likely_language_families=["rust"],
+        backend_signals=[],
+    )
+
+    ranked = rank_candidate_files(
+        inventory,
+        sense,
+        top_k=2,
+        min_score=-100.0,
+        changed_paths={"src/http/articles/mod.rs"},
+    )
+
+    assert ranked[0].file == "src/http/articles/mod.rs"
+    assert "change:touched" in ranked[0].reasons
+    assert ranked[0].score > ranked[1].score
+
+
+def test_rank_candidate_files_gives_adjacent_files_a_smaller_boost_than_changed() -> None:
+    """A structurally-adjacent file (importer/caller of a changed file) is a
+    real but weaker signal than the diff itself, and must never outrank a
+    directly-changed file."""
+    inventory = RepoInventory(
+        repo="api",
+        root="/tmp/api",
+        files=[
+            InventoryFile(path="src/widgets/handler.py"),
+            InventoryFile(path="src/widgets/router.py"),
+        ],
+        file_count=2,
+    )
+    sense = RepoSenseSummary(
+        repo="api",
+        root="/tmp/api",
+        dominant_extensions={".py": 2},
+        likely_language_families=["python"],
+        backend_signals=[],
+    )
+
+    ranked = rank_candidate_files(
+        inventory,
+        sense,
+        top_k=2,
+        min_score=-100.0,
+        changed_paths={"src/widgets/handler.py"},
+        adjacent_paths={"src/widgets/router.py"},
+    )
+    by_file = {item.file: item for item in ranked}
+    assert by_file["src/widgets/handler.py"].score > by_file["src/widgets/router.py"].score
+    assert "change:adjacent" in by_file["src/widgets/router.py"].reasons
+
+
+def test_rank_candidate_files_ordering_is_deterministic_with_a_tie() -> None:
+    """Two files with identical final scores must sort in a stable,
+    reproducible order (alphabetical by path), both with and without any
+    change signal -- ranking must never depend on set/dict iteration order."""
+    inventory = RepoInventory(
+        repo="api",
+        root="/tmp/api",
+        files=[
+            InventoryFile(path="src/http/articles/comments.rs"),
+            InventoryFile(path="src/http/articles/listing.rs"),
+            InventoryFile(path="src/http/articles/mod.rs"),
+        ],
+        file_count=3,
+    )
+    sense = RepoSenseSummary(
+        repo="api",
+        root="/tmp/api",
+        dominant_extensions={".rs": 3},
+        likely_language_families=["rust"],
+        backend_signals=[],
+    )
+
+    first = rank_candidate_files(inventory, sense, top_k=3, min_score=-100.0)
+    second = rank_candidate_files(inventory, sense, top_k=3, min_score=-100.0)
+    assert [item.file for item in first] == [item.file for item in second]
+    assert [item.file for item in first] == [
+        "src/http/articles/comments.rs",
+        "src/http/articles/listing.rs",
+        "src/http/articles/mod.rs",
+    ]
+
+
+def test_rank_candidate_files_with_no_change_signal_matches_prior_behavior() -> None:
+    """When no change/adjacency information is available (e.g. a standalone
+    `sydes routes` scan with no diff), ranking must be identical to before
+    this feature existed -- diff-awareness is additive, never a regression
+    for change-agnostic callers."""
+    inventory = RepoInventory(
+        repo="api",
+        root="/tmp/api",
+        files=[
+            InventoryFile(path="src/routes/orders.py"),
+            InventoryFile(path="README.md"),
+            InventoryFile(path="main.py"),
+        ],
+        file_count=3,
+    )
+    sense = RepoSenseSummary(
+        repo="api",
+        root="/tmp/api",
+        dominant_extensions={".py": 2, ".md": 1},
+        likely_language_families=["python"],
+        backend_signals=["routes", "main.py"],
+    )
+
+    with_none = rank_candidate_files(inventory, sense, top_k=3, min_score=-100.0)
+    with_empty = rank_candidate_files(
+        inventory, sense, top_k=3, min_score=-100.0, changed_paths=set(), adjacent_paths=set()
+    )
+    assert [(item.file, item.score, item.reasons) for item in with_none] == [
+        (item.file, item.score, item.reasons) for item in with_empty
+    ]

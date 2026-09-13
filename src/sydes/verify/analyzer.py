@@ -1697,6 +1697,8 @@ def analyze_change(
         llm_policy=options.llm_policy if options.llm_policy in {"auto", "always", "never"} else "auto",
         strict_llm=False,
         route_index_batch=structural.route_index,
+        changed_files={item.path for item in change.files},
+        adjacent_files=candidate_files,
     )
     result.known_routes = routes.routes
     result.diagnostics.extend(
