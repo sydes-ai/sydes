@@ -225,6 +225,51 @@ def test_route_contract_with_declared_code_still_gets_evidence():
     assert supporting == []
 
 
+def test_rest_assured_call_style_status_code_promotes_to_evidence():
+    """REST-assured's own idiom (`.statusCode(200)`) puts the code as the
+    call's own argument, with no `==`/`,`/`.toBe(` connector beforehand --
+    `_STATUS_RE` used to require one of those and silently missed this,
+    leaving an on-point REST-assured regression test stuck at
+    TIER_DECLARED ("exercises flow") instead of being promoted to direct
+    evidence for the obligation it actually verifies."""
+    case = _case(
+        "returns 200",
+        "@Test\n"
+        "void shouldReturn200() {\n"
+        "  given().when().post(\"/login\").then().statusCode(200);\n"
+        "}\n",
+        route_paths={"/login"}, methods={"POST"},
+    )
+    obligation = _obligation(OBLIGATION_ROUTE_CONTRACT, "POST /login responds 200")
+    evidence, supporting, _notes = map_tests_to_obligation(
+        obligation=obligation, flow=_flow(), test_index=_index([case]), changed_symbol_names=set(),
+    )
+    assert len(evidence) == 1
+    assert supporting == []
+
+
+def test_status_code_wrapped_in_an_unrecognized_matcher_stays_unresolved():
+    """The flip side: `_STATUS_RE`'s new bare-`(` alternative must not reach
+    through a wrapper it cannot actually interpret (e.g. a Hamcrest
+    `is(200)` matcher) -- an unrecognized argument shape stays supporting,
+    never guessed at just because a digit exists somewhere nearby."""
+    case = _case(
+        "returns 200 via matcher",
+        "@Test\n"
+        "void shouldReturn200() {\n"
+        "  given().when().post(\"/login\").then().statusCode(is(200));\n"
+        "}\n",
+        route_paths={"/login"}, methods={"POST"},
+    )
+    obligation = _obligation(OBLIGATION_ROUTE_CONTRACT, "POST /login responds 200")
+    evidence, supporting, _notes = map_tests_to_obligation(
+        obligation=obligation, flow=_flow(), test_index=_index([case]), changed_symbol_names=set(),
+    )
+    assert evidence == []
+    assert len(supporting) == 1
+    assert supporting[0].evidence_tier == TIER_DECLARED
+
+
 def test_validation_obligation_rejection_path_is_unaffected():
     """A sanity check that the unrelated VALIDATION branch (a genuinely
     different, already-correct code path) still works after the

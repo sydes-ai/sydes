@@ -2118,6 +2118,14 @@ def analyze_change(
         if not reached and not import_reached:
             continue
 
+        # `entry_kind` stays the model default ("route") for the ordinary
+        # HTTP case -- every existing flow/renderer/test keeps reading it
+        # exactly as before. A non-HTTP candidate (kind="grpc"/"graphql")
+        # carries that kind through instead, so nothing downstream mistakes
+        # an RPC method or resolver field for an HTTP route.
+        flow_kind_kwargs: dict[str, str] = {}
+        if getattr(resolved_endpoint, "kind", "http") not in ("http", ""):
+            flow_kind_kwargs["entry_kind"] = resolved_endpoint.kind
         flow = AffectedFlow(
             id=f"flow:{(resolved_endpoint.method or 'ANY').upper()}:{resolved_endpoint.path}",
             entry_label=f"{(resolved_endpoint.method or 'ANY').upper()} {resolved_endpoint.path}",
@@ -2125,6 +2133,7 @@ def analyze_change(
             method=(resolved_endpoint.method or "ANY").upper(),
             path=resolved_endpoint.path,
             handler=resolved_endpoint.handler,
+            **flow_kind_kwargs,
             artifact_refs={
                 "route_file": resolved_endpoint.file or "",
                 "handler_file": str(handler_symbol.get("file") or ""),

@@ -66,7 +66,7 @@ def test_build_endpoint_discovery_prompt_encodes_rules_and_grounding() -> None:
         method_hint="POST",
     )
 
-    assert "Task: extract likely HTTP API route declarations" in prompt
+    assert "Task: extract likely API entrypoint declarations" in prompt
     assert "Do NOT return HTTP requests" in prompt
     assert "test client calls" in prompt
     assert "source_route_candidate files may contain declarations" in prompt
@@ -78,6 +78,12 @@ def test_build_endpoint_discovery_prompt_encodes_rules_and_grounding() -> None:
     assert '"target_hint":"/checkout"' in prompt
     assert '"role":"source_route_candidate"' in prompt
     assert "src/routes.py" in prompt
+    # gRPC/GraphQL are recognized as generic kinds, never framework-specific
+    # extraction rules of their own.
+    assert '"kind"' in prompt
+    assert "grpc" in prompt.lower()
+    assert "graphql" in prompt.lower()
+    assert "ServiceServer" in prompt or "Servicer" in prompt or "ImplBase" in prompt
 
 
 @dataclass
@@ -90,6 +96,50 @@ class _FakeClient:
         self.call_count += 1
         assert "Return JSON only" in request.prompt
         return LLMResponse(text='{"endpoints":[],"notes":[]}')
+
+
+@dataclass
+class _KindClient:
+    """Fake LLM client returning one gRPC and one GraphQL candidate, plus one
+    plain HTTP candidate, to prove `kind` parses through discovery
+    end-to-end and defaults correctly when absent/unrecognized."""
+
+    text: str
+
+    def generate(self, request: LLMRequest) -> LLMResponse:
+        return LLMResponse(text=self.text)
+
+
+def test_run_llm_endpoint_discovery_parses_grpc_and_graphql_kind() -> None:
+    payload = (
+        '{"endpoints":['
+        '{"method":"GRPC","path":"UserService/LoginUser","handler":"LoginUser",'
+        '"file":"grpc/user.go","repo":"api","kind":"grpc"},'
+        '{"method":"MUTATION","path":"login","handler":"login",'
+        '"file":"src/UserMutation.java","repo":"api","kind":"graphql"},'
+        '{"method":"GET","path":"/pets","handler":"list_pets",'
+        '"file":"src/routes.py","repo":"api"}'
+        '],"notes":[]}'
+    )
+    result = run_llm_endpoint_discovery(candidates=[], llm_client=_KindClient(payload))
+
+    by_handler = {ep.handler: ep for ep in result.endpoints}
+    assert by_handler["LoginUser"].kind == "grpc"
+    assert by_handler["LoginUser"].path == "/UserService/LoginUser"
+    assert by_handler["login"].kind == "graphql"
+    assert by_handler["login"].method == "MUTATION"
+    # Absent "kind" defaults to "http" -- every pre-existing candidate shape.
+    assert by_handler["list_pets"].kind == "http"
+
+
+def test_run_llm_endpoint_discovery_defaults_unrecognized_kind_to_http() -> None:
+    payload = (
+        '{"endpoints":[{"method":"GET","path":"/x","handler":"h",'
+        '"file":"a.py","repo":"api","kind":"soap"}],"notes":[]}'
+    )
+    result = run_llm_endpoint_discovery(candidates=[], llm_client=_KindClient(payload))
+
+    assert result.endpoints[0].kind == "http"
 
 
 def test_discover_endpoints_from_candidates_calls_client_when_provided() -> None:

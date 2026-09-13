@@ -309,6 +309,15 @@ class EndpointCandidate(BaseModel):
     evidence: list[EvidenceRef] = Field(default_factory=list)
     confidence: float | None = None
     status: str | None = None
+    #: What kind of entrypoint this is: "http" (default, every pre-existing
+    #: candidate), "grpc" (an RPC/service method), or "graphql" (a query/
+    #: mutation resolver). Never a framework name -- a generic discriminator
+    #: only, so `method`/`path` can be read correctly downstream without
+    #: assuming they are an HTTP verb/URL path (a gRPC candidate's `method`
+    #: is "GRPC", not a real HTTP verb; a GraphQL candidate's is "QUERY" or
+    #: "MUTATION"). Everything downstream of discovery (selection, canonical
+    #: merge, obligations, rendering) is generic over this field's value.
+    kind: str = "http"
     #: `None` (the default, and every pre-M4 candidate) for a route found
     #: through deterministic discovery/reachability; "inferred" only when the
     #: impact layer's semantic-inference guide proposed this route and it was

@@ -44,7 +44,15 @@ _NON_DISCRIMINATING = {
 }
 
 _ASSERT_RE = re.compile(r"\bassert\b|\bexpect\s*\(|\.should\b|assertEqual|assertTrue|assertRaises")
-_STATUS_RE = re.compile(r"\b(?:status_code|statusCode|status)\b\s*(?:==|,|\)|\.toBe\()\s*(?P<code>[45]\d\d|2\d\d)")
+# The `\(` alternative covers a call-style assertion where the status code is
+# the connector's own first/sole argument -- e.g. REST-assured's
+# `.statusCode(200)` -- distinct from the other alternatives, which all
+# expect the code to follow some other operator or a closing paren from an
+# earlier call. Still requires the digits to appear immediately (mediated
+# only by whitespace), so `statusCode(is(200))`/`statusCode(someVar)` do not
+# match through it -- an unrecognized wrapper stays unrecognized rather than
+# guessed at.
+_STATUS_RE = re.compile(r"\b(?:status_code|statusCode|status)\b\s*(?:==|,|\)|\.toBe\(|\()\s*(?P<code>[45]\d\d|2\d\d)")
 _COUNT_RE = re.compile(r"\b(?:count|len|times|calledOnce|call_count|assert_called_once)\b", re.IGNORECASE)
 
 

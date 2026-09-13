@@ -135,6 +135,23 @@ def _normalize_method(method: str | None) -> str | None:
     return normalized or None
 
 
+#: The only kinds anything downstream of discovery knows how to read.
+#: Never extended per-framework -- "grpc"/"graphql" are each a single,
+#: generic discriminator covering every RPC/schema library in that
+#: category, not one kind per library.
+_KNOWN_ENDPOINT_KINDS = {"http", "grpc", "graphql"}
+
+
+def _normalize_kind(kind: str | None) -> str:
+    """Normalize an endpoint's kind, defaulting to "http" for anything
+    missing or unrecognized -- an unrecognized value is never invented into
+    a new kind the rest of the system doesn't know how to handle."""
+    if not isinstance(kind, str):
+        return "http"
+    normalized = kind.strip().lower()
+    return normalized if normalized in _KNOWN_ENDPOINT_KINDS else "http"
+
+
 def _normalize_path(path: str | None) -> str | None:
     """Normalize endpoint path values when present."""
     if path is None:
@@ -342,6 +359,7 @@ def _normalize_endpoints(
                     evidence=raw.evidence,
                     confidence=raw.confidence,
                     status=raw.status.strip() if isinstance(raw.status, str) and raw.status.strip() else None,
+                    kind=_normalize_kind(raw.kind),
                 )
             )
             continue
@@ -402,6 +420,7 @@ def _normalize_endpoints(
                 evidence=evidence,
                 confidence=float(confidence) if confidence is not None else None,
                 status=status.strip() if isinstance(status, str) and status.strip() else None,
+                kind=_normalize_kind(raw.get("kind") if isinstance(raw.get("kind"), str) else None),
             )
         )
 
