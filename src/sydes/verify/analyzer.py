@@ -1004,6 +1004,98 @@ def _changed_symbols_for_impact(change: Any) -> list[dict[str, Any]]:
     ]
 
 
+def _handler_reference_forms(handler: str) -> tuple[str, str]:
+    """Normalize a handler string as written at the route-registration call
+    site into a dotted-qualified form and its bare leaf segment.
+
+    Splits only on the generic qualifier separators used to write a
+    dotted/module path across many languages ('.' and Rust's '::') -- never
+    on anything specific to one language's or framework's own syntax. This is
+    intentionally lossy (it cannot know whether a segment is a module, a
+    namespace, or a class) -- it exists only to produce candidate identifiers
+    to look up in the symbol index below, not to model any language's actual
+    name-resolution rules.
+    """
+    dotted = handler.replace("::", ".")
+    leaf = dotted.rsplit(".", 1)[-1]
+    return dotted, leaf
+
+
+def _resolve_handler_definition_file(
+    handler: str,
+    symbols_by_file: dict[str, list[dict]],
+    changed_symbols: list[dict[str, Any]],
+) -> str | None:
+    """Find the one file that actually defines `handler`, when the route
+    that references it was declared somewhere else entirely.
+
+    A route-registration call site (e.g. `.route(path, get(other_mod::handler))`,
+    `router.get(path, controllers.widgets.list)`, a functional route builder
+    pointing at a bean/method defined in a different file) never implies the
+    handler symbol lives in the same file as the call -- that coupling is a
+    bug, not a routing convention, and this exists to stop relying on it.
+
+    Two tiers, both reusing the symbol/export index the analyzer already
+    built (`structural.symbol_index`, via `_symbols_by_file`) -- no new
+    index, no framework-specific lookup:
+
+    1. Qualified/canonical: match the handler's dotted form against each
+       symbol's own qualified name (CBM's canonical, file-derived qualified
+       name is unrelated in spelling to source-level module syntax, but a
+       dotted suffix match is still a meaningful, language-agnostic signal
+       that the reference and the symbol name the same thing). Ambiguous
+       here (more than one file) declines outright -- it does not fall
+       through to the leaf tier, since a qualified reference is specific
+       enough that more than one hit means something is already confused.
+    2. Leaf-name: match the handler's bare final segment against symbol
+       names repo-wide. Accepted when exactly one file defines a symbol with
+       that name repo-wide. More than one repo-wide hit is a real ambiguity
+       (two unrelated files defining the same-named symbol) and declines
+       outright -- it is never rescued by narrowing to the changed-symbol
+       set, since that would mean guessing which of two equally-plausible
+       definitions the diff actually meant. The changed-symbol tier exists
+       only for the *zero-hit* case: the symbol index does not cover the
+       handler's defining file at all (e.g. it fell outside whatever this
+       backend indexed), and exactly one changed symbol anywhere in the diff
+       carries that name. Any other outcome declines. Never guesses.
+    """
+    dotted, leaf = _handler_reference_forms(handler)
+
+    qualified_hits: set[str] = set()
+    leaf_hits: set[str] = set()
+    for file_path, symbols in symbols_by_file.items():
+        for symbol in symbols:
+            name = str(symbol.get("name") or "")
+            if name != leaf:
+                continue
+            leaf_hits.add(file_path)
+            for qname in (symbol.get("qualified_name"), symbol.get("cbm_qualified_name")):
+                if qname and (qname == dotted or str(qname).endswith("." + dotted)):
+                    qualified_hits.add(file_path)
+                    break
+
+    if qualified_hits:
+        if len(qualified_hits) == 1:
+            return next(iter(qualified_hits))
+        return None
+
+    if len(leaf_hits) == 1:
+        return next(iter(leaf_hits))
+    if leaf_hits:
+        return None  # ambiguous repo-wide -- decline, do not narrow further.
+
+    changed_leaf_files = {
+        symbol.get("file")
+        for symbol in changed_symbols
+        if symbol.get("file")
+        and leaf in (symbol.get("name"), str(symbol.get("qualified_name") or "").rsplit(".", 1)[-1])
+    }
+    if len(changed_leaf_files) == 1:
+        return next(iter(changed_leaf_files))
+
+    return None
+
+
 def _match_endpoint_candidate(
     entrypoint: Any, candidates: list[EndpointCandidate]
 ) -> EndpointCandidate | None:
@@ -1165,11 +1257,20 @@ def _select_via_impact_interpreter(
     # handler, yet fell through entirely to a route-blind AI-recovery flow
     # because `reconciled` never carried a matching entrypoint for it.
     #
-    # Matched purely on (file, handler-symbol) identity — the same generic
+    # Matched on (defining-file, handler-symbol) identity — the same generic
     # identity `_match_endpoint_candidate` above already prefers over a
     # method+path guess — never on route syntax/shape or any framework's
     # own vocabulary, so this applies equally regardless of which language
     # or routing library the handler's declaration came from.
+    #
+    # "Defining file" is deliberately not assumed to be `candidate.file` (the
+    # file the route was *declared/registered* in) — a route-registration
+    # call site referencing a handler imported or declared elsewhere (an
+    # Express `controllers.widgets.list`, a Java functional route pointing at
+    # a bean method, a Rust `mod::handler`, ...) is a routine composition
+    # pattern in every framework, not an edge case. The same-file check stays
+    # the fast, common-case path; `_resolve_handler_definition_file` is only
+    # consulted when it misses, and only ever resolves when unambiguous.
     changed_keys: set[tuple[str, str]] = set()
     for symbol in changed:
         file = symbol.get("file")
@@ -1179,13 +1280,23 @@ def _select_via_impact_interpreter(
             if name:
                 changed_keys.add((file, name))
                 changed_keys.add((file, str(name).rsplit(".", 1)[-1]))
+    symbols_by_file = _symbols_by_file(structural.symbol_index)
 
     for candidate in routes.routes:
         if not candidate.file or not candidate.handler:
             continue
-        handler_keys = {candidate.handler, str(candidate.handler).rsplit(".", 1)[-1]}
-        if not any((candidate.file, key) in changed_keys for key in handler_keys):
-            continue
+        dotted_handler, leaf_handler = _handler_reference_forms(candidate.handler)
+        handler_keys = {candidate.handler, dotted_handler, leaf_handler}
+        if any((candidate.file, key) in changed_keys for key in handler_keys):
+            pass  # fast path: route declaration and handler share one file.
+        else:
+            resolved_file = _resolve_handler_definition_file(
+                candidate.handler, symbols_by_file, changed,
+            )
+            if resolved_file is None or not any(
+                (resolved_file, key) in changed_keys for key in handler_keys
+            ):
+                continue
         dedupe_key = f"{candidate.method}:{candidate.path}:{candidate.file}"
         if dedupe_key in seen:
             continue
