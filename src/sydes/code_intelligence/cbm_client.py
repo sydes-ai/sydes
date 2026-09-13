@@ -632,11 +632,20 @@ class CBMClient:
         """USAGE references: a symbol named inside another symbol's body.
 
         Distinct from CALLS, and the relationship that connects a symbol to the
-        composing symbol that mentions it without invoking it.
+        composing symbol that mentions it without invoking it. Also includes
+        CBM's `CALL_REFERENCE` relationship -- a symbol passed by name/value
+        rather than invoked (a handler registered with a route builder, a
+        callback passed to another function, ...). CBM already distinguishes
+        that from a direct call; folding it in here rather than into
+        `all_call_edges` keeps that distinction intact downstream, since every
+        consumer of `usage_edges` already treats it as a weaker, non-invocation
+        signal than `call_edges` (see `RELATION_USAGE` vs `RELATION_CALLS` in
+        `impact/interpreter.py`) -- a reference is never promoted to a proven
+        call just because it now also has this label.
         """
         return self._rows(
             project,
-            "MATCH (a)-[:USAGE]->(b) WHERE a.file_path <> '' AND b.file_path <> '' "
+            "MATCH (a)-[:USAGE|CALL_REFERENCE]->(b) WHERE a.file_path <> '' AND b.file_path <> '' "
             "RETURN a.qualified_name, a.file_path, b.qualified_name, b.file_path",
             columns=4, order_by="a.qualified_name, b.qualified_name",
         )
@@ -681,12 +690,14 @@ class CBMClient:
         """USAGE edges where either endpoint's qualified name is in
         `seed_qualified_names` — the bounded, seed-scoped alternative to
         `all_usage_edges`. Same single-page/caller-budgets-hops contract as
-        `call_edges_for_seeds`."""
+        `call_edges_for_seeds`, and the same `CALL_REFERENCE` inclusion
+        `all_usage_edges` documents, so a bounded (`defer_edges=True`) build
+        sees exactly the same reference edges a full sweep would."""
         if not seed_qualified_names:
             return []
         seeds = _qualified_list_literal(seed_qualified_names)
         query = (
-            "MATCH (a)-[:USAGE]->(b) WHERE a.file_path <> '' AND b.file_path <> '' "
+            "MATCH (a)-[:USAGE|CALL_REFERENCE]->(b) WHERE a.file_path <> '' AND b.file_path <> '' "
             f"AND (a.qualified_name IN {seeds} OR b.qualified_name IN {seeds}) "
             "RETURN a.qualified_name, a.file_path, b.qualified_name, b.file_path "
             f"ORDER BY a.qualified_name, b.qualified_name LIMIT {int(limit)}"
