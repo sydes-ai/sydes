@@ -84,6 +84,36 @@ def test_slices_arrow_function(tmp_path: Path) -> None:
     assert any("response_return" in stmt["signals"] for stmt in payload["statements"])
 
 
+def test_request_decorator_parameter_is_not_flagged_as_an_external_call(tmp_path: Path) -> None:
+    """Reproduces a real false-positive obligation
+    (sydes-examples/nestjs-boilerplate#3): NestJS's `@Request()` parameter
+    decorator is not an outbound call, but the bare "request(" token
+    previously matched it as one purely by substring, producing a bogus
+    "called Request" verification obligation."""
+    _write(
+        tmp_path / "src/auth/auth.controller.ts",
+        "\n".join(
+            [
+                "export class AuthController {",
+                "  public async logout(",
+                "    @Request() request: RequestWithUser<JwtPayloadType>,",
+                "  ) {",
+                "    return this.authService.logout(request.user);",
+                "  }",
+                "}",
+            ]
+        ),
+    )
+    payload = slice_resolved_handler_body(
+        repo_root=tmp_path,
+        handler_name="AuthController.logout",
+        symbol={"file": "src/auth/auth.controller.ts", "line": 2, "start_line": 2, "kind": "class_method"},
+        language="typescript",
+    )
+    assert payload is not None
+    assert not any("possible_external_call" in stmt["signals"] for stmt in payload["statements"])
+
+
 def test_preserves_multiline_sql_template_as_statement(tmp_path: Path) -> None:
     _write(
         tmp_path / "src/controllers/a.ts",

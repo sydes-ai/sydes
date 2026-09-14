@@ -166,3 +166,112 @@ def test_build_contract_falls_back_when_file_missing() -> None:
     assert route_contract.request.body is not None
     assert route_contract.responses
     assert any("source" in note.lower() or "scaffold" in note.lower() for note in route_contract.notes)
+
+
+# ---------------------------------------------------------------------------
+# Explicit status decorators/annotations -- reproduces the real gap found on
+# sydes-examples/nestjs-boilerplate PR #3: `@HttpCode(HttpStatus.NO_CONTENT)`
+# on `logout` and `@HttpCode(HttpStatus.OK)` on `refresh` were both ignored,
+# so both obligations said "responds 201 -- Default 201 response skeleton"
+# (the generic POST-method default) instead of the real, explicitly declared
+# status. The AST-based response extractor in this module is Python-only and
+# silently no-ops for TypeScript source (a `SyntaxError` on `ast.parse`), so
+# this never had a chance to override the default for any non-Python route.
+# ---------------------------------------------------------------------------
+
+
+def test_explicit_http_code_decorator_overrides_method_default(tmp_path) -> None:
+    repo_root = tmp_path / "api"
+    repo_root.mkdir()
+    handler_file = repo_root / "auth.controller.ts"
+    handler_file.write_text(
+        """
+import { Controller, Post, HttpCode, HttpStatus, Request } from '@nestjs/common';
+
+@Controller('auth')
+export class AuthController {
+  @Post('refresh')
+  @HttpCode(HttpStatus.OK)
+  public refresh(@Request() request) {
+    return this.authService.refreshToken(request.user);
+  }
+
+  @Post('logout')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  public async logout(@Request() request) {
+    await this.authService.logout(request.user);
+  }
+}
+""".strip(),
+        encoding="utf-8",
+    )
+
+    routes = RoutesResult(
+        repos=[RepoRef(name="api", root=str(repo_root))],
+        routes=[
+            EndpointCandidate(
+                method="POST", path="/auth/refresh", file="auth.controller.ts", repo="api", handler="refresh",
+            ),
+            EndpointCandidate(
+                method="POST", path="/auth/logout", file="auth.controller.ts", repo="api", handler="logout",
+            ),
+        ],
+    )
+
+    contract = build_api_contract_from_routes(routes, repo_roots={"api": str(repo_root)})
+    by_handler = {item.handler: item for item in contract.routes}
+
+    refresh_responses = by_handler["refresh"].responses
+    assert set(refresh_responses) == {"200"}
+    assert refresh_responses["200"].confidence == "high"
+
+    logout_responses = by_handler["logout"].responses
+    assert set(logout_responses) == {"204"}
+    assert logout_responses["204"].confidence == "high"
+    assert any(
+        "explicit" in note.lower() and "decorator" in note.lower() for note in by_handler["logout"].notes
+    )
+
+
+def test_explicit_status_decorator_never_crosses_into_a_sibling_methods_decorator(tmp_path) -> None:
+    """A handler with no decorator of its own must not pick up a decorator
+    that belongs to a different, earlier method in the same file."""
+    repo_root = tmp_path / "api"
+    repo_root.mkdir()
+    handler_file = repo_root / "auth.controller.ts"
+    handler_file.write_text(
+        """
+import { Controller, Post, HttpCode, HttpStatus } from '@nestjs/common';
+
+@Controller('auth')
+export class AuthController {
+  @Post('logout')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  public async logout(@Request() request) {
+    await this.authService.logout(request.user);
+  }
+
+  @Post('register')
+  public async register(@Request() request) {
+    return this.authService.register(request.body);
+  }
+}
+""".strip(),
+        encoding="utf-8",
+    )
+
+    routes = RoutesResult(
+        repos=[RepoRef(name="api", root=str(repo_root))],
+        routes=[
+            EndpointCandidate(
+                method="POST", path="/auth/register", file="auth.controller.ts", repo="api", handler="register",
+            ),
+        ],
+    )
+
+    contract = build_api_contract_from_routes(routes, repo_roots={"api": str(repo_root)})
+    register_responses = contract.routes[0].responses
+    # No decorator of its own -- must fall back to the method-default
+    # scaffold ("201" for POST), never `logout`'s "204".
+    assert set(register_responses) == {"201"}
+    assert register_responses["201"].confidence == "low"

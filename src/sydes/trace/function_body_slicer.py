@@ -96,13 +96,22 @@ def _detect_signals(statement_text: str) -> list[str]:
         signals.append("possible_db_call")
     # Same existing category, widened with the Python equivalents of the client
     # idioms already listed for brace languages. No new sink kind is introduced.
+    #
+    # Deliberately NOT included: a bare "request(" token. It looks like it
+    # should catch a generic HTTP client call, but it is a substring of
+    # framework request-injection syntax in several languages/frameworks
+    # (e.g. NestJS's `@Request() request: ...` parameter decorator) that has
+    # nothing to do with an outbound call -- confirmed as the exact cause of
+    # a false "called Request" obligation on a real PR
+    # (sydes-examples/nestjs-boilerplate#3). The more specific tokens below
+    # (a named client/library, not a bare English word) already cover the
+    # real outbound-call idioms this signal exists for.
     if any(
         token in text
         for token in (
             "upload",
             "fetch(",
             "axios.",
-            "request(",
             "s3",
             "queue",
             "publish",

@@ -118,6 +118,122 @@ def _unknown_response_schema() -> ApiSchema:
     )
 
 
+#: The standard HTTP status name -> code vocabulary (RFC 7231/9110), not any
+#: one framework's own enum. NestJS's `HttpStatus`, Spring's `HttpStatus`,
+#: and equivalents in other ecosystems all reuse these exact names, which is
+#: what lets one generic scan cover several languages without naming any of
+#: them specifically.
+_HTTP_STATUS_NAME_TO_CODE: dict[str, str] = {
+    "CONTINUE": "100", "SWITCHING_PROTOCOLS": "101", "PROCESSING": "102",
+    "OK": "200", "CREATED": "201", "ACCEPTED": "202",
+    "NON_AUTHORITATIVE_INFORMATION": "203", "NO_CONTENT": "204",
+    "RESET_CONTENT": "205", "PARTIAL_CONTENT": "206",
+    "MULTIPLE_CHOICES": "300", "MOVED_PERMANENTLY": "301", "FOUND": "302",
+    "SEE_OTHER": "303", "NOT_MODIFIED": "304", "TEMPORARY_REDIRECT": "307",
+    "PERMANENT_REDIRECT": "308",
+    "BAD_REQUEST": "400", "UNAUTHORIZED": "401", "PAYMENT_REQUIRED": "402",
+    "FORBIDDEN": "403", "NOT_FOUND": "404", "METHOD_NOT_ALLOWED": "405",
+    "NOT_ACCEPTABLE": "406", "REQUEST_TIMEOUT": "408", "CONFLICT": "409",
+    "GONE": "410", "LENGTH_REQUIRED": "411", "PRECONDITION_FAILED": "412",
+    "PAYLOAD_TOO_LARGE": "413", "UNSUPPORTED_MEDIA_TYPE": "415",
+    "UNPROCESSABLE_ENTITY": "422", "TOO_MANY_REQUESTS": "429",
+    "INTERNAL_SERVER_ERROR": "500", "NOT_IMPLEMENTED": "501",
+    "BAD_GATEWAY": "502", "SERVICE_UNAVAILABLE": "503", "GATEWAY_TIMEOUT": "504",
+}
+# Longest names first so e.g. "NOT_ACCEPTABLE" is tried before a shorter
+# name that could otherwise partially shadow it in an alternation.
+_DECORATOR_STATUS_NAME_RE = re.compile(
+    r"\b(" + "|".join(sorted(_HTTP_STATUS_NAME_TO_CODE, key=len, reverse=True)) + r")\b"
+)
+_DECORATOR_LINE_RE = re.compile(r"^\s*@")
+
+
+def _find_handler_declaration_line(source_lines: list[str], handler: str | None) -> int | None:
+    """The 1-indexed line where `handler`'s own declaration begins.
+
+    Language-agnostic on purpose: matches the handler's bare name
+    immediately followed by `(`, the shape a method/function declaration
+    takes in Python, JS/TS, Java, Kotlin, C#, and similar -- not an AST
+    walk for any one of them specifically."""
+    if not handler:
+        return None
+    name = handler.split(".")[-1].strip()
+    if not name:
+        return None
+    pattern = re.compile(rf"\b{re.escape(name)}\s*\(")
+    for idx, line in enumerate(source_lines, start=1):
+        if pattern.search(line):
+            return idx
+    return None
+
+
+def _explicit_status_from_decorators(
+    source: str, file: str | None, handler: str | None,
+) -> dict[str, ApiResponseContract]:
+    """A status named in a decorator/annotation directly attached to the
+    handler is the single most explicit, source-backed statement of its
+    response status available -- more authoritative than any inferred or
+    default status. Never names one framework's decorator: it recognizes
+    ANY decorator whose own argument names a standard HTTP status (an RFC
+    7231 constant, e.g. `OK`, `NO_CONTENT` -- never a bare number, which
+    risks matching an unrelated numeric argument on some other decorator),
+    written directly above the handler's own declaration line. Stops at the
+    first non-decorator line walking upward, so a sibling method's
+    decorator is never reached, and returns nothing rather than guessing
+    when no such decorator is present.
+    """
+    lines = source.splitlines()
+    handler_line = _find_handler_declaration_line(lines, handler)
+    if handler_line is None:
+        return {}
+
+    decorator_lines: list[str] = []
+    idx = handler_line - 2  # 0-indexed line just above the declaration
+    while idx >= 0:
+        stripped = lines[idx].strip()
+        if not stripped:
+            idx -= 1
+            continue
+        if _DECORATOR_LINE_RE.match(lines[idx]):
+            decorator_lines.append(lines[idx])
+            idx -= 1
+            continue
+        break
+    if not decorator_lines:
+        return {}
+
+    status_code: str | None = None
+    match_line = 0
+    for offset, decorator_line in enumerate(decorator_lines):
+        name_match = _DECORATOR_STATUS_NAME_RE.search(decorator_line)
+        if name_match:
+            status_code = _HTTP_STATUS_NAME_TO_CODE[name_match.group(1)]
+            match_line = handler_line - 1 - offset
+            break
+    if status_code is None:
+        return {}
+
+    return {
+        status_code: ApiResponseContract(
+            status=status_code,
+            description=f"Explicit {status_code} response declared on the handler's own decorator.",
+            body=_unknown_response_schema(),
+            confidence="high",
+            evidence=[
+                ApiContractEvidence(
+                    kind="explicit_status_decorator",
+                    file=file,
+                    symbol=handler,
+                    line=match_line,
+                    source="handler_source",
+                    confidence="high",
+                    notes=["Status code read directly from a decorator/annotation on the handler."],
+                )
+            ],
+        )
+    }
+
+
 def _default_statuses_for_method(method: str | None) -> list[str]:
     normalized = (method or "").upper()
     status_map = {
@@ -616,6 +732,19 @@ def build_api_contract_from_routes(
                     responses = extracted.responses
                 route_evidence.extend(extracted.evidence)
                 route_notes.extend(extracted.notes)
+
+                # An explicit status named on the handler's own decorator
+                # outranks everything above: it is a literal source
+                # statement, not an inference (the AST-based extraction)
+                # or a convention-based guess (the method-default scaffold).
+                # Works regardless of source language/whether the AST-based
+                # extraction above even ran (it is Python-only and silently
+                # no-ops for every other language).
+                explicit = _explicit_status_from_decorators(source_text, route.file, route.handler)
+                if explicit:
+                    responses = explicit
+                    route_evidence.extend(evidence for response in explicit.values() for evidence in response.evidence)
+                    route_notes.append("Response status read from an explicit decorator on the handler.")
 
         route_contracts.append(
             ApiRouteContract(
