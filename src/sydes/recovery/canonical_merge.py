@@ -35,12 +35,20 @@ from __future__ import annotations
 from sydes.recovery.schema import (
     EntityRef,
     PathRecoveryResult,
+    RecoveredTest,
     STATUS_ESTABLISHED,
     STATUS_PARTIAL,
     TEST_STATUS_ACCEPTED,
     TestRecoveryResult,
 )
-from sydes.verify.models import AcceptedImpact, AffectedFlow, ChangeVerificationResult, SourceRef
+from sydes.verify.models import (
+    AcceptedImpact,
+    AffectedFlow,
+    ChangeVerificationResult,
+    MappedTest,
+    SourceRef,
+    TIER_DIRECT_INVOCATION,
+)
 
 PROVENANCE_AI_RECOVERY = "ai_recovery"
 
@@ -184,30 +192,95 @@ def _merge_established_paths(result: ChangeVerificationResult, path_recovery: Pa
         result.summary.counts.impacts_proven += 1
 
 
+def _matching_flow_by_handler(result: ChangeVerificationResult, target: EntityRef) -> AffectedFlow | None:
+    """The one flow a recovered test's target can be honestly attached to.
+
+    Matched the same way `_already_covers` above already treats as a real
+    identity match: the target names this flow's own handler symbol, or
+    resolves to the file that handler is defined in. Deliberately NOT a
+    `changed_nodes` scan -- that list is the whole diff's changed-symbol set
+    attached to every flow alike (see `AffectedFlow.changed_nodes`), so it
+    would "match" almost every flow at once rather than the one the test
+    actually concerns. `handler`/`handler_file` are per-flow-specific
+    fields, so this resolves to exactly one flow or none -- ambiguity
+    (more than one match) declines rather than guessing, same as every
+    other identity check in this module.
+    """
+    matches = [
+        flow for flow in result.affected_flows
+        if flow.handler == target.symbol
+        or (target.file and flow.artifact_refs.get("handler_file") == target.file)
+    ]
+    unique = {flow.id: flow for flow in matches}
+    return next(iter(unique.values())) if len(unique) == 1 else None
+
+
+def _mapped_test_from_recovered(test: RecoveredTest) -> MappedTest:
+    return MappedTest(
+        id=f"ai_recovery:{test.file}:{test.test}",
+        name=test.test,
+        case_name=test.test,
+        file=test.file,
+        match_rule=test.covers or "Recovered and adversarially verified by AI test recovery.",
+        evidence_tier=TIER_DIRECT_INVOCATION,
+        source_refs=[f"ai_recovery:{test.file}:{test.test}"],
+    )
+
+
 def _merge_recovered_tests(result: ChangeVerificationResult, test_recovery: TestRecoveryResult) -> None:
+    """Attach each accepted, verified test to a real obligation so it is
+    nameable and queryable, not just an aggregate-counter bump.
+
+    A recovered test previously only incremented `summary.counts` -- it was
+    never attached to any `AffectedFlow`'s obligations, so nothing in
+    `affected_flows` could ever show which test that count referred to,
+    or that it existed at all. `summary.counts` and `flow.obligations[].
+    mapped_tests` silently disagreed as a result (confirmed on a real run:
+    counts reported one verifying test while every obligation's own
+    `mapped_tests` was empty). Counts are now derived from what actually
+    got attached, so the two can never drift apart again; a test that
+    cannot be attached to exactly one flow (see `_matching_flow_by_handler`)
+    is recorded in `notes` instead of silently inflating a count nothing
+    else reflects.
+    """
     if test_recovery.status not in (STATUS_ESTABLISHED, STATUS_PARTIAL):
         return
     accepted = [t for t in test_recovery.tests if t.status == TEST_STATUS_ACCEPTED]
     if not accepted:
         return
     existing = _existing_mapped_test_keys(result)
-    # Dedup by (file, test) BEFORE counting -- the agent proposing (or two
-    # separate recovery attempts each accepting) the same real test twice
-    # must never inflate mapped_tests/supporting_tests beyond the number
-    # of actually-distinct tests recovered.
-    new_keys = {(t.file, t.test) for t in accepted} - existing
-    new_count = len(new_keys)
-    if new_count == 0:
-        return
-    # Relevant/mapped, never executed -- recovery does not run anything.
-    result.summary.counts.mapped_tests += new_count
-    result.summary.counts.supporting_tests += new_count
-    # A recovered test was adversarially verified to demonstrate the claim
-    # (see module docstring), so it counts as real, distinct verifying
-    # evidence too -- keeping these in lockstep with the two counts above
-    # rather than letting them silently drift apart.
-    result.summary.counts.tests_verifying_behavior += new_count
-    result.summary.counts.tests_exercising_flows += new_count
+    # Dedup by (file, test) -- the agent proposing (or two separate recovery
+    # attempts each accepting) the same real test twice must never inflate
+    # counts beyond the number of actually-distinct tests recovered.
+    seen_keys: set[tuple[str, str]] = set()
+    attached = 0
+    unattached = 0
+    for test in accepted:
+        key = (test.file, test.test)
+        if key in existing or key in seen_keys:
+            continue
+        seen_keys.add(key)
+        flow = _matching_flow_by_handler(result, test.target)
+        obligation = next(iter(flow.obligations), None) if flow is not None else None
+        if obligation is None:
+            unattached += 1
+            continue
+        obligation.mapped_tests.append(_mapped_test_from_recovered(test))
+        attached += 1
+
+    if attached:
+        # Relevant/mapped, never executed -- recovery does not run anything.
+        result.summary.counts.mapped_tests += attached
+        # A recovered test was adversarially verified to demonstrate the
+        # claim (see module docstring), so it counts as real, distinct
+        # verifying evidence too.
+        result.summary.counts.tests_verifying_behavior += attached
+        result.summary.counts.tests_exercising_flows += attached
+    if unattached:
+        result.notes.append(
+            f"AI recovery found {unattached} additional verified test(s) that could not be "
+            "attributed to exactly one flow's handler; not counted or shown as evidence."
+        )
 
 
 def merge_verified_recovery_into_result(

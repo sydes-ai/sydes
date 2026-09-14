@@ -61,6 +61,25 @@ def _recovered_test(file="a.spec.ts", test="t1", target=None, status=TEST_STATUS
     return RecoveredTest(file=file, test=test, covers="c", target=target or _entity("Handler.execute", "handler.ts"), status=status)
 
 
+def _flow_with_obligation(handler="Handler.execute", handler_file=None, flow_id="flow:x") -> AffectedFlow:
+    obligation = VerificationObligation(
+        id=f"{flow_id}::ob-1", flow_id=flow_id, kind="route_contract",
+        statement="GET /users responds 200", origin="api_contract",
+    )
+    return AffectedFlow(
+        id=flow_id, entry_label="GET /users", handler=handler,
+        obligations=[obligation],
+        artifact_refs={"handler_file": handler_file} if handler_file else {},
+    )
+
+
+def _result_with_matching_flow(**flow_kwargs) -> ChangeVerificationResult:
+    """A result whose one flow's handler matches `_recovered_test()`'s
+    default target -- the shape every recovered-test merge test needs so
+    the test actually has somewhere to be honestly attached."""
+    return _result(affected_flows=[_flow_with_obligation(**flow_kwargs)])
+
+
 def test_established_path_appears_in_canonical_affected_flows():
     result = _result()
     merge_verified_recovery_into_result(result, _established_path(), TestRecoveryResult())
@@ -132,11 +151,31 @@ def test_partial_path_recovery_does_not_merge_a_path():
 
 
 def test_recovered_test_increments_mapped_tests_count():
-    result = _result()
+    result = _result_with_matching_flow()
     test_recovery = TestRecoveryResult(status=STATUS_ESTABLISHED, tests=[_recovered_test()])
     merge_verified_recovery_into_result(result, PathRecoveryResult(), test_recovery)
     assert result.summary.counts.mapped_tests == 1
-    assert result.summary.counts.supporting_tests == 1
+
+
+def test_recovered_test_is_actually_attached_to_the_matching_obligation():
+    """The core fix: a recovered test must be nameable/queryable on the
+    flow it concerns, not only an aggregate-counter bump with nothing in
+    `affected_flows` for a reader to find. Confirmed as a real gap: a live
+    run had `summary.counts.tests_verifying_behavior == 1` while every
+    obligation's own `mapped_tests` was empty -- counts and the list they
+    describe had silently drifted apart."""
+    result = _result_with_matching_flow()
+    test_recovery = TestRecoveryResult(status=STATUS_ESTABLISHED, tests=[_recovered_test(file="a.spec.ts", test="t1")])
+    merge_verified_recovery_into_result(result, PathRecoveryResult(), test_recovery)
+
+    obligation = result.affected_flows[0].obligations[0]
+    assert len(obligation.mapped_tests) == 1
+    mapped = obligation.mapped_tests[0]
+    assert mapped.file == "a.spec.ts"
+    assert mapped.name == "t1"
+    assert mapped.evidence_tier == "A_direct_invocation"
+    # counts must always match what is actually attached, never drift from it
+    assert result.summary.counts.mapped_tests == 1
 
 
 def test_recovered_test_also_counts_as_distinct_verifying_evidence():
@@ -145,7 +184,7 @@ def test_recovered_test_also_counts_as_distinct_verifying_evidence():
     lockstep with `mapped_tests`, so the recovery trigger's own check of
     `tests_verifying_behavior` (see `recovery.trigger`) does not go stale
     relative to what this merge just added."""
-    result = _result()
+    result = _result_with_matching_flow()
     test_recovery = TestRecoveryResult(status=STATUS_ESTABLISHED, tests=[_recovered_test()])
     merge_verified_recovery_into_result(result, PathRecoveryResult(), test_recovery)
     assert result.summary.counts.tests_verifying_behavior == 1
@@ -153,7 +192,7 @@ def test_recovered_test_also_counts_as_distinct_verifying_evidence():
 
 
 def test_recovered_test_never_becomes_executed():
-    result = _result()
+    result = _result_with_matching_flow()
     test_recovery = TestRecoveryResult(status=STATUS_ESTABLISHED, tests=[_recovered_test()])
     merge_verified_recovery_into_result(result, PathRecoveryResult(), test_recovery)
     assert result.summary.counts.tests_executed == 0
@@ -164,21 +203,50 @@ def test_duplicate_recovered_tests_count_once_not_per_duplicate():
     """Issue 8: the agent proposing the same real test twice (or two
     recovery attempts both accepting it) must not inflate mapped_tests
     beyond the number of actually-distinct tests recovered."""
-    result = _result()
+    result = _result_with_matching_flow()
     duplicated = TestRecoveryResult(
         status=STATUS_ESTABLISHED,
         tests=[_recovered_test(file="a.spec.ts", test="t1"), _recovered_test(file="a.spec.ts", test="t1")],
     )
     merge_verified_recovery_into_result(result, PathRecoveryResult(), duplicated)
     assert result.summary.counts.mapped_tests == 1
-    assert result.summary.counts.supporting_tests == 1
+    assert len(result.affected_flows[0].obligations[0].mapped_tests) == 1
 
 
 def test_rejected_test_is_not_counted():
-    result = _result()
+    result = _result_with_matching_flow()
     test_recovery = TestRecoveryResult(status=STATUS_ESTABLISHED, tests=[_recovered_test(status=TEST_STATUS_REJECTED)])
     merge_verified_recovery_into_result(result, PathRecoveryResult(), test_recovery)
     assert result.summary.counts.mapped_tests == 0
+
+
+def test_recovered_test_with_no_matching_flow_is_declined_not_counted():
+    """A recovered test whose target does not resolve to exactly one flow's
+    handler must never inflate a count that nothing in `affected_flows`
+    can show -- declined and recorded in `notes` instead of guessed onto
+    the wrong (or no) obligation."""
+    result = _result()  # no flows at all
+    test_recovery = TestRecoveryResult(status=STATUS_ESTABLISHED, tests=[_recovered_test()])
+    merge_verified_recovery_into_result(result, PathRecoveryResult(), test_recovery)
+    assert result.summary.counts.mapped_tests == 0
+    assert result.summary.counts.tests_verifying_behavior == 0
+    assert any("could not be attributed" in note for note in result.notes)
+
+
+def test_recovered_test_declines_when_target_matches_more_than_one_flow():
+    """Two flows sharing the same handler (e.g. two routes dispatched from
+    one shared method) means the target is genuinely ambiguous -- never
+    guessed between."""
+    result = _result(
+        affected_flows=[
+            _flow_with_obligation(flow_id="flow:a"),
+            _flow_with_obligation(flow_id="flow:b"),
+        ]
+    )
+    test_recovery = TestRecoveryResult(status=STATUS_ESTABLISHED, tests=[_recovered_test()])
+    merge_verified_recovery_into_result(result, PathRecoveryResult(), test_recovery)
+    assert result.summary.counts.mapped_tests == 0
+    assert all(not o.mapped_tests for flow in result.affected_flows for o in flow.obligations)
 
 
 def test_no_duplicate_flow_when_structural_result_already_covers_the_route():
