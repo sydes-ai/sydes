@@ -76,6 +76,21 @@ def _unwrap_handler(expr: str) -> tuple[str, list[str]]:
     return current, wrappers
 
 
+#: Every dotted-path operation downstream of this module (import-alias
+#: lookup, receiver/method fallback, `symbols_by_name` lookup) already
+#: splits and compares on "." alone. Rust's "::" is the same kind of
+#: module-path qualifier written with a different separator -- normalizing
+#: it to "." here, once, at the point a raw handler-hint string is first
+#: read, is what lets every one of those already-generic mechanisms handle
+#: it too, instead of adding a second, parallel "::"-aware code path next
+#: to each one. No other separator is touched; this is not a general
+#: tokenizer, just the one substitution needed to stop a route's handler
+#: reference from silently failing to resolve at all merely because of
+#: which language wrote its qualifier with "::" instead of ".".
+def _normalize_qualifier_separators(text: str) -> str:
+    return text.replace("::", ".")
+
+
 def extract_handler_candidates(handler_hint: str | None) -> dict:
     """Extract ordered handler-like candidates from a route handler hint."""
     if not handler_hint:
@@ -91,7 +106,7 @@ def extract_handler_candidates(handler_hint: str | None) -> dict:
 
     candidates: list[dict] = []
     for idx, part in enumerate(args):
-        normalized, wrappers = _unwrap_handler(part)
+        normalized, wrappers = _unwrap_handler(_normalize_qualifier_separators(part))
         if re.fullmatch(r"[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*", normalized):
             candidates.append(
                 {
@@ -259,7 +274,7 @@ def resolve_handler_reference(
     if route_decl_snippet:
         arg_candidates = []
         for arg in _extract_route_call_arguments_from_snippet(route_decl_snippet):
-            normalized, wrappers = _unwrap_handler(arg)
+            normalized, wrappers = _unwrap_handler(_normalize_qualifier_separators(arg))
             if re.fullmatch(r"[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*", normalized):
                 arg_candidates.append(
                     {

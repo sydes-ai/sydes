@@ -569,3 +569,99 @@ def test_bare_function_handler_resolution_is_unaffected_by_the_receiver_fallback
     resolved = resolve_handler_reference(_endpoint("index", file="router.py"), index)
     assert resolved["resolved"] is True
     assert resolved["primary_handler"]["symbol"]["file"] == "router.py"
+
+
+# ---------------------------------------------------------------------------
+# Rust's "::" module-path qualifier: reproduces the real gap that let a
+# genuinely known route (correct method/path/handler, already selected by
+# the analyzer) still fail to become a final `AffectedFlow`, because this
+# resolver's own candidate-extraction regex accepted only "." as a
+# qualifier separator and produced zero candidates for "mod::symbol" --
+# `sydes-examples/realworld-axum-sqlx` PR #3 (`listing::feed_articles`).
+# ---------------------------------------------------------------------------
+
+
+def test_extract_handler_candidates_accepts_rust_style_qualifier() -> None:
+    """Confirms the extraction step itself -- the regex must accept '::'
+    the same way it already accepts '.', not just the later lookup logic."""
+    parsed = extract_handler_candidates("listing::feed_articles")
+    assert parsed["primary"] is not None
+    assert parsed["primary"]["normalized"] == "listing.feed_articles"
+
+
+def test_resolve_cross_module_rust_style_handler_via_bare_name_fallback() -> None:
+    """The end-to-end case: a route declared in one file referencing a
+    handler defined in a different file via Rust's `mod::function` syntax,
+    with no CBM-reported import edge linking the two (as `mod x;` module
+    declarations are not import edges) -- must still resolve through the
+    same repo-wide bare-name fallback an already-supported receiver/method
+    reference (`server.createTransfer`) uses."""
+    index = {
+        "files": [
+            {
+                "path": "src/http/articles/mod.rs",
+                "imports": [],
+                "exports": [],
+                "symbols": [],
+            },
+            {
+                "path": "src/http/articles/listing.rs",
+                "imports": [],
+                "exports": [{"kind": "named", "symbol": "feed_articles"}],
+                "symbols": [
+                    {
+                        "name": "feed_articles",
+                        "qualified_name": "app.src.http.articles.listing.feed_articles",
+                        "kind": "function",
+                        "file": "src/http/articles/listing.rs",
+                        "line": 126,
+                        "start_line": 126,
+                        "end_line": 181,
+                        "language": "rust",
+                    },
+                ],
+            },
+        ]
+    }
+    resolved = resolve_handler_reference(
+        _endpoint("listing::feed_articles", file="src/http/articles/mod.rs"),
+        index,
+    )
+    assert resolved["resolved"] is True
+    assert resolved["primary_handler"]["symbol"]["file"] == "src/http/articles/listing.rs"
+    assert resolved["primary_handler"]["symbol"]["qualified_name"] == (
+        "app.src.http.articles.listing.feed_articles"
+    )
+
+
+def test_ambiguous_cross_module_rust_style_handler_stays_unresolved() -> None:
+    """Two unrelated files each defining a same-named function must not be
+    guessed between just because one happens to be referenced with a
+    Rust-style qualifier -- same "decline rather than guess" discipline the
+    receiver/method fallback already enforces."""
+    index = {
+        "files": [
+            {"path": "src/http/articles/mod.rs", "imports": [], "exports": [], "symbols": []},
+            {
+                "path": "src/http/articles/listing.rs",
+                "imports": [], "exports": [],
+                "symbols": [
+                    {"name": "feed_articles", "kind": "function", "file": "src/http/articles/listing.rs", "line": 10},
+                ],
+            },
+            {
+                "path": "src/http/other/listing.rs",
+                "imports": [], "exports": [],
+                "symbols": [
+                    {"name": "feed_articles", "kind": "function", "file": "src/http/other/listing.rs", "line": 20},
+                ],
+            },
+        ]
+    }
+    resolved = resolve_handler_reference(
+        _endpoint("listing::feed_articles", file="src/http/articles/mod.rs"),
+        index,
+    )
+    assert resolved["resolved"] is False
+    assert resolved["unresolved_handlers"]
+    assert resolved["unresolved_handlers"][0]["reason"] == "ambiguous"

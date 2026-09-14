@@ -225,15 +225,36 @@ def test_discover_endpoints_llm_policy_never_warns_when_coverage_weak(tmp_path: 
     assert any("Discovery coverage is weak under llm_policy=never" in note for note in result.notes)
 
 
-def test_discover_endpoints_llm_policy_auto_skips_with_high_conf_deterministic(tmp_path: Path) -> None:
-    """llm_policy=auto should skip LLM when deterministic routes are strong and untruncated."""
+def test_discover_endpoints_llm_policy_auto_still_runs_with_high_conf_deterministic_http(tmp_path: Path) -> None:
+    """`llm_policy=auto` must NOT skip LLM discovery just because deterministic
+    HTTP-route extraction is already strong and untruncated.
+
+    Deterministic extraction only ever covers HTTP routes -- it has no
+    parser for any other entrypoint kind (gRPC, GraphQL, ...) and never
+    will. LLM discovery is the only channel those other kinds can come
+    from, so treating strong HTTP coverage as a reason to skip the call
+    entirely silently suppressed every non-HTTP kind alongside the HTTP
+    enrichment it was meant to skip -- confirmed against a real run
+    (sydes-examples/spring-boot-realworld-example-app PR #2), where two
+    real GraphQL mutations were never even attempted because deterministic
+    REST extraction alone was already at full confidence.
+
+    The deterministic route must still win over a conflicting LLM guess for
+    the SAME path (see `_endpoint_priority`) -- this test proves the call
+    runs, not that its output overrides deterministic ground truth."""
     repo_root = tmp_path / "api"
     repo_root.mkdir()
     (repo_root / "main.py").write_text(
         "@app.get('/users')\ndef users():\n    return []\n",
         encoding="utf-8",
     )
-    client = _CountingEndpointClient('{"endpoints":[{"method":"GET","path":"/llm","file":"main.py","repo":"api"}]}')
+    client = _CountingEndpointClient(
+        '{"endpoints":['
+        '{"method":"GET","path":"/llm","file":"main.py","repo":"api"},'
+        '{"method":"GRPC","path":"UserService/LoginUser","handler":"LoginUser",'
+        '"file":"main.py","repo":"api","kind":"grpc"}'
+        ']}'
+    )
 
     result = discover_endpoints(
         [RepoRef(name="api", root=str(repo_root))],
@@ -241,9 +262,11 @@ def test_discover_endpoints_llm_policy_auto_skips_with_high_conf_deterministic(t
         llm_policy="auto",
     )
 
-    assert client.calls == 0
-    assert any(item.path == "/users" for item in result.routes)
-    assert any("LLM route discovery skipped by auto policy because deterministic coverage is strong." in note for note in result.notes)
+    assert client.calls == 1
+    assert any(item.path == "/users" for item in result.routes)  # deterministic, untouched
+    assert any(item.kind == "grpc" and item.handler == "LoginUser" for item in result.routes)
+    assert any("llm_policy=auto, llm_skipped=false" in note for note in result.notes)
+    assert not any("skipped by auto policy" in note for note in result.notes)
 
 
 def test_discover_endpoints_llm_policy_auto_runs_when_coverage_weak(tmp_path: Path, monkeypatch) -> None:

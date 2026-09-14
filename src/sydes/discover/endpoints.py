@@ -39,7 +39,7 @@ from sydes.llm.client import (
 )
 from sydes.llm.prompts import build_endpoint_discovery_prompt
 from sydes.discover.deterministic_routes import extract_deterministic_routes
-from sydes.discover.discovery_coverage import auto_policy_should_skip_llm, evaluate_discovery_coverage
+from sydes.discover.discovery_coverage import evaluate_discovery_coverage
 from sydes.discover.route_index import build_route_index
 from sydes.discover.route_graph import build_route_graph_facts_from_route_index_batch
 
@@ -953,15 +953,21 @@ def discover_endpoints(
             deterministic_scan_truncated_files=deterministic_scan_truncated_files,
         )
 
-        deterministic_high_confidence = (
-            bool(deterministic_routes)
-            and all((item.confidence or 0.0) >= 0.95 for item in deterministic_routes)
-            and all(
-                not item.snippet.truncated
-                for item in deterministic_reads
-                if not item.skipped and item.snippet is not None and (item.role or "unknown") == FILE_ROLE_SOURCE_ROUTE_CANDIDATE
-            )
-        )
+        # `coverage` describes HTTP-route coverage only -- deterministic
+        # extraction has no parser for any other entrypoint kind (gRPC,
+        # GraphQL, ...) and never will produce one, so strong HTTP coverage
+        # is not evidence that nothing further is discoverable here. LLM
+        # discovery is the *only* channel those other kinds can ever come
+        # from (see `build_endpoint_discovery_prompt`), so `llm_policy="auto"`
+        # no longer lets HTTP-route confidence skip the call outright -- that
+        # would silently suppress every non-HTTP kind alongside the HTTP
+        # enrichment it was actually meant to skip. This is a policy
+        # generalization, not a per-kind carve-out: deterministic HTTP
+        # confidence still fully decides how much the LLM's own HTTP-shaped
+        # output is trusted on conflict (see `_endpoint_priority` -- a
+        # deterministic route always wins), it just no longer decides
+        # whether discovery runs at all. Only `llm_policy="never"` still
+        # disables the call outright, as an explicit, requested opt-out.
         should_run_llm = True
         llm_skip_note: str | None = None
         if llm_policy == "never":
@@ -969,15 +975,6 @@ def discover_endpoints(
             llm_skip_note = "LLM route discovery disabled by policy (never)."
             if coverage.get("label") == "weak":
                 notes.append(f"{repo.name}: Discovery coverage is weak under llm_policy=never; route list may be incomplete.")
-        elif llm_policy == "auto" and deterministic_high_confidence and auto_policy_should_skip_llm(coverage):
-            should_run_llm = False
-            if coverage.get("label") == "moderate":
-                llm_skip_note = (
-                    "LLM route discovery skipped by auto policy (moderate deterministic coverage). "
-                    "Use --llm-policy always for extra enrichment."
-                )
-            else:
-                llm_skip_note = "LLM route discovery skipped by auto policy because deterministic coverage is strong."
 
         if should_run_llm:
             try:
