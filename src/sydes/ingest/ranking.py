@@ -17,6 +17,12 @@ PATH_SIGNAL_WEIGHTS = {
     "route": 2.0,
     "routes": 2.0,
     "router": 2.0,
+    # Django's own route-declaration filename convention (`urls.py`), used
+    # by essentially every Django/DRF project regardless of framework
+    # version -- as generic a same-purpose signal as "route"/"router"
+    # above, just a different, equally common vocabulary word for it.
+    "url": 2.0,
+    "urls": 2.0,
     "controller": 1.8,
     "controllers": 1.8,
     "handler": 1.6,
