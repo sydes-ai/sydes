@@ -587,6 +587,47 @@ def test_run_llm_endpoint_discovery_keeps_strong_evidence_partial_candidate() ->
     assert result.endpoints[0].handler is None
 
 
+def test_run_llm_endpoint_discovery_drops_named_handler_with_no_route_identity() -> None:
+    """Regression: an LLM candidate that names a real handler but has no
+    method and no path carries no resolvable HTTP route identity of its
+    own -- unlike the handler-less partial candidate above, high
+    confidence about the handler symbol does not save it here. Seen in
+    practice on a Go/Gin repo: an LLM candidate read from the handler's own
+    definition file (with no visibility into the separate file that
+    registers the route) proposed `handler="renewAccessToken"` with no
+    method/path, which later matched onto the real, already-registered
+    route by (file, symbol) identity and rendered as a spurious
+    `ANY None` flow alongside the correctly-discovered `POST
+    /tokens/renew_access`."""
+    client = _FakeEndpointClient(
+        payload=(
+            '{"endpoints":['
+            '{"file":"api/token.go","repo":"api","handler":"renewAccessToken",'
+            '"confidence":0.95,"evidence":[{"file":"api/token.go","label":"handler"}]}'
+            ']}'
+        )
+    )
+    from sydes.core.models import CandidateFileRead, ReadFileSnippet
+
+    candidates = [
+        CandidateFileRead(
+            repo="api",
+            relative_path="api/token.go",
+            snippet=ReadFileSnippet(
+                repo="api",
+                relative_path="api/token.go",
+                text="func (server *Server) renewAccessToken(ctx *gin.Context) {}",
+                line_count=1,
+                char_count=60,
+            ),
+        )
+    ]
+    result = run_llm_endpoint_discovery(candidates, llm_client=client)
+
+    assert result.endpoints == []
+    assert any("no resolvable HTTP method/path identity" in note for note in result.notes)
+
+
 def test_run_llm_endpoint_discovery_rejects_test_file_route_declaration() -> None:
     """Routes declared from test files should be rejected post-LLM."""
     client = _FakeEndpointClient(

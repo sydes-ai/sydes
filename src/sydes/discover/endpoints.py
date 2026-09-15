@@ -317,6 +317,37 @@ def _apply_quality_filters(
                 "missing both path and handler with weak evidence."
             )
             continue
+        # A NAMED handler with neither method nor path carries no resolvable
+        # route identity of its own -- confidence about the handler symbol
+        # is not evidence of a distinct route declaration, so
+        # `_has_strong_evidence` does not save it here (unlike the checks
+        # above, which are about whether a HANDLER-less candidate is worth
+        # keeping at all). Scoped to kind "http" only: grpc/graphql
+        # candidates legitimately have no HTTP method/path. A handler-less
+        # candidate is left to the checks above (and stays inert regardless
+        # -- `_match_endpoint_candidate` and the deterministic backstop both
+        # require a handler to ever select a candidate into a flow).
+        # Seen in practice: an LLM candidate for a Go Gin handler, read from
+        # its own definition file with no visibility into the separate file
+        # that registers it, produced method=None/path=None/
+        # handler="renewAccessToken" and matched onto the real,
+        # already-registered route by (file, symbol) identity later in
+        # `_select_via_impact_interpreter`, rendering as a spurious
+        # `ANY None` flow alongside the correctly-discovered one. The
+        # handler's real reachability is unaffected by dropping this: the
+        # deterministic route (if one exists) is independently found by
+        # route-registration parsing, not by this LLM candidate.
+        if (
+            endpoint.kind == "http"
+            and endpoint.method is None
+            and endpoint.path is None
+            and endpoint.handler is not None
+        ):
+            notes.append(
+                f"Dropped endpoint #{idx} ({endpoint.repo}:{endpoint.file}): "
+                "named handler with no resolvable HTTP method/path identity."
+            )
+            continue
         kept.append(endpoint)
     return kept, notes
 
