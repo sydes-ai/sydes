@@ -344,6 +344,56 @@ def test_backstop_declines_when_resolution_is_ambiguous_even_via_changed_symbols
     assert selected == []
 
 
+def test_backstop_resolves_a_class_based_view_registered_via_as_view():
+    """Regression: `sydes-examples/pokeapi` real shape. Django/DRF registers
+    a class-based view as `PokemonEncounterView.as_view()`; discovery reports
+    the call-site reference with the `()` stripped
+    (`PokemonEncounterView.as_view`) -- naming the CLASS, never the specific
+    HTTP-method handler actually invoked. The diff changed
+    `PokemonEncounterView.get`, a method defined directly on that class:
+    a plain identity/leaf match on "as_view" fails, and without the
+    class-prefix check this candidate falls through to
+    `_resolve_handler_definition_file`, which also cannot resolve a symbol
+    literally named "as_view" and drops the route entirely."""
+    handler_file = "pokemon_v2/api.py"
+    candidate = EndpointCandidate(
+        method=None,
+        path="/api/v2/pokemon/{pokemon_id}/encounters",
+        handler="PokemonEncounterView.as_view",
+        file=handler_file,
+        repo=REPO,
+        confidence=0.95,
+        status="llm_discovered",
+    )
+    change = ChangeSet(
+        base="main",
+        head="abc123",
+        files=[ChangedFile(repo=REPO, path=handler_file)],
+        symbols=[
+            ChangedSymbol(
+                id=f"{REPO}:{handler_file}:get",
+                repo=REPO,
+                file=handler_file,
+                name="get",
+                qualified_name="PokemonEncounterView.get",
+            )
+        ],
+    )
+
+    selected, _impact_result, _notes = _select_via_impact_interpreter(
+        change=change,
+        routes=_Routes([candidate]),
+        structural=_no_entrypoints_facts(),
+        repo_name=REPO,
+        options=VerifyChangeOptions(),
+        repo_root=None,
+    )
+
+    assert len(selected) == 1
+    assert selected[0].handler == "PokemonEncounterView.as_view"
+    assert selected[0].path == "/api/v2/pokemon/{pokemon_id}/encounters"
+
+
 def test_backstop_ignores_a_route_whose_handler_was_not_changed():
     """A route already known to Sydes (e.g. from an earlier scan) whose
     handler this diff never touched must not be pulled in -- the backstop

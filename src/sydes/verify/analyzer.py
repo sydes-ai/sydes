@@ -1017,6 +1017,18 @@ def _handler_reference_forms(handler: str) -> tuple[str, str]:
     name-resolution rules.
     """
     dotted = handler.replace("::", ".")
+    # Django/Flask class-based-view registration idiom: a route registered
+    # as `ClassName.as_view()` is written at the call site with the `()`
+    # stripped by discovery, leaving `ClassName.as_view` -- this names the
+    # VIEW CLASS as a whole, never one specific HTTP-method handler on it.
+    # At request time the class's own dispatch() resolves the actual method
+    # dynamically (e.g. `getattr(self, request.method.lower())`), so the
+    # method that changed is never spelled the same as this reference.
+    # Stripping this one, well-known, literal suffix resolves the reference
+    # down to the class itself, which the class-prefix check in the
+    # backstop loop below can then match a changed method against.
+    if dotted.endswith(".as_view"):
+        dotted = dotted[: -len(".as_view")]
     leaf = dotted.rsplit(".", 1)[-1]
     return dotted, leaf
 
@@ -1289,6 +1301,17 @@ def _select_via_impact_interpreter(
         handler_keys = {candidate.handler, dotted_handler, leaf_handler}
         if any((candidate.file, key) in changed_keys for key in handler_keys):
             pass  # fast path: route declaration and handler share one file.
+        elif any(
+            symbol.get("file") == candidate.file
+            and str(symbol.get("qualified_name") or "").startswith(f"{leaf_handler}.")
+            for symbol in changed
+        ):
+            # Class-level route reference (e.g. Django's `ClassName.as_view()`,
+            # stripped to the class name above): the changed symbol is a
+            # method defined directly on that same class, exactly the shape
+            # the class's own dispatch() would route this request to, even
+            # though the registration never names the method itself.
+            pass
         else:
             resolved_file = _resolve_handler_definition_file(
                 candidate.handler, symbols_by_file, changed,
