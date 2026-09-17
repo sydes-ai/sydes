@@ -30,6 +30,7 @@ from sydes.verify.models import (
     ChangeSet,
     ChangeSummary,
     ChangeVerificationResult,
+    EvidenceRef,
     MappedTest,
     SourceRef,
     VerificationCounts,
@@ -221,6 +222,31 @@ def test_recovered_test_is_actually_attached_to_the_matching_obligation():
     assert result.summary.counts.mapped_tests == 1
 
 
+def test_recovered_test_directly_attached_no_longer_says_no_test_exists():
+    """The same contradiction, one tier stronger: even an EXACT
+    flow/obligation attachment left the obligation's own `status`/`reason`
+    untouched -- still whatever the first pass (before recovery ever ran)
+    set, typically `unverified`/"No existing test asserts this behavior".
+    Never claim pass/fail here (recovery does not execute anything, and
+    any `ci_suite` that already ran was captured before this test was
+    known to Sydes at all) -- but it must stop claiming zero evidence
+    exists."""
+    flow = _flow_with_obligation()
+    obligation = flow.obligations[0]
+    obligation.status = "unverified"
+    obligation.reason = "No existing test asserts this behavior"
+    result = _result(affected_flows=[flow])
+
+    test_recovery = TestRecoveryResult(status=STATUS_ESTABLISHED, tests=[_recovered_test()])
+    merge_verified_recovery_into_result(result, PathRecoveryResult(), test_recovery)
+
+    updated = result.affected_flows[0].obligations[0]
+    assert updated.mapped_tests  # actually attached (tier 1)
+    assert updated.status != "passed"  # recovery never fabricates a pass
+    assert updated.status != "failed"
+    assert updated.reason != "No existing test asserts this behavior"
+
+
 def test_recovered_test_also_counts_as_distinct_verifying_evidence():
     """A recovered test is adversarially verified, not merely mapped -- it
     must move `tests_verifying_behavior`/`tests_exercising_flows` in
@@ -370,6 +396,90 @@ def test_recovered_test_attaches_at_symbol_scope_when_it_targets_a_changed_symbo
         "does not allow duplicate parameter names when creating a strategy",
         "does not allow duplicate parameter names when updating a strategy",
     }
+
+
+def test_symbol_scoped_evidence_rewrites_the_no_test_reason_it_now_contradicts():
+    """Regression test for a real observed contradiction on
+    sydes-examples/express-typescript-boilerplate#1 (run 35195525395): the
+    rendered PR comment said "Existing evidence: 2 directly verify the
+    changed behavior" (driven by `summary.counts.tests_verifying_behavior`,
+    which `_merge_recovered_tests` already increments for symbol-scoped
+    `unattached_evidence`, not just exact flow/obligation attachment) while
+    ALSO saying "Still unverified -- Validation behavior: no relevant test
+    found" for the very obligation whose own evidence (`PetService.create`
+    in `PetService.ts`) is exactly what the recovered test's target names.
+    Both cannot be true.
+
+    No exact evidence ownership is claimed here -- the obligation's
+    `status` must stay `unverified` (weak evidence is never promoted to
+    strong), but its `reason` must stop claiming zero evidence exists when
+    the canonical data plainly contains some, just not attributed to this
+    exact obligation."""
+    flow = _flow_with_obligation(handler="PetController.create", flow_id="flow:POST:/pets")
+    obligation = flow.obligations[0]
+    obligation.kind = "validation"
+    obligation.statement = "POST /pets enforces pet.age <= 0 rejection"
+    obligation.introduced_by_change = True
+    obligation.status = "unverified"
+    obligation.reason = "No existing test asserts this behavior"
+    obligation.evidence = [EvidenceRef(file="src/api/services/PetService.ts", symbol="PetService.create")]
+    result = _result(
+        affected_flows=[flow],
+        changed_symbols=[
+            ChangedSymbol(
+                id="app:src/api/services/PetService.ts:PetService.create",
+                repo="app", file="src/api/services/PetService.ts", name="PetService.create",
+            ),
+        ],
+    )
+
+    # The recovered test's own target (the error constructor it directly
+    # invokes) does NOT match this flow's handler -- exactly why real
+    # recovery landed this at symbol scope instead of attaching directly.
+    test_recovery = TestRecoveryResult(
+        status=STATUS_ESTABLISHED,
+        tests=[
+            RecoveredTest(
+                file="test/unit/services/PetService.test.ts",
+                test="Create should reject a non-positive age",
+                covers="rejects a non-positive pet age",
+                target=_entity("PetService.create", "src/api/services/PetService.ts"),
+                status=TEST_STATUS_ACCEPTED,
+            ),
+        ],
+    )
+
+    merge_verified_recovery_into_result(result, PathRecoveryResult(), test_recovery)
+
+    assert len(result.unattached_evidence) == 1  # not attached to the obligation directly
+    assert result.unattached_evidence[0].scope == "symbol"
+    assert result.summary.counts.tests_verifying_behavior == 1  # "Existing evidence" sees it
+
+    updated = result.affected_flows[0].obligations[0]
+    assert updated.status == "unverified"  # never promoted to passed/verified
+    assert updated.reason != "No existing test asserts this behavior"
+    assert "no existing test asserts" not in updated.reason.lower()
+
+
+def test_change_scoped_evidence_rewrites_the_no_test_reason_when_no_symbol_matches():
+    """Same contradiction, one tier weaker: the recovered test doesn't even
+    target a known changed symbol (falls to the `change` floor), but the
+    obligation's own reason must still stop claiming zero evidence exists
+    anywhere in this change."""
+    flow = _flow_with_obligation(handler="PetController.create", flow_id="flow:POST:/pets")
+    obligation = flow.obligations[0]
+    obligation.status = "unverified"
+    obligation.reason = "No existing test asserts this behavior"
+    obligation.evidence = [EvidenceRef(file="src/api/services/PetService.ts", symbol="PetService.create")]
+    result = _result(affected_flows=[flow])
+
+    test_recovery = TestRecoveryResult(status=STATUS_ESTABLISHED, tests=[_recovered_test()])
+    merge_verified_recovery_into_result(result, PathRecoveryResult(), test_recovery)
+
+    assert result.unattached_evidence[0].scope == "change"
+    updated = result.affected_flows[0].obligations[0]
+    assert updated.status == "unverified"
+    assert updated.reason != "No existing test asserts this behavior"
 
 
 def test_no_duplicate_flow_when_structural_result_already_covers_the_route():

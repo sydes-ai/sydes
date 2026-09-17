@@ -52,7 +52,16 @@ from sydes.verify.models import (
     SourceRef,
     TIER_DIRECT_INVOCATION,
     UnattachedEvidence,
+    VERIFICATION_UNKNOWN,
+    VERIFICATION_UNVERIFIED,
 )
+
+#: The exact reason strings `sydes.verify.analyzer.resolve_obligation_status`
+#: writes for "genuinely zero test evidence anywhere" -- matched verbatim so
+#: the rewrite below only ever touches an obligation that actually still
+#: says this, never a `failed`/`passed` one or one already carrying a more
+#: specific reason.
+_NO_TEST_REASON = "No existing test asserts this behavior"
 
 PROVENANCE_AI_RECOVERY = "ai_recovery"
 
@@ -391,6 +400,22 @@ def _merge_recovered_tests(result: ChangeVerificationResult, test_recovery: Test
                 continue
             obligation.mapped_tests.append(mapped)
             attached_to_any = True
+            # `resolve_obligation_status` (the first pass, before recovery
+            # ever runs) already set this obligation's `status`/`reason`
+            # from whatever it knew about at the time -- with the test just
+            # appended above, "No existing test asserts this behavior"
+            # would now be a lie the canonical data itself contradicts (see
+            # `result.summary.counts.tests_verifying_behavior` below, which
+            # DOES count this attachment). Never claim pass/fail here
+            # though -- recovery does not execute anything, and the
+            # already-run `ci_suite` (if any) was captured before this test
+            # was known to Sydes at all, so it cannot honestly confirm this
+            # one either way.
+            obligation.status = VERIFICATION_UNKNOWN
+            obligation.reason = (
+                "AI recovery found a relevant test for this behavior; it was not executed "
+                "or confirmed this run"
+            )
 
         if not attached_to_any:
             symbol_match = _matching_changed_symbol(result, test.target)
@@ -422,6 +447,58 @@ def _merge_recovered_tests(result: ChangeVerificationResult, test_recovery: Test
         # verifying evidence too -- regardless of which scope it landed at.
         result.summary.counts.tests_verifying_behavior += attached
         result.summary.counts.tests_exercising_flows += attached
+        _reconcile_unattached_evidence_gap_reasons(result)
+
+
+def _reconcile_unattached_evidence_gap_reasons(result: ChangeVerificationResult) -> None:
+    """Fix the exact contradiction confirmed on a real PR (Sydes example
+    express-typescript-boilerplate#1): "Existing evidence" (driven by
+    `summary.counts.tests_verifying_behavior`, incremented above for a test
+    landed at ANY scope, including `unattached_evidence`) said "2 directly
+    verify the changed behavior", while the SAME obligation's own `reason`
+    -- untouched by `_merge_recovered_tests` when a test lands in
+    `unattached_evidence` rather than directly on `obligation.mapped_tests`
+    -- still read `_NO_TEST_REASON` verbatim, which the renderer turns into
+    "no relevant test found". Both cannot be true at once.
+
+    This never claims exact ownership (an unattached test was, by
+    definition, NOT provably about one specific obligation -- see
+    `UnattachedEvidence`'s own docstring) and never promotes the
+    obligation's `status` out of `VERIFICATION_UNVERIFIED` -- only the
+    `reason` text changes, from an outright "nothing exists" claim the
+    canonical data itself now contradicts to an honest "exists at a
+    broader scope, not attributed to this exact obligation" one. Matches
+    the evidence-ownership hierarchy `_merge_recovered_tests` already
+    uses: this obligation's own cited evidence (`symbol`/`file`) against
+    `EVIDENCE_SCOPE_SYMBOL` slots first, `EVIDENCE_SCOPE_CHANGE` (the
+    floor, unscoped) only if nothing more specific matched.
+    """
+    symbol_scoped = {
+        (slot.target_symbol, slot.target_file)
+        for slot in result.unattached_evidence
+        if slot.scope == EVIDENCE_SCOPE_SYMBOL
+    }
+    has_change_scoped = any(slot.scope == EVIDENCE_SCOPE_CHANGE for slot in result.unattached_evidence)
+    if not symbol_scoped and not has_change_scoped:
+        return
+
+    for flow in result.affected_flows:
+        for obligation in flow.obligations:
+            if obligation.status != VERIFICATION_UNVERIFIED or obligation.mapped_tests:
+                continue
+            if (obligation.reason or "").strip() != _NO_TEST_REASON:
+                continue
+            symbol_hit = any((item.symbol, item.file) in symbol_scoped for item in obligation.evidence)
+            if symbol_hit:
+                obligation.reason = (
+                    "A relevant test exists for a changed symbol this obligation's own evidence "
+                    "cites, but is not directly attributed to this specific obligation"
+                )
+            elif has_change_scoped:
+                obligation.reason = (
+                    "A relevant test exists elsewhere in this change, but is not directly "
+                    "attributed to this specific obligation"
+                )
 
 
 def merge_verified_recovery_into_result(
