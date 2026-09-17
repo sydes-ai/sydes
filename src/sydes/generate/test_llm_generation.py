@@ -52,9 +52,13 @@ def generate_test_matrix_with_evidence_packet(
     warnings: list[str] = []
     if llm_client is None:
         try:
+            # No pinned temperature: some models reject an explicit value
+            # (e.g. one observed rejecting 0.0, accepting only their own
+            # default) -- same fix applied to every other LLM call site.
             llm_client = create_default_llm_client(
                 model_spec=model_spec,
                 timeout_seconds_override=timeout_s,
+                temperature=None,
                 stage="test_generation",
             )
         except LLMClientError as exc:
@@ -66,7 +70,7 @@ def generate_test_matrix_with_evidence_packet(
         current_test_matrix=current_test_matrix,
     )
     try:
-        response = llm_client.generate(LLMRequest(prompt=prompt, temperature=0))
+        response = llm_client.generate(LLMRequest(prompt=prompt, temperature=None))
     except LLMClientError as exc:
         return TestMatrixGenerationResult(ok=False, warnings=[str(exc)], error=str(exc))
 

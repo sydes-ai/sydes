@@ -1296,7 +1296,14 @@ def run_flow_expansion(
         settings = load_llm_settings_from_env()
         timeout_seconds = settings.timeout_seconds
         try:
-            llm_client = create_default_llm_client(model_spec=model_spec, stage="flow_expansion")
+            # No pinned temperature: some models reject an explicit value
+            # (e.g. one observed rejecting 0.0, accepting only their own
+            # default) -- same fix applied to every other LLM call site.
+            # The request below (`LLMRequest(prompt=prompt)`) already
+            # leaves temperature at its own default (None); without this,
+            # the client's own settings-derived default (0.0) was the
+            # value actually reaching the provider.
+            llm_client = create_default_llm_client(model_spec=model_spec, temperature=None, stage="flow_expansion")
         except LLMClientError as exc:
             if strict_llm:
                 raise LLMClientError(classify_llm_error(str(exc))) from exc

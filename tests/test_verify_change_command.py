@@ -10,7 +10,10 @@ import pytest
 from typer.testing import CliRunner
 
 from sydes.cli.main import app
-from sydes.verify.models import ChangeVerificationResult
+from sydes.cli.verify_change import _run_ai_recovery
+from sydes.llm.client import LLMRequest, LLMResponse
+from sydes.recovery.trigger import RecoveryTrigger
+from sydes.verify.models import ChangeSet, ChangeVerificationResult
 
 runner = CliRunner()
 
@@ -208,3 +211,37 @@ def test_code_findings_are_opt_in_and_advisory(service_repo: Path, monkeypatch) 
 
     assert result.exit_code == 0, result.output
     assert "CODE FINDINGS" not in result.output
+
+
+def test_ai_recovery_builds_its_client_with_no_pinned_temperature(tmp_path: Path, monkeypatch) -> None:
+    """Regression test for a real observed failure: AI recovery hardcoded
+    no explicit temperature override at the client-construction call, which
+    let the client's own settings-derived default (0.0) reach the provider
+    -- some models reject any non-default value outright ("'temperature'
+    does not support 0.0 with this model. Only the default (1) value is
+    supported."). Matches the same fix already applied to code review,
+    route discovery, and the impact guide: build the client with
+    `temperature=None` explicitly."""
+    captured: dict[str, object] = {}
+
+    class _StubClient:
+        def generate(self, request: LLMRequest):
+            return LLMResponse(text="{}")
+
+    def _fake_create_default_llm_client(*args, **kwargs):
+        captured.update(kwargs)
+        return _StubClient()
+
+    monkeypatch.setattr(
+        "sydes.cli.verify_change.evaluate_trigger",
+        lambda result: RecoveryTrigger(gap_kinds=("test-gap",), reason="test-trigger"),
+    )
+    monkeypatch.setattr(
+        "sydes.cli.verify_change.create_default_llm_client", _fake_create_default_llm_client,
+    )
+
+    result = ChangeVerificationResult(change=ChangeSet(base="main", head="abc123", files=[], symbols=[]))
+    _run_ai_recovery(result, repo_root=tmp_path, model_spec=None, json_output=None)
+
+    assert "temperature" in captured
+    assert captured["temperature"] is None

@@ -410,3 +410,41 @@ def test_run_flow_expansion_extracts_deterministic_flask_get_lookup_and_error(tm
     assert "abort request" in step_names
     assert "return JSON response" in step_names
     assert any(name == "read items[item_id]" for name in step_names)
+
+
+def test_run_flow_expansion_builds_its_client_with_no_pinned_temperature(tmp_path: Path, monkeypatch) -> None:
+    """Regression test for a real observed failure: flow expansion hardcoded
+    no temperature override at client construction -- some models reject
+    any non-default value outright. Matches the same fix already applied
+    to every other LLM call site: build the client with `temperature=None`
+    explicitly."""
+    repo_root = tmp_path / "api"
+    (repo_root / "src").mkdir(parents=True)
+    (repo_root / "src" / "routes.py").write_text(
+        "router.post('/checkout', create_checkout)\n",
+        encoding="utf-8",
+    )
+    endpoint = EndpointCandidate(
+        method="POST",
+        path="/checkout",
+        handler="create_checkout",
+        file="src/routes.py",
+        repo="api",
+        evidence=[EvidenceRef(file="src/routes.py", symbol="create_checkout", label="route")],
+    )
+    repos = [RepoRef(name="api", root=str(repo_root))]
+
+    captured: dict[str, object] = {}
+
+    def _fake_create_default_llm_client(**kwargs):
+        captured.update(kwargs)
+        return _FakeFlowClient(payload='{"steps":[],"sinks":[]}')
+
+    monkeypatch.setattr(
+        "sydes.trace.expand.create_default_llm_client", _fake_create_default_llm_client,
+    )
+
+    run_flow_expansion(endpoint, repos, llm_client=None)
+
+    assert "temperature" in captured
+    assert captured["temperature"] is None

@@ -309,7 +309,16 @@ def _run_ai_recovery(
 
     typer.echo(f"AI recovery (experimental): triggered ({trigger.reason})")
     try:
-        client = create_default_llm_client(model_spec, stage="ai_recovery")
+        # No pinned temperature: some models reject an explicit value (e.g.
+        # one observed rejecting 0.0, accepting only their own default) --
+        # the same fix already applied to the impact guide, route
+        # discovery, and code review. Every request the recovery pipeline
+        # itself sends already omits `temperature` too (see
+        # `recovery/verify.py`, `recovery/react.py`), so without this the
+        # client's own settings-derived default (0.0) was the one value
+        # actually reaching the provider -- confirmed failing for
+        # `gpt-5.6-sol` on two real repos.
+        client = create_default_llm_client(model_spec, temperature=None, stage="ai_recovery")
     except LLMClientError as exc:
         typer.echo(f"AI recovery (experimental): could not create LLM client: {exc}")
         return

@@ -293,9 +293,13 @@ def run_trace_llm_summarizer(
 
     prompt = build_trace_llm_prompt(input_payload)
     if llm_client is None:
-        llm_client = create_default_llm_client(model_spec=model_spec, stage="trace_summarization")
+        # No pinned temperature: some models reject an explicit value (e.g.
+        # one observed rejecting 0.0, accepting only their own default) --
+        # same fix applied to every other LLM call site (impact guide,
+        # route discovery, code review, AI recovery, ...).
+        llm_client = create_default_llm_client(model_spec=model_spec, temperature=None, stage="trace_summarization")
 
-    response = llm_client.generate(LLMRequest(prompt=prompt, temperature=0))
+    response = llm_client.generate(LLMRequest(prompt=prompt, temperature=None))
     try:
         raw = json.loads(response.text)
     except json.JSONDecodeError as exc:

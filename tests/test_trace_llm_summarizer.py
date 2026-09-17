@@ -244,3 +244,42 @@ def test_trace_llm_policy_auto_skips_small_trace() -> None:
     assert out["skipped"] is True
     assert client.calls == 0
 
+
+def test_builds_its_client_with_no_pinned_temperature(monkeypatch) -> None:
+    """Regression test for a real observed failure: trace summarization
+    hardcoded no temperature override at client construction and pinned
+    `temperature=0` on the request -- some models reject any non-default
+    value outright. Matches the same fix already applied to code review,
+    route discovery, the impact guide, and AI recovery: build the client
+    with `temperature=None` and never pin the request's temperature
+    either."""
+    captured: dict[str, object] = {}
+    captured_request: dict[str, object] = {}
+
+    class _StubClient:
+        def generate(self, request: LLMRequest) -> LLMResponse:
+            captured_request["temperature"] = request.temperature
+            return LLMResponse(text=json.dumps({"summary": "ok"}))
+
+    def _fake_create_default_llm_client(**kwargs):
+        captured.update(kwargs)
+        return _StubClient()
+
+    monkeypatch.setattr(
+        "sydes.trace.trace_llm_summarizer.create_default_llm_client", _fake_create_default_llm_client,
+    )
+
+    run_trace_llm_summarizer(
+        model_spec=None,
+        route={"matched_endpoint": {"method": "POST", "path": "/x", "file": "src/routes.ts"}},
+        resolved_handlers=None,
+        primary_slice=_sample_primary_slice(),
+        layered_trace_expansion=_sample_layered(),
+        policy="always",
+        llm_client=None,
+    )
+
+    assert "temperature" in captured
+    assert captured["temperature"] is None
+    assert captured_request["temperature"] is None
+

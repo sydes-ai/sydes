@@ -198,3 +198,37 @@ def test_merge_preserves_existing_response_and_adds_new_response() -> None:
     assert sorted(result.refined_contract.responses) == ["201", "400"]
     assert result.refined_contract.repo == "api"
     assert result.refined_contract.handler == "add_item"
+
+
+def test_builds_its_client_with_no_pinned_temperature(monkeypatch) -> None:
+    """Regression test for a real observed failure: contract refinement
+    hardcoded no temperature override at client construction and pinned
+    `temperature=0` on the request -- some models reject any non-default
+    value outright. Matches the same fix already applied to every other
+    LLM call site: build the client with `temperature=None` and never pin
+    the request's temperature either."""
+    captured: dict[str, object] = {}
+    captured_request: dict[str, object] = {}
+
+    class _StubClient:
+        def generate(self, request: LLMRequest) -> LLMResponse:
+            captured_request["temperature"] = request.temperature
+            return LLMResponse(text=json.dumps(_valid_payload()))
+
+    def _fake_create_default_llm_client(**kwargs):
+        captured.update(kwargs)
+        return _StubClient()
+
+    monkeypatch.setattr(
+        "sydes.generate.contract_llm_refinement.create_default_llm_client", _fake_create_default_llm_client,
+    )
+
+    refine_api_contract_with_evidence_packet(
+        evidence_packet=_packet(),
+        current_contract=_current_contract(),
+        llm_client=None,
+    )
+
+    assert "temperature" in captured
+    assert captured["temperature"] is None
+    assert captured_request["temperature"] is None
