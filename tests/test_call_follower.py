@@ -71,6 +71,105 @@ def test_follows_high_importance_service_call(tmp_path: Path) -> None:
     assert any(item["handler"] == "UserService.create" for item in out["layers"])
 
 
+def test_bridge_edges_resolve_a_constructor_injected_member_call(tmp_path: Path) -> None:
+    """Regression test for the real, confirmed bug behind a 0/20
+    deterministic structural-resolution failure on a real PR: a text-
+    extracted call name for a member call through `this` is `field.method`
+    (`petService.create`), not the bare method name `call_edges`-mode
+    (a backend-supplied full call graph) keys its own `edge_targets` by --
+    `bridge_targets` (built from the separate, backend-agnostic
+    `bridge_edges` parameter) must be keyed the same way the text
+    extractor actually produces, or the lookup always misses even when the
+    correct edge is present. This is the SAME shape
+    `sydes.discover.member_call_bridge.bridge_member_call_edges` produces
+    for a TypeScript constructor-injected field."""
+    _write(
+        tmp_path / "src/controller.ts",
+        "\n".join(
+            [
+                "export class PetController {",
+                "  constructor(private petService: PetService) {}",
+                "  async create(pet) {",
+                "    return this.petService.create(pet);",
+                "  }",
+                "}",
+            ]
+        ),
+    )
+    _write(
+        tmp_path / "src/service.ts",
+        "\n".join(
+            [
+                "export class PetService {",
+                "  async create(pet) {",
+                "    return pet;",
+                "  }",
+                "}",
+            ]
+        ),
+    )
+    repo_index = {
+        "files": [
+            {
+                "path": "src/controller.ts",
+                "imports": [],
+                "exports": [],
+                "symbols": [
+                    {
+                        "name": "create", "qualified_name": "PetController.create",
+                        "kind": "class_method", "parent": "PetController",
+                        "file": "src/controller.ts", "line": 3, "start_line": 3,
+                    },
+                ],
+            },
+            {
+                "path": "src/service.ts",
+                "imports": [],
+                "exports": [{"kind": "named", "symbol": "PetService"}],
+                "symbols": [
+                    {"name": "PetService", "kind": "class", "file": "src/service.ts", "line": 1},
+                    {
+                        "name": "create", "qualified_name": "PetService.create",
+                        "kind": "class_method", "parent": "PetService",
+                        "file": "src/service.ts", "line": 2, "start_line": 2,
+                    },
+                ],
+            },
+        ]
+    }
+    primary_slice = {
+        "file": "src/controller.ts",
+        "statements": [
+            {
+                "index": 1,
+                "text": "return this.petService.create(pet);",
+                "signals": ["await_call"],
+            }
+        ],
+    }
+    resolution = {"primary_handler": {"normalized_handler": "PetController.create"}}
+    bridge_edges = [{
+        "repo": "app",
+        "caller_file": "src/controller.ts", "caller_symbol": "create",
+        "callee_file": "src/service.ts", "callee_symbol": "create",
+        "source": "member_call_bridge", "bridge_reason": "constructor_typed_member_call",
+        "bridge_receiver": "petService", "bridge_receiver_type": "PetService",
+        "bridge_target_method": "create",
+    }]
+
+    out = build_layered_trace_expansion(
+        repo_root=tmp_path,
+        matched_endpoint={"path": "/pets"},
+        resolution=resolution,
+        primary_slice=primary_slice,
+        repo_index=repo_index,
+        budgets=CallFollowBudgets(max_depth=2),
+        bridge_edges=bridge_edges,
+    )
+    assert out["unresolved_calls"] == [], out["unresolved_calls"]
+    assert any(item["handler"] == "PetService.create" for item in out["layers"])
+
+
 def test_does_not_follow_response_or_db_calls(tmp_path: Path) -> None:
     repo_index = {"files": [{"path": "src/controller.ts", "imports": [], "exports": [], "symbols": []}]}
     primary_slice = {

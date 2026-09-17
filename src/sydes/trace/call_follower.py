@@ -404,9 +404,18 @@ def build_layered_trace_expansion(
                 continue
             if handler_symbol_name_for_bridge and edge.get("caller_symbol") != handler_symbol_name_for_bridge:
                 continue
-            call_name = str(edge.get("callee_symbol") or "")
-            if call_name:
-                bridge_targets[call_name] = edge
+            # Keyed as `field.method` (`petService.create`), matching the
+            # shape `_extract_calls_from_statement_text` produces for a
+            # member call site in TEXT-based candidate discovery (the
+            # native path this fallback exists for) -- NOT the bare
+            # method name `edge_targets` above uses, which only matches
+            # `call_edges`-mode candidates (a backend-supplied graph's own
+            # `callee_symbol`, never a text-extracted `field.method`
+            # string).
+            receiver = str(edge.get("bridge_receiver") or "")
+            method = str(edge.get("bridge_target_method") or "")
+            if receiver and method:
+                bridge_targets[f"{receiver}.{method}"] = edge
     if call_edges is not None:
         # Backend-supplied call graph: no statement text is read.
         handler_symbol_name = (primary_handler_name or "").rsplit(".", 1)[-1]
