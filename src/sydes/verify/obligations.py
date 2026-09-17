@@ -11,6 +11,7 @@ is labelled `origin = llm_hypothesis` and never displaces a grounded obligation.
 
 from __future__ import annotations
 
+import hashlib
 import re
 from typing import Any
 
@@ -326,6 +327,28 @@ def _rejection_status_after(steps: list[dict[str, Any]], position: int) -> str |
     return None
 
 
+def _normalized_statement(statement: str) -> str:
+    return re.sub(r"\s+", " ", statement.lower()).strip()
+
+
+def compute_canonical_id(handler: str, kind: str, statement: str) -> str:
+    """Identity of the underlying claim an obligation makes, independent of
+    which `AffectedFlow` happens to own the object.
+
+    Reuses exactly the `(kind, normalized statement)` basis `_dedupe`
+    below already uses to collapse duplicate obligations *within* one
+    flow's own list -- this just adds `handler` so the same basis can also
+    recognize obligations built independently for two different route
+    aliases of the same real handler (e.g. 5 HTTP paths all dispatching to
+    one view function) as the SAME fact, not 5 separate ones. See
+    `VerificationObligation.canonical_id`'s docstring for why this exists
+    as an additive field rather than restructuring `flow`/obligation
+    ownership.
+    """
+    basis = f"{handler}\x1f{kind}\x1f{_normalized_statement(statement)}"
+    return hashlib.sha256(basis.encode("utf-8")).hexdigest()[:16]
+
+
 def _dedupe(obligations: list[VerificationObligation]) -> list[VerificationObligation]:
     """Collapse obligations that make the same claim, preferring grounded origins."""
     priority = {
@@ -337,7 +360,7 @@ def _dedupe(obligations: list[VerificationObligation]) -> list[VerificationOblig
     }
     best: dict[tuple[str, str], VerificationObligation] = {}
     for obligation in obligations:
-        key = (obligation.kind, re.sub(r"\s+", " ", obligation.statement.lower()).strip())
+        key = (obligation.kind, _normalized_statement(obligation.statement))
         current = best.get(key)
         if current is None:
             best[key] = obligation

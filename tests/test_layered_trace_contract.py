@@ -81,6 +81,57 @@ def test_layered_contract_sink_normalization_database_and_storage() -> None:
     assert "storage" in kinds
 
 
+def test_followed_call_to_a_class_is_labeled_class_reference_not_service_call() -> None:
+    """Regression: a followed call resolving to a `kind="class"` symbol
+    (e.g. a Django model class like `Check`, reached via real structural
+    traversal) was previously labeled the generic `service_call` for
+    every followed call unconditionally -- the resolved target's own kind
+    (already available on `call_follower`'s `layer["symbol_kind"]`) was
+    never consulted. Confirmed on a real run."""
+    payload = build_layered_trace_contract(
+        matched_endpoint={"repo": "api", "method": "POST", "path": "/x", "file": "src/routes.py", "handler": "Handler.create"},
+        primary_slice={"file": "src/handler.py", "statements": []},
+        resolved_handlers=None,
+        layered_trace_expansion={
+            "layers": [
+                {"depth": 1, "handler": "Handler.create", "file": "src/handler.py", "steps": []},
+                {
+                    "depth": 2, "handler": "Check", "file": "src/models.py",
+                    "called_from": "Handler.create", "steps": [], "symbol_kind": "class",
+                },
+            ],
+        },
+        llm_summary=None,
+        budgets={"max_depth": 2, "max_steps": 40},
+        artifact_paths={},
+    )
+    follow_steps = [s for s in payload["flow"]["steps"] if s["layer"] == "followed_call"]
+    assert follow_steps
+    assert follow_steps[0]["kind"] == "class_reference"
+
+
+def test_followed_call_with_no_reported_kind_stays_service_call() -> None:
+    """No fabricated specificity: when the backend doesn't report a kind
+    at all, the existing generic label is kept rather than guessed."""
+    payload = build_layered_trace_contract(
+        matched_endpoint={"repo": "api", "method": "POST", "path": "/x", "file": "src/routes.py", "handler": "Handler.create"},
+        primary_slice={"file": "src/handler.py", "statements": []},
+        resolved_handlers=None,
+        layered_trace_expansion={
+            "layers": [
+                {"depth": 1, "handler": "Handler.create", "file": "src/handler.py", "steps": []},
+                {"depth": 2, "handler": "helper", "file": "src/helper.py", "called_from": "Handler.create", "steps": []},
+            ],
+        },
+        llm_summary=None,
+        budgets={"max_depth": 2, "max_steps": 40},
+        artifact_paths={},
+    )
+    follow_steps = [s for s in payload["flow"]["steps"] if s["layer"] == "followed_call"]
+    assert follow_steps
+    assert follow_steps[0]["kind"] == "service_call"
+
+
 def test_sql_update_classifies_as_database_write_and_sink_name_is_concise() -> None:
     payload = build_layered_trace_contract(
         matched_endpoint={"repo": "api", "method": "POST", "path": "/avatar", "file": "src/routes.ts", "handler": "Controller.update"},

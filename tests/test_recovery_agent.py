@@ -23,10 +23,21 @@ import pytest
 from sydes.llm.client import LLMClientError, LLMRequest, LLMResponse
 from sydes.recovery.agent import RecoveryBudget, recover
 from sydes.recovery.context import RecoveryContext
-from sydes.recovery.schema import RecoveryError, STATUS_ESTABLISHED, STATUS_PARTIAL, STATUS_UNRESOLVED
+from sydes.recovery.schema import (
+    ROOT_CANDIDATE_BOUNDARY,
+    ROOT_VERIFIED_BOUNDARY,
+    EntityRef,
+    RecoveryError,
+    STATUS_ESTABLISHED,
+    STATUS_PARTIAL,
+    STATUS_UNRESOLVED,
+)
 
 
-def _context(changed_files: tuple[str, ...] = ("handler.ts",)) -> RecoveryContext:
+def _context(
+    changed_files: tuple[str, ...] = ("handler.ts",),
+    entrypoint_entities: tuple[EntityRef, ...] = (),
+) -> RecoveryContext:
     return RecoveryContext(
         reason_first_pass_stopped="no established path",
         gap_kinds=("no_established_flow",),
@@ -38,6 +49,7 @@ def _context(changed_files: tuple[str, ...] = ("handler.ts",)) -> RecoveryContex
         test_candidates=(),
         unresolved_gaps=(),
         changed_files=changed_files,
+        entrypoint_entities=entrypoint_entities,
     )
 
 
@@ -160,6 +172,49 @@ def test_recover_accepts_a_verified_established_two_node_path(repo: Path):
     assert outcome.path_recovery.status == STATUS_ESTABLISHED
     assert outcome.path_recovery.paths[0].edges[0].provenance == "ai_recovery"
     assert outcome.test_recovery.status == STATUS_UNRESOLVED  # no candidate tests proposed
+
+
+def test_llm_discovered_path_with_unmatched_entrypoint_is_a_candidate_not_verified_boundary(repo: Path):
+    """Regression for a real, serious bug: an LLM-discovered path can be
+    fully edge-proven (every hop's evidence is real and adversarially
+    accepted) while its ROOT -- `nodes[0]`, Stage A's own free-text
+    `entrypoint` guess -- was never cross-checked against anything real.
+    Confirmed on a real run: a vague guess ("some admin API strategy
+    route, e.g. GET/POST /api/admin/strategies or similar") reached
+    `path=established` this way. `root_boundary_status` must reflect that
+    the root itself is unverified, even though `status` is `established`
+    -- previously it silently kept its default (`ROOT_VERIFIED_BOUNDARY`)
+    for every LLM-discovered path, since only the deterministic
+    graph-path-search fallback ever set it explicitly."""
+    client = SequencedClient([
+        _discovery_final(["some_guessed_entrypoint", "handler"], "handler"),
+        _atomic_final("registers and dispatches to"),
+        _verdicts(True),
+    ])
+    # No known entrypoints at all -- "some_guessed_entrypoint" cannot match anything.
+    outcome = recover(
+        _context(entrypoint_entities=()), repo_root=repo, client=client, trigger_reason="no established path",
+    )
+    assert outcome.path_recovery.status == STATUS_ESTABLISHED
+    assert outcome.path_recovery.paths[0].root_boundary_status == ROOT_CANDIDATE_BOUNDARY
+
+
+def test_llm_discovered_path_with_matched_entrypoint_is_a_verified_boundary(repo: Path):
+    """The positive counterpart: when `nodes[0]` genuinely matches a known
+    entrypoint (by file + bare symbol, the same identity discipline
+    `_direct_entrypoint_edge` already uses), the root is a real, confirmed
+    system boundary -- `root_boundary_status` must say so."""
+    client = SequencedClient([
+        _discovery_final(["route", "handler"], "handler"),
+        _atomic_final("registers and dispatches to"),
+        _verdicts(True),
+    ])
+    outcome = recover(
+        _context(entrypoint_entities=(EntityRef(symbol="route", file="handler.ts"),)),
+        repo_root=repo, client=client, trigger_reason="no established path",
+    )
+    assert outcome.path_recovery.status == STATUS_ESTABLISHED
+    assert outcome.path_recovery.paths[0].root_boundary_status == ROOT_VERIFIED_BOUNDARY
 
 
 def test_three_node_path_runs_two_independent_atomic_completions(repo: Path):

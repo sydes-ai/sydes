@@ -9,6 +9,8 @@ from __future__ import annotations
 
 from sydes.recovery.canonical_merge import PROVENANCE_AI_RECOVERY, merge_verified_recovery_into_result
 from sydes.recovery.schema import (
+    ROOT_CANDIDATE_BOUNDARY,
+    ROOT_VERIFIED_BOUNDARY,
     EntityRef,
     PathRecoveryResult,
     RecoveredEdge,
@@ -47,13 +49,18 @@ def _result(*, changed_symbols=None, **overrides) -> ChangeVerificationResult:
     return ChangeVerificationResult(change=change, **overrides)
 
 
-def _established_path(entrypoint="GET /users", nodes=None) -> PathRecoveryResult:
+def _established_path(
+    entrypoint="GET /users", nodes=None, root_boundary_status=ROOT_VERIFIED_BOUNDARY,
+) -> PathRecoveryResult:
     nodes = nodes or [_entity("Controller.findUsers", "controller.ts"), _entity("Handler.execute", "handler.ts")]
     target = nodes[-1]
     edges = []
     for a, b in zip(nodes, nodes[1:]):
         edges.append(RecoveredEdge(**{"from": a, "to": b}, relationship="dispatches to", status=STATUS_ESTABLISHED))
-    path = RecoveredPath(entrypoint=entrypoint, target_node=target.symbol, nodes=nodes, edges=edges, status=STATUS_ESTABLISHED)
+    path = RecoveredPath(
+        entrypoint=entrypoint, target_node=target.symbol, nodes=nodes, edges=edges, status=STATUS_ESTABLISHED,
+        root_boundary_status=root_boundary_status,
+    )
     return PathRecoveryResult(status=STATUS_ESTABLISHED, paths=[path])
 
 
@@ -89,6 +96,42 @@ def test_established_path_appears_in_canonical_affected_flows():
     assert flow.handler == "Controller.findUsers"
     assert flow.changed_nodes[0].symbol == "Handler.execute"
     assert flow.changed_nodes[0].file == "handler.ts"
+
+
+def test_candidate_boundary_path_never_becomes_a_proven_flow():
+    """Regression: `root_boundary_status=ROOT_CANDIDATE_BOUNDARY` (the
+    root/entrypoint was never cross-checked against anything real, even
+    though every edge in the path is fully evidence-proven) must never be
+    merged as a proven `AffectedFlow`/`AcceptedImpact` -- that would
+    present an unverified natural-language guess as established
+    structural truth. It must also not be silently dropped: it surfaces
+    as an `inferred` accepted impact instead, honestly labeled uncertain."""
+    result = _result()
+    path_recovery = _established_path(
+        entrypoint="some admin API strategy route, e.g. GET/POST /api/admin/strategies or similar",
+        root_boundary_status=ROOT_CANDIDATE_BOUNDARY,
+    )
+    merged = merge_verified_recovery_into_result(result, path_recovery, TestRecoveryResult())
+
+    assert result.affected_flows == []
+    assert len(result.accepted_impacts) == 1
+    impact = result.accepted_impacts[0]
+    assert impact.status == "inferred"
+    assert impact.changed_symbols == ["Handler.execute"]
+    assert "not established" in (impact.llm_uncertainty or "")
+    assert merged is True  # an inferred impact is still a real merge
+
+
+def test_verified_boundary_path_still_becomes_a_proven_flow():
+    """The positive counterpart, unchanged behavior: a path whose root IS
+    a confirmed boundary (the default, and everything before this fix)
+    still merges as proven."""
+    result = _result()
+    merge_verified_recovery_into_result(
+        result, _established_path(root_boundary_status=ROOT_VERIFIED_BOUNDARY), TestRecoveryResult(),
+    )
+    assert len(result.affected_flows) == 1
+    assert result.affected_flows[0].impact_status == "proven"
 
 
 def test_counts_affected_flows_matches_the_list_length_after_merge():
@@ -233,10 +276,15 @@ def test_recovered_test_with_no_matching_flow_is_declined_not_counted():
     assert any("could not be attributed" in note for note in result.notes)
 
 
-def test_recovered_test_declines_when_target_matches_more_than_one_flow():
-    """Two flows sharing the same handler (e.g. two routes dispatched from
-    one shared method) means the target is genuinely ambiguous -- never
-    guessed between."""
+def test_recovered_test_attaches_to_every_flow_sharing_the_same_handler():
+    """Regression: two flows sharing the same handler (e.g. two route
+    aliases dispatched from one shared method, the Healthchecks
+    `ping_by_slug`-shaped case) used to be treated as genuinely ambiguous
+    and the evidence was dropped entirely -- a verified, real test simply
+    vanished. Route-alias ambiguity is not the same as "we don't know
+    what this test covers": the target names a real, shared handler, so
+    every flow referencing that handler should see the evidence, mirrored
+    -- not one arbitrary alias, and never none at all."""
     result = _result(
         affected_flows=[
             _flow_with_obligation(flow_id="flow:a"),
@@ -245,8 +293,22 @@ def test_recovered_test_declines_when_target_matches_more_than_one_flow():
     )
     test_recovery = TestRecoveryResult(status=STATUS_ESTABLISHED, tests=[_recovered_test()])
     merge_verified_recovery_into_result(result, PathRecoveryResult(), test_recovery)
+    assert result.summary.counts.mapped_tests == 1
+    for flow in result.affected_flows:
+        assert any(m.file == "a.spec.ts" and m.name == "t1" for o in flow.obligations for m in o.mapped_tests)
+
+
+def test_recovered_test_declines_only_when_no_flow_matches_at_all():
+    """The genuinely unattachable case: no flow's handler/handler_file
+    matches the recovered test's target at all."""
+    result = _result(affected_flows=[_flow_with_obligation(handler="SomethingElse.method")])
+    test_recovery = TestRecoveryResult(status=STATUS_ESTABLISHED, tests=[_recovered_test()])
+    merge_verified_recovery_into_result(result, PathRecoveryResult(), test_recovery)
     assert result.summary.counts.mapped_tests == 0
     assert all(not o.mapped_tests for flow in result.affected_flows for o in flow.obligations)
+    assert any(
+        "could not be attributed to any flow's handler" in note for note in result.notes
+    )
 
 
 def test_no_duplicate_flow_when_structural_result_already_covers_the_route():

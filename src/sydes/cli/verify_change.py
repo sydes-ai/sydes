@@ -330,8 +330,8 @@ def _run_ai_recovery(
         typer.echo(f"AI recovery (experimental): failed, first-pass result left unchanged: {exc}")
         return
 
-    merge_verified_recovery_into_result(result, outcome.path_recovery, outcome.test_recovery)
-    result.notes.append(summarize_for_notes(outcome.path_recovery, outcome.test_recovery))
+    merged = merge_verified_recovery_into_result(result, outcome.path_recovery, outcome.test_recovery)
+    result.notes.append(summarize_for_notes(outcome.path_recovery, outcome.test_recovery, merged=merged))
     typer.echo(
         f"AI recovery (experimental): path={outcome.path_recovery.status} test={outcome.test_recovery.status} "
         f"turns={outcome.stats.turns} llm_calls={outcome.stats.llm_calls} "

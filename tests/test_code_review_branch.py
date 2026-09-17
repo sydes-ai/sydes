@@ -40,6 +40,37 @@ from sydes.verify.models import (
 REPO = "svc"
 
 
+def test_generate_code_findings_builds_its_client_with_no_pinned_temperature(monkeypatch) -> None:
+    """Regression test for a real observed failure: code review hardcoded
+    `temperature=0` on both the client and the request, which some models
+    reject outright ("'temperature' does not support 0 with this model.
+    Only the default (1) value is supported."). Matches the same fix
+    already applied to route discovery/the impact guide: build the client
+    with `temperature=None` and never pin the request's temperature
+    either."""
+    captured: dict[str, object] = {}
+    captured_request: dict[str, object] = {}
+
+    class _StubClient:
+        def generate(self, request: LLMRequest):
+            captured_request["temperature"] = request.temperature
+            return LLMResponse(text='{"findings":[]}')
+
+    def _fake_create_default_llm_client(**kwargs):
+        captured.update(kwargs)
+        return _StubClient()
+
+    monkeypatch.setattr(
+        "sydes.verify.llm_findings.create_default_llm_client", _fake_create_default_llm_client,
+    )
+
+    generate_code_findings(context={"change": {}, "regions": []})
+
+    assert "temperature" in captured
+    assert captured["temperature"] is None
+    assert captured_request["temperature"] is None
+
+
 # --- helpers ---------------------------------------------------------------
 
 
@@ -470,6 +501,19 @@ def test_code_review_completed_with_no_findings_is_distinct_from_not_requested_a
 # still passes through a well-formed, *actually* grounded finding of every
 # type this task requires to remain reportable — proving the fix narrows
 # what the model is told to claim, not what the pipeline is able to accept.
+
+
+# 0. A "missing X" claim must be checked against the full surrounding
+#    declaration, not just the diff hunk -- the Unleash false positive
+#    ("parameters lacking a name may bypass duplicate checking" despite
+#    `name: joi.string().required()` sitting in the same schema object).
+def test_prompt_requires_checking_full_context_before_claiming_something_is_missing() -> None:
+    header = _CODE_FINDINGS_HEADER
+    lowered = header.lower()
+    assert "missing, unchecked, or absent" in lowered
+    assert "full supplied context" in lowered
+    assert "sibling field" in lowered
+    assert "cannot establish the absence" in lowered
 
 
 # 1. Security-sensitive change with no demonstrated missing authorization.

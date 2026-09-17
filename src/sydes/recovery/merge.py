@@ -102,14 +102,21 @@ def build_recovery_view(path_recovery: PathRecoveryResult, test_recovery: TestRe
     }
 
 
-def summarize_for_notes(path_recovery: PathRecoveryResult, test_recovery: TestRecoveryResult) -> str:
-    """One line suitable for `ChangeVerificationResult.notes` — the only
-    touch point this prototype has with the canonical result today (see
-    `sydes.cli.verify_change`'s AI-recovery integration, on by default).
-    Never claims
+def summarize_for_notes(
+    path_recovery: PathRecoveryResult, test_recovery: TestRecoveryResult, *, merged: bool = False,
+) -> str:
+    """One line suitable for `ChangeVerificationResult.notes`. Never claims
     structural provenance for what recovery found; always reports path and
     test recovery as two separate facts, since one may have succeeded
-    while the other did not."""
+    while the other did not.
+
+    `merged` reports whether `sydes.recovery.canonical_merge.
+    merge_verified_recovery_into_result` actually appended anything to the
+    canonical result THIS call -- it did become a real, narrow exception to
+    "recovery never touches the structural result" (see that module's own
+    docstring), so this note must not keep claiming the opposite
+    unconditionally immediately after it ran.
+    """
     established_paths = [p for p in path_recovery.paths if p.status == STATUS_ESTABLISHED]
     partial_paths = [p for p in path_recovery.paths if p.status == STATUS_PARTIAL]
     accepted_tests = [t for t in test_recovery.tests if t.status == "accepted"]
@@ -140,7 +147,10 @@ def summarize_for_notes(path_recovery: PathRecoveryResult, test_recovery: TestRe
     else:
         test_note = "recovered no verified tests"
 
+    merge_clause = (
+        "merged into structural results" if merged else "not merged into structural results"
+    )
     return (
-        f"AI recovery (experimental, provenance=ai_recovery, run-local, not merged into structural results): "
+        f"AI recovery (experimental, provenance=ai_recovery, run-local, {merge_clause}): "
         f"path recovery {path_note}; test recovery {test_note}."
     )

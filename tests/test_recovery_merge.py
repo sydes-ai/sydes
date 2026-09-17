@@ -120,6 +120,26 @@ def test_summarize_for_notes_distinguishes_partial_from_established():
     assert "partial" in note.lower()
 
 
+def test_summarize_for_notes_defaults_to_not_merged():
+    """`merged` defaults to False -- every existing caller that doesn't
+    pass it keeps the prior wording unchanged."""
+    note = summarize_for_notes(PathRecoveryResult(status=STATUS_ESTABLISHED, paths=[_established_path()]), TestRecoveryResult())
+    assert "not merged into structural results" in note
+
+
+def test_summarize_for_notes_says_merged_when_told_so():
+    """Regression: this note used to claim "not merged into structural
+    results" unconditionally, even immediately after
+    `canonical_merge.merge_verified_recovery_into_result` (called one line
+    earlier in the real call site) actually appended something -- stale,
+    self-contradicting text. `merged=True` must flip the wording."""
+    note = summarize_for_notes(
+        PathRecoveryResult(status=STATUS_ESTABLISHED, paths=[_established_path()]), TestRecoveryResult(), merged=True,
+    )
+    assert "merged into structural results" in note
+    assert "not merged into structural results" not in note
+
+
 def test_build_path_recovery_view_includes_root_boundary_status():
     view = build_recovery_view(PathRecoveryResult(status=STATUS_ESTABLISHED, paths=[_established_path()]), TestRecoveryResult())
     assert view["path_recovery"]["paths"][0]["root_boundary_status"] == "verified_boundary"

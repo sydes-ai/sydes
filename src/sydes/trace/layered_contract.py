@@ -343,10 +343,19 @@ def build_layered_trace_contract(
                 continue
             handler = str(layer.get("handler") or f"followed_call_{idx}")
             file = layer.get("file")
+            # `symbol_kind` (function/class/class_method/...) is whatever
+            # the resolved target's own structural facts report, threaded
+            # through by `trace.call_follower.build_layered_trace_expansion`
+            # -- never inferred or assumed here. A class reference gets its
+            # own, distinct label; anything else (a real call, or a kind
+            # the backend didn't report) keeps the existing "service_call"
+            # label rather than fabricating a more specific claim than the
+            # evidence supports.
+            entry_kind = "class_reference" if layer.get("symbol_kind") == "class" else "service_call"
             follow_steps: list[dict[str, Any]] = [
                 _mk_step(
                     step_id=f"step:follow:{idx}:0",
-                    kind="service_call",
+                    kind=entry_kind,
                     detail=handler,
                     repo=repo,
                     file=file,

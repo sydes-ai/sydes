@@ -90,6 +90,58 @@ _CONST_ARROW_RE = re.compile(
 _CONST_FUNCTION_RE = re.compile(
     r"^\s*const\s+(?P<name>[A-Za-z_]\w*)\s*=\s*(?P<async>async\s+)?function\s*\((?P<params>[^\)]*)\)\s*\{"
 )
+#: A plain top-level value declaration -- `const NAME = <anything>` (or
+#: `export const NAME = <anything>`) that is NOT already one of the
+#: function-shaped forms above (an arrow function or function expression).
+#: Generic over what the value actually is (an object literal, a chained
+#: builder call, a plain literal, a schema constructed via some library --
+#: never a specific library's shape): any top-level bound name is a real
+#: symbol a diff can change, whether or not its value happens to be callable.
+_TOP_LEVEL_VALUE_RE = re.compile(
+    r"^\s*(?P<export>export\s+)?(?:const|let|var)\s+(?P<name>[A-Za-z_]\w*)\s*(?::[^=]+)?=\s*(?!"
+    r"(?:async\s+)?\([^\)]*\)\s*=>|(?:async\s+)?function\b|require\(|class\b"
+    r")"
+)
+
+
+def _scan_value_declaration_end(lines: list[str], start_index: int) -> int:
+    """1-based end line of a top-level value declaration starting at
+    `lines[start_index]` (0-based) -- generic bracket/paren/brace-balance
+    tracking, the same kind of bounded, line-oriented approach
+    `_join_open_import_statements` above already uses for multi-line
+    import specifiers. A declaration's value can span many lines (a
+    chained builder call, a multi-line object/array literal), so a
+    single-line assumption would silently truncate the span to just the
+    `const NAME = ...` line and miss everything the diff actually changed
+    on later lines. Bounded (like the import joiner) so a shape this
+    can't actually parse degrades to a short, wrong-but-harmless span
+    rather than consuming the rest of the file.
+    """
+    depth = 0
+    end_index = start_index
+    for offset in range(0, 60):
+        index = start_index + offset
+        if index >= len(lines):
+            break
+        line = lines[index]
+        depth += line.count("(") + line.count("[") + line.count("{")
+        depth -= line.count(")") + line.count("]") + line.count("}")
+        end_index = index
+        if depth > 0:
+            continue
+        if offset == 0 and not line.rstrip().endswith((";", ",")):
+            continue
+        # Bracket-balanced at 0, but a fluent/chained call (`.unique(...)`)
+        # can continue on the NEXT line with no open bracket of its own to
+        # signal it -- peek ahead rather than stopping the moment depth
+        # transiently returns to zero.
+        next_line = lines[index + 1].strip() if index + 1 < len(lines) else ""
+        if next_line.startswith(".") or next_line.startswith("?."):
+            continue
+        break
+    return end_index + 1
+
+
 #: `export default async (req, res) => {` and `module.exports = async (req, res) =>`.
 #: The handler has no name of its own; the module's default export *is* the
 #: symbol, and without it a discovered route has nothing to bind to.
@@ -262,7 +314,8 @@ class JsTsHandlerSymbolExtractor:
         pending_method_start_line: int | None = None
         brace_depth = 0
 
-        for idx, raw_line in enumerate(_join_open_import_statements(text).splitlines(), start=1):
+        all_lines = _join_open_import_statements(text).splitlines()
+        for idx, raw_line in enumerate(all_lines, start=1):
             stripped = raw_line.strip()
             if not stripped:
                 open_braces, close_braces = _count_braces(raw_line)
@@ -465,6 +518,32 @@ class JsTsHandlerSymbolExtractor:
                         "export_kind": None,
                     }
                 )
+            elif export_const_arrow_match is None and const_arrow_match is None and brace_depth == 0:
+                # Top-level, non-function-shaped value declaration -- see
+                # `_TOP_LEVEL_VALUE_RE`'s own docstring. Guarded to fire
+                # only at module scope (`brace_depth == 0`), so a local
+                # `const` inside a function/block body is never mistaken
+                # for a top-level symbol.
+                value_match = _TOP_LEVEL_VALUE_RE.search(raw_line)
+                if value_match:
+                    value_name = value_match.group("name")
+                    end_line = _scan_value_declaration_end(all_lines, idx - 1)
+                    symbols.append(
+                        {
+                            "name": value_name,
+                            "kind": "variable",
+                            "language": language,
+                            "file": relative_path,
+                            "line": idx,
+                            "start_line": idx,
+                            "end_line": end_line,
+                            "signature": f"const {value_name} = ...",
+                            "exported": bool(value_match.group("export")),
+                            "export_kind": "named" if value_match.group("export") else None,
+                        }
+                    )
+                    if value_match.group("export"):
+                        exports.append({"kind": "named", "symbol": value_name})
 
             export_default_symbol_match = _EXPORT_DEFAULT_SYMBOL_RE.search(raw_line)
             if export_default_symbol_match:

@@ -35,6 +35,7 @@ from __future__ import annotations
 from sydes.recovery.schema import (
     EntityRef,
     PathRecoveryResult,
+    ROOT_VERIFIED_BOUNDARY,
     RecoveredTest,
     STATUS_ESTABLISHED,
     STATUS_PARTIAL,
@@ -153,6 +154,43 @@ def _merge_established_paths(result: ChangeVerificationResult, path_recovery: Pa
         if _already_covers(result, entry_label, target.symbol):
             continue
 
+        if path.root_boundary_status != ROOT_VERIFIED_BOUNDARY:
+            # `nodes[0]` (the claimed entrypoint) was never cross-checked
+            # against a real, known entrypoint -- see
+            # `sydes.recovery.agent._root_boundary_status_for`. Every EDGE
+            # in this path may be fully evidence-proven, but the ROOT
+            # itself is still only Stage A's free-text guess (its own
+            # prompt explicitly allows "e.g. GET /users or a queue/job
+            # name" with no requirement it name something real). Merging
+            # this as a proven `AffectedFlow`/route identity would present
+            # an unverified natural-language guess as established
+            # structural truth -- exactly the bug this check exists to
+            # prevent. Never silently dropped either: still surfaced as an
+            # INFERRED impact (the renderer's existing "likely, not fully
+            # established" path), honestly labeled uncertain rather than
+            # invented as fact.
+            changed_symbol_names = _changed_symbol_names_for_target(result, target)
+            impact_id = f"impact:ai_recovery:candidate_boundary:{target.symbol}"
+            if any(impact.id == impact_id for impact in result.accepted_impacts):
+                continue
+            result.accepted_impacts.append(AcceptedImpact(
+                id=impact_id,
+                label=target.symbol,
+                kind="ai_recovery",
+                status="inferred",
+                changed_symbols=sorted(changed_symbol_names) or [target.symbol],
+                llm_reason=path.entrypoint,
+                llm_uncertainty=(
+                    "AI recovery proposed this entrypoint from a free-text hypothesis; it could "
+                    "not be matched to a known, structurally-confirmed entrypoint, so the exact "
+                    "route/boundary identity is not established."
+                ),
+                verification_model_status="unsupported_or_partial",
+                provenance=PROVENANCE_AI_RECOVERY,
+            ))
+            result.summary.counts.impacts_inferred += 1
+            continue
+
         # A single node means the entrypoint's own decorator sits directly
         # on the target (see `sydes.recovery.agent._direct_entrypoint_edge`)
         # -- there is no separate "handler" to show. Two or more nodes:
@@ -192,8 +230,8 @@ def _merge_established_paths(result: ChangeVerificationResult, path_recovery: Pa
         result.summary.counts.impacts_proven += 1
 
 
-def _matching_flow_by_handler(result: ChangeVerificationResult, target: EntityRef) -> AffectedFlow | None:
-    """The one flow a recovered test's target can be honestly attached to.
+def _matching_flows_by_handler(result: ChangeVerificationResult, target: EntityRef) -> list[AffectedFlow]:
+    """Every flow a recovered test's target can be honestly attached to.
 
     Matched the same way `_already_covers` above already treats as a real
     identity match: the target names this flow's own handler symbol, or
@@ -201,18 +239,23 @@ def _matching_flow_by_handler(result: ChangeVerificationResult, target: EntityRe
     `changed_nodes` scan -- that list is the whole diff's changed-symbol set
     attached to every flow alike (see `AffectedFlow.changed_nodes`), so it
     would "match" almost every flow at once rather than the one the test
-    actually concerns. `handler`/`handler_file` are per-flow-specific
-    fields, so this resolves to exactly one flow or none -- ambiguity
-    (more than one match) declines rather than guessing, same as every
-    other identity check in this module.
+    actually concerns.
+
+    Previously this required resolving to EXACTLY ONE flow and declined
+    (dropping the evidence to a notes-only line, never attached or
+    counted) whenever several flows matched -- e.g. 5 HTTP routes all
+    dispatching to the same real handler. Obligations across those route
+    aliases already share a stable `canonical_id` for the same underlying
+    claim (see `verify.obligations.compute_canonical_id`, assigned by
+    `verify.analyzer._canonicalize_obligations_across_flows`), so
+    attaching to every matching flow's own obligation copy is the correct
+    behavior now, not an ambiguity to decline -- see `_merge_recovered_tests`.
     """
-    matches = [
+    return [
         flow for flow in result.affected_flows
         if flow.handler == target.symbol
         or (target.file and flow.artifact_refs.get("handler_file") == target.file)
     ]
-    unique = {flow.id: flow for flow in matches}
-    return next(iter(unique.values())) if len(unique) == 1 else None
 
 
 def _mapped_test_from_recovered(test: RecoveredTest) -> MappedTest:
@@ -239,9 +282,11 @@ def _merge_recovered_tests(result: ChangeVerificationResult, test_recovery: Test
     counts reported one verifying test while every obligation's own
     `mapped_tests` was empty). Counts are now derived from what actually
     got attached, so the two can never drift apart again; a test that
-    cannot be attached to exactly one flow (see `_matching_flow_by_handler`)
-    is recorded in `notes` instead of silently inflating a count nothing
-    else reflects.
+    cannot be attached to ANY flow (see `_matching_flows_by_handler`) is
+    recorded in `notes` instead of silently inflating a count nothing
+    else reflects. When several flows share the same real handler, the
+    evidence is mirrored to every one of them, never attached to just one
+    arbitrary alias -- see the loop below.
     """
     if test_recovery.status not in (STATUS_ESTABLISHED, STATUS_PARTIAL):
         return
@@ -260,13 +305,28 @@ def _merge_recovered_tests(result: ChangeVerificationResult, test_recovery: Test
         if key in existing or key in seen_keys:
             continue
         seen_keys.add(key)
-        flow = _matching_flow_by_handler(result, test.target)
-        obligation = next(iter(flow.obligations), None) if flow is not None else None
-        if obligation is None:
+        matching_flows = _matching_flows_by_handler(result, test.target)
+        mapped = _mapped_test_from_recovered(test)
+        # Attach to every matching flow's own obligation copy -- when
+        # several flows are route aliases of the same handler, their
+        # obligations already share a `canonical_id` for the same
+        # underlying claim (see `_matching_flows_by_handler`'s docstring);
+        # mirroring here keeps them agreeing instead of attaching to one
+        # arbitrary alias and leaving its siblings stale.
+        attached_to_any = False
+        for flow in matching_flows:
+            obligation = next(iter(flow.obligations), None)
+            if obligation is None:
+                continue
+            if any(m.file == mapped.file and m.name == mapped.name for m in obligation.mapped_tests):
+                attached_to_any = True  # already there (e.g. a prior recovery pass) -- still a real attachment
+                continue
+            obligation.mapped_tests.append(mapped)
+            attached_to_any = True
+        if attached_to_any:
+            attached += 1
+        else:
             unattached += 1
-            continue
-        obligation.mapped_tests.append(_mapped_test_from_recovered(test))
-        attached += 1
 
     if attached:
         # Relevant/mapped, never executed -- recovery does not run anything.
@@ -279,16 +339,32 @@ def _merge_recovered_tests(result: ChangeVerificationResult, test_recovery: Test
     if unattached:
         result.notes.append(
             f"AI recovery found {unattached} additional verified test(s) that could not be "
-            "attributed to exactly one flow's handler; not counted or shown as evidence."
+            "attributed to any flow's handler (no matching flow exists in this result); "
+            "not counted or shown as evidence."
         )
 
 
 def merge_verified_recovery_into_result(
     result: ChangeVerificationResult, path_recovery: PathRecoveryResult, test_recovery: TestRecoveryResult,
-) -> None:
+) -> bool:
     """Enrich `result` in place with whatever recovery actually
     ESTABLISHED — an unresolved or partial attempt leaves it completely
     unchanged (still surfaced separately via
-    `sydes.recovery.merge.summarize_for_notes`, in `notes` only)."""
+    `sydes.recovery.merge.summarize_for_notes`, in `notes` only).
+
+    Returns whether anything was actually appended to `result` this call
+    (a new flow, accepted impact, or mapped test) -- callers use this to
+    stop claiming "not merged into structural results" unconditionally
+    (see `sydes.recovery.merge.summarize_for_notes`) immediately after a
+    call that, in fact, did merge something.
+    """
+    flows_before = len(result.affected_flows)
+    impacts_before = len(result.accepted_impacts)
+    mapped_before = result.summary.counts.mapped_tests
     _merge_established_paths(result, path_recovery)
     _merge_recovered_tests(result, test_recovery)
+    return (
+        len(result.affected_flows) > flows_before
+        or len(result.accepted_impacts) > impacts_before
+        or result.summary.counts.mapped_tests > mapped_before
+    )

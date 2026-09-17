@@ -474,6 +474,7 @@ def build_layered_trace_expansion(
                 "file": symbol_file,
                 "importance": score,
                 "called_from_statement": stmt.get("text"),
+                "symbol_kind": symbol.get("kind"),
             }
         )
         visited_functions.add(key)
@@ -494,6 +495,12 @@ def build_layered_trace_expansion(
                 "file": symbol_file,
                 "called_from": primary_handler_name,
                 "steps": steps,
+                #: The resolved target's own kind (`function`/`class`/
+                #: `class_method`/...), when the backend reports one --
+                #: threaded through so `layered_contract.py` can label this
+                #: step by what was actually called instead of assuming
+                #: every followed call is a generic service call.
+                "symbol_kind": symbol.get("kind"),
             }
         )
 

@@ -498,6 +498,7 @@ def routes_command(
                 planner_llm_client = create_default_llm_client(
                     model_spec=model,
                     timeout_seconds_override=model_timeout,
+                    temperature=None,
                     stage="routing_pattern_planner",
                 )
             except LLMClientError as exc:

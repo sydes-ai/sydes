@@ -286,6 +286,12 @@ _CODE_FINDINGS_HEADER = (
     "caller, a middleware, a permission layer, 'the rest of the system' — you cannot establish it "
     "here. Do not emit the finding; that gap belongs to risk/uncertainty analysis, a separate "
     "concern this pass does not perform.\n"
+    "Before claiming a field, parameter, or value is missing, unchecked, or absent, re-read the "
+    "FULL supplied context — not just the diff hunk — for the same object/schema/definition the "
+    "claim is about. A constraint declared elsewhere in that same object (e.g. a sibling field "
+    "already marked required, validated, or defaulted) is direct evidence the concern is already "
+    "handled. If the full declaration is not visible in the supplied context, you cannot establish "
+    "the absence — do not emit the finding.\n"
     "\n"
     "SECURITY RULE — do not infer that authorization, authentication, validation, sanitization, "
     "or another security control is missing merely because the changed operation is "
@@ -594,8 +600,16 @@ def _validate_gaps(
 
 
 def _run(client: LLMClient, prompt: str) -> dict[str, Any]:
-    """Call the model and parse a strict JSON object response."""
-    response = client.generate(LLMRequest(prompt=prompt, temperature=0))
+    """Call the model and parse a strict JSON object response.
+
+    No pinned temperature: some models reject an explicit value (e.g. one
+    observed rejecting 0, accepting only their own default) -- the same
+    fix already applied to the impact guide and route discovery (see
+    `_build_impact_guide` in `verify/analyzer.py`). The caller must build
+    its client with `temperature=None` too, or the client's own default
+    would still override this request's.
+    """
+    response = client.generate(LLMRequest(prompt=prompt, temperature=None))
     parsed = _extract_json_object(response.text)
     if parsed is None:
         raise LLMClientError("model output parse failure: verify-change output was not valid JSON.")
@@ -609,7 +623,9 @@ def generate_code_findings(
     llm_client: LLMClient | None = None,
 ) -> tuple[list[CodeFinding], list[str]]:
     """Run the code-findings LLM pass over the bounded change context."""
-    client = llm_client or create_default_llm_client(model_spec=model_spec, stage="code_review")
+    client = llm_client or create_default_llm_client(
+        model_spec=model_spec, temperature=None, stage="code_review",
+    )
     prompt = _bounded_prompt(_CODE_FINDINGS_HEADER, context)
     raw = _run(client, prompt)
     findings, warnings = _validate_findings(raw, context)
@@ -625,7 +641,9 @@ def generate_verification_gaps(
     llm_client: LLMClient | None = None,
 ) -> tuple[list[VerificationGap], list[str]]:
     """Run the verification-gap LLM pass over the bounded change context."""
-    client = llm_client or create_default_llm_client(model_spec=model_spec, stage="verification_gaps")
+    client = llm_client or create_default_llm_client(
+        model_spec=model_spec, temperature=None, stage="verification_gaps",
+    )
     prompt = _bounded_prompt(_GAPS_HEADER, context)
     raw = _run(client, prompt)
     gaps, warnings = _validate_gaps(raw, context, covered_flow_ids)

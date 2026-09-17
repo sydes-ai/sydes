@@ -230,3 +230,63 @@ def test_destructured_arrow_parameters_still_parse(extractor) -> None:
     )
 
     assert "flexLayout" in _names(payload)
+
+
+# --------------------------------------------------------------------------
+# Top-level value declarations (not function-shaped) -- Unleash PR #12632
+# --------------------------------------------------------------------------
+
+
+_STRATEGY_SCHEMA = (
+    "import joi from 'joi';\n"
+    "\n"
+    "const strategySchema = joi.object({\n"
+    "  name: joi.string().required(),\n"
+    "  parameters: joi.array().items(joi.string()),\n"
+    "})\n"
+    "  .unique('name', { ignoreUndefined: true });\n"
+    "\n"
+    "export default strategySchema;\n"
+)
+
+
+def test_top_level_const_schema_expression_yields_a_changed_symbol(extractor) -> None:
+    """Regression: `sydes-examples/unleash` PR #12632 shaped exactly like
+    this -- a plain top-level `const strategySchema = joi.object()...`
+    (a chained builder call, not a function/arrow) previously matched
+    NONE of the function-shaped const regexes, so the file yielded zero
+    symbols at all and the diff reported "0 changed symbol(s)" despite a
+    real, meaningful behavior change (`.unique('name', ...)` rejecting
+    duplicate parameter names)."""
+    payload = _extract(extractor, "src/lib/services/strategy-schema.ts", _STRATEGY_SCHEMA)
+
+    assert "strategySchema" in _names(payload)
+    symbol = next(s for s in payload["symbols"] if s["name"] == "strategySchema")
+    assert symbol["kind"] == "variable"
+    assert symbol["exported"] is True
+
+
+def test_top_level_const_schema_span_covers_the_full_chained_expression(extractor) -> None:
+    """The value's span must cover every line of the chained builder call
+    (`.unique(...)` on a later line), not just the `const NAME = ` line --
+    a diff hunk touching only the `.unique(...)` line must still overlap
+    this symbol's span."""
+    payload = _extract(extractor, "src/lib/services/strategy-schema.ts", _STRATEGY_SCHEMA)
+    symbol = next(s for s in payload["symbols"] if s["name"] == "strategySchema")
+
+    assert symbol["start_line"] == 3
+    assert symbol["end_line"] is not None
+    assert symbol["end_line"] >= 7  # the line with `.unique(...)`
+
+
+def test_local_const_inside_a_function_is_not_captured_as_a_top_level_symbol(extractor) -> None:
+    """The new recognizer is scoped to module scope only -- a `const`
+    bound inside a function body is not a top-level symbol a diff can
+    independently reference the same way."""
+    payload = _extract(
+        extractor,
+        "src/common/utils.js",
+        "function build() {\n  const local = someBuilder().chain();\n  return local;\n}\n",
+    )
+
+    assert "local" not in _names(payload)

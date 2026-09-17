@@ -20,7 +20,7 @@ Three independent invariants, each provable in isolation:
 
 from __future__ import annotations
 
-from sydes.verify.analyzer import _compute_summary
+from sydes.verify.analyzer import _canonicalize_obligations_across_flows, _compute_summary
 from sydes.verify.models import (
     RISK_HIGH,
     RISK_MEDIUM,
@@ -262,3 +262,82 @@ def test_suite_ran_but_produced_no_signal_still_reaches_high_risk() -> None:
 
     assert summary.verdict == VERDICT_INCOMPLETE
     assert summary.risk == RISK_HIGH
+
+
+def test_route_aliases_of_one_handler_do_not_multiply_the_same_obligation() -> None:
+    """Healthchecks-shaped regression: one real changed behavior
+    (`ping_by_slug` rejecting uppercase slugs) reachable through 5 HTTP
+    route aliases. Before `_canonicalize_obligations_across_flows`, each
+    of the 5 `AffectedFlow`s got its own independently-derived obligation
+    for the SAME underlying claim, and `_compute_summary` flattened all 5
+    into its counts -- `counts.obligations`/`mapped_tests` would read 5x
+    the real, unique fact. This proves the fix: canonicalizing collapses
+    them to one unique claim for counting purposes, while every route
+    alias individually still carries the evidence (blast-radius
+    visibility is preserved, not merged away)."""
+    routes = [
+        ("flow:ping-by-slug:GET", "GET /ping/{slug}"),
+        ("flow:ping-by-slug:POST", "POST /ping/{slug}"),
+        ("flow:ping-by-slug:HEAD", "HEAD /ping/{slug}"),
+        ("flow:ping-by-slug:GET-fail", "GET /ping/{slug}/fail"),
+        ("flow:ping-by-slug:POST-start", "POST /ping/{slug}/start"),
+    ]
+    flows = []
+    for flow_id, label in routes:
+        obligation = VerificationObligation(
+            id=f"{flow_id}::obligation-0", flow_id=flow_id, kind="route_contract",
+            statement="ping_by_slug rejects a slug containing uppercase characters",
+            origin="api_contract", required=True, status=VERIFICATION_UNVERIFIED,
+        )
+        flows.append(AffectedFlow(
+            id=flow_id, entry_label=label, handler="ping_by_slug",
+            obligations=[obligation], impact_status="proven",
+        ))
+
+    # Only ONE flow's own test-mapping pass actually found the relevant
+    # regression test -- the realistic shape before canonicalization (each
+    # flow's `map_tests_to_obligation` runs independently and may not all
+    # find the same evidence the same way).
+    relevant_test = _mapped_test()
+    flows[0].obligations[0].mapped_tests = [relevant_test]
+    flows[0].obligations[0].status = VERIFICATION_PASSED
+
+    _canonicalize_obligations_across_flows(flows)
+
+    # Evidence preserved AND mirrored: every route alias's own obligation
+    # copy sees the same test, not just the one flow that originally found it.
+    for flow in flows:
+        assert len(flow.obligations[0].mapped_tests) == 1
+        assert flow.obligations[0].mapped_tests[0].name == relevant_test.name
+
+    impacts = [
+        AcceptedImpact(
+            id=flow.id, label=flow.entry_label, status="proven",
+            verification_model_status="modeled",
+        )
+        for flow in flows
+    ]
+    result = _result(affected_flows=flows, accepted_impacts=impacts)
+    summary = _compute_summary(result)
+
+    # The unique behavior is counted once, not 5 times.
+    assert summary.counts.obligations == 1
+    assert summary.counts.mapped_tests == 1
+
+    # Blast radius (how many routes this reaches) is still fully visible --
+    # every flow object survives untouched, just not double-counted.
+    assert len(result.affected_flows) == 5
+
+    # Risk/verdict must not read WORSE than an equivalent single-route case
+    # with identical evidence -- the fix must only stop multiplying the
+    # fact, never fabricate additional risk from having multiple aliases.
+    single_flow = _modeled_proven_flow()
+    single_flow.obligations[0].mapped_tests = [relevant_test]
+    single_impact = AcceptedImpact(
+        id=single_flow.id, label="GET /x", status="proven",
+        route_method="GET", route_path="/x", verification_model_status="modeled",
+    )
+    single_result = _result(affected_flows=[single_flow], accepted_impacts=[single_impact])
+    single_summary = _compute_summary(single_result)
+    assert summary.risk == single_summary.risk
+    assert summary.verdict == single_summary.verdict

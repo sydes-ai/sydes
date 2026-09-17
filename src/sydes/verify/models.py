@@ -415,6 +415,19 @@ class VerificationObligation(BaseModel):
     kind: str
     statement: str
     origin: str
+    #: Identity of the underlying CLAIM this obligation makes, independent
+    #: of which flow/route happens to own this particular object --
+    #: `sha256(handler, kind, normalized statement)` (see
+    #: `verify.obligations.compute_canonical_id`). When several
+    #: `AffectedFlow`s are route aliases of the same real handler (e.g. 5
+    #: HTTP paths all dispatching to one view function), each gets its own
+    #: `VerificationObligation` object for that same underlying claim --
+    #: this field is what lets them be recognized as the SAME fact rather
+    #: than 5 separate ones for verdict/evidence purposes, without
+    #: requiring `flow`/obligation objects themselves to be restructured.
+    #: Empty when not yet computed (e.g. in tests that build obligations
+    #: directly without going through the analyzer's canonicalization pass).
+    canonical_id: str = ""
     # References into the shared artifacts this obligation was derived from:
     # contract refs, layered-trace step ids, sink ids, test-matrix entries.
     source_refs: list[str] = Field(default_factory=list)

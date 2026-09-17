@@ -112,6 +112,7 @@ from sydes.verify.models import (
     ChangeSummary,
     ChangeVerificationResult,
     CiSuiteRun,
+    MappedTest,
     RuntimeDependency,
     SourceRef,
     TestExecution,
@@ -119,7 +120,7 @@ from sydes.verify.models import (
     VerificationObligation,
 )
 from sydes.verify.boundary_reasoning import infer_boundaries
-from sydes.verify.obligations import derive_obligations
+from sydes.verify.obligations import compute_canonical_id, derive_obligations
 from sydes.verify.pr_semantic_analysis import generate_pr_semantic_analysis
 from sydes.verify.repo_profile import get_or_build_repo_profile
 from sydes.verify.runtime import infer_runtime_dependencies
@@ -284,6 +285,24 @@ def attribute_changed_symbols(
             changed_file.symbols.append(identifier)
 
     return sorted(changed.values(), key=lambda item: (item.file, item.start_line or 0))
+
+
+def _unresolved_composition_note(routes_notes: list[str]) -> str | None:
+    """The one, repo-attributed analysis note for unresolved route
+    composition, or `None` when nothing is unresolved.
+
+    `routes_notes` accumulates across every repo in one run (see
+    `discover_endpoints`'s per-repo loop), each entry already prefixed
+    `f"{repo.name}: ..."` -- this message must name which repo(s) it's
+    actually about instead of a generic "this repository", which cannot
+    be attributed at all once a run spans more than one repo.
+    """
+    unresolved = [note for note in routes_notes if "composition is unresolved" in note]
+    if not unresolved:
+        return None
+    affected_repos = sorted({note.split(":", 1)[0] for note in unresolved})
+    repo_clause = affected_repos[0] if len(affected_repos) == 1 else ", ".join(affected_repos)
+    return f"Route composition is unresolved in {repo_clause}; some routes may be missing."
 
 
 def build_reverse_reach_index(handler_index: dict) -> dict[str, set[str]]:
@@ -759,12 +778,86 @@ def _distinct_test_tier_counts(obligations: list[VerificationObligation]) -> tup
     return len(exercising), len(supporting_only), len(verifying_ids)
 
 
+def _canonicalize_obligations_across_flows(flows: list[AffectedFlow]) -> None:
+    """Recognize the SAME underlying claim across route aliases of one
+    handler, and mirror evidence between them, without restructuring
+    `AffectedFlow`/obligation ownership.
+
+    N distinct `AffectedFlow`s dispatching to one real handler (e.g. 5 HTTP
+    routes calling the same view function) each independently call
+    `derive_obligations()` against the same underlying route contract/test
+    matrix, producing N near-duplicate `VerificationObligation` objects for
+    what is, structurally, one fact. Each flow's own `map_tests_to_obligation`
+    pass (already run per-flow, before this point) may also have found the
+    same real test independently, or found it for only some of the N.
+
+    This assigns every obligation a stable `canonical_id` (`kind` +
+    `handler` + normalized `statement` -- see
+    `verify.obligations.compute_canonical_id`) and, for any group of two
+    or more obligations sharing one, UNIONS their `mapped_tests`/
+    `supporting_tests` (deduped by `(file, name)`) and gives every member
+    of the group that same union -- so evidence discovered against any one
+    route alias is visible on all of them, and downstream status
+    resolution (`resolve_obligation_status`, called later against this
+    now-shared evidence) naturally agrees across the group instead of
+    diverging per route. `_compute_summary` below then aggregates over
+    unique `canonical_id`s so the same fact is never counted once per
+    alias. Route-level objects (and therefore blast-radius visibility)
+    are never removed or merged away -- only their evidence fields are
+    reconciled."""
+    groups: dict[str, list[VerificationObligation]] = defaultdict(list)
+    for flow in flows:
+        for obligation in flow.obligations:
+            obligation.canonical_id = compute_canonical_id(
+                flow.handler or "", obligation.kind, obligation.statement,
+            )
+            groups[obligation.canonical_id].append(obligation)
+
+    for members in groups.values():
+        if len(members) < 2:
+            continue
+
+        def _union(attr: str) -> list[MappedTest]:
+            seen: set[tuple[str, str]] = set()
+            merged: list[MappedTest] = []
+            for member in members:
+                for test in getattr(member, attr):
+                    key = (test.file, test.name)
+                    if key in seen:
+                        continue
+                    seen.add(key)
+                    merged.append(test)
+            return merged
+
+        merged_mapped = _union("mapped_tests")
+        merged_supporting = _union("supporting_tests")
+        for member in members:
+            member.mapped_tests = list(merged_mapped)
+            member.supporting_tests = list(merged_supporting)
+
+
 def _compute_summary(
     result: ChangeVerificationResult, *, changed_test_case_count: int = 0,
 ) -> ChangeSummary:
     """Derive risk and verdict from obligation outcomes only."""
     change = result.change
-    obligations = [item for flow in result.affected_flows for item in flow.obligations]
+    all_obligations = [item for flow in result.affected_flows for item in flow.obligations]
+    # Aggregate over the unique underlying claim (`canonical_id`), not the
+    # raw per-flow list -- several `AffectedFlow`s that are route aliases
+    # of one real handler each carry their own obligation object for the
+    # SAME fact (see `_canonicalize_obligations_across_flows`, which runs
+    # before this and ensures every alias's copy already agrees). Without
+    # this, `counts.obligations`/`obligations_passed`/`mapped_tests` etc.
+    # would be N-times inflated whenever N flows share a handler, and the
+    # verdict computed from those inflated counts with them.
+    seen_canonical_ids: set[str] = set()
+    obligations: list[VerificationObligation] = []
+    for item in all_obligations:
+        key = item.canonical_id or item.id
+        if key in seen_canonical_ids:
+            continue
+        seen_canonical_ids.add(key)
+        obligations.append(item)
     required = [item for item in obligations if item.required]
     exercising, supporting_only, verifying = _distinct_test_tier_counts(obligations)
 
@@ -1838,10 +1931,9 @@ def analyze_change(
     result.diagnostics.extend(
         note for note in routes.notes if "coverage" in note or "routes" in note.lower()
     )
-    if any("composition is unresolved" in note for note in routes.notes):
-        result.analysis_notes.append(
-            "Route composition is unresolved in this repository; some routes may be missing."
-        )
+    unresolved_composition_note = _unresolved_composition_note(routes.notes)
+    if unresolved_composition_note:
+        result.analysis_notes.append(unresolved_composition_note)
         result.analysis_status = ANALYSIS_PARTIAL
 
     # --- bounded structural neighborhood ---------------------------------
@@ -2237,6 +2329,8 @@ def analyze_change(
         result.analysis_status = ANALYSIS_PARTIAL
     if selected and not result.affected_flows:
         result.analysis_status = ANALYSIS_UNKNOWN
+
+    _canonicalize_obligations_across_flows(result.affected_flows)
 
     # --- runtime dependencies, then execution ----------------------------
     result.runtime_dependencies = infer_runtime_dependencies(

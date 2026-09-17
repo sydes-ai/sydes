@@ -49,6 +49,7 @@ from sydes.recovery.schema import (
     EntityRef,
     MAX_BRIDGE_NODES,
     PathRecoveryResult,
+    ROOT_CANDIDATE_BOUNDARY,
     ROOT_VERIFIED_BOUNDARY,
     RecoveredEdge,
     RecoveredEvidence,
@@ -290,6 +291,40 @@ def _direct_entrypoint_edge(node: EntityRef, repo_root: Path) -> RecoveredEdge |
     )
 
 
+def _root_boundary_status_for(root_node: EntityRef, entrypoint_entities: tuple[EntityRef, ...]) -> str:
+    """Is `root_node` (the proposed root of an LLM-discovered candidate
+    path) actually one of the entrypoints this repo is already known to
+    have -- or is it just whatever prose Stage A's free-text `entrypoint`
+    field happened to name?
+
+    `RecoveredPath.root_boundary_status` already exists for exactly this
+    question (see its docstring in `sydes.recovery.schema`), but until now
+    only `sydes.recovery.graph_path`'s deterministic topology search ever
+    set it to `ROOT_CANDIDATE_BOUNDARY` -- an LLM-discovered path always
+    kept the field's default, `ROOT_VERIFIED_BOUNDARY`, regardless of
+    whether `nodes[0]` was ever cross-checked against anything real. Stage
+    A's own prompt (`sydes.recovery.discovery`) invites free text for
+    `entrypoint` ("e.g. GET /users or a queue/job name") with no
+    requirement that it name something real, and Layer 0/1/2
+    (`sydes.recovery.verify`) only judge EDGES between nodes -- never
+    whether `nodes[0]` itself is a genuine, externally-triggered boundary.
+    A fully edge-proven chain can still be rooted at a symbol the LLM
+    invented from a vague guess ("some admin API strategy route, e.g. ...
+    or similar") with no structural backing at all.
+
+    Matched the same way `_direct_entrypoint_edge` above already matches a
+    discovery-proposed symbol against a deterministic finding: `file`
+    equality is load-bearing (see `EntityRef`'s own docstring), `symbol`
+    matched on its bare trailing segment since discovery may report a
+    class-qualified name.
+    """
+    root_symbol = root_node.symbol.rsplit(".", 1)[-1]
+    for known in entrypoint_entities:
+        if known.file and known.file == root_node.file and known.symbol.rsplit(".", 1)[-1] == root_symbol:
+            return ROOT_VERIFIED_BOUNDARY
+    return ROOT_CANDIDATE_BOUNDARY
+
+
 def _run_pipeline_once(
     context: RecoveryContext, *, tools: RepoTools, client: LLMClient, budget: RecoveryBudget,
     stats: RecoveryRunStats, repo_root: Path, graph: CBMGraphTools, use_graph_path_search: bool = False,
@@ -351,6 +386,9 @@ def _run_pipeline_once(
             RecoveredPath(
                 entrypoint=candidate_path.entrypoint, target_node=candidate_path.target_node,
                 nodes=expanded_nodes, edges=all_edges,
+                root_boundary_status=_root_boundary_status_for(
+                    expanded_nodes[0], context.entrypoint_entities,
+                ),
             )
         )
 

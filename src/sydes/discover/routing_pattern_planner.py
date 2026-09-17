@@ -248,9 +248,16 @@ def run_routing_pattern_planner(
     planner_input: dict,
     llm_client: LLMClient,
 ) -> dict:
-    """Run bounded planner and return validated plan payload."""
+    """Run bounded planner and return validated plan payload.
+
+    No pinned temperature -- some models reject an explicit value (e.g.
+    one observed rejecting 0, accepting only their own default). The
+    caller builds `llm_client` with `temperature=None` too, matching the
+    same fix applied to the impact guide, route discovery, and code
+    review.
+    """
     prompt = build_routing_pattern_planner_prompt(planner_input)
-    response = llm_client.generate(LLMRequest(prompt=prompt, temperature=0.0))
+    response = llm_client.generate(LLMRequest(prompt=prompt, temperature=None))
     payload = _extract_json_payload(response.text)
     if payload is None:
         raise LLMClientError("Routing pattern planner output was not valid JSON.")
