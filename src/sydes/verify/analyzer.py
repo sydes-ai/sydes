@@ -126,7 +126,7 @@ from sydes.verify.repo_profile import get_or_build_repo_profile
 from sydes.verify.runtime import infer_runtime_dependencies
 from sydes.verify.source_files import load_repo_files
 from sydes.verify.symbol_attribution_span import language_for_attribution, symbol_attribution_span
-from sydes.verify.test_execution import ExecutionSettings, run_ci_suite
+from sydes.verify.test_execution import ExecutionSettings, execute_mapped_tests, run_ci_suite
 from sydes.verify.test_index import build_test_index
 from sydes.verify.test_mapping import case_changed_in_diff, map_tests_to_obligation
 
@@ -586,6 +586,67 @@ def resolve_obligation_status(
     obligation.reason = None
 
 
+def resolve_obligation_status_from_executions(obligation: VerificationObligation) -> None:
+    """The attributable, per-test counterpart to `resolve_obligation_status`
+    (which reads one whole-repo-suite result): set an obligation's status
+    from the INDIVIDUAL execution of its own mapped tests
+    (`obligation.executions`, one `TestExecution` per mapped test Sydes
+    actually tried to invoke on its own -- see
+    `sydes.verify.test_execution.execute_mapped_tests`), never a whole-
+    suite guess standing in for a specific test's own result.
+
+    Used whenever at least one mapped test anywhere in this result could be
+    individually invoked this run (see `_run_test_execution`'s policy: the
+    whole-suite fallback via `resolve_obligation_status` only applies when
+    NO mapped test anywhere could be run on its own at all -- a single
+    obligation whose own mapped test(s) happened to be unexecutable still
+    gets an honest, unresolved status here, never silently backed by an
+    unrelated suite result for a different obligation entirely)."""
+    if not obligation.mapped_tests:
+        obligation.status = VERIFICATION_UNVERIFIED
+        obligation.reason = (
+            f"{len(obligation.supporting_tests)} test(s) exercise this flow but none assert "
+            "this behavior"
+            if obligation.supporting_tests
+            else "No existing test asserts this behavior"
+        )
+        return
+
+    if not obligation.executions:
+        # This obligation's own mapped test(s) were never individually
+        # attempted this run -- e.g. attached later by AI recovery, after
+        # execution already ran (recovery never executes anything). Distinct
+        # from "no test exists": the renderer's own reason-phrase mapping
+        # already treats "was not executed" as "found but not run", not "no
+        # relevant test found" -- see `_unverified_reason_phrase`.
+        obligation.status = VERIFICATION_UNKNOWN
+        obligation.reason = "A relevant test exists but was not executed by Sydes"
+        return
+
+    failing = [execution for execution in obligation.executions if execution.status == VERIFICATION_FAILED]
+    if failing:
+        obligation.status = VERIFICATION_FAILED
+        name = next(
+            (test.name for test in obligation.mapped_tests if test.id == failing[0].test_id),
+            failing[0].test_id,
+        )
+        obligation.reason = f"`{name}` failed"
+        return
+
+    passing = [execution for execution in obligation.executions if execution.status == VERIFICATION_PASSED]
+    if passing:
+        obligation.status = VERIFICATION_PASSED
+        obligation.reason = None
+        return
+
+    # Every one of this obligation's own mapped tests was individually
+    # attempted and came back unattributable (framework unsupported, runner
+    # missing, nothing collected, ...) -- honestly unresolved, never
+    # silently backed by an unrelated whole-suite result.
+    obligation.status = VERIFICATION_UNKNOWN
+    obligation.reason = obligation.executions[0].reason or "Mapped test(s) could not be executed"
+
+
 def _test_is_in(test, failed_ids: list[str]) -> bool:
     """True when a mapped test appears among the suite's failing test ids."""
     case = test.case_name or test.name
@@ -934,7 +995,21 @@ def _compute_summary(
             f"the repository test suite failed ({suite.tests_failed or 'some'} test(s))"
         )
 
-    if counts.obligations_failed or suite_failed:
+    # Same escalation, individual-test-execution flavor (see
+    # `resolve_obligation_status_from_executions`): when Sydes ran an
+    # obligation's own mapped test directly instead of the whole suite (no
+    # `ci_suite` populated at all in that path), a FAILED verdict on an
+    # advisory (non-`required`) obligation must not silently vanish just
+    # because `obligations_failed` above only counts the required set --
+    # a real, individually-attributed test failure is exactly the same
+    # class of hard evidence a red whole-suite run already is.
+    advisory_mapped_test_failed = any(
+        item.status == VERIFICATION_FAILED and not item.required for item in obligations
+    )
+    if advisory_mapped_test_failed:
+        reasons.append("an individually-executed mapped test failed on an advisory obligation")
+
+    if counts.obligations_failed or suite_failed or advisory_mapped_test_failed:
         verdict, risk = VERDICT_ACTION_REQUIRED, RISK_HIGH
     elif counts.obligations_unknown or counts.obligations_unverified:
         verdict = VERDICT_INCOMPLETE
@@ -2413,6 +2488,83 @@ def _run_test_execution(
     settings = ExecutionSettings(
         enabled=options.run_tests, timeout_seconds=options.test_timeout_seconds
     )
+
+    if not options.run_tests:
+        ci_suite, notes = run_ci_suite(
+            files=repo_files, repo_root=repo_root, settings=settings,
+            changed_files=frozenset(changed_files),
+        )
+        result.diagnostics.extend(notes)
+        result.ci_suite = ci_suite
+        result.notes.append("test_execution=skipped reason=--no-run-tests")
+        for flow in result.affected_flows:
+            for obligation in flow.obligations:
+                if obligation.mapped_tests:
+                    obligation.status = VERIFICATION_UNKNOWN
+                    obligation.reason = "Test execution was disabled (--no-run-tests)"
+                    _trace_test_decision(flow, obligation)
+                    continue
+                resolve_obligation_status(obligation, ci_suite)
+                _trace_test_decision(flow, obligation)
+        return
+
+    # Test execution is enabled. Prefer running each obligation's own
+    # mapped test(s) individually over the repo's whole test command --
+    # `execute_mapped_tests` (see `sydes.verify.test_execution`) already
+    # exists for exactly this but had no caller. Whole-suite `run_ci_suite`
+    # is now a FALLBACK, used only when no mapped test anywhere in this
+    # result could be individually invoked at all -- never silently mixed
+    # in for the obligations whose own mapped test COULD be run (see
+    # `resolve_obligation_status_from_executions`'s docstring: a whole-suite
+    # pass/fail must never stand in for one specific test's own result).
+    mapped_tests = _collect_unique_mapped_tests(result)
+    if mapped_tests:
+        executions, exec_notes = execute_mapped_tests(
+            tests=mapped_tests, files=repo_files, repo_root=repo_root, settings=settings,
+        )
+        result.diagnostics.extend(exec_notes)
+        for execution in executions:
+            if execution.blocker == BLOCKER_MISSING_DEPENDENCY:
+                _link_runtime_blockers(execution, result.runtime_dependencies)
+        by_id = {execution.test_id: execution for execution in executions}
+        invoked = [execution for execution in executions if execution.blocker is None]
+        unexecutable = [execution for execution in executions if execution.blocker is not None]
+
+        for flow in result.affected_flows:
+            for obligation in flow.obligations:
+                obligation.executions = [
+                    by_id[test.id] for test in obligation.mapped_tests if test.id in by_id
+                ]
+
+        if invoked:
+            # Policy: at least one mapped test ran on its own this run --
+            # every obligation is resolved from its OWN mapped tests'
+            # individual executions, whole-suite fallback never runs at
+            # all. An obligation whose own mapped test(s) all happened to
+            # be unexecutable still gets an honest, explicit "could not be
+            # executed" status here (see
+            # `resolve_obligation_status_from_executions`), reported
+            # rather than silently backed by another obligation's suite.
+            result.notes.append(
+                f"test_execution=mapped_tests executed={len(invoked)} "
+                f"unexecutable={len(unexecutable)}"
+            )
+            for flow in result.affected_flows:
+                for obligation in flow.obligations:
+                    resolve_obligation_status_from_executions(obligation)
+                    _trace_test_decision(flow, obligation)
+            return
+
+        # Every mapped test in this result turned out unexecutable on its
+        # own (framework unsupported, runner missing, ...) -- explicitly
+        # labeled fallback to the repo's whole test command, per policy B.
+        result.notes.append(
+            f"test_execution=whole_suite_fallback reason=no_mapped_test_individually_executable "
+            f"unexecutable_mapped_tests={len(unexecutable)}"
+        )
+    else:
+        result.notes.append("test_execution=whole_suite_fallback reason=no_mapped_tests")
+
     ci_suite, notes = run_ci_suite(
         files=repo_files, repo_root=repo_root, settings=settings,
         changed_files=frozenset(changed_files),
@@ -2420,18 +2572,28 @@ def _run_test_execution(
     result.diagnostics.extend(notes)
     result.ci_suite = ci_suite
 
-    if not options.run_tests:
-        result.notes.append("test_execution=skipped reason=--no-run-tests")
-
     if ci_suite is not None and ci_suite.blocker == BLOCKER_MISSING_DEPENDENCY:
         _link_runtime_blockers(ci_suite, result.runtime_dependencies)
 
     for flow in result.affected_flows:
         for obligation in flow.obligations:
-            if not options.run_tests and obligation.mapped_tests:
-                obligation.status = VERIFICATION_UNKNOWN
-                obligation.reason = "Test execution was disabled (--no-run-tests)"
-                _trace_test_decision(flow, obligation)
-                continue
             resolve_obligation_status(obligation, ci_suite)
             _trace_test_decision(flow, obligation)
+
+
+def _collect_unique_mapped_tests(result: ChangeVerificationResult) -> list[MappedTest]:
+    """Every distinct mapped test across every obligation in this result,
+    deduplicated by `MappedTest.id` -- the same test is routinely mapped to
+    more than one obligation (a route-contract skeleton, a test-matrix
+    entry, and the real trace-derived obligation can all share one test),
+    and it must only ever be invoked once."""
+    seen: set[str] = set()
+    tests: list[MappedTest] = []
+    for flow in result.affected_flows:
+        for obligation in flow.obligations:
+            for test in obligation.mapped_tests:
+                if test.id in seen:
+                    continue
+                seen.add(test.id)
+                tests.append(test)
+    return tests

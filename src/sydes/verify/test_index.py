@@ -24,6 +24,18 @@ _PY_TEST_CLASS = re.compile(r"^\s*class\s+(?P<name>Test\w+)\s*[\(:]")
 _JS_TEST_CASE = re.compile(r"^\s*(?:it|test)\s*(?:\.\w+)?\s*\(\s*[`'\"](?P<name>[^`'\"]+)[`'\"]")
 _JS_SUITE = re.compile(r"^\s*describe\s*(?:\.\w+)?\s*\(\s*[`'\"](?P<name>[^`'\"]+)[`'\"]")
 _JAVA_TEST = re.compile(r"^\s*(?:public\s+)?void\s+(?P<name>\w*[Tt]est\w*)\s*\(")
+# JUnit4/5's actual rule: a method is a test case because `@Test` (or a
+# fully-qualified `@org.junit.jupiter.api.Test`, optionally with args like
+# `@Test(expected = ...)`/`@Test(timeout = ...)`) is declared on it -- NOT
+# because its name happens to contain the word "test". `_JAVA_TEST` above
+# only covers the older JUnit3 naming convention (no annotations at all);
+# a descriptively-named `@Test`-annotated method like
+# `public void saveRejectsBlankUsername()` matched neither pattern and
+# silently vanished from the per-case index entirely (confirmed on a real
+# PR: the whole file fell back to one file-level pseudo-case, see
+# `_extract_cases_from_file`'s fallback below).
+_JAVA_TEST_ANNOTATION_RE = re.compile(r"^\s*@(?:\w+\.)*Test(?:\s*\(.*\))?\s*$")
+_JAVA_METHOD_DEF_RE = re.compile(r"^\s*(?:public|protected|private)?\s*(?:static\s+)?void\s+(?P<name>\w+)\s*\(")
 # Go's own exported-test rule: a top-level `func` whose name is `Test`
 # followed by a capitalized (or non-lowercase) rune. The parameter is not
 # constrained to a literal `t *testing.T` — Go itself does not require that
@@ -118,6 +130,7 @@ def _extract_cases_from_file(scanned: SourceFile) -> list[LocatedTest]:
     current_suite: str | None = None
     pending_fixture = False
     pending_rust_test = False
+    pending_java_test = False
 
     for line_no, line in enumerate(lines, start=1):
         if _FIXTURE_DECORATOR_RE.match(line):
@@ -138,6 +151,21 @@ def _extract_cases_from_file(scanned: SourceFile) -> list[LocatedTest]:
                 starts.append((line_no, fn_match.group("name"), current_suite))
                 boundary_lines.append(line_no)
             pending_rust_test = False
+            continue
+        if _JAVA_TEST_ANNOTATION_RE.match(line):
+            pending_java_test = True
+            continue
+        if pending_java_test:
+            # As with Rust above, a test method commonly carries more than
+            # one annotation (`@Test` plus `@DisplayName(...)`,
+            # `@Disabled`, ...) before its own `void name(` line.
+            if line.lstrip().startswith("@"):
+                continue
+            method_match = _JAVA_METHOD_DEF_RE.match(line)
+            if method_match:
+                starts.append((line_no, method_match.group("name"), current_suite))
+                boundary_lines.append(line_no)
+            pending_java_test = False
             continue
         suite_match = _JS_SUITE.match(line)
         if suite_match:

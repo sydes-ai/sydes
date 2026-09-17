@@ -304,6 +304,56 @@ def test_case_c_matching_test_failing_marks_the_obligation_failed(
 
 
 # --------------------------------------------------------------------------
+# Mapped-test execution policy: run relevant mapped tests individually
+# instead of defaulting to the whole repo suite (`execute_mapped_tests`
+# existed but had no caller before this) -- see
+# `sydes.verify.analyzer._run_test_execution`/
+# `resolve_obligation_status_from_executions`.
+# --------------------------------------------------------------------------
+
+
+def test_mapped_test_execution_never_invokes_the_whole_suite_when_a_mapped_test_can_run(
+    repo: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Policy A: at least one mapped test can be individually invoked ->
+    `run_ci_suite` (the whole repo command) must never run at all."""
+    _write_blank_name_test(repo, 400)
+    _git(repo, "add", "."), _git(repo, "commit", "-qm", "tests")
+    _apply_validation_change(repo)
+
+    calls = {"n": 0}
+    monkeypatch.setattr(
+        "sydes.verify.analyzer.run_ci_suite",
+        lambda *a, **k: (_ for _ in ()).throw(AssertionError("run_ci_suite must not be called")),
+    )
+
+    result = _run(repo, tmp_path)
+    passed = [item for item in _obligations(result) if item.status == VERIFICATION_PASSED]
+    assert passed
+    assert any(item.executions for item in passed), "pass must be attributed via an execution record"
+
+
+def test_unrelated_suite_failure_does_not_contaminate_a_mapped_behavior(
+    repo: Path, tmp_path: Path,
+) -> None:
+    """A completely unrelated test file failing must never taint an
+    obligation whose OWN mapped test passed -- individual attribution, not
+    a whole-suite red/green guess."""
+    _write_blank_name_test(repo, 400)
+    _write(
+        repo,
+        "tests/test_unrelated_break.py",
+        "def test_something_unrelated():\n"
+        "    assert False, 'unrelated pre-existing failure'\n",
+    )
+    _git(repo, "add", "."), _git(repo, "commit", "-qm", "tests"), _apply_validation_change(repo)
+
+    result = _run(repo, tmp_path)
+    passed = [item for item in _obligations(result) if item.status == VERIFICATION_PASSED]
+    assert passed, [(item.kind, item.status, item.reason) for item in _obligations(result)]
+
+
+# --------------------------------------------------------------------------
 # Case D — related but irrelevant tests
 # --------------------------------------------------------------------------
 

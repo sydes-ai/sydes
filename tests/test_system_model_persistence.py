@@ -35,6 +35,7 @@ from sydes.store.system_model import (
     compute_fingerprint,
     verification_record_id,
 )
+from sydes.verify.test_execution import execute_mapped_tests as _real_execute_mapped_tests
 from sydes.verify.test_execution import run_ci_suite as _real_run_ci_suite
 from sydes.verify.models import VERIFICATION_PASSED, ChangeVerificationResult
 
@@ -283,11 +284,22 @@ def test_new_commit_touching_the_same_dependency_reruns_and_appends_history(
 
     call_count = {"n": 0}
 
-    def _spy(*args, **kwargs):
+    def _suite_spy(*args, **kwargs):
         call_count["n"] += 1
         return _real_run_ci_suite(*args, **kwargs)
 
-    monkeypatch.setattr("sydes.verify.analyzer.run_ci_suite", _spy)
+    def _mapped_spy(*args, **kwargs):
+        # Verification now prefers running an obligation's own mapped
+        # test(s) individually over the whole suite when any exist (see
+        # `sydes.verify.analyzer._run_test_execution`) -- either mechanism
+        # actually re-verifying this commit satisfies the same v1 safety
+        # rule this test is about: a different head commit must never be
+        # treated as identical-to-cache and skipped.
+        call_count["n"] += 1
+        return _real_execute_mapped_tests(*args, **kwargs)
+
+    monkeypatch.setattr("sydes.verify.analyzer.run_ci_suite", _suite_spy)
+    monkeypatch.setattr("sydes.verify.analyzer.execute_mapped_tests", _mapped_spy)
 
     second = _run(repo, tmp_path, base_sha, "run2.json")
     assert call_count["n"] == 1, "a different head commit must always re-run the suite"
