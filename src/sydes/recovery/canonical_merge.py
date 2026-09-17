@@ -81,14 +81,24 @@ def _changed_symbol_names_for_target(result: ChangeVerificationResult, target: E
     computed once, deterministically, before recovery ever runs) that this
     recovered target structurally corresponds to -- matched by the target's
     file (most reliable: the diff can only have one changed symbol per
-    file in the common case) or by exact symbol/qualified-name equality.
-    Never a fuzzy text/label comparison.
+    file in the common case) or by exact QUALIFIED-name equality (already
+    disambiguated, safe without a file check). Never a bare `.name`
+    comparison on its own: two unrelated symbols across the whole
+    repository routinely share a bare name (`get`, `post`, `create`, ...
+    every REST handler has one), so matching on that alone -- as this
+    function used to -- silently attributes a recovered target in one
+    file to an unrelated same-named changed symbol in another. Confirmed
+    live: a diff that only changed `PokemonEncounterView.get` in `api.py`
+    got `changed_symbols=["get"]` attached to an AI-recovered target that
+    was actually `PokeAPIRootView.get` in the unrelated `urls.py`, purely
+    because both are named `get`. Never a fuzzy text/label comparison
+    either.
     """
     names: set[str] = set()
     for changed in result.change.symbols:
         same_file = bool(changed.file) and changed.file == target.file
-        same_symbol = changed.name == target.symbol or changed.qualified_name == target.symbol
-        if same_file or same_symbol:
+        same_qualified_name = bool(changed.qualified_name) and changed.qualified_name == target.symbol
+        if same_file or same_qualified_name:
             names.add(changed.name)
             if changed.qualified_name:
                 names.add(changed.qualified_name)

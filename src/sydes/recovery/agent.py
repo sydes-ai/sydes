@@ -247,7 +247,9 @@ def _prove_hop_with_recursion(
     return edges
 
 
-def _direct_entrypoint_edge(node: EntityRef, repo_root: Path) -> RecoveredEdge | None:
+def _direct_entrypoint_edge(
+    node: EntityRef, repo_root: Path, changed_symbol_entities: tuple[EntityRef, ...],
+) -> RecoveredEdge | None:
     """When discovery collapses a candidate path to a single node (its
     honest way of saying the entrypoint's own decorator sits directly on
     the changed symbol -- no intermediate hop exists at all, see
@@ -259,18 +261,33 @@ def _direct_entrypoint_edge(node: EntityRef, repo_root: Path) -> RecoveredEdge |
     This still goes through the ordinary `sydes.recovery.verify` Layer
     0/1/2 pipeline like any other edge -- it is a normal `RecoveredEdge`
     with real, inspectable evidence, not a special-cased bypass.
+
+    `node` is Stage A's own free-text claim, not ground truth -- its
+    prompt (`sydes.recovery.discovery`) tells it `target_node`'s file must
+    be one of the diff's own changed files, but nothing enforces that
+    downstream. A real observed failure: for a diff that changed
+    `PokemonEncounterView.get` in `api.py`, discovery returned a collapsed
+    node naming `get` in the unrelated `urls.py`, where a genuinely real,
+    differently-owned `PokeAPIRootView.get` happened to share the bare
+    method name -- the file-scoped decorator lookup below then "verified"
+    a true fact about the wrong symbol entirely, and that false match rode
+    all the way to a `proven` impact. `changed_symbol_entities` (the
+    diff's own ground truth, from `sydes.recovery.context`) is the fix:
+    `node` must correspond to one of them -- by file AND bare symbol name,
+    never file alone or name alone -- or this is rejected outright.
     """
     if not node.file:
+        return None
+    bare_symbol = node.symbol.rsplit(".", 1)[-1]
+    if not any(
+        entity.file == node.file and entity.symbol.rsplit(".", 1)[-1] == bare_symbol
+        for entity in changed_symbol_entities
+    ):
         return None
     try:
         found = find_declarative_entrypoints(repo_root, [node.file])
     except OSError:
         return None
-    # `node.symbol` may be class-qualified (e.g. `SomeClass.someMethod`, the
-    # convention discovery otherwise uses throughout this pipeline) while
-    # the heuristic's regex-based extraction only ever captures the bare
-    # method name -- match on the last segment, not exact equality.
-    bare_symbol = node.symbol.rsplit(".", 1)[-1]
     match = next((ep for ep in found if ep.symbol == bare_symbol), None)
     if match is None:
         return None
@@ -369,7 +386,7 @@ def _run_pipeline_once(
         expanded_nodes: list[EntityRef] = [relevant_nodes[0]]
         all_edges: list[RecoveredEdge] = []
         if len(relevant_nodes) == 1:
-            direct_edge = _direct_entrypoint_edge(relevant_nodes[0], repo_root)
+            direct_edge = _direct_entrypoint_edge(relevant_nodes[0], repo_root, context.changed_symbol_entities)
             if direct_edge is not None:
                 all_edges.append(direct_edge)
         else:

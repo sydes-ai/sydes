@@ -37,6 +37,7 @@ from sydes.recovery.schema import (
 def _context(
     changed_files: tuple[str, ...] = ("handler.ts",),
     entrypoint_entities: tuple[EntityRef, ...] = (),
+    changed_symbol_entities: tuple[EntityRef, ...] = (),
 ) -> RecoveryContext:
     return RecoveryContext(
         reason_first_pass_stopped="no established path",
@@ -50,6 +51,7 @@ def _context(
         unresolved_gaps=(),
         changed_files=changed_files,
         entrypoint_entities=entrypoint_entities,
+        changed_symbol_entities=changed_symbol_entities,
     )
 
 
@@ -133,7 +135,11 @@ def test_zero_hop_candidate_established_via_deterministic_entrypoint_heuristic(t
         _verdicts(True),
     ])
     outcome = recover(
-        _context(changed_files=("UserController.java",)), repo_root=tmp_path, client=client,
+        _context(
+            changed_files=("UserController.java",),
+            changed_symbol_entities=(EntityRef(symbol="UserController.getUser", file="UserController.java"),),
+        ),
+        repo_root=tmp_path, client=client,
         trigger_reason="no established path",
     )
     assert outcome.path_recovery.status == STATUS_ESTABLISHED
@@ -141,6 +147,47 @@ def test_zero_hop_candidate_established_via_deterministic_entrypoint_heuristic(t
     assert len(edges) == 1
     assert edges[0].from_entity.symbol == edges[0].to_entity.symbol == "UserController.getUser"
     assert edges[0].evidence[0].line_start == 3  # the method declaration's own line
+
+
+def test_zero_hop_candidate_naming_an_unrelated_same_named_symbol_yields_no_fabricated_edge(tmp_path: Path):
+    """Regression test for a real observed failure: a diff only changed
+    `PokemonEncounterView.get` in `api.py`, but discovery's zero-hop
+    collapse instead named `get` in the unrelated `urls.py`, where a
+    genuinely real, differently-owned `PokeAPIRootView.get` happened to
+    share the bare method name. Because the file-scoped decorator lookup
+    only checked the bare name, it "verified" a true fact about the wrong
+    symbol entirely, and that false match reached `established`. The
+    node's `(file, symbol)` must now match one of the diff's own
+    `changed_symbol_entities` -- by file AND bare symbol name -- or the
+    zero-hop collapse is rejected outright, regardless of whether some
+    other, unrelated symbol in the repo happens to carry a real decorator
+    under the same bare name."""
+    (tmp_path / "RealController.java").write_text(
+        "public class RealController {\n"
+        "    public Dict get(Long id) { return null; }\n"  # the actual changed symbol -- no decorator here
+        "}\n"
+    )
+    (tmp_path / "UnrelatedController.java").write_text(
+        "public class UnrelatedController {\n"
+        "    @GetMapping(\"/unrelated\")\n"
+        "    public Dict get() { return null; }\n"  # same bare name, unrelated to the diff
+        "}\n"
+    )
+    client = SequencedClient([
+        _discovery_final(["get", "get"], "get", file="UnrelatedController.java"),
+        # The pipeline retries once when path recovery doesn't establish.
+        _discovery_final(["get", "get"], "get", file="UnrelatedController.java"),
+    ])
+    outcome = recover(
+        _context(
+            changed_files=("RealController.java",),
+            changed_symbol_entities=(EntityRef(symbol="RealController.get", file="RealController.java"),),
+        ),
+        repo_root=tmp_path, client=client,
+        trigger_reason="no established path",
+    )
+    assert outcome.path_recovery.status != STATUS_ESTABLISHED
+    assert outcome.path_recovery.paths == [] or outcome.path_recovery.paths[0].edges == []
 
 
 def test_zero_hop_candidate_without_a_confirming_decorator_yields_no_fabricated_edge(tmp_path: Path):
