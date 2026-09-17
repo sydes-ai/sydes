@@ -291,6 +291,62 @@ def test_validation_obligation_rejection_path_is_unaffected():
 
 
 # ---------------------------------------------------------------------------
+# 5. A validation obligation can be proven by asserting a thrown/rejected
+# error directly, not only a literal HTTP status code -- regression test for
+# the real gap confirmed on sydes-examples/express-typescript-boilerplate#1:
+# `PetService.test.ts::Create should reject a non-positive age` asserts
+# `await expect(service.create(input)).rejects.toMatchObject({httpCode,
+# message})` (comparing against a variable, never a literal number) plus
+# `expect(repository.save).not.toHaveBeenCalled()` -- and was classified
+# only as "exercises flow" (Tier C) because `_STATUS_RE` cannot match a
+# variable. Generic fixture: an arbitrary service method, not Express or
+# PetService-specific.
+# ---------------------------------------------------------------------------
+
+
+def test_rejects_promise_assertion_with_no_literal_status_code_is_evidence():
+    case = _case(
+        "rejects invalid input before persistence",
+        "test('rejects invalid input before persistence', async () => {\n"
+        "  const expectedError = new InvalidInputError();\n"
+        "  await expect(service.submitOrder(invalidInput)).rejects.toMatchObject({\n"
+        "    httpCode: expectedError.httpCode,\n"
+        "    message: expectedError.message,\n"
+        "  });\n"
+        "  expect(repository.saveMock).not.toBeCalled();\n"
+        "});\n",
+    )
+    obligation = _obligation(OBLIGATION_VALIDATION, "invalid input is rejected before persistence")
+    evidence, supporting, _notes = map_tests_to_obligation(
+        obligation=obligation, flow=_flow(handler="submitOrder"), test_index=_index([case]),
+        changed_symbol_names={"submitOrder"},
+    )
+    assert len(evidence) == 1, (evidence, supporting)
+    assert supporting == []
+    assert "rejected error" in evidence[0].match_rule
+
+
+def test_calling_the_changed_function_without_asserting_rejection_stays_supporting():
+    """Negative control: exercising the flow alone, with no rejection/error
+    assertion of any kind, must never be promoted -- conservatism is
+    preserved."""
+    case = _case(
+        "creates successfully",
+        "test('creates successfully', async () => {\n"
+        "  const result = await service.submitOrder(validInput);\n"
+        "  expect(result).toBeDefined();\n"
+        "});\n",
+    )
+    obligation = _obligation(OBLIGATION_VALIDATION, "invalid input is rejected before persistence")
+    evidence, supporting, _notes = map_tests_to_obligation(
+        obligation=obligation, flow=_flow(handler="submitOrder"), test_index=_index([case]),
+        changed_symbol_names={"submitOrder"},
+    )
+    assert evidence == []
+    assert len(supporting) == 1
+
+
+# ---------------------------------------------------------------------------
 # 4. Route-prefix mismatch: a diagnostic only, never used to map a test.
 # ---------------------------------------------------------------------------
 

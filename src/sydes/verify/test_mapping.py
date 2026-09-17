@@ -54,6 +54,24 @@ _ASSERT_RE = re.compile(r"\bassert\b|\bexpect\s*\(|\.should\b|assertEqual|assert
 # guessed at.
 _STATUS_RE = re.compile(r"\b(?:status_code|statusCode|status)\b\s*(?:==|,|\)|\.toBe\(|\()\s*(?P<code>[45]\d\d|2\d\d)")
 _COUNT_RE = re.compile(r"\b(?:count|len|times|calledOnce|call_count|assert_called_once)\b", re.IGNORECASE)
+# A validation obligation claims "the API rejects something" -- a literal
+# HTTP status code (`_STATUS_RE`, above) is one way a test can demonstrate
+# that, but far from the only one: a test can equally prove rejection by
+# asserting a thrown/rejected error directly, never naming a status code at
+# all (e.g. `await expect(service.create(input)).rejects.toMatchObject({...})`,
+# matched against the error's own `httpCode`/`message` fields on a variable,
+# not a literal number `_STATUS_RE` could ever match). Generic across
+# languages/frameworks -- jest/chai's promise-rejection and exception
+# assertions, Python's `pytest.raises`/`assertRaises`, JUnit's
+# `assertThrows` -- never a repo- or error-type-specific string.
+_REJECTION_ASSERTION_RE = re.compile(
+    r"\.rejects\b"
+    r"|\.toThrow\b"
+    r"|\.to\.throw\b"
+    r"|\bassertThrows\b"
+    r"|\bassertRaises\b"
+    r"|\bpytest\.raises\b"
+)
 
 
 def _normalize(path: str | None) -> str:
@@ -167,6 +185,13 @@ def _asserts_status_class(case: LocatedTest, first_digit: str) -> str | None:
         if match.group("code").startswith(first_digit):
             return match.group("code")
     return None
+
+
+def _asserts_rejection(case: LocatedTest) -> bool:
+    """True when the test asserts a thrown/rejected error directly (see
+    `_REJECTION_ASSERTION_RE`) -- the non-status-code way a test can prove
+    a validation obligation's "rejects this input" claim."""
+    return bool(_REJECTION_ASSERTION_RE.search(case.body))
 
 
 def _asserts_effect_token(case: LocatedTest, tokens: set[str]) -> str | None:
@@ -291,6 +316,27 @@ def map_tests_to_obligation(
                     _mapped(
                         case,
                         rule=f"{rule_base} and asserts rejection status {asserted}",
+                        tier=tier_base,
+                        source_refs=obligation.source_refs,
+                        snippet=literal or target_symbol,
+                        changed_in_diff=changed_in_diff,
+                    )
+                )
+                continue
+            # No literal status code anywhere in the test body at all is
+            # common at the service-method (not HTTP-route) level: a test
+            # asserting `await expect(service.create(input)).rejects.
+            # toMatchObject({httpCode, message})` proves the same rejection
+            # claim just as directly, comparing against the real error's own
+            # fields on a variable rather than a literal number `_STATUS_RE`
+            # can match. Still requires this obligation to be validation-kind
+            # AND the test to already exercise this flow (checked above) --
+            # never promotes a test merely for calling the changed function.
+            if _asserts_rejection(case):
+                evidence.append(
+                    _mapped(
+                        case,
+                        rule=f"{rule_base} and asserts a thrown/rejected error",
                         tier=tier_base,
                         source_refs=obligation.source_refs,
                         snippet=literal or target_symbol,
