@@ -95,7 +95,18 @@ class BoundedEdgeOutcome:
     limits: GraphSliceLimits | None = None
 
 #: CBM node labels mapped onto the symbol kinds Sydes already consumes.
-_KIND_BY_LABEL = {"Function": "function", "Method": "class_method", "Class": "class"}
+#: `Variable` confirmed live against a real indexed repo (unleash): CBM
+#: already models top-level/module-scope bindings under this label --
+#: `const strategySchema = joi.object()...` came back with a real
+#: `file_path`/`start_line`/`end_line`/`qualified_name`, the same shape
+#: Function/Method/Class rows already have. Not speculative: verified this
+#: is scoped to module-level bindings (constants, top-level `const`
+#: declarations), not arbitrary function-local variables, before adding it
+#: here -- the query is otherwise fully generic per label already (see
+#: `CBMClient.all_symbols`), so no other code needs to change.
+_KIND_BY_LABEL = {
+    "Function": "function", "Method": "class_method", "Class": "class", "Variable": "variable",
+}
 
 #: CBM records builtins and other synthetic origins under placeholder paths.
 #: They are not repository files and must not enter a file-keyed index.

@@ -263,17 +263,19 @@ def test_rejected_test_is_not_counted():
     assert result.summary.counts.mapped_tests == 0
 
 
-def test_recovered_test_with_no_matching_flow_is_declined_not_counted():
-    """A recovered test whose target does not resolve to exactly one flow's
-    handler must never inflate a count that nothing in `affected_flows`
-    can show -- declined and recorded in `notes` instead of guessed onto
-    the wrong (or no) obligation."""
+def test_recovered_test_with_no_matching_flow_falls_back_to_change_scope():
+    """Regression: a recovered test whose target resolves to no flow (no
+    flows exist at all) and no known changed symbol must NOT disappear --
+    it lands at the floor of the evidence-ownership ladder (change scope),
+    never fabricated as flow/route evidence, never silently discarded."""
     result = _result()  # no flows at all
     test_recovery = TestRecoveryResult(status=STATUS_ESTABLISHED, tests=[_recovered_test()])
     merge_verified_recovery_into_result(result, PathRecoveryResult(), test_recovery)
-    assert result.summary.counts.mapped_tests == 0
-    assert result.summary.counts.tests_verifying_behavior == 0
-    assert any("could not be attributed" in note for note in result.notes)
+    assert result.summary.counts.mapped_tests == 1
+    assert result.summary.counts.tests_verifying_behavior == 1
+    assert result.affected_flows == []
+    assert len(result.unattached_evidence) == 1
+    assert result.unattached_evidence[0].scope == "change"
 
 
 def test_recovered_test_attaches_to_every_flow_sharing_the_same_handler():
@@ -298,17 +300,76 @@ def test_recovered_test_attaches_to_every_flow_sharing_the_same_handler():
         assert any(m.file == "a.spec.ts" and m.name == "t1" for o in flow.obligations for m in o.mapped_tests)
 
 
-def test_recovered_test_declines_only_when_no_flow_matches_at_all():
-    """The genuinely unattachable case: no flow's handler/handler_file
-    matches the recovered test's target at all."""
+def test_recovered_test_falls_back_to_change_scope_when_no_flow_matches_at_all():
+    """Regression: no flow's handler/handler_file matches the recovered
+    test's target, and the target isn't a known changed symbol either --
+    the evidence must NOT disappear (the old behavior). It falls to the
+    floor of the ladder: change-scoped `UnattachedEvidence`, since the
+    test already passed Layer 0/1/2 (accepted) and is therefore genuinely
+    source-backed and relevant to this change."""
     result = _result(affected_flows=[_flow_with_obligation(handler="SomethingElse.method")])
     test_recovery = TestRecoveryResult(status=STATUS_ESTABLISHED, tests=[_recovered_test()])
     merge_verified_recovery_into_result(result, PathRecoveryResult(), test_recovery)
-    assert result.summary.counts.mapped_tests == 0
+    assert result.summary.counts.mapped_tests == 1
     assert all(not o.mapped_tests for flow in result.affected_flows for o in flow.obligations)
-    assert any(
-        "could not be attributed to any flow's handler" in note for note in result.notes
+    assert len(result.unattached_evidence) == 1
+    slot = result.unattached_evidence[0]
+    assert slot.scope == "change"
+    assert slot.target_symbol is None
+    assert slot.mapped_tests[0].name == "t1"
+
+
+def test_recovered_test_attaches_at_symbol_scope_when_it_targets_a_changed_symbol():
+    """Unleash PR #12632-shaped regression: a real changed TS symbol
+    (`strategySchema`) with no HTTP route ever structurally connected to
+    it (route composition is a separate, deferred gap -- see (F)) --
+    but the recovered test directly targets that changed symbol. This
+    must be preserved as symbol-scoped evidence, not silently dropped or
+    conflated with the (weaker) change-scope floor."""
+    result = _result(
+        affected_flows=[],
+        changed_symbols=[
+            ChangedSymbol(
+                id="app:src/lib/services/strategy-schema.ts:strategySchema",
+                repo="app", file="src/lib/services/strategy-schema.ts", name="strategySchema",
+            ),
+        ],
     )
+    test_recovery = TestRecoveryResult(
+        status=STATUS_ESTABLISHED,
+        tests=[
+            RecoveredTest(
+                file="src/lib/routes/admin-api/strategy.test.ts",
+                test="does not allow duplicate parameter names when creating a strategy",
+                covers="rejects duplicate strategy parameter names",
+                target=_entity("strategySchema", "src/lib/services/strategy-schema.ts"),
+                status=TEST_STATUS_ACCEPTED,
+            ),
+            RecoveredTest(
+                file="src/lib/routes/admin-api/strategy.test.ts",
+                test="does not allow duplicate parameter names when updating a strategy",
+                covers="rejects duplicate strategy parameter names",
+                target=_entity("strategySchema", "src/lib/services/strategy-schema.ts"),
+                status=TEST_STATUS_ACCEPTED,
+            ),
+        ],
+    )
+
+    merge_verified_recovery_into_result(result, PathRecoveryResult(), test_recovery)
+
+    assert result.affected_flows == []  # no fake flow/route introduced
+    assert result.summary.counts.mapped_tests == 2
+    assert result.summary.counts.tests_verifying_behavior == 2
+    assert len(result.unattached_evidence) == 1
+    slot = result.unattached_evidence[0]
+    assert slot.scope == "symbol"
+    assert slot.target_symbol == "strategySchema"
+    assert slot.target_file == "src/lib/services/strategy-schema.ts"
+    names = {t.name for t in slot.mapped_tests}
+    assert names == {
+        "does not allow duplicate parameter names when creating a strategy",
+        "does not allow duplicate parameter names when updating a strategy",
+    }
 
 
 def test_no_duplicate_flow_when_structural_result_already_covers_the_route():

@@ -338,6 +338,39 @@ class MappedTest(BaseModel):
     evidence: list[EvidenceRef] = Field(default_factory=list)
 
 
+#: Evidence ownership scope, weakest-first fallback order (see
+#: `UnattachedEvidence.scope`). Never "flow" here -- a test that resolves
+#: to an exact flow attaches directly to that flow's own obligation
+#: (`VerificationObligation.mapped_tests`), never through this model.
+EVIDENCE_SCOPE_SYMBOL = "symbol"
+EVIDENCE_SCOPE_CHANGE = "change"
+
+
+class UnattachedEvidence(BaseModel):
+    """A verified, source-backed test that could not be attached to any
+    resolved `AffectedFlow`/obligation -- preserved at the strongest scope
+    actually proven instead of disappearing.
+
+    Evidence ownership hierarchy (see `recovery.canonical_merge._merge_recovered_tests`):
+    exact flow/obligation (attaches directly, never lands here) -> a changed
+    symbol this test demonstrably covers (`scope=EVIDENCE_SCOPE_SYMBOL`,
+    `target_symbol`/`target_file` set) -> the change as a whole
+    (`scope=EVIDENCE_SCOPE_CHANGE`, no target) -> otherwise genuinely
+    unresolved and not recorded here at all (never fabricated).
+
+    This does not claim a route, a handler, or a boundary of any kind --
+    only that a real, verified test relates to this change at the stated
+    scope. `verification_model_status`-style "is this proven" framing does
+    not apply here; the honest claim is narrower than that by construction.
+    """
+
+    scope: str
+    target_symbol: str | None = None
+    target_file: str | None = None
+    mapped_tests: list[MappedTest] = Field(default_factory=list)
+    provenance: str = "ai_recovery"
+
+
 class TestExecution(BaseModel):
     """Result of actually running one mapped test.
 
@@ -854,3 +887,9 @@ class ChangeVerificationResult(BaseModel):
     #: this list instead of `affected_flows`/`accepted_impacts`, which only
     #: contain entrypoints already tied to the diff.
     known_routes: list[EndpointCandidate] = Field(default_factory=list)
+    #: Verified test evidence that could not be attached to any resolved
+    #: flow -- see `UnattachedEvidence`. Never a substitute for a real flow;
+    #: this exists specifically so a real, source-backed test does not
+    #: silently disappear just because Sydes could not resolve an
+    #: HTTP/system boundary for the behavior it covers.
+    unattached_evidence: list[UnattachedEvidence] = Field(default_factory=list)

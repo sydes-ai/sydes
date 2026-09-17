@@ -46,9 +46,12 @@ from sydes.verify.models import (
     AcceptedImpact,
     AffectedFlow,
     ChangeVerificationResult,
+    EVIDENCE_SCOPE_CHANGE,
+    EVIDENCE_SCOPE_SYMBOL,
     MappedTest,
     SourceRef,
     TIER_DIRECT_INVOCATION,
+    UnattachedEvidence,
 )
 
 PROVENANCE_AI_RECOVERY = "ai_recovery"
@@ -258,6 +261,27 @@ def _matching_flows_by_handler(result: ChangeVerificationResult, target: EntityR
     ]
 
 
+def _matching_changed_symbol(result: ChangeVerificationResult, target: EntityRef) -> tuple[str, str] | None:
+    """Does `target` (a recovered test's claimed coverage target) name one
+    of THIS change's own changed symbols? `(symbol_name, file)` if so, else
+    `None`.
+
+    Same identity discipline as `_matching_flows_by_handler`: `file` is
+    load-bearing (a bare-name match in an unrelated file is not this
+    symbol), `symbol` matched against both the short name and the
+    qualified name a changed symbol carries.
+    """
+    if not target.file:
+        return None
+    for symbol in result.change.symbols:
+        if symbol.file != target.file:
+            continue
+        candidates = {symbol.name, symbol.qualified_name}
+        if target.symbol in candidates or target.qualified_name in candidates:
+            return (symbol.qualified_name or symbol.name, symbol.file)
+    return None
+
+
 def _mapped_test_from_recovered(test: RecoveredTest) -> MappedTest:
     return MappedTest(
         id=f"ai_recovery:{test.file}:{test.test}",
@@ -270,23 +294,56 @@ def _mapped_test_from_recovered(test: RecoveredTest) -> MappedTest:
     )
 
 
-def _merge_recovered_tests(result: ChangeVerificationResult, test_recovery: TestRecoveryResult) -> None:
-    """Attach each accepted, verified test to a real obligation so it is
-    nameable and queryable, not just an aggregate-counter bump.
+def _unattached_evidence_slot(
+    result: ChangeVerificationResult, *, scope: str, target_symbol: str | None, target_file: str | None,
+) -> UnattachedEvidence:
+    """The one `UnattachedEvidence` entry for this (scope, target_symbol) --
+    reused across calls so two tests falling to the same scope/symbol don't
+    create two separate entries."""
+    for entry in result.unattached_evidence:
+        if entry.scope == scope and entry.target_symbol == target_symbol:
+            return entry
+    entry = UnattachedEvidence(
+        scope=scope, target_symbol=target_symbol, target_file=target_file, provenance=PROVENANCE_AI_RECOVERY,
+    )
+    result.unattached_evidence.append(entry)
+    return entry
 
-    A recovered test previously only incremented `summary.counts` -- it was
-    never attached to any `AffectedFlow`'s obligations, so nothing in
-    `affected_flows` could ever show which test that count referred to,
-    or that it existed at all. `summary.counts` and `flow.obligations[].
-    mapped_tests` silently disagreed as a result (confirmed on a real run:
-    counts reported one verifying test while every obligation's own
-    `mapped_tests` was empty). Counts are now derived from what actually
-    got attached, so the two can never drift apart again; a test that
-    cannot be attached to ANY flow (see `_matching_flows_by_handler`) is
-    recorded in `notes` instead of silently inflating a count nothing
-    else reflects. When several flows share the same real handler, the
-    evidence is mirrored to every one of them, never attached to just one
-    arbitrary alias -- see the loop below.
+
+def _merge_recovered_tests(result: ChangeVerificationResult, test_recovery: TestRecoveryResult) -> None:
+    """Attach each accepted, verified test at the STRONGEST scope actually
+    proven, so it is nameable and queryable rather than a bare counter bump
+    or, worse, silently discarded:
+
+    1. An exact flow/obligation match (`_matching_flows_by_handler`) --
+       attaches directly to every matching flow's own obligation, mirrored
+       across route aliases (see that function's docstring).
+    2. Failing that, a changed symbol this test demonstrably covers
+       (`_matching_changed_symbol`) -- preserved as `UnattachedEvidence`
+       with `scope=EVIDENCE_SCOPE_SYMBOL`. Confirmed real case: Unleash
+       PR #12632's duplicate-parameter-name tests target `strategySchema`,
+       a real changed symbol, but no HTTP route was ever structurally
+       connected to it (route composition is a separate, deferred gap) --
+       under the old "exactly one flow or nothing" rule this evidence
+       vanished into a notes-only line despite being real, verified, and
+       plainly about this change.
+    3. Failing that, the test is still adversarially verified (Layer 0/1/2
+       passed -- see `sydes.recovery.verify`) and therefore genuinely
+       source-backed and relevant to this change, even without a provable
+       symbol/flow anchor -- preserved as `UnattachedEvidence` with
+       `scope=EVIDENCE_SCOPE_CHANGE`. This is the floor, not a guess: an
+       `accepted` `RecoveredTest` already cleared the same identity/
+       evidence/adversarial-judgment gates a flow-attached test did: see
+       `sydes.recovery.verify`'s module docstring. Nothing here claims a
+       route, a handler, or a boundary -- only that a real, verified test
+       exists and relates to this change at the stated scope.
+
+    None of this claims a system boundary or fabricates a route -- see
+    `UnattachedEvidence`'s own docstring. Counts are derived from what
+    actually got attached (at any of the three levels), so
+    `summary.counts` and the canonical data it describes can never drift
+    apart -- this was the original bug this function fixed, now extended
+    to the two additional fallback scopes.
     """
     if test_recovery.status not in (STATUS_ESTABLISHED, STATUS_PARTIAL):
         return
@@ -299,22 +356,23 @@ def _merge_recovered_tests(result: ChangeVerificationResult, test_recovery: Test
     # counts beyond the number of actually-distinct tests recovered.
     seen_keys: set[tuple[str, str]] = set()
     attached = 0
-    unattached = 0
     for test in accepted:
         key = (test.file, test.test)
         if key in existing or key in seen_keys:
             continue
         seen_keys.add(key)
-        matching_flows = _matching_flows_by_handler(result, test.target)
         mapped = _mapped_test_from_recovered(test)
-        # Attach to every matching flow's own obligation copy -- when
-        # several flows are route aliases of the same handler, their
-        # obligations already share a `canonical_id` for the same
-        # underlying claim (see `_matching_flows_by_handler`'s docstring);
-        # mirroring here keeps them agreeing instead of attaching to one
-        # arbitrary alias and leaving its siblings stale.
+
+        matching_flows = _matching_flows_by_handler(result, test.target)
         attached_to_any = False
         for flow in matching_flows:
+            # Attach to every matching flow's own obligation copy -- when
+            # several flows are route aliases of the same handler, their
+            # obligations already share a `canonical_id` for the same
+            # underlying claim (see `_matching_flows_by_handler`'s
+            # docstring); mirroring here keeps them agreeing instead of
+            # attaching to one arbitrary alias and leaving its siblings
+            # stale.
             obligation = next(iter(flow.obligations), None)
             if obligation is None:
                 continue
@@ -323,25 +381,37 @@ def _merge_recovered_tests(result: ChangeVerificationResult, test_recovery: Test
                 continue
             obligation.mapped_tests.append(mapped)
             attached_to_any = True
+
+        if not attached_to_any:
+            symbol_match = _matching_changed_symbol(result, test.target)
+            if symbol_match is not None:
+                symbol_name, symbol_file = symbol_match
+                slot = _unattached_evidence_slot(
+                    result, scope=EVIDENCE_SCOPE_SYMBOL, target_symbol=symbol_name, target_file=symbol_file,
+                )
+            else:
+                # Floor of the ladder: no exact flow, no provable changed-
+                # symbol anchor -- but this test already passed Layer 0/1/2
+                # (it is in `accepted`), so it is genuinely source-backed
+                # and relevant to this change. Preserved, never discarded.
+                slot = _unattached_evidence_slot(
+                    result, scope=EVIDENCE_SCOPE_CHANGE, target_symbol=None, target_file=None,
+                )
+            if not any(m.file == mapped.file and m.name == mapped.name for m in slot.mapped_tests):
+                slot.mapped_tests.append(mapped)
+            attached_to_any = True
+
         if attached_to_any:
             attached += 1
-        else:
-            unattached += 1
 
     if attached:
         # Relevant/mapped, never executed -- recovery does not run anything.
         result.summary.counts.mapped_tests += attached
         # A recovered test was adversarially verified to demonstrate the
         # claim (see module docstring), so it counts as real, distinct
-        # verifying evidence too.
+        # verifying evidence too -- regardless of which scope it landed at.
         result.summary.counts.tests_verifying_behavior += attached
         result.summary.counts.tests_exercising_flows += attached
-    if unattached:
-        result.notes.append(
-            f"AI recovery found {unattached} additional verified test(s) that could not be "
-            "attributed to any flow's handler (no matching flow exists in this result); "
-            "not counted or shown as evidence."
-        )
 
 
 def merge_verified_recovery_into_result(
