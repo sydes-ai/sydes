@@ -42,7 +42,7 @@ from sydes.discover.endpoints import discover_endpoints
 from sydes.discover.interface_bridge import bridge_interface_call_edges
 from sydes.discover.layer2_declaration_bridge import bridge_layer2_declaration_reference_edges
 from sydes.discover.layer2_treesitter_bridge import bridge_layer2_treesitter_edges
-from sydes.discover.member_call_bridge import bridge_member_call_edges
+from sydes.discover.member_call_bridge import MEMBER_CALL_BRIDGE_SOURCE, bridge_member_call_edges
 from sydes.code_intelligence import get_code_intelligence
 from sydes.code_intelligence.base import StructuralFacts
 from sydes.code_intelligence.cbm import CBM_BACKEND
@@ -388,12 +388,15 @@ def _trace_route(
     handler_index: dict,
     options: VerifyChangeOptions,
     call_edges: list[dict] | None = None,
+    bridge_edges: list[dict] | None = None,
 ) -> tuple[dict, list[str]]:
     """Run the shared trace machinery for one endpoint.
 
     `call_edges` carries a backend-supplied call graph when the selected
     code-intelligence backend provides one; `None` means the native follower
-    reads call names from source as before.
+    reads call names from source as before. `bridge_edges` (see
+    `build_layered_trace_expansion`'s own docstring) is independent of that
+    and available regardless of backend.
     """
     notes: list[str] = []
     repo_index = next(
@@ -433,6 +436,7 @@ def _trace_route(
                 repo_index=repo_index,
                 budgets=CallFollowBudgets(),
                 call_edges=call_edges,
+                bridge_edges=bridge_edges,
             )
             known_symbols = {
                 str(symbol.get("name") or "")
@@ -1632,9 +1636,35 @@ def _attach_bounded_graph_edges(
     """Populate `structural.call_edges`/`usage_edges` from a bounded
     neighborhood, and record what that exploration could and could not see.
 
-    A no-op for a backend that supplies no call graph or no bounded fetch
-    (the native backend), which keeps its existing behavior exactly.
+    The bounded-fetch/interface-bridge portion below is a no-op for a
+    backend that supplies no call graph or no bounded fetch (the native
+    backend), which keeps its existing behavior exactly. `member_call_bridge`
+    (just above that early return) is deliberately NOT part of that no-op:
+    it reads only `structural.symbol_index`/`structural.call_edges`, both
+    already populated regardless of backend (native's own symbol
+    extraction included, per `_symbols_by_file` above) -- it was previously
+    gated behind the same early return as the CBM-only bounded fetch even
+    though it has no CBM dependency at all, which meant a TypeScript
+    constructor-injected member call (`this.petService.create(...)`) could
+    never resolve under the native backend, 100% of the time, regardless of
+    retries -- confirmed on a real PR. Running it before that early return
+    is the fix.
     """
+    # A call through a TypeScript constructor-injected field
+    # (`this.petService.create(...)`, declared as
+    # `constructor(private petService: PetService)`) is never captured as a
+    # CALLS edge by any backend/mode tested — its type-aware resolution only
+    # covers same-file calls. This adds a synthetic edge straight to the
+    # declared type's method, but only when the type and the target method
+    # are each unambiguous. See member_call_bridge.py. Runs for EVERY
+    # backend (unlike everything below this line) -- it needs only the
+    # symbol index and whatever call edges already exist, neither of which
+    # is CBM-specific.
+    member_bridged_edges = bridge_member_call_edges(structural.symbol_index, structural.call_edges)
+    if member_bridged_edges:
+        structural.call_edges.extend(member_bridged_edges)
+        result.diagnostics.append(f"member_call_bridge_edges_added={len(member_bridged_edges)}")
+
     attach = getattr(code_intelligence, "attach_bounded_edges", None)
     if attach is None or not structural.provides_call_graph:
         return
@@ -1654,18 +1684,6 @@ def _attach_bounded_graph_edges(
     if bridged_edges:
         structural.call_edges.extend(bridged_edges)
         result.diagnostics.append(f"interface_bridge_edges_added={len(bridged_edges)}")
-
-    # A call through a TypeScript constructor-injected field
-    # (`this.petService.create(...)`, declared as
-    # `constructor(private petService: PetService)`) is never captured as a
-    # CALLS edge by any backend/mode tested — its type-aware resolution only
-    # covers same-file calls. This adds a synthetic edge straight to the
-    # declared type's method, but only when the type and the target method
-    # are each unambiguous. See member_call_bridge.py.
-    member_bridged_edges = bridge_member_call_edges(structural.symbol_index, structural.call_edges)
-    if member_bridged_edges:
-        structural.call_edges.extend(member_bridged_edges)
-        result.diagnostics.append(f"member_call_bridge_edges_added={len(member_bridged_edges)}")
 
     _trace.record_seed_selection(
         changed_symbol_seeds=selection.changed_symbol_count,
@@ -2243,6 +2261,16 @@ def analyze_change(
             # substitutes its own extraction for a backend that was selected
             # and returned nothing: the absence is reported as uncertainty.
             call_edges=structural.call_edges if structural.provides_call_graph else None,
+            # Independent of the above and passed regardless of backend: a
+            # member-call-bridge edge (see member_call_bridge.py, added to
+            # `structural.call_edges` unconditionally by
+            # `_attach_bounded_graph_edges`) is a narrow, individually
+            # unambiguous synthetic fact, never a substitute for a real
+            # call graph the backend didn't supply.
+            bridge_edges=[
+                edge for edge in structural.call_edges
+                if edge.get("source") == MEMBER_CALL_BRIDGE_SOURCE
+            ],
         )
         contract = traced["layered_contract"]
         analysis_status, analysis_notes = _analysis_status_from(trace_notes)

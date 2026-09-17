@@ -311,6 +311,7 @@ def build_layered_trace_expansion(
     repo_index: dict,
     budgets: CallFollowBudgets,
     call_edges: list[dict] | None = None,
+    bridge_edges: list[dict] | None = None,
 ) -> dict:
     """Follow bounded important project-local calls from the primary handler slice.
 
@@ -320,6 +321,16 @@ def build_layered_trace_expansion(
     work for languages Sydes cannot parse. Everything that decides *whether* to
     follow an edge — budgets, importance, skip rules — stays here, because that
     is traversal policy rather than a structural fact.
+
+    `bridge_edges`, independent of `call_edges`, is a small supplementary set
+    of synthetic edges (see `sydes.discover.member_call_bridge`/
+    `interface_bridge`) available regardless of which backend is selected --
+    unlike `call_edges`, it never REPLACES statement-text candidate discovery,
+    it only supplies one extra resolution attempt for a text-extracted call
+    name `_resolve_call`'s own import-based logic cannot handle (a
+    constructor-injected instance field, e.g. `this.petService.create(...)`
+    declared as `constructor(private petService: PetService)`). Consulted as
+    a fallback in both the edge-driven and text-driven candidate paths below.
     """
     budgets_payload = asdict(budgets)
     files_by_path, symbols_by_name = _build_file_maps(repo_index)
@@ -385,6 +396,17 @@ def build_layered_trace_expansion(
 
     candidates: list[tuple[int, str, dict]] = []
     edge_targets: dict[str, dict] = {}
+    bridge_targets: dict[str, dict] = {}
+    if bridge_edges:
+        handler_symbol_name_for_bridge = (primary_handler_name or "").rsplit(".", 1)[-1]
+        for edge in bridge_edges:
+            if edge.get("caller_file") != current_file:
+                continue
+            if handler_symbol_name_for_bridge and edge.get("caller_symbol") != handler_symbol_name_for_bridge:
+                continue
+            call_name = str(edge.get("callee_symbol") or "")
+            if call_name:
+                bridge_targets[call_name] = edge
     if call_edges is not None:
         # Backend-supplied call graph: no statement text is read.
         handler_symbol_name = (primary_handler_name or "").rsplit(".", 1)[-1]
@@ -437,6 +459,17 @@ def build_layered_trace_expansion(
                 files_by_path=files_by_path,
                 symbols_by_name=symbols_by_name,
             )
+            if symbol is None:
+                # `_resolve_call`'s own import-based logic cannot resolve a
+                # constructor-injected instance field at all (`petService`
+                # is a class property, never a module import) -- one more
+                # attempt against the supplementary bridge set before
+                # giving up, available regardless of backend.
+                bridge_edge = bridge_targets.get(call_name)
+                if bridge_edge is not None:
+                    bridged_symbol = _symbol_from_edge(bridge_edge, files_by_path)
+                    if bridged_symbol is not None:
+                        symbol, reason = bridged_symbol, None
         if symbol is None:
             unresolved_calls.append({"call": call_name, "reason": reason or "not_found"})
             continue

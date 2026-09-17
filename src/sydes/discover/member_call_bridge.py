@@ -158,7 +158,6 @@ def bridge_member_call_edges(
         # Repo-wide indexes, built once per repo rather than per call site.
         classes_by_name: dict[str, list[dict[str, Any]]] = {}
         methods_by_class: dict[str, dict[str, list[dict[str, Any]]]] = {}
-        constructors: list[dict[str, Any]] = []
         callers: list[dict[str, Any]] = []
 
         for file_item in repo_payload.get("files") or []:
@@ -176,22 +175,37 @@ def bridge_member_call_edges(
                 elif symbol.get("kind") == "class_method":
                     parent = str(symbol.get("parent") or "")
                     name = str(symbol.get("name") or "")
+                    # The native TS/JS extractor deliberately never emits a
+                    # `constructor` symbol at all (handler_symbols/js_ts.py
+                    # excludes it by name) -- a constructor's parameter
+                    # properties are read below from the CLASS symbol's own
+                    # span instead (always present, always spans the
+                    # constructor along with everything else in the class
+                    # body), never from a `constructors` list that would
+                    # always be empty and silently disable this whole
+                    # bridge for every TS/JS repo, regardless of backend.
                     if name == "constructor":
-                        constructors.append(symbol)
-                    else:
-                        methods_by_class.setdefault(parent, {}).setdefault(name, []).append(symbol)
-                        callers.append(symbol)
+                        continue
+                    methods_by_class.setdefault(parent, {}).setdefault(name, []).append(symbol)
+                    callers.append(symbol)
 
-        for ctor in constructors:
-            ctor_source = _read_span(
-                root, str(ctor.get("file") or ""), ctor.get("start_line"), ctor.get("end_line"),
-            )
-            if not ctor_source:
+        for class_name, class_symbols in classes_by_name.items():
+            class_symbol = class_symbols[0] if len(class_symbols) == 1 else None
+            if class_symbol is None:
+                # More than one class with this name (across files) is the
+                # same "don't guess" rule this bridge applies everywhere
+                # else -- which concrete class's constructor to read is
+                # itself ambiguous.
                 continue
-            fields = _parameter_property_fields(ctor_source)
+            class_source = _read_span(
+                root, str(class_symbol.get("file") or ""),
+                class_symbol.get("start_line"), class_symbol.get("end_line"),
+            )
+            if not class_source:
+                continue
+            fields = _parameter_property_fields(class_source)
             if not fields:
                 continue
-            class_name = str(ctor.get("parent") or "")
             for caller in callers:
                 if str(caller.get("parent") or "") != class_name:
                     continue

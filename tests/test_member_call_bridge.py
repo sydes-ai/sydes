@@ -354,3 +354,49 @@ def test_bridged_edge_uses_canonical_qualified_name_when_the_target_symbol_has_o
 
     assert len(bridged) == 1
     assert bridged[0]["callee_qualified_name"] == "project.service.PetService.PetService.create"
+
+
+def test_bridges_correctly_when_the_symbol_index_has_no_separate_constructor_symbol(
+    tmp_path: Path,
+) -> None:
+    """Regression test for the real root cause of a confirmed 0/N structural
+    resolution failure on sydes-examples/express-typescript-boilerplate#1:
+    every OTHER test in this file builds its fixture with an explicit
+    `{"name": "constructor", "kind": "class_method", ...}` symbol -- but the
+    real native TS/JS extractor (`handler_symbols/js_ts.py`) deliberately
+    never emits one (`method_match.group("name") != "constructor"` excludes
+    it), so `constructors` (the list this function used to build from
+    exactly those symbols) was ALWAYS empty against real extractor output,
+    silently disabling this entire bridge for every TS/JS repository
+    regardless of backend. Reproduced 20 times against the SAME symbol
+    index dict to rule out incidental order/reuse effects -- structural
+    resolution must be fully deterministic, not merely "usually works".
+
+    This fixture is deliberately generic (an arbitrary controller/service
+    shape: a class holds a typed, constructor-injected property, calls
+    `this.<field>.<method>(...)`, the property's declared type defines that
+    method) -- not specific to Express or routing-controllers."""
+    caller = _class_file(
+        "OrderController", "private orderService: OrderService",
+        {"submit": "return this.orderService.submit(order);"},
+    )
+    callee = _class_file("OrderService", "", {"submit": "return order;"})
+    symbol_index = _write_symbol_index(tmp_path, {
+        "controller/OrderController.ts": caller,
+        "service/OrderService.ts": callee,
+    })
+    # The real extractor's own behavior: no constructor symbol at all, only
+    # the class and its non-constructor methods.
+    for file_item in symbol_index["repos"][0]["files"]:
+        file_item["symbols"] = [s for s in file_item["symbols"] if s["name"] != "constructor"]
+
+    for _ in range(20):
+        bridged = bridge_member_call_edges(symbol_index, [])
+        assert len(bridged) == 1, bridged
+        edge = bridged[0]
+        assert edge["caller_file"] == "controller/OrderController.ts"
+        assert edge["caller_symbol"] == "submit"
+        assert edge["callee_file"] == "service/OrderService.ts"
+        assert edge["callee_symbol"] == "submit"
+        assert edge["bridge_receiver"] == "orderService"
+        assert edge["bridge_receiver_type"] == "OrderService"
