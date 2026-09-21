@@ -8,7 +8,83 @@ Sydes follows backend changes beyond the diff across services, APIs, libraries, 
 
 ## Quick start
 
-Sydes is published on PyPI. Its runtime dependencies — including `codebase-memory-mcp` — are installed with it.
+The fastest way to use Sydes is as a GitHub Action on your pull requests — no local install required. Prefer running it from your own terminal first? Skip ahead to [Using the CLI](#using-the-cli).
+
+### 1. Add the Sydes workflow
+
+Create `.github/workflows/sydes.yml`:
+
+```yaml
+name: Sydes
+
+on:
+  pull_request:
+    branches: [ "main" ]   # or your default branch
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  sydes:
+    uses: sydes-examples/sydes-action/.github/workflows/verify.yml@v1
+    with:
+      repo_alias: app
+    secrets:
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+```
+
+That's the whole workflow. It's a thin call into [sydes-examples/sydes-action](https://github.com/sydes-examples/sydes-action), a reusable, versioned workflow (`@v1`) maintained alongside Sydes itself — it installs the latest stable Sydes release, runs `verify-change`, and handles the PR comment, job summary, and result artifact for you. This is the same workflow file Sydes's own example repositories use in production.
+
+### 2. Add your model key
+
+**Repository → Settings → Secrets and variables → Actions → New repository secret**, named `OPENAI_API_KEY`.
+
+Sydes also supports Anthropic and local Ollama models — pass `model: anthropic:claude-...` (or similar) under `with:` and add the matching secret. See [Model providers](#model-providers) for the full list and how they map when running the CLI directly.
+
+### 3. Open a pull request
+
+Sydes posts a single, persistent comment on the PR (updated in place on every rerun, never duplicated) summarizing what changed, what it may affect, what test evidence exists, what's still unknown, and an AI code-review pass. The same content is also written to the Actions job summary, and the full JSON result is uploaded as a build artifact.
+
+### The check reports execution, not the verdict
+
+The GitHub check (`Sydes verify-change`) passing means **Sydes ran successfully** — it says nothing about whether the change is fully verified. A `VERIFICATION INCOMPLETE` verdict alongside a green check is the expected, common case, not a contradiction: `verify-change` exits non-zero only on a real error (a git problem, a backend failure, a bad `--repo` value), never because of what the verdict says. Read the verdict from the PR comment, the job summary, or the uploaded JSON artifact (`summary.verdict`).
+
+### Why tests aren't executed by default
+
+Sydes should not try to recreate an arbitrary repository's CI environment. Your existing CI already knows how to provision dependencies, databases, queues, secrets, and services — so the reusable workflow leaves `run_tests` off by default and uses Sydes for **impact analysis** only. Pass `run_tests: true` under `with:` once your job's environment can actually install and run the repository's own tests.
+
+The intended split is:
+
+```text
+Sydes
+  → what changed?
+  → what else could it affect?
+  → what is structurally established?
+  → what does AI infer?
+  → what still lacks verification evidence?
+
+Your CI
+  → runs the repository's real tests in its real environment
+```
+
+### PR comments and job summaries
+
+This comes built in — the reusable workflow renders `sydes-result.json` to Markdown, posts it as a PR comment upserted by a hidden marker (`<!-- sydes-verification-comment -->`) so reruns update the same comment instead of piling up duplicates, and writes the same content to the job summary. Nothing to build yourself.
+
+The renderer and the frozen presentation contract it implements live in [sydes-examples/sydes-action](https://github.com/sydes-examples/sydes-action) (see its `CONTRACT.md` and `scripts/render_sydes_pr.py`) if you want to build your own renderer against the same `ChangeVerificationResult` JSON schema instead.
+
+### A note on external-fork pull requests
+
+The workflow above assumes same-repository PRs. A `pull_request` triggered by a PR from an external fork runs with a **read-only** token, so the PR-comment step will fail there — expected, not a bug.
+
+Do not reach for `pull_request_target` to work around this without care: it runs with the base repository's permissions against the fork's (untrusted) code, and needs a deliberate secure design — typically, running the untrusted analysis in one permission-less job and only posting the comment from a separate, trusted job that never checks out or executes fork code. That split is not provided here.
+
+---
+
+## Using the CLI
+
+Prefer running Sydes locally, or building your own integration instead of the GitHub Action above? Sydes is also a standalone CLI, published on PyPI. Its runtime dependencies — including `codebase-memory-mcp` — are installed with it.
 
 ### 1. Install Sydes
 
@@ -87,120 +163,6 @@ The important labels are:
 
 ---
 
-## Run Sydes on every pull request
-
-Sydes is non-interactive, so it can run directly in GitHub Actions.
-
-Create `.github/workflows/sydes.yml`:
-
-```yaml
-name: Sydes
-
-on:
-  pull_request:
-    branches: [ "main" ]   # match your default branch
-
-permissions:
-  contents: read
-  pull-requests: write   # only needed to post/update the PR comment below
-
-jobs:
-  verify-change:
-    runs-on: ubuntu-24.04
-
-    steps:
-      # Sydes resolves the change with `git merge-base <base> HEAD`, so both
-      # the PR head and the PR base commit must be present locally.
-      - name: Check out PR head
-        uses: actions/checkout@v5
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
-          fetch-depth: 0
-
-      - name: Set up Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: "3.12"
-
-      - name: Install Sydes
-        run: |
-          python -m pip install "sydes==0.2.0b2"
-
-      - name: Run Sydes verify-change
-        env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          # The impact guide needs the Codebase Memory backend. The default
-          # backend is `native`, which would silently skip semantic
-          # inference if this were left unset.
-          SYDES_CODE_INTELLIGENCE: cbm
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
-        run: |
-          sydes verify-change \
-            --base "$BASE_SHA" \
-            --repo app=. \
-            --llm-policy auto \
-            --impact-guide auto \
-            --code-review \
-            --model openai:gpt-4.1-mini \
-            --no-run-tests \
-            --json sydes-result.json
-
-      - name: Upload Sydes result
-        if: always()
-        uses: actions/upload-artifact@v5
-        with:
-          name: sydes-result
-          path: sydes-result.json
-```
-
-Then add your model key once:
-
-**Repository → Settings → Secrets and variables → Actions → New repository secret**, named `OPENAI_API_KEY`.
-
-This is the minimal integration: it runs the analysis and uploads the JSON result as a build artifact. It does not post a PR comment or write a job summary — see [PR comments and job summaries](#pr-comments-and-job-summaries) to add those.
-
-### The check reports execution, not the verdict
-
-The GitHub check above (`verify-change`) passing means **Sydes ran successfully** — it says nothing about whether the change is fully verified. A `VERIFICATION INCOMPLETE` verdict alongside a green check is the expected, common case, not a contradiction: `verify-change` exits non-zero only on a real error (a git problem, a backend failure, a bad `--repo` value), never because of what the verdict says. Read the verdict from the uploaded JSON (`summary.verdict`) or, if you add the presentation layer below, from the PR comment.
-
-### Why `--no-run-tests` in the example?
-
-Sydes should not try to recreate an arbitrary repository's CI environment. Your existing CI already knows how to provision dependencies, databases, queues, secrets, and services.
-
-The workflow above uses Sydes for **impact analysis** and leaves real test execution to your existing CI.
-
-The intended split is:
-
-```text
-Sydes
-  → what changed?
-  → what else could it affect?
-  → what is structurally established?
-  → what does AI infer?
-  → what still lacks verification evidence?
-
-Your CI
-  → runs the repository's real tests in its real environment
-```
-
-### PR comments and job summaries
-
-The example above only uploads a JSON artifact. To also get a persistent, human-readable PR comment and a populated Actions job summary, render `sydes-result.json` to Markdown and post it yourself — add a step after `verify-change` that:
-
-1. runs a renderer script against `sydes-result.json` to produce a Markdown file,
-2. appends that Markdown to `$GITHUB_STEP_SUMMARY`,
-3. lists existing PR comments via the GitHub API, finds one containing a hidden marker comment (e.g. `<!-- sydes-verification-comment -->`), and updates it if found or creates it if not — so reruns update the same comment instead of piling up duplicates.
-
-Sydes does not ship this renderer today; the JSON schema (`ChangeVerificationResult`) is stable and documented enough to build one against. For a complete, working reference — a renderer script, the full workflow wiring, and a reusable `workflow_call` version of it — see [sydes-examples/.github](https://github.com/sydes-examples/.github), used by Sydes's own public example repositories (e.g. [sydes-examples/Kokoro-FastAPI](https://github.com/sydes-examples/Kokoro-FastAPI)). It is a demo scaffold, not a published/versioned dependency, so treat it as a reference to copy from rather than something to depend on directly in your own repository today.
-
-### A note on external-fork pull requests
-
-The workflow above assumes same-repository PRs. A `pull_request` triggered by a PR from an external fork runs with a **read-only** token, so a step that tries to post a PR comment will fail there — expected, not a bug.
-
-Do not reach for `pull_request_target` to work around this without care: it runs with the base repository's permissions against the fork's (untrusted) code, and needs a deliberate secure design — typically, running the untrusted analysis in one permission-less job and only posting the comment from a separate, trusted job that never checks out or executes fork code. That split is not provided here.
-
----
-
 ## What Sydes does
 
 Sydes starts from a code change and asks:
@@ -254,7 +216,7 @@ Full results, per-language breakdown, and methodology: [manual-v1-public-summary
 
 **This is a manual calibration suite, not an independent benchmark evaluation.**
 
-A note on reading these results: `Pass` above is a *calibration* label meaning Sydes recovered the expected structural path and test evidence for that preregistered case. It is a different axis from the `VERIFICATION INCOMPLETE` verdict you'll see on your own real changes — that verdict commonly appears even on a `Pass` case, because it simply means tests were mapped but not executed (e.g. `--no-run-tests`, the recommended CI mode — see [Why `--no-run-tests`](#why---no-run-tests-in-the-example)). The two labels are not in tension: one describes whether Sydes found what it was calibrated to find, the other describes whether your specific run executed enough evidence to call the change fully verified.
+A note on reading these results: `Pass` above is a *calibration* label meaning Sydes recovered the expected structural path and test evidence for that preregistered case. It is a different axis from the `VERIFICATION INCOMPLETE` verdict you'll see on your own real changes — that verdict commonly appears even on a `Pass` case, because it simply means tests were mapped but not executed (e.g. `--no-run-tests`, the recommended CI mode — see [Why tests aren't executed by default](#why-tests-arent-executed-by-default)). The two labels are not in tension: one describes whether Sydes found what it was calibrated to find, the other describes whether your specific run executed enough evidence to call the change fully verified.
 
 ### Showcase examples
 
