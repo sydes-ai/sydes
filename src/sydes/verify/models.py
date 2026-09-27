@@ -303,6 +303,29 @@ class ChangeSummary(BaseModel):
     risk_reasons: list[str] = Field(default_factory=list)
 
 
+#: Shared severity vocabulary across every LLM-produced finding type
+#: (`CodeFinding.severity` and `SemanticRisk.severity`) -- P0/P1 read as a
+#: material, blocking-worthy defect; P2/P3 as a lower-priority or
+#: informational observation. Kept in one place so a renderer deciding
+#: "does ANY finding warrant blocking" treats both finding types the same
+#: way, rather than only ever looking at `CodeFinding`.
+SEVERITIES = {"P0", "P1", "P2", "P3"}
+#: Conservative fallback for an unrecognized severity, matching
+#: `CodeFinding`'s own established convention: a model that could not name
+#: a severity has not earned a reviewer's urgent attention, so silently
+#: promoting it to something higher would be the wrong direction to guess
+#: in.
+DEFAULT_SEVERITY = "P3"
+
+
+def normalize_severity(raw: str | None) -> str:
+    """Normalize a raw, possibly-invalid LLM-supplied severity string to
+    one of `SEVERITIES`, falling back to `DEFAULT_SEVERITY` for anything
+    unrecognized."""
+    value = str(raw or "").strip().upper()
+    return value if value in SEVERITIES else DEFAULT_SEVERITY
+
+
 class CodeFinding(BaseModel):
     """Code-level semantic finding about the diff itself."""
 
@@ -683,6 +706,15 @@ class SemanticRisk(BaseModel):
     is about visible provenance, not suppression."""
 
     description: str
+    #: Same vocabulary and meaning as `CodeFinding.severity` (see
+    #: `SEVERITIES`/`normalize_severity`) -- added so a material,
+    #: blocking-worthy risk surfaced by this pass (e.g. a genuine
+    #: correctness/data-integrity defect) is not architecturally invisible
+    #: to a renderer's blocking-vs-non-blocking decision just because it
+    #: arrived via `local_risks` instead of `code_findings`. Defaults to
+    #: the same conservative P3 fallback as an unrecognized `CodeFinding`
+    #: severity.
+    severity: Literal["P0", "P1", "P2", "P3"] = "P3"
     citations: list[SemanticCitation] = Field(default_factory=list)
     citations_verified: int = 0
     citation_notes: list[str] = Field(default_factory=list)

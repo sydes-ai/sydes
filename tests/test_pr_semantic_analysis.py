@@ -194,6 +194,43 @@ def test_confidence_is_clamped_into_zero_to_one() -> None:
 
 
 # --------------------------------------------------------------------------
+# local_risks severity (sydes-examples/demo-orders-api#5): a material,
+# blocking-worthy risk arrived only via `local_risks`, not `code_findings`,
+# so the render layer's blocking decision (which only read `code_findings`)
+# never saw it. `local_risks` now carries the same P0-P3 severity scale.
+# --------------------------------------------------------------------------
+
+
+def test_local_risk_severity_is_parsed_and_normalized() -> None:
+    raw = {"local_risks": [{"description": "concurrent requests could both pass the same check", "severity": "P1"}]}
+    analysis = parse_semantic_analysis(raw)
+    assert analysis.local_risks[0].severity == "P1"
+
+
+def test_local_risk_with_invalid_severity_falls_back_to_p3() -> None:
+    raw = {"local_risks": [{"description": "x", "severity": "URGENT"}]}
+    analysis = parse_semantic_analysis(raw)
+    assert analysis.local_risks[0].severity == "P3"
+
+
+def test_local_risk_with_no_severity_at_all_defaults_to_p3_not_dropped() -> None:
+    """A pre-severity result (or a model that ignores the schema update)
+    must not lose the risk entirely -- same conservative-default
+    philosophy as an unrecognized severity."""
+    raw = {"local_risks": [{"description": "x"}]}
+    analysis = parse_semantic_analysis(raw)
+    assert len(analysis.local_risks) == 1
+    assert analysis.local_risks[0].severity == "P3"
+
+
+def test_bare_string_local_risk_still_parses_with_default_severity() -> None:
+    raw = {"local_risks": ["a bare string risk, no object shape at all"]}
+    analysis = parse_semantic_analysis(raw)
+    assert len(analysis.local_risks) == 1
+    assert analysis.local_risks[0].severity == "P3"
+
+
+# --------------------------------------------------------------------------
 # 3. Hypothesis isolation — critical regression test
 # --------------------------------------------------------------------------
 

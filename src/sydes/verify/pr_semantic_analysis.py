@@ -62,6 +62,7 @@ from sydes.verify.models import (
     SemanticInvestigationHint,
     SemanticKeySymbol,
     SemanticRisk,
+    normalize_severity,
 )
 
 MAX_DIFF_CHARS = 12_000
@@ -178,6 +179,13 @@ _SEMANTIC_ANALYSIS_HEADER = (
     "of being a fabrication as a behavior_changes entry — never invent one because a "
     "change 'feels risky'; only report a risk you can trace to something you were "
     "actually shown.\n"
+    "- Every entry in `local_risks` must also carry a `severity` of `P0`, `P1`, `P2`, or "
+    "`P3` (same scale a code-review finding would use): P0/P1 for a plausible, material "
+    "correctness or data-integrity defect a reviewer should treat as blocking — the kind "
+    "that changes what is actually stored, returned, or enforced, not merely worth a "
+    "second look; P2/P3 for a lower-priority or purely informational observation "
+    "(a design note, a boundary worth documenting, a nice-to-have). Judge the risk on "
+    "its own merits, not on how many other risks you have already listed.\n"
     "- `likely_boundary_types` (both per-hint and overall) may ONLY contain values from "
     "this fixed set: api, callable, async, external, unknown — nothing else, and it is a "
     "hint for later investigation, not a discovery.\n"
@@ -221,7 +229,8 @@ _SEMANTIC_ANALYSIS_HEADER = (
     '"investigation_hints":[{"description":"...","related_symbols":["..."],"concepts":["..."],'
     '"likely_boundary_types":["..."]}],'
     '"likely_boundary_types":["..."],'
-    '"local_risks":[{"description":"...","citations":[{"file":"...","line":0,"quoted_text":"..."}]}],'
+    '"local_risks":[{"description":"...","severity":"P0|P1|P2|P3",'
+    '"citations":[{"file":"...","line":0,"quoted_text":"..."}]}],'
     '"uncertainties":["..."],'
     '"indeterminate":{"is_indeterminate":false,"reason":null,"detail":"..."}}'
 )
@@ -323,7 +332,8 @@ def _parse_risk(raw: Any) -> SemanticRisk | None:
             _parse_citation(entry) for entry in raw_citations or []
         ) if item is not None
     ] if isinstance(raw_citations, list) else []
-    return SemanticRisk(description=description[:400], citations=citations)
+    severity = normalize_severity(raw.get("severity"))
+    return SemanticRisk(description=description[:400], severity=severity, citations=citations)
 
 
 def _parse_key_symbol(raw: Any) -> SemanticKeySymbol | None:
