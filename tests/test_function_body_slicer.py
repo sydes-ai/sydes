@@ -166,6 +166,40 @@ def test_detects_branch_and_response_return(tmp_path: Path) -> None:
     assert any("response_return" in stmt["signals"] for stmt in payload["statements"])
 
 
+def test_raise_of_an_http_status_is_a_rejection_branch_with_no_if_needed(tmp_path: Path) -> None:
+    """Real bug found on a live PR (`sydes-examples/demo-orders-api#5`): a
+    Python `except` clause that translates a caught domain error into
+    `raise HTTPException(status_code=400, ...)` has no `if` anywhere in that
+    statement, so it fell through to the generic "statement"/"transform"
+    kind and was invisible to obligation derivation, which only looks at
+    "validation_branch"-kind steps. The status code itself is the signal
+    that this is a rejection branch, independent of `if`."""
+    _write(
+        tmp_path / "app/main.py",
+        "\n".join(
+            [
+                "def create_order(order):",
+                "    try:",
+                "        return create_order_service(order)",
+                "    except InsufficientStockError as exc:",
+                '        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Insufficient stock") from exc',
+            ]
+        ),
+    )
+    payload = slice_resolved_handler_body(
+        repo_root=tmp_path,
+        handler_name="create_order",
+        symbol={"file": "app/main.py", "line": 1, "start_line": 1, "end_line": 5, "kind": "function"},
+        language="python",
+    )
+    assert payload is not None
+    raise_stmt = next(
+        s for s in payload["statements"] if s["text"].startswith("raise HTTPException")
+    )
+    assert "rejection_raise" in raise_stmt["signals"]
+    assert raise_stmt["kind_hint"] == "branch"
+
+
 def test_filters_logging_only_lines(tmp_path: Path) -> None:
     _write(
         tmp_path / "src/controllers/a.ts",

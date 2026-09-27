@@ -29,6 +29,7 @@ from sydes.verify.models import (
     ORIGIN_TRACE_SINK,
     ORIGIN_TRACE_STEP,
     AffectedFlow,
+    Hunk,
     VerificationObligation,
 )
 
@@ -72,10 +73,37 @@ def _changed_lines(changed_symbols: list[Any]) -> list[tuple[str, int, int]]:
 def _touches_change(
     file: str | None, line: int | None, spans: list[tuple[str, int, int]]
 ) -> bool:
-    """True when a source location falls inside a changed symbol."""
+    """True when a source location falls inside a changed symbol.
+
+    Whole-*symbol* span, not the diff hunk itself -- a changed symbol's
+    `start_line`/`end_line` cover its entire declared body, so this is
+    coarser than `_hunk_overlap` below and can't tell a line the diff
+    actually touched from an untouched sibling line elsewhere in the same
+    function. Kept as the fallback for when hunk data isn't available."""
     if not file or line is None:
         return False
     return any(path == file and start <= line <= end for path, start, end in spans)
+
+
+def _hunk_overlap(
+    file: str | None, line: int | None, hunks_by_file: dict[str, list[Hunk]] | None
+) -> bool | None:
+    """Precise diff-hunk line overlap for a source location: `True`/`False`
+    when hunk data exists for `file`, or `None` when it doesn't (no
+    `changed_file_hunks` passed, or that file has no parsed hunks) -- the
+    caller falls back to the coarser `_touches_change` in that case, never
+    silently treating "no hunk data" as "not introduced".
+
+    This is what tells a genuinely new branch (its own line inside a diff
+    hunk) apart from a pre-existing sibling branch that merely lives in a
+    function the diff also touched elsewhere (`_touches_change` alone
+    cannot make that distinction -- see its docstring)."""
+    if not file or line is None or not hunks_by_file:
+        return None
+    hunks = hunks_by_file.get(file)
+    if not hunks:
+        return None
+    return any(hunk.start_line <= line <= hunk.end_line for hunk in hunks)
 
 
 def _changed_symbol_keys(changed_symbols: list[Any]) -> set[tuple[str, str]]:
@@ -205,6 +233,7 @@ def _trace_obligations(
     *,
     symbol_keys: set[tuple[str, str]],
     changed_files: set[str],
+    changed_file_hunks: dict[str, list[Hunk]] | None = None,
 ) -> list[VerificationObligation]:
     """Obligations for observable downstream effects the trace actually found."""
     obligations: list[VerificationObligation] = []
@@ -223,6 +252,12 @@ def _trace_obligations(
             kind = OBLIGATION_STATE_CONSISTENCY if action in {"write", "publish"} else OBLIGATION_SIDE_EFFECT
             verb = action or "accessed"
         material = _sink_is_materially_affected(sink, spans, symbol_keys, changed_files)
+        hunk_introduced = _hunk_overlap(sink.get("file"), sink.get("line"), changed_file_hunks)
+        introduced = (
+            hunk_introduced
+            if hunk_introduced is not None
+            else _touches_change(sink.get("file"), sink.get("line"), spans)
+        )
         counter[0] += 1
         obligations.append(
             VerificationObligation(
@@ -239,9 +274,7 @@ def _trace_obligations(
                     else "Downstream of the change; the diff does not modify this "
                     "effect or the path producing it"
                 ),
-                introduced_by_change=_touches_change(
-                    sink.get("file"), sink.get("line"), spans
-                ),
+                introduced_by_change=introduced,
                 evidence=[
                     EvidenceRef(
                         file=str(sink.get("file") or ""),
@@ -254,7 +287,12 @@ def _trace_obligations(
         )
 
     # A validation branch inside a changed symbol is the clearest example of an
-    # obligation the diff introduced, so it is attributed precisely.
+    # obligation the diff introduced, so it is attributed precisely -- via
+    # exact diff-hunk line overlap when hunk data exists for this step's
+    # file (see `_hunk_overlap`), which tells a genuinely new branch apart
+    # from a pre-existing sibling one living in the same changed symbol;
+    # falls back to the coarser whole-symbol `_touches_change` only when no
+    # hunk data is available at all.
     for position, step in enumerate(flow.steps):
         step_kind = str(step.get("kind") or "")
         if step_kind not in _VALIDATION_STEP_KINDS:
@@ -263,7 +301,10 @@ def _trace_obligations(
         if not detail:
             continue
         line = step.get("line_start") or step.get("line")
-        introduced = _touches_change(step.get("file"), line, spans)
+        hunk_introduced = _hunk_overlap(step.get("file"), line, changed_file_hunks)
+        introduced = (
+            hunk_introduced if hunk_introduced is not None else _touches_change(step.get("file"), line, spans)
+        )
         status_code = _rejection_status_after(flow.steps, position)
         statement = f"{flow.entry_label} enforces `{detail}`"
         if status_code:
@@ -315,8 +356,16 @@ def _trace_obligations(
 
 
 def _rejection_status_after(steps: list[dict[str, Any]], position: int) -> str | None:
-    """Find the rejection status a validation branch produces, if it declares one."""
-    for step in steps[position + 1 : position + 4]:
+    """Find the rejection status a validation branch produces, if it declares one.
+
+    Checks the branch step itself first: a `raise`/`throw` that already names
+    its own 4xx status (e.g. `raise HTTPException(status_code=400, ...)`) is
+    now recognized as a validation branch in its own right (see
+    `trace/function_body_slicer.py`'s `rejection_raise` signal), so peeking
+    only at the *following* steps would walk past its own status into an
+    unrelated later branch (e.g. a sibling `except` clause's own rejection).
+    """
+    for step in steps[position : position + 4]:
         text = " ".join(
             str(step.get(key) or "")
             for key in ("detail", "name", "snippet")
@@ -386,6 +435,7 @@ def derive_obligations(
     test_matrix: TestMatrix | None,
     changed_symbols: list[Any],
     changed_files: set[str] | None = None,
+    changed_file_hunks: dict[str, list[Hunk]] | None = None,
 ) -> list[VerificationObligation]:
     """Derive every obligation for one affected flow from existing evidence."""
     counter = [0]
@@ -400,16 +450,27 @@ def derive_obligations(
             counter,
             symbol_keys=_changed_symbol_keys(changed_symbols),
             changed_files=set(changed_files or ()),
+            changed_file_hunks=changed_file_hunks,
         ),
     ]
     obligations = _dedupe(obligations)
 
     # A flow whose handler the diff changed puts every obligation about that
-    # flow in scope; obligations already attributed to a precise changed line
-    # keep that stronger attribution.
-    handler_changed = any(
-        path == flow.artifact_refs.get("handler_file") for path, _start, _end in spans
-    )
+    # flow in scope -- but only as a fallback. Real bug this replaced: a
+    # pre-existing, untouched validation branch (e.g. an old `except
+    # UnknownSkuError` block) sitting in the same handler as a genuinely new
+    # one was getting promoted to `introduced_by_change=True` right along
+    # with it, because `handler_changed` is file-level, not line-level (see
+    # `sydes-examples/demo-orders-api#5`).
+    handler_file = flow.artifact_refs.get("handler_file")
+    handler_changed = any(path == handler_file for path, _start, _end in spans)
+    # Whether we have the *means* to check precisely for this flow's handler
+    # file at all -- not whether any one obligation happens to have its own
+    # line. Real hunk data existing for the file is what makes "no
+    # attributable line" a meaningful negative signal for a synthesized
+    # obligation (see below) instead of an absence of information.
+    handler_hunks_known = bool(changed_file_hunks and changed_file_hunks.get(handler_file or ""))
+
     for obligation in obligations:
         if obligation.origin == ORIGIN_TEST_MATRIX:
             # The test matrix was built to suggest broad coverage, not to state
@@ -420,10 +481,25 @@ def derive_obligations(
             obligation.required = False
             obligation.introduced_by_change = False
             continue
-        if handler_changed and obligation.kind in {
-            OBLIGATION_ROUTE_CONTRACT,
-            OBLIGATION_VALIDATION,
-        }:
+        if obligation.kind not in {OBLIGATION_ROUTE_CONTRACT, OBLIGATION_VALIDATION}:
+            continue
+        if obligation.origin in {ORIGIN_TRACE_STEP, ORIGIN_TRACE_SINK}:
+            # `_trace_obligations` already gave this a precise, per-line
+            # attribution -- hunk overlap when hunk data existed for its own
+            # file, the coarser whole-symbol `_touches_change` only when it
+            # didn't. Never let the blanket handler-level fallback override
+            # either outcome; that would either duplicate a correct `True`
+            # or silently flip a correct `False` back to `True`.
+            continue
+        if handler_hunks_known:
+            # Hunk data exists for the handler's file, so we have the means
+            # to check precisely -- a synthesized obligation with no
+            # attributable line of its own (e.g. a route's default-response
+            # contract skeleton) gets no positive evidence either way, so it
+            # does not default to "introduced" just because something else
+            # in the file changed.
+            continue
+        if handler_changed:
             obligation.introduced_by_change = True
 
     return sorted(obligations, key=lambda item: (not item.introduced_by_change, item.kind, item.statement))

@@ -120,6 +120,7 @@ from sydes.verify.models import (
     VerificationObligation,
 )
 from sydes.verify.boundary_reasoning import infer_boundaries
+from sydes.verify.mutation import run_mutation_verification
 from sydes.verify.obligations import compute_canonical_id, derive_obligations
 from sydes.verify.pr_semantic_analysis import generate_pr_semantic_analysis
 from sydes.verify.repo_profile import get_or_build_repo_profile
@@ -183,6 +184,13 @@ class VerifyChangeOptions:
     #: inputs are unchanged) restores that result instead of re-running the
     #: test suite; every other case runs the suite exactly as today.
     persist_system_model: bool = False
+    #: Phase 1 of the test-understanding capability evaluation
+    #: (2026-09-26): targeted comparator-boundary mutation verification
+    #: (see `sydes.verify.mutation`). Off by default -- no existing
+    #: behavior changes unless explicitly opted in, and even then it only
+    #: runs when `run_tests` is also on (it needs to execute a test to
+    #: mean anything).
+    mutation_verify: bool = False
     diagnostics: list[str] = field(default_factory=list)
 
 
@@ -2395,6 +2403,7 @@ def analyze_change(
             test_matrix=matrix,
             changed_symbols=change.symbols,
             changed_files=changed_files,
+            changed_file_hunks=changed_file_hunks,
         )
         for obligation in flow.obligations:
             evidence, supporting, route_notes = map_tests_to_obligation(
@@ -2443,6 +2452,14 @@ def analyze_change(
         result, options, repo_files, primary_root, changed_files,
         system_model_store=system_model_store, repos=normalized_repos,
     )
+    if options.mutation_verify and options.run_tests:
+        run_mutation_verification(
+            result,
+            repo_root=primary_root,
+            repo_files=repo_files,
+            changed_file_hunks=changed_file_hunks,
+            settings=ExecutionSettings(enabled=True, timeout_seconds=options.test_timeout_seconds),
+        )
 
     for flow in result.affected_flows:
         resolve_flow_status(flow)

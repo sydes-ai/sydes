@@ -5,6 +5,17 @@ from __future__ import annotations
 from pathlib import Path
 import re
 
+# Mirrors verify/obligations.py's _STATUS_LITERAL_RE (kept independent rather
+# than imported: this module classifies raw statement text before any
+# obligation exists, and the two regexes serve different, only coincidentally
+# similar purposes). A `raise`/`throw` naming a 4xx status is a rejection
+# branch even with no `if` in the same statement -- the common "catch a
+# domain error, translate it to an HTTP 4xx" idiom (a Python `except:` block,
+# or a TS/Java/Go/Rust `catch`) guards with a separate clause header, not an
+# inline condition, so the inline `if (...)`/`if ...:` check below never
+# fires for it and it was falling through to the generic "transform" kind.
+_REJECTION_RAISE_RE = re.compile(r"\b(?:raise|throw)\b.*\b(?:http_)?4\d\d(?:_[a-z_]+)?\b")
+
 
 def _scan_block_end(lines: list[str], start_line: int) -> int | None:
     """Find matching block end line for a function/method starting at start_line."""
@@ -128,6 +139,8 @@ def _detect_signals(statement_text: str) -> list[str]:
         signals.append("response_return")
     if re.search(r"\bif\s*\(", text):
         signals.append("branch")
+    if _REJECTION_RAISE_RE.search(text):
+        signals.append("rejection_raise")
     if re.search(r"\bdata\.[a-z_]\w*\s*=", text):
         signals.append("response_transform")
     return sorted(set(signals))
@@ -136,6 +149,8 @@ def _detect_signals(statement_text: str) -> list[str]:
 def _kind_hint(statement_text: str, signals: list[str]) -> str:
     text = statement_text.strip().lower()
     if text.startswith("if "):
+        return "branch"
+    if "rejection_raise" in signals:
         return "branch"
     if "sql_literal" in signals:
         return "sql_literal_assignment"

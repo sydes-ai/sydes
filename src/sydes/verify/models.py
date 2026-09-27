@@ -371,6 +371,36 @@ class UnattachedEvidence(BaseModel):
     provenance: str = "ai_recovery"
 
 
+class MutationResult(BaseModel):
+    """One targeted, reverted comparator-boundary mutation check (see
+    `sydes.verify.mutation`) -- deliberately narrow: only a `>`/`>=`/`</`<=`
+    flip, on a line inside the diff's own hunks, for an
+    `introduced_by_change` validation obligation whose own mapped test
+    already passed unmutated. Never a general mutation-testing result.
+
+    `status` is one of:
+      - `mutation_killed`: the mapped test failed under the flipped
+        boundary -- strong, execution-grounded evidence the test protects
+        this exact boundary.
+      - `mutation_survived`: the mapped test still passed -- a possible
+        coverage gap at this exact boundary, NOT proof the behavior is
+        untested (see the module docstring's overclaiming caveats: the
+        mapped-test set may simply be incomplete, or execution may have
+        been silently degraded in a way that still exits zero).
+      - `execution_blocked`: the mutated run could not produce a clear
+        pass/fail (same blocker vocabulary as `TestExecution.blocker`) --
+        never treated as either of the above.
+    """
+
+    file: str
+    line: int
+    original_operator: str
+    mutated_operator: str
+    status: str
+    detail: str | None = None
+    mapped_test_id: str | None = None
+
+
 class TestExecution(BaseModel):
     """Result of actually running one mapped test.
 
@@ -472,6 +502,10 @@ class VerificationObligation(BaseModel):
     status: str = VERIFICATION_UNVERIFIED
     reason: str | None = None
     evidence: list[EvidenceRef] = Field(default_factory=list)
+    #: Set only when `--mutation-verify` is on and this obligation was
+    #: eligible (see `sydes.verify.mutation._eligible_obligations`). Absent
+    #: otherwise -- never a claim of "checked and found nothing".
+    mutation: MutationResult | None = None
 
 
 class AcceptedImpact(BaseModel):

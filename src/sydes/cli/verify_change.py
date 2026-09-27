@@ -208,6 +208,25 @@ def verify_change_command(
             ),
         ),
     ] = False,
+    mutation_verify: Annotated[
+        bool,
+        typer.Option(
+            "--mutation-verify",
+            help=(
+                "Targeted comparator-boundary mutation check (off by "
+                "default). For a validation obligation this run introduced "
+                "and already resolved as passed, flips a `>`/`>=`/`</`<=` "
+                "found on a line inside the diff's own hunks, reruns that "
+                "obligation's own mapped test against the mutated file, "
+                "then restores the original file. If the test still "
+                "passes, the boundary may be uncovered -- reported as "
+                "`mutation_survived`, never as proof it is untested. Only "
+                "runs when --no-run-tests is not set (it needs to execute "
+                "a test to mean anything); capped at 3 obligations per "
+                "run. See sydes.verify.mutation."
+            ),
+        ),
+    ] = False,
 ) -> None:
     """Analyze a change, run the tests that verify it, and report the evidence."""
     try:
@@ -228,6 +247,7 @@ def verify_change_command(
         test_timeout_seconds=test_timeout,
         impact_guide=impact_guide,
         persist_system_model=persist_system_model,
+        mutation_verify=mutation_verify,
     )
 
     try:
