@@ -360,3 +360,107 @@ def test_generic_go_case_hunk_precision_without_framework_special_casing() -> No
     by_detail = {o.statement.split("`")[1]: o for o in obligations if "`" in o.statement}
     assert by_detail["if !isAuthorized(user) { return ErrForbidden }"].introduced_by_change is False
     assert by_detail["if qty > stock { return ErrInsufficientStock }"].introduced_by_change is True
+
+
+# ---------------------------------------------------------------------------
+# Regression: a real bug only surfaced by testing on the actual PR with real
+# CBM-backed cross-function tracing (sydes-examples/demo-orders-api#5). A
+# followed call into the callee produced the comparator condition
+# (`if order.quantity > available_stock:`) as its own step, separate from
+# the exception-translation raise in the caller. Both were classified
+# `validation_branch`, so `_trace_obligations` created TWO obligations for
+# what is really one branch: the condition (no status of its own, and the
+# real status-bearing raise is in a different function this loop can't
+# resolve locally) and the raise (the real one, with `responds 400`). A
+# status-code-less obligation falls back to matching ANY 4xx-asserting test
+# as evidence (`test_mapping.map_tests_to_obligation`'s "no codes" path),
+# which wrongly attached `test_non_positive_quantity_is_rejected` (a 422, for
+# an unrelated pre-existing validation rule) to the stock-check obligation.
+# ---------------------------------------------------------------------------
+
+
+def test_bare_condition_with_no_resolvable_status_defers_to_the_real_raise() -> None:
+    """Cross-function case: the condition and its raise are in the callee,
+    with no status anywhere near either -- the actual status only exists in
+    a completely separate part of the flow (the caller's exception
+    translation). The bare condition must not become its own obligation."""
+    steps = [
+        {
+            "kind": "transform", "file": "app/main.py", "line_start": 35,
+            "detail": "except InsufficientStockError as exc:",
+        },
+        {
+            "kind": "validation_branch", "file": "app/main.py", "line_start": 36,
+            "detail": 'raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Insufficient stock") from exc',
+        },
+        {"kind": "service_call", "file": "app/service.py", "line_start": None, "detail": "create_order"},
+        {
+            "kind": "transform", "file": "app/service.py", "line_start": 21,
+            "detail": "available_stock = get_stock(order.sku)",
+        },
+        {
+            "kind": "validation_branch", "file": "app/service.py", "line_start": 22,
+            "detail": "if order.quantity > available_stock:",
+        },
+        {
+            "kind": "transform", "file": "app/service.py", "line_start": 23,
+            "detail": "raise InsufficientStockError(order.sku)",
+        },
+        {"kind": "response", "file": "app/service.py", "line_start": 25, "detail": "return repository.save_order(order)"},
+    ]
+    flow = AffectedFlow(
+        id="flow:POST:/orders", entry_label="POST /orders", steps=steps,
+        artifact_refs={"handler_file": "app/main.py"},
+    )
+    changed_symbols = [_symbol("app/main.py", 30, 37), _symbol("app/service.py", 20, 25)]
+    hunks = {
+        "app/main.py": [Hunk(start_line=35, end_line=36)],
+        "app/service.py": [Hunk(start_line=21, end_line=24)],
+    }
+
+    obligations = derive_obligations(
+        flow=flow, route_contract=None, test_matrix=None,
+        changed_symbols=changed_symbols, changed_files={"app/main.py", "app/service.py"},
+        changed_file_hunks=hunks,
+    )
+
+    validation_obligations = [o for o in obligations if o.kind == "validation"]
+    assert len(validation_obligations) == 1, validation_obligations
+    assert validation_obligations[0].statement.endswith("and responds 400")
+
+
+def test_bare_condition_with_a_nearby_status_keeps_stable_wording_not_the_raises_message() -> None:
+    """Same-function case: the condition and its raise ARE adjacent, and the
+    raise DOES carry its own status -- exactly one obligation should result,
+    built from the condition's stable wording (not the raise's message
+    text), so that changing only the error message doesn't change this
+    obligation's identity/statement."""
+    steps = [
+        {
+            "kind": "validation_branch", "file": "routers/students.py", "line_start": 8,
+            "detail": 'if not payload.get("name", "").strip():',
+        },
+        {
+            "kind": "validation_branch", "file": "routers/students.py", "line_start": 9,
+            "detail": 'raise HttpError(400, "Student name cannot be blank")',
+        },
+    ]
+    flow = AffectedFlow(
+        id="flow:POST:/students", entry_label="POST /students", steps=steps,
+        artifact_refs={"handler_file": "routers/students.py"},
+    )
+    changed_symbols = [_symbol("routers/students.py", 6, 10)]
+    hunks = {"routers/students.py": [Hunk(start_line=8, end_line=9)]}
+
+    obligations = derive_obligations(
+        flow=flow, route_contract=None, test_matrix=None,
+        changed_symbols=changed_symbols, changed_files={"routers/students.py"},
+        changed_file_hunks=hunks,
+    )
+
+    validation_obligations = [o for o in obligations if o.kind == "validation"]
+    assert len(validation_obligations) == 1, validation_obligations
+    ob = validation_obligations[0]
+    assert "Student name cannot be blank" not in ob.statement
+    assert "payload" in ob.statement
+    assert ob.statement.endswith("and responds 400")

@@ -52,6 +52,7 @@ _VALIDATION_STEP_KINDS = {"validation_branch"}
 # "rejects blank names with 400" and "rejects an empty name with 422" are
 # different obligations, and a test for one does not demonstrate the other.
 _STATUS_LITERAL_RE = re.compile(r"\b(?:HTTP_)?(?P<code>4\d\d)(?:_[A-Z_]+)?\b")
+_REJECTS_RE = re.compile(r"\b(?:raise|throw|return)\b")
 _WRITE_STEP_KINDS = {"database_write"}
 _READ_STEP_KINDS = {"database_read", "database_query"}
 _EXTERNAL_STEP_KINDS = {"external_call", "storage_call"}
@@ -293,19 +294,66 @@ def _trace_obligations(
     # from a pre-existing sibling one living in the same changed symbol;
     # falls back to the coarser whole-symbol `_touches_change` only when no
     # hunk data is available at all.
+    # A bare condition (`if quantity > stock:`) and the raise/throw it guards
+    # are one logical branch, not two -- but which of the pair an obligation
+    # should be built from depends on where the status code actually is.
+    # `consumed_step_ids` marks a raise already claimed by its own preceding
+    # condition (see below), so the loop never also builds a second,
+    # duplicate obligation from that same raise.
+    consumed_step_ids: set[int] = set()
     for position, step in enumerate(flow.steps):
         step_kind = str(step.get("kind") or "")
         if step_kind not in _VALIDATION_STEP_KINDS:
             continue
+        if id(step) in consumed_step_ids:
+            continue
         detail = str(step.get("detail") or step.get("name") or "").strip()
         if not detail:
             continue
+
+        # A step ending with an unclosed block-opener (`:` for a Python-style
+        # `if cond:`, `{` for a brace-language `if (cond) {`) is only the
+        # condition, with its rejection action on a later, separate step.
+        # Anything else -- including a one-line brace-language `if cond {
+        # return err }` -- already names its own rejection action in the
+        # same text and needs no pairing with a later step at all.
+        is_bare_condition = detail.rstrip().endswith((":", "{"))
+        status_code = _rejection_status_after(flow.steps, position)
+        if is_bare_condition:
+            if status_code is None:
+                # No status resolvable near this condition at all -- likely
+                # because the raise it guards carries no status of its own
+                # (a custom exception translated to an HTTP status only in a
+                # different function this flow's trace crossed into; see
+                # sydes-examples/demo-orders-api#5). Building an obligation
+                # here with no status would fall back to matching ANY
+                # 4xx-asserting test as evidence (the "no codes" path in
+                # `test_mapping.map_tests_to_obligation`), wrongly attaching
+                # an unrelated validation test to this one. Defer entirely:
+                # the eventual status-bearing raise, wherever it is, still
+                # produces its own obligation independently when this same
+                # loop reaches it.
+                continue
+            # A status IS resolvable nearby -- almost always because the
+            # very next step is this condition's own raise. Prefer the
+            # condition's wording over the raise's: a raise's message text
+            # can change (a team rewording an error message) without the
+            # validation rule itself changing, and an obligation identity
+            # keyed on volatile message text would wrongly look like a
+            # different obligation across such an edit. Claim that next
+            # step so the loop doesn't also build a second, duplicate
+            # obligation from it.
+            next_step = flow.steps[position + 1] if position + 1 < len(flow.steps) else None
+            if next_step is not None and _REJECTS_RE.search(
+                str(next_step.get("detail") or next_step.get("name") or "")
+            ):
+                consumed_step_ids.add(id(next_step))
+
         line = step.get("line_start") or step.get("line")
         hunk_introduced = _hunk_overlap(step.get("file"), line, changed_file_hunks)
         introduced = (
             hunk_introduced if hunk_introduced is not None else _touches_change(step.get("file"), line, spans)
         )
-        status_code = _rejection_status_after(flow.steps, position)
         statement = f"{flow.entry_label} enforces `{detail}`"
         if status_code:
             statement = f"{statement} and responds {status_code}"
