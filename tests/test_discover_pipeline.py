@@ -898,3 +898,62 @@ def test_merge_route_candidates_dedupes_direct_and_composed_same_identity() -> N
     assert len(merged) == 1
     assert merged[0].method == "POST"
     assert merged[0].path == "/api/v1/tasks"
+
+
+def test_merge_route_candidates_keeps_unrelated_composed_routes_distinct() -> None:
+    """Same method+path composed independently in different files/crates.
+
+    Regression for a live false-positive: a multi-example/multi-crate
+    repository (e.g. Rocket's `examples/`) can have several unrelated
+    services each register their own `DELETE /{id}`-shaped route. Because
+    composition produces exactly one `deterministic_composed` candidate per
+    raw declaration, two `deterministic_composed` candidates at the same
+    identity from different files must stay separate routes, not merge
+    their evidence into one arbitrarily-chosen "winner".
+    """
+    service_a = EndpointCandidate(
+        method="DELETE",
+        path="/{id}",
+        handler="delete",
+        file="examples/databases/src/diesel_mysql.rs",
+        repo="rocket",
+        status="deterministic_composed",
+        confidence=1.0,
+        evidence=[{"file": "examples/databases/src/diesel_mysql.rs", "label": "#[delete(\"/<id>\")]"}],
+    )
+    service_b = EndpointCandidate(
+        method="DELETE",
+        path="/{id}",
+        handler="delete",
+        file="examples/todo/src/main.rs",
+        repo="rocket",
+        status="deterministic_composed",
+        confidence=1.0,
+        evidence=[{"file": "examples/todo/src/main.rs", "label": "#[delete(\"/<id>\")]"}],
+    )
+    service_c = EndpointCandidate(
+        method="DELETE",
+        path="/{id}",
+        handler="delete",
+        file="examples/pastebin/src/main.rs",
+        repo="rocket",
+        status="deterministic_composed",
+        confidence=1.0,
+        evidence=[{"file": "examples/pastebin/src/main.rs", "label": "#[delete(\"/<id>\")]"}],
+    )
+
+    merged, _ = merge_route_candidates([service_a, service_b, service_c], [])
+
+    assert len(merged) == 3
+    files = {candidate.file for candidate in merged}
+    assert files == {
+        "examples/databases/src/diesel_mysql.rs",
+        "examples/todo/src/main.rs",
+        "examples/pastebin/src/main.rs",
+    }
+    for candidate in merged:
+        evidence_files = {ev.file for ev in candidate.evidence or []}
+        assert evidence_files == {candidate.file}, (
+            "each independent route must keep only its own evidence, "
+            "never another crate's"
+        )

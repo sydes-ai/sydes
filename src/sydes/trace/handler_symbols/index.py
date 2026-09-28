@@ -14,6 +14,7 @@ from sydes.ingest.file_roles import (
     classify_candidate_file_role,
 )
 from sydes.trace.handler_symbols.common import HandlerSymbolExtractor
+from sydes.trace.handler_symbols.java import JavaHandlerSymbolExtractor
 from sydes.trace.handler_symbols.js_ts import JsTsHandlerSymbolExtractor
 from sydes.trace.handler_symbols.python import PythonHandlerSymbolExtractor
 
@@ -21,8 +22,8 @@ _MAX_FILE_SIZE = 2_000_000
 
 
 def _extractor_registry() -> list[HandlerSymbolExtractor]:
-    # Future adapters can be added here (java/go/csharp/ruby/php/kotlin).
-    return [JsTsHandlerSymbolExtractor(), PythonHandlerSymbolExtractor()]
+    # Future adapters can be added here (go/csharp/ruby/php/kotlin).
+    return [JsTsHandlerSymbolExtractor(), PythonHandlerSymbolExtractor(), JavaHandlerSymbolExtractor()]
 
 
 def _extractor_by_extension() -> dict[str, HandlerSymbolExtractor]:

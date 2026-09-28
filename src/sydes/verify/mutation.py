@@ -97,6 +97,46 @@ def _mutated_file(
         path.write_text(original, encoding="utf-8")
 
 
+def _candidate_files_in_priority_order(
+    obligation: VerificationObligation, changed_file_hunks: dict[str, list[Hunk]]
+) -> list[tuple[str, str]]:
+    """Changed files to search for a mutable comparator, most-relevant first.
+
+    Returns `(file, location_basis)` pairs (see `MutationResult.location_basis`).
+    The obligation's own evidence is searched first. A validation's boundary
+    check and the exception it raises are commonly split across two files in
+    one module (e.g. a route handler that raises, and a service module that
+    holds the actual comparison) -- an unrelated changed file sharing a
+    directory with the evidence is checked next, before the broad,
+    unscoped "any other changed file in this diff" fallback this module
+    always had. This never asserts the chosen file is semantically related
+    to the obligation, only that it is the least-arbitrary of the files
+    actually available -- see `location_basis` on the result.
+    """
+    evidence_files: list[str] = []
+    seen: set[str] = set()
+    for ev in obligation.evidence:
+        if ev.file and ev.file in changed_file_hunks and ev.file not in seen:
+            evidence_files.append(ev.file)
+            seen.add(ev.file)
+
+    evidence_dirs = {str(Path(f).parent) for f in evidence_files}
+    same_dir = sorted(
+        file
+        for file in changed_file_hunks
+        if file not in seen and str(Path(file).parent) in evidence_dirs
+    )
+    seen.update(same_dir)
+
+    remaining = sorted(file for file in changed_file_hunks if file not in seen)
+
+    return (
+        [(file, "evidence") for file in evidence_files]
+        + [(file, "same_directory") for file in same_dir]
+        + [(file, "other_changed_file") for file in remaining]
+    )
+
+
 def _eligible_obligations(
     result: ChangeVerificationResult,
 ) -> list[tuple[VerificationObligation, AffectedFlow]]:
@@ -134,22 +174,19 @@ def run_mutation_verification(
     for obligation, _flow in _eligible_obligations(result):
         if budget <= 0:
             break
-        candidate_files = sorted(
-            {ev.file for ev in obligation.evidence if ev.file} | set(changed_file_hunks.keys())
-        )
-        found: tuple[str, int, str, int, int] | None = None
-        for file in candidate_files:
+        found: tuple[str, int, str, int, int, str] | None = None
+        for file, basis in _candidate_files_in_priority_order(obligation, changed_file_hunks):
             hunks = changed_file_hunks.get(file)
             if not hunks:
                 continue
             located = _find_comparator_in_hunks(repo_root, file, hunks)
             if located:
                 line_no, op, start, end = located
-                found = (file, line_no, op, start, end)
+                found = (file, line_no, op, start, end, basis)
                 break
         if found is None:
             continue
-        file, line_no, op, start, end = found
+        file, line_no, op, start, end, location_basis = found
         new_op = _FLIP[op]
         test = obligation.mapped_tests[0]
 
@@ -165,7 +202,7 @@ def run_mutation_verification(
             obligation.mutation = MutationResult(
                 file=file, line=line_no, original_operator=op, mutated_operator=new_op,
                 status="execution_blocked", detail=f"Could not apply or run mutation: {exc}",
-                mapped_test_id=test.id,
+                mapped_test_id=test.id, location_basis=location_basis,
             )
             budget -= 1
             continue
@@ -187,5 +224,6 @@ def run_mutation_verification(
         obligation.mutation = MutationResult(
             file=file, line=line_no, original_operator=op, mutated_operator=new_op,
             status=status, detail=detail, mapped_test_id=test.id,
+            location_basis=location_basis,
         )
         budget -= 1

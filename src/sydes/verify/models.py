@@ -422,6 +422,16 @@ class MutationResult(BaseModel):
     status: str
     detail: str | None = None
     mapped_test_id: str | None = None
+    #: How `file`/`line` were chosen, most-to-least relevant: `"evidence"`
+    #: (the obligation's own evidence cited this file), `"same_directory"`
+    #: (an unrelated changed file sharing a directory with the evidence --
+    #: a validation's boundary check and its exception-translation site are
+    #: commonly split across two files in one module), or
+    #: `"other_changed_file"` (any other changed file, the least targeted
+    #: fallback). `None` only for results predating this field. Never a
+    #: claim that the mutation is semantically relevant to the obligation
+    #: -- only how it was located.
+    location_basis: str | None = None
 
 
 class TestExecution(BaseModel):

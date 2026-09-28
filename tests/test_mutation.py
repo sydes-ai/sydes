@@ -207,6 +207,78 @@ def test_no_comparator_in_hunk_leaves_mutation_unset(tmp_path, monkeypatch) -> N
     assert obligation.mutation is None
 
 
+def test_prefers_same_directory_over_unrelated_changed_file(tmp_path, monkeypatch) -> None:
+    """Regression: the obligation's evidence points at the exception-
+    translation site (a common split from the actual boundary check), and an
+    unrelated file elsewhere in the diff also has a comparator. The search
+    must prefer a file in the same directory as the evidence over that
+    unrelated file, rather than picking whichever sorts first alphabetically
+    -- this is the exact shape demo-orders-api's real obligation evidence
+    (`app/main.py`, the `raise HTTPException(...)` site) vs. its real
+    boundary check (`app/service.py`) has."""
+    service = _write_service(tmp_path)
+    main = tmp_path / "app" / "main.py"
+    main.write_text(
+        "def create_order(order):\n    raise HTTPException(400, 'Insufficient stock')\n",
+        encoding="utf-8",
+    )
+    unrelated = tmp_path / "zzz_unrelated" / "config.py"
+    unrelated.parent.mkdir(parents=True, exist_ok=True)
+    unrelated.write_text("MAX_RETRIES = 3\nif attempts > MAX_RETRIES:\n    pass\n", encoding="utf-8")
+
+    test = _mapped_test("tests/test_orders.py::test_rejects", "tests/test_orders.py")
+    obligation = _obligation(mapped_tests=[test], evidence_file="app/main.py")
+    result = _result([obligation])
+    hunks = {
+        "app/main.py": [Hunk(start_line=1, end_line=2)],
+        "app/service.py": [Hunk(start_line=1, end_line=5)],
+        "zzz_unrelated/config.py": [Hunk(start_line=1, end_line=3)],
+    }
+
+    monkeypatch.setattr(
+        "sydes.verify.mutation.execute_mapped_test",
+        lambda *, test, detections, repo_root, settings: TestExecution(
+            test_id=test.id, framework="pytest", status=VERIFICATION_PASSED,
+        ),
+    )
+    monkeypatch.setattr("sydes.verify.mutation.detect_frameworks", lambda files: [])
+
+    run_mutation_verification(
+        result, repo_root=tmp_path, repo_files=None,
+        changed_file_hunks=hunks, settings=ExecutionSettings(enabled=True),
+    )
+
+    assert obligation.mutation is not None
+    assert obligation.mutation.file == "app/service.py"
+    assert obligation.mutation.location_basis == "same_directory"
+    assert service.read_text(encoding="utf-8").count(">=") == 0  # reverted
+
+
+def test_evidence_file_itself_wins_when_it_has_a_comparator(tmp_path, monkeypatch) -> None:
+    service = _write_service(tmp_path)
+    test = _mapped_test("t", "tests/test_orders.py")
+    obligation = _obligation(mapped_tests=[test], evidence_file="app/service.py")
+    result = _result([obligation])
+    hunks = {"app/service.py": [Hunk(start_line=1, end_line=5)]}
+
+    monkeypatch.setattr(
+        "sydes.verify.mutation.execute_mapped_test",
+        lambda *, test, detections, repo_root, settings: TestExecution(
+            test_id=test.id, framework="pytest", status=VERIFICATION_PASSED,
+        ),
+    )
+    monkeypatch.setattr("sydes.verify.mutation.detect_frameworks", lambda files: [])
+
+    run_mutation_verification(
+        result, repo_root=tmp_path, repo_files=None,
+        changed_file_hunks=hunks, settings=ExecutionSettings(enabled=True),
+    )
+
+    assert obligation.mutation is not None
+    assert obligation.mutation.location_basis == "evidence"
+    _ = service
+
+
 def test_budget_caps_at_three_mutations_per_run(tmp_path, monkeypatch) -> None:
     _write_service(tmp_path)
     hunks = {"app/service.py": [Hunk(start_line=1, end_line=5)]}

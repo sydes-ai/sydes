@@ -513,6 +513,31 @@ def _route_identity_key(endpoint: EndpointCandidate) -> tuple[str, str, str]:
     )
 
 
+def _is_independent_composed_declaration(
+    existing: EndpointCandidate, endpoint: EndpointCandidate
+) -> bool:
+    """True when two fully-composed routes at one identity are unrelated.
+
+    Route-graph composition produces exactly one `deterministic_composed`
+    candidate per raw declaration it resolves. So when two candidates that
+    are *both* already `deterministic_composed` share one method+path
+    identity but come from different files, they cannot be the same
+    declaration recorded at two composition stages (that pairing is always
+    one `deterministic_composed` candidate plus its pre-composition
+    `deterministic`/other precursor, in the same or a different file) --
+    they are independent declarations that merely share a common REST
+    shape (e.g. same-named handlers across unrelated crates/examples/
+    services in one repository, the same way `DELETE /{id}` recurs; see
+    `target_match.py`). Merging them would blend unrelated evidence and
+    silently pick one file as an arbitrary "winner".
+    """
+    return (
+        existing.status == "deterministic_composed"
+        and endpoint.status == "deterministic_composed"
+        and (existing.file or "") != (endpoint.file or "")
+    )
+
+
 def _endpoint_priority(endpoint: EndpointCandidate) -> tuple[int, int, float]:
     """Sort key where lower means preferred canonical endpoint."""
     role = classify_candidate_file_role(endpoint.file)
@@ -657,7 +682,7 @@ def merge_route_candidates(
     llm_routes: list[EndpointCandidate],
 ) -> tuple[list[EndpointCandidate], list[str]]:
     """Merge deterministic + LLM route candidates with safe source precedence."""
-    by_identity: dict[tuple[str, str, str], EndpointCandidate] = {}
+    by_identity: dict[tuple[str, ...], EndpointCandidate] = {}
     notes: list[str] = []
 
     candidates, duplicate_notes = _drop_uncomposed_duplicates(deterministic_routes + llm_routes)
@@ -677,6 +702,14 @@ def merge_route_candidates(
             identity = (key[0], key[2], key[3])
 
         existing = by_identity.get(identity)
+        if existing is not None and _is_independent_composed_declaration(existing, endpoint):
+            # Same method+path, but two already-composed declarations from
+            # different files: give this one its own identity instead of
+            # collapsing it into `existing` (see
+            # `_is_independent_composed_declaration`'s docstring).
+            identity = (*identity, endpoint.file or "")
+            existing = by_identity.get(identity)
+
         if existing is None:
             merged = endpoint.model_copy(deep=True)
             merged.method = _normalize_method(merged.method)
