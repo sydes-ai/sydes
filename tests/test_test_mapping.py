@@ -27,8 +27,10 @@ from __future__ import annotations
 
 from sydes.verify.models import (
     OBLIGATION_ROUTE_CONTRACT,
+    OBLIGATION_SIDE_EFFECT,
     OBLIGATION_VALIDATION,
     ORIGIN_TEST_MATRIX,
+    TIER_ASSERTED_EFFECT,
     TIER_DECLARED,
     AffectedFlow,
     ChangedFile,
@@ -38,6 +40,7 @@ from sydes.verify.models import (
 from sydes.verify.source_files import SourceFile
 from sydes.verify.test_index import ExistingTestIndex, LocatedTest, _extract_cases_from_file
 from sydes.verify.test_mapping import (
+    _asserts_mock_interaction,
     _invokes_symbol,
     _route_prefix_mismatch,
     case_changed_in_diff,
@@ -62,8 +65,14 @@ def _case(
     )
 
 
-def _flow(*, handler: str = "login", method: str = "POST", path: str = "/login") -> AffectedFlow:
-    return AffectedFlow(id="flow:x", entry_label=f"{method} {path}", method=method, path=path, handler=handler)
+def _flow(
+    *, handler: str = "login", method: str = "POST", path: str = "/login",
+    sinks: list[dict] | None = None,
+) -> AffectedFlow:
+    return AffectedFlow(
+        id="flow:x", entry_label=f"{method} {path}", method=method, path=path, handler=handler,
+        sinks=sinks or [],
+    )
 
 
 def _obligation(kind: str, statement: str, origin: str = ORIGIN_TEST_MATRIX) -> VerificationObligation:
@@ -384,3 +393,107 @@ def test_route_prefix_mismatch_none_on_exact_match():
         _case("x", "it('x', () => { request(app).get('/login'); });\n", route_paths={"/login"}),
         "/login",
     ) is None
+
+
+# ---------------------------------------------------------------------------
+# 5. Mockito `verify(mock).method(...)` interaction assertion.
+# ---------------------------------------------------------------------------
+
+_REAL_MONITOR_SERVICE_TEST_BODY = """
+@Test
+@SuppressWarnings("unchecked")
+public void kickoutFiltersBlankAndDuplicateNames() {
+    List<String> names = Arrays.asList("alice", "", null, "bob", "alice", "   ", "bob");
+
+    monitorService.kickout(names);
+
+    ArgumentCaptor<Collection<String>> redisKeysCaptor = ArgumentCaptor.forClass(Collection.class);
+    verify(redisUtil).delete(redisKeysCaptor.capture());
+
+    Collection<String> redisKeys = redisKeysCaptor.getValue();
+    assertEquals(2, redisKeys.size());
+    assertTrue(redisKeys.contains(Consts.REDIS_JWT_KEY_PREFIX + "alice"));
+    assertTrue(redisKeys.contains(Consts.REDIS_JWT_KEY_PREFIX + "bob"));
+}
+"""
+
+
+def test_asserts_mock_interaction_recognizes_verify_call_matching_a_sink_token():
+    case = _case("kickoutFiltersBlankAndDuplicateNames", _REAL_MONITOR_SERVICE_TEST_BODY)
+    assert _asserts_mock_interaction(case, {"redisUtil"}) == ("redisUtil", "delete")
+
+
+def test_asserts_mock_interaction_matches_a_realistic_whole_statement_sink_token():
+    """Regression: `flow.sinks`' `name`/`target` field is commonly a whole
+    statement snippet the trace layer captured (e.g.
+    `"redisUtil.delete(redisKeys);"`), not a bare identifier -- an earlier
+    version of this recognizer checked the token as a substring of
+    `mock.method`, which only matches when the token already IS a clean
+    identifier, and silently never matches this realistic shape. Locks in
+    the real spring-boot-demo#2 sink shape exactly."""
+    case = _case("kickoutFiltersBlankAndDuplicateNames", _REAL_MONITOR_SERVICE_TEST_BODY)
+    assert _asserts_mock_interaction(case, {"redisUtil.delete(redisKeys);"}) == ("redisUtil", "delete")
+
+
+def test_asserts_mock_interaction_matches_on_method_name_too():
+    """A discriminating method name (not a generic verb like `delete`,
+    which `_NON_DISCRIMINATING` correctly excludes) can match on its own,
+    without the mock's own name being the token."""
+    case = _case("invalidatesSession", "verify(sessionStore).invalidateSession(sessionId);\n")
+    assert _asserts_mock_interaction(case, {"invalidateSession"}) == ("sessionStore", "invalidateSession")
+
+
+def test_asserts_mock_interaction_rejects_unrelated_verify_call():
+    """A `verify()` on a mock/method unrelated to this obligation's sinks
+    must not count as evidence for it -- same grounding discipline as
+    `_asserts_effect_token`."""
+    case = _case(
+        "unrelated",
+        "verify(auditLog).record(entry);\n",
+    )
+    assert _asserts_mock_interaction(case, {"redisUtil"}) is None
+
+
+def test_asserts_mock_interaction_none_without_a_sink_token_at_all():
+    case = _case("kickoutFiltersBlankAndDuplicateNames", _REAL_MONITOR_SERVICE_TEST_BODY)
+    assert _asserts_mock_interaction(case, set()) is None
+
+
+def test_map_tests_to_obligation_promotes_real_mockito_verification_to_evidence():
+    """End-to-end: the real spring-boot-demo#2 `MonitorServiceTest` body,
+    mapped against a side-effect obligation whose sink is the real, whole
+    -statement-snippet shape the trace layer actually produces
+    (`"redisUtil.delete(redisKeys);"`, not a bare identifier), is promoted
+    to evidence via the Mockito recognizer."""
+    case = _case("kickoutFiltersBlankAndDuplicateNames", _REAL_MONITOR_SERVICE_TEST_BODY)
+    obligation = _obligation(OBLIGATION_SIDE_EFFECT, "kickout deletes the user's Redis JWT keys")
+    evidence, supporting, _notes = map_tests_to_obligation(
+        obligation=obligation,
+        flow=_flow(handler="kickout", method="DELETE", path="/api/monitor/online/user/kickout",
+                    sinks=[{"name": "redisUtil.delete(redisKeys);"}]),
+        test_index=_index([case]),
+        changed_symbol_names={"kickout"},
+    )
+    assert len(evidence) == 1
+    assert evidence[0].evidence_tier == TIER_ASSERTED_EFFECT
+    assert "verifies `redisUtil.delete(...)`" in evidence[0].match_rule
+    assert "with a captured argument" in evidence[0].match_rule
+    assert supporting == []
+
+
+def test_map_tests_to_obligation_falls_back_to_declared_when_no_sink_matches():
+    """The same real test body, but the obligation's sinks name nothing the
+    test's `verify()` call touches -- correctly stays unpromoted (supporting
+    only), not silently treated as evidence for an unrelated claim."""
+    case = _case("kickoutFiltersBlankAndDuplicateNames", _REAL_MONITOR_SERVICE_TEST_BODY)
+    obligation = _obligation(OBLIGATION_SIDE_EFFECT, "kickout publishes a websocket notification")
+    evidence, supporting, _notes = map_tests_to_obligation(
+        obligation=obligation,
+        flow=_flow(handler="kickout", method="DELETE", path="/api/monitor/online/user/kickout",
+                    sinks=[{"name": "websocketNotifier"}]),
+        test_index=_index([case]),
+        changed_symbol_names={"kickout"},
+    )
+    assert evidence == []
+    assert len(supporting) == 1
+    assert supporting[0].evidence_tier == TIER_DECLARED

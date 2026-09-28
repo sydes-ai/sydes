@@ -40,6 +40,7 @@ from sydes.core.models import (
 )
 from sydes.discover.endpoints import discover_endpoints
 from sydes.discover.interface_bridge import bridge_interface_call_edges
+from sydes.discover.java_field_bridge import JAVA_FIELD_BRIDGE_SOURCE, bridge_java_field_call_edges
 from sydes.discover.layer2_declaration_bridge import bridge_layer2_declaration_reference_edges
 from sydes.discover.layer2_treesitter_bridge import bridge_layer2_treesitter_edges
 from sydes.discover.member_call_bridge import MEMBER_CALL_BRIDGE_SOURCE, bridge_member_call_edges
@@ -1673,6 +1674,19 @@ def _attach_bounded_graph_edges(
         structural.call_edges.extend(member_bridged_edges)
         result.diagnostics.append(f"member_call_bridge_edges_added={len(member_bridged_edges)}")
 
+    # Java's field-injection idiom (`@Autowired private MonitorService
+    # monitorService;`, then a bare or `this.`-qualified
+    # `monitorService.kickout(...)`) has the same unresolvable shape as the
+    # TypeScript constructor-parameter-property case just above -- a call
+    # through a typed instance field the native text-based resolver has no
+    # import to match the receiver name against. See java_field_bridge.py.
+    # Same reasoning as member_call_bridge above: no CBM dependency, runs
+    # for every backend.
+    java_bridged_edges = bridge_java_field_call_edges(structural.symbol_index, structural.call_edges)
+    if java_bridged_edges:
+        structural.call_edges.extend(java_bridged_edges)
+        result.diagnostics.append(f"java_field_bridge_edges_added={len(java_bridged_edges)}")
+
     attach = getattr(code_intelligence, "attach_bounded_edges", None)
     if attach is None or not structural.provides_call_graph:
         return
@@ -2270,14 +2284,15 @@ def analyze_change(
             # and returned nothing: the absence is reported as uncertainty.
             call_edges=structural.call_edges if structural.provides_call_graph else None,
             # Independent of the above and passed regardless of backend: a
-            # member-call-bridge edge (see member_call_bridge.py, added to
+            # member-call-bridge or java-field-bridge edge (see
+            # member_call_bridge.py/java_field_bridge.py, added to
             # `structural.call_edges` unconditionally by
             # `_attach_bounded_graph_edges`) is a narrow, individually
             # unambiguous synthetic fact, never a substitute for a real
             # call graph the backend didn't supply.
             bridge_edges=[
                 edge for edge in structural.call_edges
-                if edge.get("source") == MEMBER_CALL_BRIDGE_SOURCE
+                if edge.get("source") in {MEMBER_CALL_BRIDGE_SOURCE, JAVA_FIELD_BRIDGE_SOURCE}
             ],
         )
         contract = traced["layered_contract"]

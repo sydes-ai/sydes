@@ -72,6 +72,22 @@ _REJECTION_ASSERTION_RE = re.compile(
     r"|\bassertRaises\b"
     r"|\bpytest\.raises\b"
 )
+# Mockito's interaction-verification idiom: `verify(mock).method(...)` or
+# `verify(mock, times(n)).method(...)` (also atLeast/atMost/atLeastOnce/
+# only/never). Unlike `_asserts_effect_token`'s bare substring match, this is
+# an explicit, unambiguous claim -- "this specific call on this specific
+# mock happened" -- not merely a token appearing somewhere in the body, so
+# it is checked first as the stronger signal when it applies. Still grounded
+# against the obligation's own sink tokens (see `_asserts_mock_interaction`)
+# before being accepted, the same discipline every other recognizer here
+# uses: an explicit assertion of the WRONG interaction is not evidence for
+# THIS obligation.
+_MOCKITO_VERIFY_RE = re.compile(
+    r"\bverify\s*\(\s*(?P<mock>[A-Za-z_]\w*)\s*"
+    r"(?:,\s*(?:times|atLeast|atMost|atLeastOnce|only|never)\s*\([^)]*\)\s*)?\)"
+    r"\s*\.\s*(?P<method>[A-Za-z_]\w*)\s*\("
+)
+_ARGUMENT_CAPTOR_RE = re.compile(r"\bArgumentCaptor\b")
 
 
 def _normalize(path: str | None) -> str:
@@ -203,6 +219,36 @@ def _asserts_effect_token(case: LocatedTest, tokens: set[str]) -> str | None:
             continue
         if candidate in body:
             return token
+    return None
+
+
+def _asserts_mock_interaction(case: LocatedTest, tokens: set[str]) -> tuple[str, str] | None:
+    """Return `(mock, method)` for a Mockito `verify(mock).method(...)` call
+    whose mock or method name matches one of this obligation's sink tokens.
+
+    Grounded the same way `_asserts_effect_token` is grounded (a token this
+    obligation's own sinks named, not any name anywhere): the difference is
+    only in the shape of assertion recognized, not the standard of evidence.
+    A test can `verify()` an entirely unrelated mock and still exercise this
+    flow — that must not count as evidence for this obligation, so the
+    sink-token match is still required, not optional.
+
+    A sink's `name`/`target` is commonly the whole statement snippet the
+    trace layer captured (e.g. `"redisUtil.delete(redisKeys);"`), not a bare
+    identifier -- so this checks whether the short, clean `mock`/`method`
+    name is a substring of that token (the same direction that succeeds for
+    a token that already IS a bare identifier, since a string is always a
+    substring of itself), not the other way around.
+    """
+    for match in _MOCKITO_VERIFY_RE.finditer(case.body):
+        mock, method = match.group("mock"), match.group("method")
+        for name in (mock, method):
+            candidate = name.strip().lower()
+            if len(candidate) < 4 or candidate in _NON_DISCRIMINATING:
+                continue
+            for token in tokens:
+                if candidate in token.lower():
+                    return mock, method
     return None
 
 
@@ -375,6 +421,23 @@ def map_tests_to_obligation(
             OBLIGATION_EVENT_EMISSION,
             OBLIGATION_CROSS_REPO_CALL,
         }:
+            mock_interaction = _asserts_mock_interaction(case, sink_tokens)
+            if mock_interaction:
+                mock, method = mock_interaction
+                captor_note = (
+                    " (with a captured argument)" if _ARGUMENT_CAPTOR_RE.search(case.body) else ""
+                )
+                evidence.append(
+                    _mapped(
+                        case,
+                        rule=f"{rule_base} and verifies `{mock}.{method}(...)`{captor_note}",
+                        tier=TIER_ASSERTED_EFFECT,
+                        source_refs=obligation.source_refs,
+                        snippet=f"verify({mock}).{method}(...)",
+                        changed_in_diff=changed_in_diff,
+                    )
+                )
+                continue
             token = _asserts_effect_token(case, sink_tokens)
             if token and _has_assertion(case):
                 evidence.append(
