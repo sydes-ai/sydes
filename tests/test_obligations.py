@@ -464,3 +464,118 @@ def test_bare_condition_with_a_nearby_status_keeps_stable_wording_not_the_raises
     assert "Student name cannot be blank" not in ob.statement
     assert "payload" in ob.statement
     assert ob.statement.endswith("and responds 400")
+
+
+# ---------------------------------------------------------------------------
+# Sink-derived obligations were never marked `introduced_by_change`.
+#
+# Regression for the real spring-boot-demo#2 case: `MonitorService.kickout`
+# was changed to filter blank/duplicate names before the (unchanged)
+# `redisUtil.delete(redisKeys)` call. `_sink_is_materially_affected` already
+# correctly recognizes that as `required=True` (the diff changes what
+# reaches the sink) via symbol identity -- but `introduced_by_change` was
+# computed separately via `_hunk_overlap`/`_touches_change`, both of which
+# require a line number on the sink, and `SinkCandidate` (trace/sinks.py)
+# never carries one. So `introduced_by_change` was always `False` for every
+# sink-derived obligation (side_effect/state_consistency/event_emission/
+# cross_repo_call), in every language, regardless of whether the diff
+# actually changed the sink or its inputs -- which meant a test's evidence
+# against that obligation could never be scored as "about this change" by
+# anything (e.g. a PR-comment renderer) that gates on that flag.
+# ---------------------------------------------------------------------------
+
+
+def test_sink_obligation_is_introduced_by_change_when_symbol_materially_affected() -> None:
+    flow = AffectedFlow(
+        id="flow:DELETE:/kickout", entry_label="DELETE /kickout", handler="kickout",
+        sinks=[
+            {
+                "kind": "database", "operation": "write",
+                "name": "redisUtil.delete(redisKeys);",
+                "file": "MonitorService.java", "symbol": "MonitorService.kickout",
+                "evidence": [], "confidence": 0.9, "status": "grounded",
+            }
+        ],
+    )
+    changed_symbols = [
+        ChangedSymbol(
+            id="MonitorService.java:60", repo="app", file="MonitorService.java",
+            name="kickout", qualified_name="MonitorService.kickout",
+            start_line=60, end_line=90,
+        )
+    ]
+
+    obligations = derive_obligations(
+        flow=flow, route_contract=None, test_matrix=None,
+        changed_symbols=changed_symbols, changed_files={"MonitorService.java"},
+        changed_file_hunks=None,
+    )
+
+    side_effect = next(o for o in obligations if o.kind == "side_effect")
+    assert side_effect.required is True
+    assert side_effect.introduced_by_change is True
+
+
+def test_sink_obligation_is_not_introduced_by_change_when_symbol_unrelated() -> None:
+    """A sink whose owning symbol the diff never touched must still read
+    `introduced_by_change=False` -- the fix reuses `material`, it does not
+    make every sink obligation `True` unconditionally."""
+    flow = AffectedFlow(
+        id="flow:DELETE:/kickout", entry_label="DELETE /kickout", handler="kickout",
+        sinks=[
+            {
+                "kind": "database", "operation": "write",
+                "name": "auditLog.record(entry);",
+                "file": "AuditService.java", "symbol": "AuditService.record",
+                "evidence": [], "confidence": 0.9, "status": "grounded",
+            }
+        ],
+    )
+    changed_symbols = [_symbol("MonitorService.java", 60, 90)]
+
+    obligations = derive_obligations(
+        flow=flow, route_contract=None, test_matrix=None,
+        changed_symbols=changed_symbols, changed_files={"MonitorService.java"},
+        changed_file_hunks=None,
+    )
+
+    side_effect = next(o for o in obligations if o.kind == "side_effect")
+    assert side_effect.required is False
+    assert side_effect.introduced_by_change is False
+
+
+def test_sink_obligation_still_prefers_precise_hunk_overlap_when_a_line_exists() -> None:
+    """If a sink ever does carry a line number (not true today, but the
+    fallback must not shadow a real hunk-overlap answer), the precise
+    hunk-based result still wins over the coarser `material` fallback."""
+    flow = AffectedFlow(
+        id="flow:DELETE:/kickout", entry_label="DELETE /kickout", handler="kickout",
+        sinks=[
+            {
+                "kind": "database", "operation": "write",
+                "name": "redisUtil.delete(redisKeys);", "line": 200,
+                "file": "MonitorService.java", "symbol": "MonitorService.kickout",
+                "evidence": [], "confidence": 0.9, "status": "grounded",
+            }
+        ],
+    )
+    changed_symbols = [
+        ChangedSymbol(
+            id="MonitorService.java:60", repo="app", file="MonitorService.java",
+            name="kickout", qualified_name="MonitorService.kickout",
+            start_line=60, end_line=300,
+        )
+    ]
+    # Symbol-level, `material` would be True (the sink's own symbol is the
+    # changed one) -- but the hunk itself does not cover line 200, a precise
+    # "no" that a `material`-based fallback must not override.
+    hunks = {"MonitorService.java": [Hunk(start_line=60, end_line=70)]}
+
+    obligations = derive_obligations(
+        flow=flow, route_contract=None, test_matrix=None,
+        changed_symbols=changed_symbols, changed_files={"MonitorService.java"},
+        changed_file_hunks=hunks,
+    )
+
+    side_effect = next(o for o in obligations if o.kind == "side_effect")
+    assert side_effect.introduced_by_change is False

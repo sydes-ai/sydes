@@ -253,12 +253,17 @@ def _trace_obligations(
             kind = OBLIGATION_STATE_CONSISTENCY if action in {"write", "publish"} else OBLIGATION_SIDE_EFFECT
             verb = action or "accessed"
         material = _sink_is_materially_affected(sink, spans, symbol_keys, changed_files)
+        # A `SinkCandidate` never carries a line number (see `trace/sinks.py`)
+        # -- `_hunk_overlap` and `_touches_change` both require one and
+        # always return `None`/`False` without it, which made this always
+        # `False` for every sink-derived obligation, in every language,
+        # regardless of whether the diff plausibly changed the sink or the
+        # path producing it. `_sink_is_materially_affected` already answers
+        # exactly that question via symbol/file identity instead of a line
+        # number, so it is the right fallback here, not a weaker substitute
+        # for one that was never actually reachable.
         hunk_introduced = _hunk_overlap(sink.get("file"), sink.get("line"), changed_file_hunks)
-        introduced = (
-            hunk_introduced
-            if hunk_introduced is not None
-            else _touches_change(sink.get("file"), sink.get("line"), spans)
-        )
+        introduced = hunk_introduced if hunk_introduced is not None else material
         counter[0] += 1
         obligations.append(
             VerificationObligation(
