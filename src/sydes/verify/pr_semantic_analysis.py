@@ -35,7 +35,6 @@ little evidence in the diff. See `ChangeSemanticAnalysis` for both.
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from typing import Any
 
@@ -46,6 +45,7 @@ from sydes.llm.client import (
     LLMRequest,
     create_default_llm_client,
 )
+from sydes.verify.diff_context import context_chars, file_priority, fit_prompt, trim_list
 from sydes.verify.git_change import read_unified_diff
 from sydes.verify.llm_findings import _extract_json_object
 from sydes.verify.models import (
@@ -65,7 +65,8 @@ from sydes.verify.models import (
     normalize_severity,
 )
 
-MAX_DIFF_CHARS = 12_000
+MAX_DIFF_CHARS = 12_000  # retained for importers; selection is by prompt budget
+FULL_DIFF_CHARS = 4_000_000  # read whole; the prompt budget decides what is shown
 MAX_PROMPT_CHARS = 20_000
 MAX_FILES_IN_CONTEXT = 40
 MAX_SYMBOLS_IN_CONTEXT = 40
@@ -91,7 +92,7 @@ def _build_semantic_context(*, change: ChangeSet, diff_text: str) -> dict[str, A
                 "added_lines": item.added_lines,
                 "removed_lines": item.removed_lines,
             }
-            for item in change.files[:MAX_FILES_IN_CONTEXT]
+            for item in sorted(change.files, key=lambda f: file_priority(f.path))[:MAX_FILES_IN_CONTEXT]
         ],
         "symbols": [
             {
@@ -106,36 +107,31 @@ def _build_semantic_context(*, change: ChangeSet, diff_text: str) -> dict[str, A
                 ),
                 "decorators": item.decorators,
             }
-            for item in change.symbols[:MAX_SYMBOLS_IN_CONTEXT]
+            for item in sorted(change.symbols, key=lambda sy: file_priority(sy.file))[:MAX_SYMBOLS_IN_CONTEXT]
         ],
-        "diff": diff_text[:MAX_DIFF_CHARS],
+        # the whole diff: `_bounded_prompt` selects what fits, by priority and whole hunks
+        "diff": diff_text,
     }
 
 
-def _bounded_prompt(context: dict[str, Any]) -> str:
-    """Serialize the prompt, shrinking the diff first when over budget —
-    same strategy as `llm_findings._bounded_prompt`."""
-    payload = dict(context)
-    prompt = _SEMANTIC_ANALYSIS_HEADER + "\nContext:\n" + json.dumps(
-        payload, ensure_ascii=True, separators=(",", ":")
+def _bounded_prompt(context: dict[str, Any], preamble: str = "") -> str:
+    """Serialize the prompt within the stage budget (`SYDES_LLM_CONTEXT_CHARS` or
+    MAX_PROMPT_CHARS). The symbol and file lists are trimmed before the diff is; the diff is
+    then selected by priority at hunk boundaries (`sydes.verify.diff_context`). Supplementary
+    evidence in `preamble` is outside the budget."""
+    limit = context_chars(MAX_PROMPT_CHARS) + len(preamble)
+    prompt, _ = fit_prompt(
+        _SEMANTIC_ANALYSIS_HEADER + preamble,
+        context,
+        limit=limit,
+        full_diff=str(context.get("diff") or ""),
+        trims=[
+            trim_list("symbols", 20),
+            trim_list("files", 20),
+            trim_list("symbols", 10),
+        ],
     )
-    if len(prompt) <= MAX_PROMPT_CHARS:
-        return prompt
-
-    diff = str(payload.get("diff") or "")
-    overflow = len(prompt) - MAX_PROMPT_CHARS
-    payload["diff"] = diff[: max(0, len(diff) - overflow - 200)] + "\n... [truncated]"
-    prompt = _SEMANTIC_ANALYSIS_HEADER + "\nContext:\n" + json.dumps(
-        payload, ensure_ascii=True, separators=(",", ":")
-    )
-    if len(prompt) <= MAX_PROMPT_CHARS:
-        return prompt
-
-    payload["symbols"] = payload.get("symbols", [])[:10]
-    prompt = _SEMANTIC_ANALYSIS_HEADER + "\nContext:\n" + json.dumps(
-        payload, ensure_ascii=True, separators=(",", ":")
-    )
-    return prompt[:MAX_PROMPT_CHARS]
+    return prompt
 
 
 _SEMANTIC_ANALYSIS_HEADER = (
@@ -472,6 +468,7 @@ def generate_pr_semantic_analysis(
     repo_root: Path,
     model_spec: str | None = None,
     llm_client: LLMClient | None = None,
+    checked_behavior_preamble: str = "",
 ) -> tuple[ChangeSemanticAnalysis | None, list[str]]:
     """Run the one bounded PR-level semantic-analysis LLM call.
 
@@ -497,9 +494,11 @@ def generate_pr_semantic_analysis(
         except LLMClientError as exc:
             return None, [f"pr_semantic_analysis unavailable: {exc}"]
 
-    diff_text = read_unified_diff(repo_root=repo_root, base_rev=change.merge_base or change.base)
+    diff_text = read_unified_diff(
+        repo_root=repo_root, base_rev=change.merge_base or change.base, max_chars=FULL_DIFF_CHARS
+    )
     context = _build_semantic_context(change=change, diff_text=diff_text)
-    prompt = _bounded_prompt(context)
+    prompt = _bounded_prompt(context, checked_behavior_preamble)
 
     try:
         response = client.generate(LLMRequest(prompt=prompt, temperature=None))

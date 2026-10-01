@@ -93,7 +93,7 @@ class TracingLLMClient:
         _trace.record_llm_call(
             call_id=call_id, stage=self._stage, provider=self._provider, model=self._model,
             request=request_data, response_text=response.text, error=None,
-            latency_ms=(time.perf_counter() - started) * 1000.0,
+            latency_ms=(time.perf_counter() - started) * 1000.0, usage=response.usage,
         )
         return response
 
@@ -145,7 +145,7 @@ class LLMSettings:
     base_url: str = DEFAULT_OLLAMA_BASE_URL
     timeout_seconds: float = 90.0
     keep_alive: str = "10m"
-    temperature: float = 0.0
+    temperature: float | None = 0.0
 
 
 def parse_model_spec(model_spec: str) -> tuple[str, str]:
@@ -249,7 +249,12 @@ def _openai_usage(response: Any) -> dict[str, int] | None:
     completion = getattr(usage, "completion_tokens", None)
     if not isinstance(prompt, int) or not isinstance(completion, int):
         return None
-    return {"prompt_tokens": prompt, "completion_tokens": completion, "total_tokens": prompt + completion}
+    out = {"prompt_tokens": prompt, "completion_tokens": completion, "total_tokens": prompt + completion}
+    details = getattr(usage, "completion_tokens_details", None)
+    reasoning = getattr(details, "reasoning_tokens", None) if details is not None else None
+    if isinstance(reasoning, int):
+        out["reasoning_tokens"] = reasoning
+    return out
 
 
 def _anthropic_usage(response: Any) -> dict[str, int] | None:
@@ -277,12 +282,15 @@ class OpenAIClient:
         base_url: str,
         timeout_seconds: float = 90.0,
         temperature: float | None = 0.0,
+        reasoning_effort: str | None = None,
     ) -> None:
         self.model = model
         self.api_key = api_key
         self.base_url = base_url.rstrip("/")
         self.timeout_seconds = timeout_seconds
         self.temperature = temperature
+        #: `SYDES_LLM_REASONING_EFFORT` (e.g. high, xhigh) for reasoning models; sent only when set.
+        self.reasoning_effort = reasoning_effort
         self._client = OpenAI(
             api_key=api_key,
             base_url=self.base_url,
@@ -309,6 +317,8 @@ class OpenAIClient:
         create_kwargs: dict[str, Any] = {"model": self.model, "messages": messages}
         if resolved_temperature is not None:
             create_kwargs["temperature"] = resolved_temperature
+        if self.reasoning_effort:
+            create_kwargs["reasoning_effort"] = self.reasoning_effort
         try:
             response = self._client.chat.completions.create(**create_kwargs)
         except OpenAIError as exc:
@@ -432,14 +442,19 @@ def load_llm_settings_from_env() -> LLMSettings:
         timeout_seconds = 90.0
     if timeout_seconds <= 0:
         timeout_seconds = 90.0
-    try:
-        temperature = float(temperature_raw)
-    except ValueError:
-        temperature = 0.0
-    if temperature < 0:
-        temperature = 0.0
-    if temperature > 2:
-        temperature = 2.0
+    temperature: float | None
+    if temperature_raw.lower() in ("default", "none", "omit"):
+        # reasoning models accept only their own default: never send the parameter
+        temperature = None
+    else:
+        try:
+            temperature = float(temperature_raw)
+        except ValueError:
+            temperature = 0.0
+        if temperature < 0:
+            temperature = 0.0
+        if temperature > 2:
+            temperature = 2.0
     return LLMSettings(
         provider=provider,
         model=model,
@@ -534,6 +549,7 @@ def _build_llm_client(
             base_url=openai_base_url,
             timeout_seconds=timeout_seconds,
             temperature=resolved_temperature,
+            reasoning_effort=os.getenv("SYDES_LLM_REASONING_EFFORT", "").strip() or None,
         )
 
     if provider == "anthropic":

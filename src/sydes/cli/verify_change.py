@@ -13,18 +13,47 @@ from sydes.cli.output_paths import resolve_output_file_path, write_output_text
 from sydes.code_intelligence.base import CodeIntelligenceError
 from sydes.core.models import RepoRef
 from sydes.ingest.repos import parse_repo_specs
-from sydes.llm.client import LLMClientError, create_default_llm_client
+from sydes.llm.client import LLMClientError, _resolve_provider_and_model, create_default_llm_client
 from sydes.recovery.agent import RecoveryBudget, recover
 from sydes.recovery.canonical_merge import merge_verified_recovery_into_result
 from sydes.recovery.context import build_context
 from sydes.recovery.merge import build_recovery_view, summarize_for_notes
 from sydes.recovery.schema import RecoveryError
-from sydes.recovery.trigger import evaluate_trigger
+from sydes.recovery.trigger import answered_by_behavioral, evaluate_trigger
 from sydes.report.verify_terminal import render_verify_change_terminal
 from sydes.store.workspace import compute_workspace_id, create_run_id, save_run_artifact
 from sydes.verify.analyzer import VerifyChangeOptions, analyze_change
 from sydes.verify.git_change import GitChangeError
 from sydes.verify.models import ChangeVerificationResult
+
+
+def _run_diffgenome_before_analysis(
+    repo_root: Path, base: str, runtime_args: str, probes: int, out_dir: Path | None
+) -> tuple[Path | None, str]:
+    """Run DiffGenome for merge-base(base, HEAD)..HEAD. Returns (artifact path, note); a failure
+    is a note, never an error: the analysis then proceeds without runtime evidence."""
+    import shlex
+    import subprocess
+
+    from sydes.behavioral.diffgenome_adapter import BehavioralUnavailable, DiffGenomeRequest, run_diffgenome
+
+    def git(*args: str) -> str:
+        return subprocess.run(
+            ["git", *args], cwd=repo_root, capture_output=True, text=True, check=True
+        ).stdout.strip()
+
+    try:
+        head = git("rev-parse", "HEAD")
+        merge_base = git("merge-base", base, head)
+        request = DiffGenomeRequest(
+            repo_root=repo_root, diff=f"{merge_base}..{head}",
+            out_dir=out_dir or (Path.cwd() / ".sydes-behavioral"),
+            runtime_args=shlex.split(runtime_args), probe_budget=probes,
+        )
+        run_diffgenome(request)
+        return request.out_dir / "diffgenome-change.json", ""
+    except (BehavioralUnavailable, subprocess.CalledProcessError, OSError) as exc:
+        return None, f"runtime_evidence unavailable: {exc}"
 
 
 def verify_change_command(
@@ -208,6 +237,93 @@ def verify_change_command(
             ),
         ),
     ] = False,
+    behavioral_map: Annotated[
+        Literal["off", "diffgenome"],
+        typer.Option(
+            "--behavioral-map",
+            help=(
+                "Experimental: attach runtime/composed behavioral evidence for the "
+                "change from DiffGenome (`diffgenome change`), merged with the "
+                "structural view without flattening provenance. `off` (default) "
+                "does nothing. Requires DiffGenome on PATH or "
+                "SYDES_DIFFGENOME_COMMAND, and --behavioral-args naming the target's "
+                "runtime and test location. Never changes the verdict; when the "
+                "evidence cannot be obtained the report says so explicitly."
+            ),
+        ),
+    ] = "off",
+    behavioral_args: Annotated[
+        str,
+        typer.Option(
+            "--behavioral-args",
+            help=(
+                "DiffGenome runtime configuration, forwarded opaquely, e.g. "
+                "'--runtime go --test-root api --tests ./api/ --mock-dir db/mock' or "
+                "'--runtime python --python .venv/bin/python --test-root tests'."
+            ),
+        ),
+    ] = "",
+    behavioral_artifact: Annotated[
+        Path | None,
+        typer.Option(
+            "--behavioral-artifact",
+            help=(
+                "Consume an existing diffgenome-change/1 artifact instead of running "
+                "DiffGenome (deterministic replays, CI artifacts)."
+            ),
+        ),
+    ] = None,
+    behavioral_probes: Annotated[
+        int,
+        typer.Option(
+            "--behavioral-probes",
+            help=(
+                "DiffGenome probe budget: how many generated probes it may attempt "
+                "for gaps near the change (each is at most one LLM call). 0 (default): "
+                "existing tests only, no LLM call."
+            ),
+        ),
+    ] = 0,
+    behavioral_out: Annotated[
+        Path | None,
+        typer.Option("--behavioral-out", help="Where DiffGenome writes its run (default: ./.sydes-behavioral)."),
+    ] = None,
+    runtime_evidence: Annotated[
+        str,
+        typer.Option(
+            "--runtime-evidence",
+            help=(
+                "`auto` (default): when DiffGenome is the behavioral map and its artifact carries "
+                "runtime evidence (diffgenome-runtime/1), use it in Sydes' own analysis: observed "
+                "call edges for reachability, the exact tests that executed each changed function, "
+                "runtime verification gaps, and the AI-recovery decision. A live DiffGenome run "
+                "then happens before analysis. `off`: render the evidence only."
+            ),
+        ),
+    ] = "auto",
+    behavioral_context: Annotated[
+        str,
+        typer.Option(
+            "--behavioral-context",
+            help=(
+                "Experimental. `on`: also give the compact runtime evidence to the code-review and "
+                "PR semantic-analysis models. `off` (default): prompts are unchanged."
+            ),
+        ),
+    ] = "off",
+    behavioral_review_context: Annotated[
+        str,
+        typer.Option(
+            "--behavioral-review-context",
+            help=(
+                "Experimental. `on`: give the code-review and PR semantic-analysis models the "
+                "checked behavioral rules of the --behavioral-artifact's genome section (verified "
+                "and supported rules, checked identities and literals, declared unknowns) as "
+                "advisory evidence before they read the change. `off` (default): prompts are "
+                "unchanged. Never affects obligations or the verdict."
+            ),
+        ),
+    ] = "off",
     mutation_verify: Annotated[
         bool,
         typer.Option(
@@ -237,7 +353,50 @@ def verify_change_command(
     if not repos:
         repos = [RepoRef(name="api", root=str(Path.cwd()))]
 
+    checked_preamble = ""
+    checked_note = ""
+    if behavioral_review_context not in ("off", "on"):
+        raise typer.BadParameter("must be off or on", param_hint="--behavioral-review-context")
+    if behavioral_review_context == "on":
+        from sydes.behavioral.review_context import checked_evidence_block, load_genome_summary, review_preamble
+
+        genome = load_genome_summary(behavioral_artifact)
+        checked_preamble = review_preamble(genome)
+        checked_note = (
+            f"behavioral_review_context=supplied chars={len(checked_evidence_block(genome))}"
+            if checked_preamble
+            else "behavioral_review_context unavailable: no --behavioral-artifact with a checked "
+            "genome section; review prompts unchanged"
+        )
+
+    if behavioral_context not in ("off", "on"):
+        raise typer.BadParameter("must be off or on", param_hint="--behavioral-context")
+    if runtime_evidence not in ("off", "auto"):
+        raise typer.BadParameter("must be auto or off", param_hint="--runtime-evidence")
+    loaded_context = None
+    use_runtime = behavioral_map == "diffgenome" and (runtime_evidence == "auto" or behavioral_context == "on")
+    if use_runtime:
+        from sydes.behavioral.context import BehavioralContext
+
+        if behavioral_artifact is None:
+            # live: run DiffGenome before analysis so its evidence can inform reachability; the
+            # post-analysis attach then reuses this artifact instead of running it again
+            behavioral_artifact, early_note = _run_diffgenome_before_analysis(
+                Path(repos[0].root), base, behavioral_args, behavioral_probes, behavioral_out
+            )
+            if early_note:
+                checked_note = early_note
+        loaded_context = BehavioralContext.load(behavioral_artifact)
+        if loaded_context is None and not checked_note:
+            checked_note = (
+                "runtime_evidence unavailable: the DiffGenome artifact carries no diffgenome-runtime/1 "
+                "section; analysis unchanged"
+            )
+
     options = VerifyChangeOptions(
+        behavioral_context=loaded_context,
+        behavioral_prompt_context=behavioral_context == "on",
+        checked_behavior_preamble=checked_preamble,
         base=base,
         include_working_tree=not no_working_tree,
         code_review=code_review,
@@ -264,7 +423,22 @@ def verify_change_command(
     except ValueError as exc:
         raise typer.BadParameter(str(exc), param_hint="--repo") from exc
 
-    if not no_ai_recovery:
+    if checked_note:
+        result.diagnostics.append(checked_note)
+
+    if behavioral_map != "off":
+        from sydes.behavioral.attach import attach_behavioral_evidence
+
+        attach_behavioral_evidence(
+            result, repo_root=Path(repos[0].root), provider=behavioral_map,
+            artifact_path=behavioral_artifact, runtime_args=behavioral_args,
+            probe_budget=behavioral_probes, out_dir=behavioral_out,
+            use_runtime=runtime_evidence == "auto",
+        )
+
+    if no_ai_recovery:
+        _note_ai_recovery_disabled(result)
+    else:
         _run_ai_recovery(
             result, repo_root=Path(repos[0].root), model_spec=model, json_output=json_output,
             include_repo_routes=recovery_route_context,
@@ -301,6 +475,23 @@ def verify_change_command(
         typer.echo(f"Wrote verification result: {target}")
 
 
+AI_RECOVERY_DISABLED_NOTE = "AI recovery: disabled (--no-ai-recovery); not run."
+
+
+def _note_ai_recovery_disabled(result: ChangeVerificationResult) -> None:
+    """With `--no-ai-recovery`, say so: the report must not read as if recovery ran."""
+    result.notes.append(AI_RECOVERY_DISABLED_NOTE)
+    typer.echo("AI recovery (experimental): disabled (--no-ai-recovery).")
+
+
+def _recovery_model_label(model_spec: str | None) -> str:
+    try:
+        provider, model, _ = _resolve_provider_and_model(model_spec)
+    except Exception:  # noqa: BLE001 - a label only; never fail the run over it
+        return model_spec or "default model"
+    return f"{provider}:{model}"
+
+
 def _run_ai_recovery(
     result: ChangeVerificationResult, *, repo_root: Path, model_spec: str | None, json_output: Path | None,
     include_repo_routes: bool = False, max_edge_turns: int | None = None, max_edge_retries: int = 0,
@@ -323,8 +514,15 @@ def _run_ai_recovery(
     what discovery is SHOWN; `sydes.recovery.verify`'s Layer 0/1/2 proof
     requirements are exactly the same either way."""
     trigger = evaluate_trigger(result)
+    answered = answered_by_behavioral(result)
+    if answered:
+        result.notes.append(
+            "AI recovery: gap(s) already answered by executed behavioral evidence, not "
+            "sent to the model: " + ", ".join(answered)
+        )
     if trigger is None:
-        typer.echo("AI recovery (experimental): no high-value gap found; skipped.")
+        suffix = " (the rest was answered by executed behavioral evidence)" if answered else ""
+        typer.echo(f"AI recovery (experimental): no high-value gap found; skipped{suffix}.")
         return
 
     typer.echo(f"AI recovery (experimental): triggered ({trigger.reason})")
@@ -356,7 +554,10 @@ def _run_ai_recovery(
             use_graph_path_search=use_graph_path_search,
         )
     except RecoveryError as exc:
-        typer.echo(f"AI recovery (experimental): failed, first-pass result left unchanged: {exc}")
+        typer.echo(
+            f"AI recovery (experimental): failed ({_recovery_model_label(model_spec)}), "
+            f"first-pass result left unchanged: {exc}"
+        )
         return
 
     merged = merge_verified_recovery_into_result(result, outcome.path_recovery, outcome.test_recovery)

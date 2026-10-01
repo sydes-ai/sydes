@@ -19,6 +19,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from sydes.behavioral.answers import (
+    changed_symbols_reached,
+    runtime_executed_any,
+    runtime_open_symbols,
+    tests_observed,
+)
 from sydes.impact.models import IMPACT_STATUS_PROVEN
 from sydes.ingest.file_roles import FILE_ROLE_TEST_USAGE_CANDIDATE
 from sydes.verify.models import (
@@ -49,6 +55,26 @@ class RecoveryTrigger:
     gap_kinds: tuple[str, ...]
     reason: str
     extra_test_candidate_files: tuple[str, ...] = field(default_factory=tuple)
+
+
+def answered_by_behavioral(result: ChangeVerificationResult) -> list[str]:
+    """Gap kinds executed evidence (`result.behavioral`) already answers. Such a gap
+    is not sent to AI recovery: the question it would ask the model has been
+    settled by observation, which outranks anything recovery could establish."""
+    ev = result.behavioral
+    answered: list[str] = []
+    if tests_observed(ev) or runtime_executed_any(ev):
+        answered.append(GAP_MISSING_TEST_MAPPING)
+    if ev is not None and ev.runtime_evidence:
+        # runtime evidence present: its per-symbol rule decides (an executed changed function
+        # with an observed application entry root is answered; anything else stays open)
+        if result.unresolved_changed_symbol_names and not runtime_open_symbols(
+            ev, result.unresolved_changed_symbol_names
+        ):
+            answered.append(GAP_UNRESOLVED_CHANGED_SYMBOLS)
+    elif changed_symbols_reached(ev):
+        answered.append(GAP_UNRESOLVED_CHANGED_SYMBOLS)
+    return answered
 
 
 def _has_established_flow(result: ChangeVerificationResult) -> bool:
@@ -139,6 +165,7 @@ def evaluate_trigger(result: ChangeVerificationResult) -> RecoveryTrigger | None
     gap_kinds: list[str] = []
     reasons: list[str] = []
     extra_tests: tuple[str, ...] = ()
+    answered = set(answered_by_behavioral(result))
 
     has_signal = _has_any_real_impact_signal(result)
     has_established = _has_established_flow(result)
@@ -173,7 +200,7 @@ def evaluate_trigger(result: ChangeVerificationResult) -> RecoveryTrigger | None
         )
 
     missing_test_candidates = _missing_test_mapping_despite_new_tests(result)
-    if missing_test_candidates:
+    if missing_test_candidates and GAP_MISSING_TEST_MAPPING not in answered:
         gap_kinds.append(GAP_MISSING_TEST_MAPPING)
         reasons.append(
             "no relevant test was mapped even though this diff changed a test file "
@@ -184,11 +211,28 @@ def evaluate_trigger(result: ChangeVerificationResult) -> RecoveryTrigger | None
     # Deliberately NOT gated on `not has_established`: a changed symbol the
     # first pass never connected to any entrypoint is exactly as real a
     # gap when some OTHER flow is already established as when nothing is.
-    if result.unresolved_changed_symbols > 0 and has_signal:
+    if (
+        result.unresolved_changed_symbols > 0
+        and has_signal
+        and GAP_UNRESOLVED_CHANGED_SYMBOLS not in answered
+    ):
         gap_kinds.append(GAP_UNRESOLVED_CHANGED_SYMBOLS)
-        reasons.append(
-            f"{result.unresolved_changed_symbols} changed symbol(s) reach no entrypoint the first pass found"
+        still_open = (
+            runtime_open_symbols(result.behavioral, result.unresolved_changed_symbol_names)
+            if result.behavioral is not None and result.behavioral.runtime_evidence
+            else []
         )
+        if still_open:
+            answered_n = result.unresolved_changed_symbols - len(still_open)
+            reasons.append(
+                f"{result.unresolved_changed_symbols} changed symbol(s) reach no entrypoint the first pass "
+                f"found; runtime evidence answers {max(answered_n, 0)}, still open: {', '.join(still_open[:8])}"
+                + (f" (+{len(still_open) - 8} more)" if len(still_open) > 8 else "")
+            )
+        else:
+            reasons.append(
+                f"{result.unresolved_changed_symbols} changed symbol(s) reach no entrypoint the first pass found"
+            )
 
     if not gap_kinds:
         return None

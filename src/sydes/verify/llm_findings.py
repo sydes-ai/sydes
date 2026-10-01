@@ -26,6 +26,7 @@ from sydes.llm.client import (
     LLMRequest,
     create_default_llm_client,
 )
+from sydes.verify.diff_context import context_chars, file_priority, fit_prompt, trim_list
 from sydes.verify.models import (
     VERIFICATION_UNVERIFIED,
     AffectedFlow,
@@ -155,7 +156,7 @@ def build_change_context(
             }
             for item in verification[:25]
         ],
-        "diff": diff_text[:MAX_DIFF_CHARS],
+        "diff": diff_text,  # whole; `_bounded_prompt` selects by priority and hunk
     }
 
 
@@ -184,7 +185,7 @@ def build_code_review_context(
     """
     files: list[dict[str, Any]] = []
     hunks_by_file: dict[str, list[tuple[int, int]]] = {}
-    for item in change.files[:40]:
+    for item in sorted(change.files, key=lambda f: file_priority(f.path))[:40]:
         ranges = [(hunk.start_line, hunk.end_line) for hunk in item.hunks]
         hunks_by_file.setdefault(item.path, []).extend(ranges)
         files.append({
@@ -197,7 +198,9 @@ def build_code_review_context(
         })
 
     symbols: list[dict[str, Any]] = []
-    for position, item in enumerate(change.symbols[:40]):
+    # source symbols first, so the per-symbol regions go to the code that matters most
+    ordered_symbols = sorted(change.symbols, key=lambda sy: file_priority(sy.file))
+    for position, item in enumerate(ordered_symbols[:40]):
         ranges = hunks_by_file.get(item.file, [])
         entry: dict[str, Any] = {
             "file": item.file,
@@ -229,27 +232,51 @@ def build_code_review_context(
     return {
         "version": "v1",
         "change": {"base": change.base, "files": files, "symbols": symbols},
-        "diff": diff_text[:MAX_DIFF_CHARS],
+        "diff": diff_text,  # whole; `_bounded_prompt` selects by priority and hunk
     }
 
 
-def _bounded_prompt(header: str, context: dict[str, Any]) -> str:
-    """Serialize a prompt, shrinking the diff first when over budget."""
-    payload = dict(context)
-    prompt = header + "\nContext:\n" + json.dumps(payload, ensure_ascii=True, separators=(",", ":"))
-    if len(prompt) <= MAX_PROMPT_CHARS:
-        return prompt
+def _drop_regions(keep: int) -> Any:
+    """Trim step: keep per-symbol source regions only on the first `keep` symbols."""
 
-    diff = str(payload.get("diff") or "")
-    overflow = len(prompt) - MAX_PROMPT_CHARS
-    payload["diff"] = diff[: max(0, len(diff) - overflow - 200)] + "\n... [truncated]"
-    prompt = header + "\nContext:\n" + json.dumps(payload, ensure_ascii=True, separators=(",", ":"))
-    if len(prompt) <= MAX_PROMPT_CHARS:
-        return prompt
+    def step(payload: dict[str, Any]) -> bool:
+        change = payload.get("change")
+        if not isinstance(change, dict):
+            return False
+        symbols = [dict(sy) for sy in change.get("symbols") or []]
+        changed = False
+        for pos, sy in enumerate(symbols):
+            if pos >= keep and "changed_region" in sy:
+                del sy["changed_region"]
+                changed = True
+        if changed:
+            payload["change"] = {**change, "symbols": symbols}
+        return changed
 
-    payload["affected_flows"] = payload.get("affected_flows", [])[:3]
-    prompt = header + "\nContext:\n" + json.dumps(payload, ensure_ascii=True, separators=(",", ":"))
-    return prompt[:MAX_PROMPT_CHARS]
+    return step
+
+
+def _bounded_prompt(header: str, context: dict[str, Any], extra_budget: int = 0) -> str:
+    """Serialize a prompt within the stage budget (`SYDES_LLM_CONTEXT_CHARS` or
+    MAX_PROMPT_CHARS). Metadata (per-symbol regions, symbol/file/flow lists) is trimmed
+    before the diff is; the diff is then selected by priority at hunk boundaries
+    (`sydes.verify.diff_context`), and the context is never sliced. `extra_budget` raises the
+    limit by the size of supplementary text in `header`, so adding it never costs the model
+    any of the diff or context it would otherwise see."""
+    prompt, _ = fit_prompt(
+        header,
+        context,
+        limit=context_chars(MAX_PROMPT_CHARS) + extra_budget,
+        full_diff=str(context.get("diff") or ""),
+        trims=[
+            _drop_regions(6),
+            trim_list("affected_flows", 3),
+            trim_list("symbols", 20, nested="change"),
+            trim_list("files", 20, nested="change"),
+            _drop_regions(0),
+        ],
+    )
+    return prompt
 
 
 _CODE_FINDINGS_HEADER = (
@@ -621,12 +648,19 @@ def generate_code_findings(
     context: dict[str, Any],
     model_spec: str | None = None,
     llm_client: LLMClient | None = None,
+    checked_behavior_preamble: str = "",
 ) -> tuple[list[CodeFinding], list[str]]:
-    """Run the code-findings LLM pass over the bounded change context."""
+    """Run the code-findings LLM pass over the bounded change context.
+
+    `checked_behavior_preamble` (experimental, opt-in) is externally checked runtime
+    evidence about the change, never a Sydes system-analysis conclusion: it is appended to
+    the header with instructions to treat it as advisory. Empty: the prompt is unchanged."""
     client = llm_client or create_default_llm_client(
         model_spec=model_spec, temperature=None, stage="code_review",
     )
-    prompt = _bounded_prompt(_CODE_FINDINGS_HEADER, context)
+    prompt = _bounded_prompt(
+        _CODE_FINDINGS_HEADER + checked_behavior_preamble, context, extra_budget=len(checked_behavior_preamble)
+    )
     raw = _run(client, prompt)
     findings, warnings = _validate_findings(raw, context)
     warnings.append(f"code_findings_prompt_chars={len(prompt)}")

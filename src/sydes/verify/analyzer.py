@@ -169,6 +169,18 @@ class VerifyChangeOptions:
     llm_policy: str = "auto"
     model_spec: str | None = None
     llm_client: LLMClient | None = None
+    #: Experimental (`--behavioral-review-context on`): checked behavioral evidence (a
+    #: DiffGenome genome summary, rendered by `sydes.behavioral.review_context`) appended to
+    #: the code-review and PR semantic-analysis prompts. Empty: prompts are unchanged.
+    checked_behavior_preamble: str = ""
+    #: Runtime evidence (`--runtime-evidence auto`, the default, when a DiffGenome artifact
+    #: carries a `diffgenome-runtime/1` contract): a `sydes.behavioral.context.BehavioralContext`.
+    #: Its observed call edges join the static call graph (tagged, additive) and its observed
+    #: callers' files join route discovery's candidates. None: every stage is unchanged.
+    behavioral_context: Any = None
+    #: Experimental (`--behavioral-context on`): also give the compact runtime evidence to code
+    #: review and PR semantic analysis. Off: prompts are unchanged.
+    behavioral_prompt_context: bool = False
     run_tests: bool = True
     test_timeout_seconds: float = 120.0
     #: M3 guide policy for unresolved impact: `off` (default), `auto`
@@ -1984,17 +1996,38 @@ def analyze_change(
     # `code_review_status` records which of these happened explicitly —
     # `code_findings` being empty must never stand in for it, since an empty
     # list means something different in each branch below.
+    behavioral_context = options.behavioral_context
+    if behavioral_context is not None:
+        from sydes.behavioral.context import review_preamble as _runtime_preamble
+
+        behavioral_context.changed_lines = {
+            item.path: [(h.start_line, h.end_line) for h in item.hunks] for item in change.files
+        }
+        if options.behavioral_prompt_context:
+            options.checked_behavior_preamble = _runtime_preamble(behavioral_context)
+            result.diagnostics.append(
+                f"behavioral_context=supplied evidence_chars={len(options.checked_behavior_preamble)}"
+            )
+        result.diagnostics.append(
+            "runtime_evidence: "
+            f"{len(behavioral_context.runtime.executed())}/{len(behavioral_context.runtime.functions)} "
+            f"changed function(s) executed by existing tests ({behavioral_context.runtime.test_scope})"
+        )
+
     if options.code_review:
         try:
             code_context = build_code_review_context(
                 change=change,
-                diff_text=read_unified_diff(repo_root=primary_root, base_rev=options.base),
+                diff_text=read_unified_diff(
+                    repo_root=primary_root, base_rev=options.base, max_chars=4_000_000
+                ),
                 repo_root=primary_root,
             )
             findings, finding_notes = generate_code_findings(
                 context=code_context,
                 model_spec=options.model_spec,
                 llm_client=options.llm_client,
+                checked_behavior_preamble=options.checked_behavior_preamble,
             )
             result.code_findings = findings
             result.code_review_status = CODE_REVIEW_COMPLETED
@@ -2019,6 +2052,7 @@ def analyze_change(
         semantic_analysis, semantic_notes = generate_pr_semantic_analysis(
             change=change, repo_root=primary_root, model_spec=options.model_spec,
             llm_client=options.llm_client,
+            checked_behavior_preamble=options.checked_behavior_preamble,
         )
         result.pr_semantic_analysis = semantic_analysis
         result.diagnostics.extend(semantic_notes)
@@ -2031,6 +2065,10 @@ def analyze_change(
 
     reachers = build_reverse_reach_index(handler_index)
     candidate_files = _candidate_route_files(change, change.symbols, reachers)
+    if behavioral_context is not None:
+        observed_files = behavioral_context.candidate_files() - candidate_files
+        candidate_files |= observed_files
+        result.diagnostics.append(f"behavioral_context_candidate_files_added={len(observed_files)}")
     result.diagnostics.append(f"reverse_reach_candidate_files={len(candidate_files)}")
 
     routes = discover_endpoints(
@@ -2095,6 +2133,19 @@ def analyze_change(
     if layer2_treesitter_edges:
         structural.usage_edges.extend(layer2_treesitter_edges)
         result.diagnostics.append(f"layer2_treesitter_edges_added={len(layer2_treesitter_edges)}")
+
+    # Runtime-observed call edges (--behavioral-context on): additive only. Each joins two
+    # symbols the index already resolves, was observed executing in an existing test, and is
+    # absent from the static graph; tagged so every path through one says so.
+    if behavioral_context is not None:
+        observed_edges, observed_stats = behavioral_context.observed_call_edges(
+            structural.symbol_index, primary.name, structural.call_edges
+        )
+        structural.call_edges.extend(observed_edges)
+        result.diagnostics.append(
+            "behavioral_context_observed_edges: "
+            + ", ".join(f"{k}={v}" for k, v in sorted(observed_stats.items()))
+        )
 
     # Which entrypoints the change reaches: the impact interpreter is the
     # primary source when CBM supplied a call graph, since it resolves
@@ -2192,6 +2243,7 @@ def analyze_change(
             # `result.unresolved_changed_symbols` directly) rather than only
             # ever appearing in a diagnostics line.
             result.unresolved_changed_symbols = len(impact_result.unresolved)
+            result.unresolved_changed_symbol_names = sorted({item.symbol for item in impact_result.unresolved})
             result.analysis_status = ANALYSIS_PARTIAL
             result.analysis_notes.append(
                 f"{len(impact_result.unresolved)} changed symbol(s) have no established "

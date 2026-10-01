@@ -509,6 +509,31 @@ sydes verify-change --base main --repo app=. --verbose
 sydes verify-change --base main --repo app=. --test-timeout 30
 ```
 
+### Behavioral (executed) evidence from DiffGenome — experimental
+
+Structural analysis says what *may* be connected. With `--behavioral-map diffgenome`,
+Sydes also asks [DiffGenome](https://pypi.org/project/diffgenome/) (installed with Sydes on Python 3.12+) what the repository's own
+isolated unit tests *actually executed* around the change, and what can be reconstructed
+across mock/fake seams, and merges that with the structural view without flattening
+provenance — every hop is labelled `observed`, `reconstructed · <grade>`, possible-only
+(static), gap, unresolved or external. Off by default; never changes the verdict; when the
+evidence cannot be obtained the report says so explicitly instead of implying "no impact".
+
+```bash
+# DiffGenome comes with Sydes (override with SYDES_DIFFGENOME_COMMAND); the runtime config is forwarded opaquely.
+sydes verify-change --base main --repo app=. \
+  --behavioral-map diffgenome \
+  --behavioral-args '--runtime go --test-root api --tests ./api/ --mock-dir db/mock'
+
+# Consume a diffgenome-change/1 artifact produced elsewhere (CI, a recorded replay).
+sydes verify-change --base main --repo app=. \
+  --behavioral-map diffgenome --behavioral-artifact diffgenome-change.json
+```
+
+`--behavioral-probes N` lets DiffGenome generate up to N isolated probes for gaps near the
+change (0 by default: existing tests only, no model call). Design, merge policy and the
+before/after validation: [docs/integration/diffgenome.md](docs/integration/diffgenome.md).
+
 ### Output artifacts
 
 `verify-change --json result.json` writes the same structured `ChangeVerificationResult` represented by the terminal renderer.

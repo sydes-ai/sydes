@@ -93,6 +93,7 @@ from sydes.impact.models import (
     PROVENANCE_DETERMINISTIC,
     PROVENANCE_LLM_GUIDED_SOURCE_CONFIRMED,
     RELATION_CALLS,
+    RELATION_OBSERVED_RUNTIME,
     RELATION_SOURCE_CONFIRMED,
     RELATION_USAGE,
     SymbolIdentity,
@@ -178,6 +179,8 @@ def _strength_label(points: float) -> str:
 
 
 def _edge_points(relation: str) -> float:
+    if relation == RELATION_OBSERVED_RUNTIME:
+        return _POINTS_CALL  # a call observed executing is at least as strong as a static one
     if relation in (RELATION_CALLS, RELATION_SOURCE_CONFIRMED):
         return _POINTS_CALL if relation == RELATION_CALLS else _POINTS_SOURCE_CONFIRMED
     if relation == RELATION_USAGE:

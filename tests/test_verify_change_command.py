@@ -104,6 +104,26 @@ def test_no_ai_recovery_flag_opts_out(service_repo: Path, monkeypatch) -> None:
     assert calls == []
 
 
+def test_no_ai_recovery_reports_disabled_not_failed(service_repo: Path, tmp_path: Path) -> None:
+    """With recovery disabled, terminal and result say so; neither reads as a run that failed."""
+    _apply_service_change(service_repo)
+    out = tmp_path / "result.json"
+    result = runner.invoke(
+        app,
+        [
+            "verify-change", "--base", "main", "--llm-policy", "never",
+            "--repo", f"svc={service_repo}", "--no-ai-recovery", "--json", str(out),
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "AI recovery (experimental): disabled (--no-ai-recovery)." in result.output
+    assert "AI recovery (experimental): triggered" not in result.output
+    assert "AI recovery (experimental): failed" not in result.output
+    notes = json.loads(out.read_text())["notes"]
+    assert "AI recovery: disabled (--no-ai-recovery); not run." in notes
+
+
 def test_verify_change_reports_flow_verification_and_runtime(service_repo: Path) -> None:
     """The deterministic run connects a service change to its route and needs."""
     _apply_service_change(service_repo)
@@ -245,3 +265,67 @@ def test_ai_recovery_builds_its_client_with_no_pinned_temperature(tmp_path: Path
 
     assert "temperature" in captured
     assert captured["temperature"] is None
+
+
+def _capture_options(monkeypatch) -> list:
+    import sydes.cli.verify_change as cli
+
+    seen: list = []
+    real = cli.analyze_change
+
+    def spy(*, repos, options):
+        seen.append(options)
+        return real(repos=repos, options=options)
+
+    monkeypatch.setattr(cli, "analyze_change", spy)
+    monkeypatch.setattr("sydes.cli.verify_change._run_ai_recovery", lambda *a, **k: None)
+    return seen
+
+
+def test_behavioral_review_context_is_off_by_default(service_repo: Path, monkeypatch) -> None:
+    _apply_service_change(service_repo)
+    seen = _capture_options(monkeypatch)
+    result = runner.invoke(
+        app, ["verify-change", "--base", "main", "--llm-policy", "never", "--repo", f"svc={service_repo}"]
+    )
+    assert result.exit_code == 0, result.output
+    assert seen[0].checked_behavior_preamble == ""
+
+
+def test_behavioral_review_context_without_genome_falls_back(service_repo: Path, tmp_path: Path, monkeypatch) -> None:
+    _apply_service_change(service_repo)
+    seen = _capture_options(monkeypatch)
+    art = tmp_path / "a.json"
+    art.write_text(json.dumps({"format": "diffgenome-change/1"}))
+    out = tmp_path / "r.json"
+    result = runner.invoke(
+        app,
+        [
+            "verify-change", "--base", "main", "--llm-policy", "never", "--repo", f"svc={service_repo}",
+            "--behavioral-review-context", "on", "--behavioral-artifact", str(art), "--json", str(out),
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    assert seen[0].checked_behavior_preamble == ""
+    diags = json.loads(out.read_text())["diagnostics"]
+    assert any(d.startswith("behavioral_review_context unavailable") for d in diags)
+
+
+def test_behavioral_review_context_supplies_checked_rules(service_repo: Path, tmp_path: Path, monkeypatch) -> None:
+    _apply_service_change(service_repo)
+    seen = _capture_options(monkeypatch)
+    art = tmp_path / "a.json"
+    art.write_text(json.dumps({"format": "diffgenome-change/1", "genome": {
+        "format": "diffgenome-genome-summary/1",
+        "decision_rules": [{"status": "verified", "entity": "RefundService.retry_refund",
+                            "file": "app/services.py", "line": 4, "source": "x", "agreeing_tests": 2}],
+    }}))
+    result = runner.invoke(
+        app,
+        [
+            "verify-change", "--base", "main", "--llm-policy", "never", "--repo", f"svc={service_repo}",
+            "--behavioral-review-context", "on", "--behavioral-artifact", str(art),
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    assert "app/services.py:4" in seen[0].checked_behavior_preamble

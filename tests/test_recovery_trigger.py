@@ -180,3 +180,76 @@ def test_no_trigger_when_everything_is_already_established_and_resolved():
         ],
     )
     assert evaluate_trigger(result) is None
+
+
+def test_gaps_answered_by_executed_behavioral_evidence_are_not_sent_to_recovery() -> None:
+    """A changed test file with no mapping and changed symbols with no static entry
+    path would normally trigger recovery; when executed evidence already shows tests
+    running the changed code and an entry path reaching it, neither is sent."""
+    from sydes.behavioral.models import (
+        OBSERVED_RUNTIME,
+        STATUS_AVAILABLE,
+        BehavioralEdge,
+        BehavioralEvidence,
+        BehavioralNode,
+    )
+    from sydes.recovery.trigger import answered_by_behavioral
+    from sydes.verify.models import ChangedFile
+
+    files = [ChangedFile(repo=REPO, path="tests/test_svc.py", role="test_usage_candidate", change_type="modified")]
+    flow = AffectedFlow(id="f", entry_label="entry", impact_status="proven")
+    result = _result(files=files, affected_flows=[flow], unresolved_changed_symbols=1)
+    before = evaluate_trigger(result)
+    assert before is not None
+    assert set(before.gap_kinds) == {GAP_MISSING_TEST_MAPPING, GAP_UNRESOLVED_CHANGED_SYMBOLS}
+
+    result.behavioral = BehavioralEvidence(
+        status=STATUS_AVAILABLE,
+        nodes=[
+            BehavioralNode(id="x:entry", name="entry", executed_by=4, static_match="entry"),
+            BehavioralNode(id="x:svc.handler", name="svc.handler", changed=True, executed_by=2),
+        ],
+        edges=[BehavioralEdge(caller="x:entry", callee="x:svc.handler", evidence_class=OBSERVED_RUNTIME)],
+        tests_on_behavioral_path=["tests/test_svc.py::test_handler"],
+    )
+    assert set(answered_by_behavioral(result)) == {GAP_MISSING_TEST_MAPPING, GAP_UNRESOLVED_CHANGED_SYMBOLS}
+    assert evaluate_trigger(result) is None
+
+    # unavailable behavioral evidence answers nothing
+    result.behavioral = BehavioralEvidence(status="unavailable", reason="no tests")
+    assert answered_by_behavioral(result) == []
+    assert evaluate_trigger(result) is not None
+
+
+def test_reaching_a_service_method_is_not_an_entry_path() -> None:
+    """A changed symbol observed only under a service method its unit tests call is not
+    connected to any affected flow: that gap is still open and still goes to recovery."""
+    from sydes.behavioral.answers import symbols_without_entry
+    from sydes.behavioral.models import (
+        OBSERVED_RUNTIME,
+        STATUS_AVAILABLE,
+        BehavioralEdge,
+        BehavioralEvidence,
+        BehavioralNode,
+    )
+
+    flow = AffectedFlow(id="f", entry_label="entry", impact_status="proven")
+    result = _result(affected_flows=[flow], unresolved_changed_symbols=1)
+    result.behavioral = BehavioralEvidence(
+        status=STATUS_AVAILABLE,
+        nodes=[
+            BehavioralNode(id="x:route", name="route", executed_by=4, static_match="route"),
+            BehavioralNode(id="x:svc.run", name="svc.run", executed_by=2),
+            BehavioralNode(id="x:text.split", name="text.split", changed=True, executed_by=6),
+        ],
+        edges=[BehavioralEdge(caller="x:svc.run", callee="x:text.split", evidence_class=OBSERVED_RUNTIME)],
+    )
+    assert symbols_without_entry(result.behavioral) == ["x:text.split"]
+    trigger = evaluate_trigger(result)
+    assert trigger is not None and GAP_UNRESOLVED_CHANGED_SYMBOLS in trigger.gap_kinds
+    # a reconstructed route -> service seam closes it
+    result.behavioral.edges.append(
+        BehavioralEdge(caller="x:route", callee="x:svc.run", evidence_class="COMPOSED_ARG_SHAPE")
+    )
+    assert symbols_without_entry(result.behavioral) == []
+    assert evaluate_trigger(result) is None

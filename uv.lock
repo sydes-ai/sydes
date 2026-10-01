@@ -1,6 +1,10 @@
 version = 1
 revision = 3
 requires-python = ">=3.11"
+resolution-markers = [
+    "python_full_version >= '3.12'",
+    "python_full_version < '3.12'",
+]
 
 [[package]]
 name = "altgraph"
@@ -98,6 +102,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/d8/53/6f443c9a4a8358a93a6792e2acffb9d9d5cb0a5cfd8802644b7b1c9a02e4/colorama-0.4.6.tar.gz", hash = "sha256:08695f5cb7ed6e0531a20572697297273c47b8cae5a63ffc6d6ed5c201be6e44", size = 27697, upload-time = "2022-10-25T02:36:22.414Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/d1/d6/3965ed04c63042e047cb6a3e6ed1a63a35087b6a609aa3a15ed8ac56c221/colorama-0.4.6-py2.py3-none-any.whl", hash = "sha256:4f1d9991f5acc0ca119f9d443620b77f9d6b33703e51011c16baf57afb285fc6", size = 25335, upload-time = "2022-10-25T02:36:20.889Z" },
+]
+
+[[package]]
+name = "diffgenome"
+version = "0.1.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/cb/7f/c306bfd7b6a696606efb5294fe4a7ade697887bb647f82075fd88d75a3b1/diffgenome-0.1.0.tar.gz", hash = "sha256:2b81906fea88a8e5c69b5f7a053cfb5e3a769aa02e8c27f6c6bfe0bf8b4083e9", size = 211886, upload-time = "2026-10-01T13:53:54.63Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/5c/30/f36423ce684775bdaa225612bdcb49c5d9080140dc0153c345b9a9183d21/diffgenome-0.1.0-py3-none-any.whl", hash = "sha256:8a79a6b63433b6a800e1e797a6f8419be576044d32efdc4dd73940fc4a85b0a5", size = 201469, upload-time = "2026-10-01T13:53:53.238Z" },
 ]
 
 [[package]]
@@ -581,6 +594,7 @@ source = { editable = "." }
 dependencies = [
     { name = "anthropic" },
     { name = "codebase-memory-mcp" },
+    { name = "diffgenome", marker = "python_full_version >= '3.12'" },
     { name = "openai" },
     { name = "pydantic" },
     { name = "typer" },
@@ -604,6 +618,7 @@ dev = [
 requires-dist = [
     { name = "anthropic", specifier = ">=0.102.0" },
     { name = "codebase-memory-mcp", specifier = "==0.10.8" },
+    { name = "diffgenome", marker = "python_full_version >= '3.12'", specifier = ">=0.1.0" },
     { name = "openai", specifier = ">=2.36.0" },
     { name = "pydantic", specifier = ">=2.7,<3.0" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0,<9.0" },

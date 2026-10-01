@@ -729,6 +729,24 @@ def _render_system_impact_default(result: ChangeVerificationResult, lines: list[
         lines.append("No structural propagation path was established.")
 
 
+def _render_behavioral_default(result: ChangeVerificationResult, lines: list[str]) -> None:
+    """Runtime/composed evidence from DiffGenome, kept visibly distinct from
+    the structural "System impact": what was observed to execute, what was
+    reconstructed and at which grade, what only static analysis proposes, and
+    where evidence stops. Omitted when never requested; when requested but
+    unavailable it says so and never reads as "no impact"."""
+    from sydes.behavioral.render import render_terminal
+
+    ev = result.behavioral
+    if ev is None:
+        return
+    body = render_terminal(ev)
+    if not body:
+        return
+    _header(lines, "Behavioral effect (executed evidence)")
+    lines.extend(body)
+
+
 def _render_inferred_impact_default(result: ChangeVerificationResult, lines: list[str]) -> None:
     """LLM-derived findings, kept visibly distinct from structural System
     impact — confidence, the causal "Why", and whether structural
@@ -965,9 +983,48 @@ def _could_not_establish_bullets(
             f"{counts.impacts_not_modeled} additional affected {noun} not yet verification-modeled."
         )
 
+    from sydes.behavioral.answers import changed_symbols_reached, tests_observed
+
     if counts.unresolved_changed_symbols > 0:
         noun = "symbol has" if counts.unresolved_changed_symbols == 1 else "symbols have"
-        bullets.append(f"{counts.unresolved_changed_symbols} changed {noun} unresolved impact paths.")
+        if changed_symbols_reached(result.behavioral):
+            bullets.append(
+                f"{counts.unresolved_changed_symbols} changed {noun} no static impact path; "
+                "executed evidence shows the entry path (see Behavioral effect)."
+            )
+        else:
+            bullets.append(f"{counts.unresolved_changed_symbols} changed {noun} unresolved impact paths.")
+    observed = tests_observed(result.behavioral)
+    if (
+        observed
+        and not_established > 0
+        and counts.mapped_tests == 0
+        and counts.tests_verifying_behavior == 0
+    ):
+        acc = (getattr(result.behavioral, "genome", None) or {}).get("accounting") or {}
+        listed = " listed in the behavioral artifact" if acc else ""
+        bullets.append(
+            f"{len(observed)} existing test(s){listed} execute the changed code, but none is mapped as "
+            "asserting the affected behavior."
+        )
+        if acc and int(acc.get("relevant_executions_checked") or 0) > len(observed):
+            bullets.append(
+                f"The checked behavioral rules were established over {acc['relevant_executions_checked']} "
+                f"relevant executions ({acc.get('scenario_predictions_checked', '?')} per-test predictions); "
+                "that is not a count of tests asserting the behavior."
+            )
+
+    runtime_gaps = [g for g in result.verification_gaps if g.source == "runtime"]
+    if runtime_gaps:
+        not_run = sum(1 for g in runtime_gaps if ":function_not_executed:" in g.id)
+        unobserved = sum(1 for g in runtime_gaps if ":branch_" in g.id)
+        stand_ins = sum(1 for g in runtime_gaps if ":stand_in_reached:" in g.id)
+        parts = [
+            f"{not_run} changed function(s) no existing test executed" if not_run else "",
+            f"{unobserved} changed condition outcome(s) never observed" if unobserved else "",
+            f"{stand_ins} dependency call(s) only ever reached through a stand-in" if stand_ins else "",
+        ]
+        bullets.append("Runtime evidence: " + "; ".join(p for p in parts if p) + ".")
 
     uncorroborated = sum(
         1 for item in result.accepted_impacts
@@ -1047,6 +1104,7 @@ def _render_default_report(result: ChangeVerificationResult) -> str:
     _render_changed_default(result, lines)
     _render_change_analysis_default(result, lines)
     _render_system_impact_default(result, lines)
+    _render_behavioral_default(result, lines)
     _render_inferred_boundaries_default(result, lines)
     _render_inferred_impact_default(result, lines)
 

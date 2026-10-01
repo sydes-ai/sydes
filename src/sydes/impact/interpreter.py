@@ -73,6 +73,9 @@ from sydes.impact.models import (
     STRATEGY_DECORATOR_REFERENCE,
     STRATEGY_DIRECT_ENTRYPOINT,
     STRATEGY_GUIDED_INVESTIGATION,
+    STRATEGY_RUNTIME_OBSERVED_REACHABILITY,
+    RELATION_OBSERVED_RUNTIME,
+    PROVENANCE_RUNTIME_OBSERVED,
     STRATEGY_LLM_SEMANTIC_INFERENCE,
     STRATEGY_SIGNATURE_REFERENCE,
     STRATEGY_USAGE_REACHABILITY,
@@ -1103,6 +1106,8 @@ class ImpactInterpreter:
                     provenance=(
                         PROVENANCE_LLM_GUIDED_SOURCE_CONFIRMED
                         if relation == RELATION_SOURCE_CONFIRMED
+                        else PROVENANCE_RUNTIME_OBSERVED
+                        if relation == RELATION_OBSERVED_RUNTIME
                         else PROVENANCE_DETERMINISTIC
                     ),
                 )
@@ -1111,6 +1116,10 @@ class ImpactInterpreter:
                 if entry is not None:
                     if any(item.relation == RELATION_SOURCE_CONFIRMED for item in extended):
                         strategy = STRATEGY_GUIDED_INVESTIGATION
+                    elif any(item.relation == RELATION_OBSERVED_RUNTIME for item in extended) and all(
+                        item.relation in (RELATION_CALLS, RELATION_OBSERVED_RUNTIME) for item in extended
+                    ):
+                        strategy = STRATEGY_RUNTIME_OBSERVED_REACHABILITY
                     elif all(item.relation == RELATION_CALLS for item in extended):
                         strategy = STRATEGY_CALL_REACHABILITY
                     else:
@@ -1743,8 +1752,13 @@ class _FactIndex:
                 short_name=edge.get("caller_symbol"),
                 line=edge.get("caller_line"),
             )
+            observed = str(edge.get("source") or "").startswith("diffgenome:")
             self._inbound.setdefault(callee.key, []).append(
-                (RELATION_CALLS, caller, {"_edge_file": callee_file})
+                (
+                    RELATION_OBSERVED_RUNTIME if observed else RELATION_CALLS,
+                    caller,
+                    {"_edge_file": callee_file, **({"evidence": edge.get("evidence", "")} if observed else {})},
+                )
             )
             if callee_file:
                 self._inbound_files.setdefault(callee.key, set()).add(callee_file)

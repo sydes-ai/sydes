@@ -20,6 +20,9 @@ from typing import Any
 #: kinds observed in the structural facts, not framework concepts.
 RELATION_DIRECT = "direct"
 RELATION_CALLS = "calls"
+#: A call observed at runtime by an external collector (DiffGenome) and absent from the static
+#: graph: supplementary evidence, walked exactly like a static call.
+RELATION_OBSERVED_RUNTIME = "observed_runtime"
 RELATION_USAGE = "usage"
 RELATION_DECORATOR_REFERENCE = "decorator_reference"
 RELATION_SIGNATURE_REFERENCE = "signature_reference"
@@ -38,6 +41,8 @@ RELATION_LLM_INFERRED = "llm_inferred"
 #: attributed to the rule that produced it rather than to the system at large.
 STRATEGY_DIRECT_ENTRYPOINT = "direct_entrypoint"
 STRATEGY_CALL_REACHABILITY = "call_reachability"
+#: a call path to an entrypoint that needed at least one runtime-observed hop
+STRATEGY_RUNTIME_OBSERVED_REACHABILITY = "runtime_observed_reachability"
 STRATEGY_USAGE_REACHABILITY = "usage_reachability"
 STRATEGY_DECORATOR_REFERENCE = "decorator_reference"
 STRATEGY_SIGNATURE_REFERENCE = "signature_reference"
@@ -138,6 +143,8 @@ _KEY_SEP = "\u241f"
 #: a reader can trust a deterministic step outright and must check the source
 #: reference on a guided one.
 PROVENANCE_DETERMINISTIC = "deterministic"
+#: the hop was observed executing (DiffGenome), not derived from the static graph
+PROVENANCE_RUNTIME_OBSERVED = "runtime_observed"
 PROVENANCE_LLM_GUIDED_SOURCE_CONFIRMED = "llm_guided_source_confirmed"
 #: An inferred candidate whose entrypoint matched something already present
 #: in the known facts (a declared route/entrypoint) — cheap corroboration,
