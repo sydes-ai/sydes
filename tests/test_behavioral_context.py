@@ -240,3 +240,47 @@ def test_impact_reached_only_through_observed_edges_is_labelled_runtime_observed
     [static] = _interpret([_edge("handler", "service")]).affected
     assert _impact_provenance(observed) == PROVENANCE_RUNTIME_OBSERVED
     assert _impact_provenance(static) == "structural"
+
+
+def test_observed_paths_run_from_entry_root_to_changed_code() -> None:
+    summary = RuntimeEvidence(_contract()).summary()
+    assert summary["paths"] == [[{"name": "handler", "changed": False}, {"name": "service", "changed": True}]]
+    assert summary["tests_exercised"] == 3
+
+
+def test_live_run_selects_python_tests_when_none_are_given(tmp_path: Path, monkeypatch) -> None:
+    import subprocess
+
+    from sydes.behavioral import diffgenome_adapter
+    from sydes.behavioral.test_selection import TestSelection
+    from sydes.cli import verify_change
+
+    root = tmp_path / "r"
+    root.mkdir()
+    for args in (["init", "-q"], ["config", "user.email", "t@t"], ["config", "user.name", "t"],
+                 ["commit", "-q", "--allow-empty", "-m", "a"]):
+        subprocess.run(["git", *args], cwd=root, check=True, capture_output=True)
+    seen: list[list[str]] = []
+    monkeypatch.setattr(diffgenome_adapter, "run_diffgenome", lambda req: seen.append(req.runtime_args) or ({}, []))
+    monkeypatch.setattr(
+        "sydes.behavioral.test_selection.select_python_tests",
+        lambda *a, **k: TestSelection(files=["t/test_a.py", "t/test_b.py"], reasons={"t/test_a.py": "changed in this diff", "t/test_b.py": "calls f"}),
+    )
+    _, note, selection = verify_change._run_diffgenome_before_analysis(root, "HEAD", "--runtime python", 0, tmp_path / "o")
+    assert note == "" and selection is not None and selection["files"] == ["t/test_a.py", "t/test_b.py"]
+    assert seen[-1] == ["--runtime", "python", "--tests", "t/test_a.py", "--pytest-arg=t/test_b.py"]
+    # tests given explicitly: used as is, no selection
+    _, _, selection = verify_change._run_diffgenome_before_analysis(root, "HEAD", "--runtime python --tests x.py", 0, tmp_path / "o")
+    assert selection is None and seen[-1] == ["--runtime", "python", "--tests", "x.py"]
+
+
+def test_failed_live_run_is_reported_not_rerun(tmp_path: Path, monkeypatch) -> None:
+    from sydes.behavioral import attach as attach_mod
+
+    monkeypatch.setattr(attach_mod, "run_diffgenome", lambda req: (_ for _ in ()).throw(AssertionError("reran")))
+    result = ChangeVerificationResult(change=ChangeSet(base="main"))
+    ev = attach_mod.attach_behavioral_evidence(
+        result, repo_root=tmp_path, provider="diffgenome", artifact_path=None,
+        runtime_args="--runtime python", unavailable_reason="DiffGenome timed out after 900s",
+    )
+    assert ev.status != STATUS_AVAILABLE and ev.reason == "DiffGenome timed out after 900s"

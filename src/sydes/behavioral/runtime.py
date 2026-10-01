@@ -130,6 +130,48 @@ class RuntimeEvidence:
             frontier = nxt
         return list(roots.values())
 
+    def observed_paths(self, limit: int = 3, max_len: int = 6) -> list[list[dict[str, Any]]]:
+        """Representative observed execution paths into the changed code, for people: from an
+        entry root (see `entry_roots`) along application frames to the deepest changed function
+        it reached. One path per entry root, the roots reaching the most changed functions first.
+        Each step is `{"name", "changed"}`; a long path keeps its ends around an ellipsis step."""
+        app = defaultdict(list)
+        for e in self.edges:
+            if e["caller"].get("origin") != "test" and e["callee"].get("origin") != "test":
+                app[e["caller"]["symbol"]].append(e["callee"]["symbol"])
+        changed = {f["symbol"] for f in self.functions if f.get("executed")}
+        roots: dict[str, int] = defaultdict(int)
+        for sym in changed:
+            for r in self.entry_roots(sym):
+                roots[r["symbol"]] += 1
+        paths: list[list[dict[str, Any]]] = []
+        for root, _n in sorted(roots.items(), key=lambda kv: (-kv[1], kv[0])):
+            prev: dict[str, str | None] = {root: None}
+            order = [root]
+            for node in order:  # breadth-first: shortest observed chain to each frame
+                for nxt in app.get(node, []):
+                    if nxt not in prev:
+                        prev[nxt] = node
+                        order.append(nxt)
+            targets = [n for n in order if n in changed and n != root]
+            if not targets:
+                continue
+            chain: list[str] = []
+            node: str | None = targets[-1]
+            while node is not None:
+                chain.append(node)
+                node = prev[node]
+            chain.reverse()
+            steps = [{"name": short_name(s), "changed": s in changed} for s in chain]
+            if len(steps) > max_len:
+                steps = [*steps[:2], {"name": "…", "changed": False}, *steps[-(max_len - 3):]]
+            if any(p[len(p) - len(steps):] == steps for p in paths if len(p) >= len(steps)):
+                continue  # the same chain, or the tail of one already shown
+            paths.append(steps)
+            if len(paths) >= limit:
+                break
+        return paths
+
     def _loc_of(self, symbol: str) -> dict[str, Any]:
         for e in self.edges:
             for end in (e["caller"], e["callee"]):
@@ -289,6 +331,8 @@ class RuntimeEvidence:
                 }
                 for f in self.functions
             ],
+            "paths": self.observed_paths(),
+            "tests_exercised": len({t for f in self.functions for t in f.get("tests") or []}),
             "gaps": [g.model_dump() for g in self.verification_gaps()],
             "not_reported": list(self.contract.get("not_reported") or []),
         }

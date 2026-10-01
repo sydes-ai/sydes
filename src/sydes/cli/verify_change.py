@@ -28,14 +28,19 @@ from sydes.verify.models import ChangeVerificationResult
 
 
 def _run_diffgenome_before_analysis(
-    repo_root: Path, base: str, runtime_args: str, probes: int, out_dir: Path | None
-) -> tuple[Path | None, str]:
-    """Run DiffGenome for merge-base(base, HEAD)..HEAD. Returns (artifact path, note); a failure
-    is a note, never an error: the analysis then proceeds without runtime evidence."""
+    repo_root: Path, base: str, runtime_args: str, probes: int, out_dir: Path | None,
+    test_budget: int = 10,
+) -> tuple[Path | None, str, dict | None]:
+    """Run DiffGenome for merge-base(base, HEAD)..HEAD. Returns (artifact path, note, test
+    selection); a failure is a note, never an error: the analysis then proceeds without runtime
+    evidence. With a Python runtime and no `--tests`, Sydes selects the tests itself."""
     import shlex
     import subprocess
 
     from sydes.behavioral.diffgenome_adapter import BehavioralUnavailable, DiffGenomeRequest, run_diffgenome
+    from sydes.behavioral.test_selection import (
+        has_tests_arg, runtime_of, select_python_tests, with_selected_tests,
+    )
 
     def git(*args: str) -> str:
         return subprocess.run(
@@ -45,15 +50,26 @@ def _run_diffgenome_before_analysis(
     try:
         head = git("rev-parse", "HEAD")
         merge_base = git("merge-base", base, head)
+        args = shlex.split(runtime_args)
+        selection: dict | None = None
+        if runtime_of(args) == "python" and not has_tests_arg(args):
+            chosen = select_python_tests(repo_root, merge_base, head, budget=test_budget)
+            if not chosen.files:
+                return None, (
+                    "runtime_evidence unavailable: no existing test file changes or calls the "
+                    "changed functions (automatic test selection found none)"
+                ), None
+            selection = chosen.as_dict()
+            args = with_selected_tests(args, chosen)
         request = DiffGenomeRequest(
             repo_root=repo_root, diff=f"{merge_base}..{head}",
             out_dir=out_dir or (Path.cwd() / ".sydes-behavioral"),
-            runtime_args=shlex.split(runtime_args), probe_budget=probes,
+            runtime_args=args, probe_budget=probes,
         )
         run_diffgenome(request)
-        return request.out_dir / "diffgenome-change.json", ""
+        return request.out_dir / "diffgenome-change.json", "", selection
     except (BehavioralUnavailable, subprocess.CalledProcessError, OSError) as exc:
-        return None, f"runtime_evidence unavailable: {exc}"
+        return None, f"runtime_evidence unavailable: {exc}", None
 
 
 def verify_change_command(
@@ -288,6 +304,17 @@ def verify_change_command(
         Path | None,
         typer.Option("--behavioral-out", help="Where DiffGenome writes its run (default: ./.sydes-behavioral)."),
     ] = None,
+    runtime_test_budget: Annotated[
+        int,
+        typer.Option(
+            "--runtime-test-budget",
+            help=(
+                "Python runtime evidence without --tests in --behavioral-args: at most this many "
+                "test files are selected automatically (changed in the diff first, then files that "
+                "call the changed functions), capped at about 100 test functions."
+            ),
+        ),
+    ] = 10,
     runtime_evidence: Annotated[
         str,
         typer.Option(
@@ -374,6 +401,8 @@ def verify_change_command(
     if runtime_evidence not in ("off", "auto"):
         raise typer.BadParameter("must be auto or off", param_hint="--runtime-evidence")
     loaded_context = None
+    test_selection: dict | None = None
+    live_run_failed: str | None = None
     use_runtime = behavioral_map == "diffgenome" and (runtime_evidence == "auto" or behavioral_context == "on")
     if use_runtime:
         from sydes.behavioral.context import BehavioralContext
@@ -381,11 +410,13 @@ def verify_change_command(
         if behavioral_artifact is None:
             # live: run DiffGenome before analysis so its evidence can inform reachability; the
             # post-analysis attach then reuses this artifact instead of running it again
-            behavioral_artifact, early_note = _run_diffgenome_before_analysis(
-                Path(repos[0].root), base, behavioral_args, behavioral_probes, behavioral_out
+            behavioral_artifact, early_note, test_selection = _run_diffgenome_before_analysis(
+                Path(repos[0].root), base, behavioral_args, behavioral_probes, behavioral_out,
+                test_budget=runtime_test_budget,
             )
             if early_note:
                 checked_note = early_note
+                live_run_failed = early_note.removeprefix("runtime_evidence unavailable: ")
         loaded_context = BehavioralContext.load(behavioral_artifact)
         if loaded_context is None and not checked_note:
             checked_note = (
@@ -433,7 +464,8 @@ def verify_change_command(
             result, repo_root=Path(repos[0].root), provider=behavioral_map,
             artifact_path=behavioral_artifact, runtime_args=behavioral_args,
             probe_budget=behavioral_probes, out_dir=behavioral_out,
-            use_runtime=runtime_evidence == "auto",
+            use_runtime=runtime_evidence == "auto", test_selection=test_selection,
+            unavailable_reason=live_run_failed,
         )
 
     if no_ai_recovery:

@@ -41,10 +41,19 @@ def attach_behavioral_evidence(
     timeout_seconds: float = 900.0,
     writer: str = "openai",
     use_runtime: bool = True,
+    test_selection: dict | None = None,
+    unavailable_reason: str | None = None,
 ) -> BehavioralEvidence:
     if provider != "diffgenome":
         ev = BehavioralEvidence(status=STATUS_UNAVAILABLE, reason=f"unknown behavioral provider {provider!r}")
         result.behavioral = ev
+        return ev
+    if artifact_path is None and unavailable_reason:
+        # the live run already happened (before analysis) and produced nothing: never run
+        # DiffGenome a second time here, with different arguments
+        ev = BehavioralEvidence(status=STATUS_UNAVAILABLE, reason=unavailable_reason)
+        result.behavioral = ev
+        result.notes.append(f"Behavioral execution evidence unavailable: {ev.reason}")
         return ev
     try:
         if artifact_path is not None:
@@ -66,6 +75,8 @@ def attach_behavioral_evidence(
         runtime = RuntimeEvidence.from_artifact(artifact) if use_runtime else None
         if runtime is not None:
             _apply_runtime(result, ev, runtime)
+            if test_selection and ev.runtime_evidence is not None:
+                ev.runtime_evidence["test_selection"] = test_selection
         ev.notes.extend(log[-3:])
         added = _added_test_lines(result, repo_root)
         linked = link_supporting_tests(result, ev, artifact, added)
