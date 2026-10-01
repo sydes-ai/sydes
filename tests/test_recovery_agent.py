@@ -350,7 +350,7 @@ def test_provider_failure_during_discovery_raises_recovery_error(repo: Path):
 
 
 def test_malformed_discovery_final_raises_recovery_error(repo: Path):
-    client = SequencedClient(["not json and not a tool call"])
+    client = SequencedClient(["not json and not a tool call"] * 2)  # malformed twice: re-asked once, then fails
     with pytest.raises(RecoveryError):
         recover(_context(), repo_root=repo, client=client, trigger_reason="no established path")
 

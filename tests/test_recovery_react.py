@@ -63,3 +63,61 @@ def test_no_json_object_at_all_raises_recovery_error():
 def test_non_object_json_raises_recovery_error():
     with pytest.raises(RecoveryError):
         extract_turn("[1, 2, 3]", max_chars=4000)
+
+
+def test_a_long_valid_final_answer_is_not_cut_at_max_chars():
+    """Observed in CI with openai:gpt-5.1: a ~6k-char final answer was truncated to
+    max_chars before parsing and rejected as 'not a JSON object'."""
+    import json
+
+    raw = json.dumps({"final": {"status": "established", "evidence": ["x" * 300] * 20}})
+    assert len(raw) > 4000
+    assert extract_turn(raw, max_chars=4000)["final"]["status"] == "established"
+
+
+def test_error_says_what_the_reply_looked_like():
+    with pytest.raises(RecoveryError, match=r"27 chars, starts 'not json and no braces here'"):
+        extract_turn("not json and no braces here", max_chars=4000)
+
+
+def test_one_malformed_turn_is_re_asked_once_then_the_loop_continues():
+    from types import SimpleNamespace
+
+    from sydes.llm.client import LLMResponse
+    from sydes.recovery.react import run_react_loop
+
+    replies = iter(["Sure! Let me think about it.", '{"final": {"ok": true}}'])
+
+    class _Client:
+        prompts: list[str] = []
+
+        def generate(self, request):
+            self.prompts.append(request.prompt)
+            return LLMResponse(text=next(replies))
+
+    client = _Client()
+    stats = SimpleNamespace(turns=0, llm_calls=0, latency_ms=0.0, prompt_tokens=0, completion_tokens=0, files_read=[])
+    result = run_react_loop(
+        client=client, tools=None, system_prompt="s", initial_prompt="p", max_turns=3,
+        max_response_chars=4000, stats=stats, parse_final=lambda text: text,
+    )
+    assert result == '{"ok": true}'
+    assert stats.llm_calls == 2 and "could not be used" in client.prompts[1]
+
+
+def test_two_malformed_replies_in_a_row_still_fail():
+    from types import SimpleNamespace
+
+    from sydes.llm.client import LLMResponse
+    from sydes.recovery.react import run_react_loop
+
+    class _Client:
+        def generate(self, request):
+            return LLMResponse(text="no json")
+
+    stats = SimpleNamespace(turns=0, llm_calls=0, latency_ms=0.0, prompt_tokens=0, completion_tokens=0, files_read=[])
+    with pytest.raises(RecoveryError, match="not a JSON object"):
+        run_react_loop(
+            client=_Client(), tools=None, system_prompt="s", initial_prompt="p", max_turns=3,
+            max_response_chars=4000, stats=stats, parse_final=lambda text: text,
+        )

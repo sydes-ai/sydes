@@ -78,8 +78,16 @@ def _find_balanced_object_end(text: str, start: int) -> int | None:
     return None
 
 
+def _describe(text: str, max_chars: int) -> str:
+    head = " ".join(text.strip().split())[: min(max_chars, 120)]
+    return f"{len(text)} chars, starts {head!r}" if head else "empty reply"
+
+
 def extract_turn(text: str, *, max_chars: int) -> dict[str, Any]:
-    stripped = text.strip()[:max_chars]
+    """One agent turn as a JSON object. The whole reply is parsed: cutting it to
+    `max_chars` first turned a long but valid final answer into "not a JSON object"
+    (observed with openai:gpt-5.1 in CI). `max_chars` only bounds the error snippet."""
+    stripped = text.strip()
     if stripped.startswith("```"):
         lines = stripped.splitlines()
         if len(lines) >= 3 and lines[-1].strip().startswith("```"):
@@ -90,13 +98,13 @@ def extract_turn(text: str, *, max_chars: int) -> dict[str, Any]:
         start = stripped.find("{")
         end = _find_balanced_object_end(stripped, start) if start >= 0 else None
         if start < 0 or end is None:
-            raise RecoveryError("agent turn was not a JSON object")
+            raise RecoveryError(f"agent turn was not a JSON object ({_describe(text, max_chars)})")
         try:
             payload = json.loads(stripped[start:end])
         except json.JSONDecodeError as exc:
-            raise RecoveryError(f"agent turn was not valid JSON: {exc}") from exc
+            raise RecoveryError(f"agent turn was not valid JSON: {exc} ({_describe(text, max_chars)})") from exc
     if not isinstance(payload, dict):
-        raise RecoveryError("agent turn was not a JSON object")
+        raise RecoveryError(f"agent turn was not a JSON object ({_describe(text, max_chars)})")
     return payload
 
 
@@ -169,7 +177,26 @@ def run_react_loop(
             stats.prompt_tokens += response.usage.get("prompt_tokens", 0)
             stats.completion_tokens += response.usage.get("completion_tokens", 0)
 
-        payload = extract_turn(response.text, max_chars=max_response_chars)
+        try:
+            payload = extract_turn(response.text, max_chars=max_response_chars)
+        except RecoveryError as exc:
+            # One corrective re-ask for a malformed turn, instead of discarding every turn
+            # so far; a second malformed reply fails the stage as before.
+            retry_prompt = (
+                f"{turn_prompt}\n\nYour previous reply could not be used: {exc}. Reply with "
+                "exactly one JSON object (a tool call or {\"final\": ...}) and nothing else."
+            )
+            started = time.perf_counter()
+            try:
+                response = client.generate(LLMRequest(prompt=retry_prompt, system=system_prompt, temperature=None))
+            except LLMClientError as provider_exc:
+                raise RecoveryError(f"recovery provider failed: {provider_exc}") from provider_exc
+            stats.latency_ms += (time.perf_counter() - started) * 1000.0
+            stats.llm_calls += 1
+            if response.usage:
+                stats.prompt_tokens += response.usage.get("prompt_tokens", 0)
+                stats.completion_tokens += response.usage.get("completion_tokens", 0)
+            payload = extract_turn(response.text, max_chars=max_response_chars)
         if "final" in payload:
             return parse_final(json.dumps(payload["final"]))
 

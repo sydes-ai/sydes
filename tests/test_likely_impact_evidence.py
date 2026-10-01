@@ -94,7 +94,7 @@ def test_malformed_final_answer_fails_safe_to_retain_not_an_exception(repo: Path
     """A parse failure must never propagate as an uncaught error, and must
     never silently read as a positive suppression -- it degrades to the
     same conservative default as genuine model uncertainty."""
-    client = SequencedClient(["not json at all"])
+    client = SequencedClient(["not json at all", "not json at all"])  # malformed, then malformed again after the re-ask
     result = check_candidate_evidence(_candidate(), tools=_tools(repo), client=client, stats=EvidenceCheckStats())
     assert result.decision == RETAIN
     assert "could not complete" in result.reason
@@ -120,7 +120,7 @@ def test_provider_failure_fails_safe_to_retain(repo: Path):
 def test_never_raises_recovery_error_out_of_the_function(repo: Path):
     """The whole point of the fail-safe wrapper: callers integrating this
     into a pipeline must never need their own try/except around it."""
-    client = SequencedClient(["garbage"])
+    client = SequencedClient(["garbage", "garbage"])  # malformed, then malformed again after the re-ask
     try:
         result = check_candidate_evidence(_candidate(), tools=_tools(repo), client=client, stats=EvidenceCheckStats())
     except RecoveryError:
