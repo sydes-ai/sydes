@@ -595,7 +595,9 @@ class AcceptedImpact(BaseModel):
     #: than silently dropped either way.
     verification_model_status: str = "modeled"
     #: "structural" (default, every existing construction site) for the
-    #: deterministic/CBM-backed pipeline, or "ai_recovery" for an impact
+    #: deterministic/CBM-backed pipeline, "runtime_observed" when every path
+    #: to it uses a call edge observed by running the existing tests
+    #: (DiffGenome runtime evidence), or "ai_recovery" for an impact
     #: `sydes.recovery`'s canonical merge added after adversarial
     #: verification. Provenance only, never read by verdict aggregation —
     #: see `sydes.recovery.canonical_merge`.

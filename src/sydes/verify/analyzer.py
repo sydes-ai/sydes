@@ -64,6 +64,7 @@ from sydes.impact import (
     LLMImpactGuide,
     reconcile_entrypoints,
 )
+from sydes.impact.models import PROVENANCE_RUNTIME_OBSERVED, STRATEGY_RUNTIME_OBSERVED_REACHABILITY
 from sydes.discover.target_match import resolve_trace_target
 from sydes.observability import trace as _trace
 from sydes.store.system_model import SystemModelStore
@@ -801,10 +802,20 @@ def _build_accepted_impacts(
             corroborated=entry.corroborated if is_inferred else None,
             behavior_label=entry.behavior_label if is_inferred else "",
             verification_model_status="modeled" if modeled_flow is not None else "unsupported_or_partial",
+            provenance=_impact_provenance(entry),
         )
     accepted_impacts = list(by_id.values())
     _trace_verification_decisions(accepted_impacts, affected_flows)
     return accepted_impacts
+
+
+def _impact_provenance(entry: object) -> str:
+    """`runtime_observed` when every path that reaches this entrypoint relies on a call edge
+    observed by running the existing tests (DiffGenome) rather than the static call graph."""
+    paths = list(getattr(entry, "paths", None) or [])
+    if paths and all(getattr(p, "strategy", None) == STRATEGY_RUNTIME_OBSERVED_REACHABILITY for p in paths):
+        return PROVENANCE_RUNTIME_OBSERVED
+    return "structural"
 
 
 def _trace_verification_decisions(

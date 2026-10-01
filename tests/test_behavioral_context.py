@@ -231,3 +231,12 @@ def test_diffgenome_dependency_is_found_beside_the_interpreter(tmp_path: Path, m
     assert adapter.resolve_command() == [str(tmp_path / "diffgenome")]
     monkeypatch.setenv(adapter.COMMAND_ENV_VAR, "uv run diffgenome")
     assert adapter.resolve_command() == ["uv", "run", "diffgenome"]
+
+
+def test_impact_reached_only_through_observed_edges_is_labelled_runtime_observed() -> None:
+    from sydes.verify.analyzer import _impact_provenance
+
+    [observed] = _interpret([_edge("handler", "service", source=EDGE_SOURCE, evidence="observed")]).affected
+    [static] = _interpret([_edge("handler", "service")]).affected
+    assert _impact_provenance(observed) == PROVENANCE_RUNTIME_OBSERVED
+    assert _impact_provenance(static) == "structural"
