@@ -296,3 +296,14 @@ def test_impact_labels_name_the_class_for_methods() -> None:
         assert _symbol_display(entry) == f"RestoreFromTrashActionType.{method}"
     assert _symbol_display(SimpleNamespace(symbol="helper", qualified_name="proj.app.utils.helper")) == "helper"
     assert _symbol_display(SimpleNamespace(symbol="x", qualified_name="")) == "x"
+
+
+def test_shared_short_names_are_qualified_by_module() -> None:
+    c = _contract()
+    c["changed_functions"].append({**_loc("py:app.main.service", 5, file="app/main.py"), "executed": True,
+                                   "calls": 1, "tests": ["t::m"], "tests_total": 1, "exits": {}, "raised_inside": {},
+                                   "arg_shapes": [], "callers": [], "stand_ins": {}, "changed_sites": []})
+    rt = RuntimeEvidence(c)
+    assert rt.display_name("py:app.svc.service") == "svc.service"
+    assert rt.display_name("py:app.main.service") == "main.service"
+    assert rt.display_name("py:app.svc.handler") == "handler"  # unique: unchanged

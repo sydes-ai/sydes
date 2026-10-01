@@ -19,6 +19,8 @@ and per-line coverage are not in the contract and are never inferred here.
 
 from __future__ import annotations
 
+import functools
+
 import json
 from collections import defaultdict
 from dataclasses import dataclass
@@ -162,7 +164,7 @@ class RuntimeEvidence:
                 chain.append(node)
                 node = prev[node]
             chain.reverse()
-            steps = [{"name": short_name(s), "changed": s in changed} for s in chain]
+            steps = [{"name": self.display_name(s), "changed": s in changed} for s in chain]
             if len(steps) > max_len:
                 steps = [*steps[:2], {"name": "…", "changed": False}, *steps[-(max_len - 3):]]
             if any(p[len(p) - len(steps):] == steps for p in paths if len(p) >= len(steps)):
@@ -236,7 +238,7 @@ class RuntimeEvidence:
     def verification_gaps(self) -> list[VerificationGap]:
         out: list[VerificationGap] = []
         for i, g in enumerate(self.contract.get("gaps") or []):
-            name = short_name(str(g.get("symbol") or ""))
+            name = self.display_name(str(g.get("symbol") or ""))
             where = f"{g.get('file')}:{g.get('line')}" if g.get("file") else name
             kind = g.get("kind")
             if kind == "function_not_executed":
@@ -313,6 +315,27 @@ class RuntimeEvidence:
 
     # -- summary for the result/report -----------------------------------------------------------
 
+    @functools.cached_property
+    def _short_collisions(self) -> set[str]:
+        """Short names that more than one observed symbol shares (`main.create_order` and
+        `service.create_order` are both `create_order`)."""
+        owners: dict[str, set[str]] = defaultdict(set)
+        symbols = {f["symbol"] for f in self.functions}
+        symbols |= {end["symbol"] for e in self.edges for end in (e["caller"], e["callee"])}
+        for sym in symbols:
+            owners[short_name(sym)].add(sym)
+        return {name for name, syms in owners.items() if len(syms) > 1}
+
+    def display_name(self, symbol: str) -> str:
+        """`short_name`, with the enclosing module added when the short name alone is shared by
+        another observed symbol."""
+        name = short_name(symbol)
+        if name not in self._short_collisions:
+            return name
+        body = symbol.split(":", 1)[-1].split(".<locals>")[0]
+        prefix = body[: len(body) - len(name)].rstrip(".").split(".")[-1]
+        return f"{prefix}.{name}" if prefix else name
+
     def summary(self) -> dict[str, Any]:
         """The subset Sydes keeps on its result for reporting."""
         return {
@@ -321,11 +344,11 @@ class RuntimeEvidence:
             "executions": (self.contract.get("universe") or {}).get("executions", 0),
             "functions": [
                 {
-                    "symbol": f["symbol"], "name": short_name(f["symbol"]), "file": f.get("file"),
+                    "symbol": f["symbol"], "name": self.display_name(f["symbol"]), "file": f.get("file"),
                     "line": f.get("line"), "executed": bool(f.get("executed")),
                     "tests": list(f.get("tests") or [])[:50], "tests_total": f.get("tests_total", 0),
                     "exits": dict(f.get("exits") or {}),
-                    "entry_roots": [short_name(r["symbol"]) for r in self.entry_roots(f["symbol"])][:5],
+                    "entry_roots": [self.display_name(r["symbol"]) for r in self.entry_roots(f["symbol"])][:5],
                     "changed_sites": list(f.get("changed_sites") or []),
                     "stand_ins": dict(f.get("stand_ins") or {}),
                 }
