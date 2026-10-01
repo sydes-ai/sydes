@@ -114,12 +114,12 @@ def _build_semantic_context(*, change: ChangeSet, diff_text: str) -> dict[str, A
     }
 
 
-def _bounded_prompt(context: dict[str, Any], preamble: str = "") -> str:
+def _bounded_prompt(context: dict[str, Any], preamble: str = "", model_spec: str | None = None) -> str:
     """Serialize the prompt within the stage budget (`SYDES_LLM_CONTEXT_CHARS` or
     MAX_PROMPT_CHARS). The symbol and file lists are trimmed before the diff is; the diff is
     then selected by priority at hunk boundaries (`sydes.verify.diff_context`). Supplementary
     evidence in `preamble` is outside the budget."""
-    limit = context_chars(MAX_PROMPT_CHARS) + len(preamble)
+    limit = context_chars(MAX_PROMPT_CHARS, model_spec) + len(preamble)
     prompt, _ = fit_prompt(
         _SEMANTIC_ANALYSIS_HEADER + preamble,
         context,
@@ -498,7 +498,7 @@ def generate_pr_semantic_analysis(
         repo_root=repo_root, base_rev=change.merge_base or change.base, max_chars=FULL_DIFF_CHARS
     )
     context = _build_semantic_context(change=change, diff_text=diff_text)
-    prompt = _bounded_prompt(context, checked_behavior_preamble)
+    prompt = _bounded_prompt(context, checked_behavior_preamble, model_spec)
 
     try:
         response = client.generate(LLMRequest(prompt=prompt, temperature=None))

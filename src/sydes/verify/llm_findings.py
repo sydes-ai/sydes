@@ -256,7 +256,9 @@ def _drop_regions(keep: int) -> Any:
     return step
 
 
-def _bounded_prompt(header: str, context: dict[str, Any], extra_budget: int = 0) -> str:
+def _bounded_prompt(
+    header: str, context: dict[str, Any], extra_budget: int = 0, model_spec: str | None = None
+) -> str:
     """Serialize a prompt within the stage budget (`SYDES_LLM_CONTEXT_CHARS` or
     MAX_PROMPT_CHARS). Metadata (per-symbol regions, symbol/file/flow lists) is trimmed
     before the diff is; the diff is then selected by priority at hunk boundaries
@@ -266,7 +268,7 @@ def _bounded_prompt(header: str, context: dict[str, Any], extra_budget: int = 0)
     prompt, _ = fit_prompt(
         header,
         context,
-        limit=context_chars(MAX_PROMPT_CHARS) + extra_budget,
+        limit=context_chars(MAX_PROMPT_CHARS, model_spec) + extra_budget,
         full_diff=str(context.get("diff") or ""),
         trims=[
             _drop_regions(6),
@@ -659,7 +661,8 @@ def generate_code_findings(
         model_spec=model_spec, temperature=None, stage="code_review",
     )
     prompt = _bounded_prompt(
-        _CODE_FINDINGS_HEADER + checked_behavior_preamble, context, extra_budget=len(checked_behavior_preamble)
+        _CODE_FINDINGS_HEADER + checked_behavior_preamble, context,
+        extra_budget=len(checked_behavior_preamble), model_spec=model_spec,
     )
     raw = _run(client, prompt)
     findings, warnings = _validate_findings(raw, context)
@@ -678,7 +681,7 @@ def generate_verification_gaps(
     client = llm_client or create_default_llm_client(
         model_spec=model_spec, temperature=None, stage="verification_gaps",
     )
-    prompt = _bounded_prompt(_GAPS_HEADER, context)
+    prompt = _bounded_prompt(_GAPS_HEADER, context, model_spec=model_spec)
     raw = _run(client, prompt)
     gaps, warnings = _validate_gaps(raw, context, covered_flow_ids)
     warnings.append(f"verification_gaps_prompt_chars={len(prompt)}")

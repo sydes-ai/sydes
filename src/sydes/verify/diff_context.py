@@ -36,15 +36,35 @@ _DOC_SUFFIXES = (".md", ".rst", ".txt", ".adoc")
 _HUNK = re.compile(r"^@@ ", re.M)
 
 
-def context_chars(default: int) -> int:
+#: Prompt budget for hosted providers whose models take 128k+ tokens: about 25k tokens, so a
+#: medium PR's changed source fits (Baserow #5507: 22k chars of source hunks, which a 20k
+#: stage default cut to a third). Local/unknown providers keep the stage default.
+HOSTED_CONTEXT_CHARS = 100_000
+_HOSTED_PROVIDERS = frozenset({"openai", "anthropic"})
+
+
+def context_chars(default: int, model_spec: str | None = None) -> int:
     """The prompt budget for a model stage: `SYDES_LLM_CONTEXT_CHARS` when set to a positive
-    integer (size it to the model's context window), else the stage's built-in default."""
+    integer (size it to the model's context window), else the stage's built-in default, raised
+    to `HOSTED_CONTEXT_CHARS` when the stage's provider is a hosted one."""
     raw = os.getenv("SYDES_LLM_CONTEXT_CHARS", "").strip()
     try:
         value = int(raw)
     except ValueError:
-        return default
-    return value if value > 0 else default
+        value = 0
+    if value > 0:
+        return value
+    return max(default, HOSTED_CONTEXT_CHARS) if _hosted(model_spec) else default
+
+
+def _hosted(model_spec: str | None) -> bool:
+    from sydes.llm.client import _resolve_provider_and_model
+
+    try:
+        provider, _model, _settings = _resolve_provider_and_model(model_spec)
+    except Exception:  # noqa: BLE001 - an unresolvable spec keeps the conservative default
+        return False
+    return provider in _HOSTED_PROVIDERS
 
 
 def file_priority(path: str) -> int:
@@ -116,16 +136,23 @@ def select_diff(diff_text: str, budget: int) -> str:
         used += c
         return True
 
-    # pass 1: each file's header and first hunk, in priority order
-    for pos, f in enumerate(files):
-        if try_add(pos, f.header + (f.hunks[0] if f.hunks else "")):
-            taken[pos] = 1 if f.hunks else 0
-    # pass 2: remaining hunks, in priority order, while they fit
-    for pos, f in enumerate(files):
-        if pos not in taken:
-            continue
-        while taken[pos] < len(f.hunks) and try_add(pos, f.hunks[taken[pos]]):
-            taken[pos] += 1
+    # tier by tier (source, tests, other, docs): a lower tier gets nothing until every hunk of
+    # the tiers above it is in. Within a tier, each file's first hunk first (breadth), then
+    # the rest. A test file's or changelog's first hunk must not displace changed source.
+    for tier in sorted({f.priority for f in files}):
+        in_tier = [pos for pos, f in enumerate(files) if f.priority == tier]
+        for pos in in_tier:
+            f = files[pos]
+            if try_add(pos, f.header + (f.hunks[0] if f.hunks else "")):
+                taken[pos] = 1 if f.hunks else 0
+        for pos in in_tier:
+            f = files[pos]
+            if pos not in taken:
+                continue
+            while taken[pos] < len(f.hunks) and try_add(pos, f.hunks[taken[pos]]):
+                taken[pos] += 1
+        if any(pos not in taken or taken[pos] < len(files[pos].hunks) for pos in in_tier):
+            break  # this tier did not fit: lower tiers are omitted, not interleaved
     out: list[str] = []
     omitted_files: list[str] = []
     for pos, f in enumerate(files):

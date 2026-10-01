@@ -783,7 +783,7 @@ def _build_accepted_impacts(
         label = (
             f"{entry.route_method} {entry.route_path}"
             if entry.route_method and entry.route_path
-            else (entry.behavior_label or entry.symbol or entry.label)
+            else (entry.behavior_label or _symbol_display(entry) or entry.label)
         )
         existing = by_id.get(impact_id)
         if existing is not None and existing.status == IMPACT_STATUS_PROVEN:
@@ -807,6 +807,16 @@ def _build_accepted_impacts(
     accepted_impacts = list(by_id.values())
     _trace_verification_decisions(accepted_impacts, affected_flows)
     return accepted_impacts
+
+
+def _symbol_display(entry: object) -> str:
+    """The short name a reviewer can place: `Class.method` when the canonical qualified name
+    shows a method (a bare `do`, `run` or `handle` says nothing), else the symbol."""
+    symbol = str(getattr(entry, "symbol", "") or "")
+    parts = str(getattr(entry, "qualified_name", "") or "").split(".")
+    if len(parts) >= 2 and parts[-1] == symbol and parts[-2][:1].isupper():
+        return f"{parts[-2]}.{symbol}"
+    return symbol
 
 
 def _impact_provenance(entry: object) -> str:

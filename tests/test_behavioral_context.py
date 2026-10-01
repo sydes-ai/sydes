@@ -284,3 +284,15 @@ def test_failed_live_run_is_reported_not_rerun(tmp_path: Path, monkeypatch) -> N
         runtime_args="--runtime python", unavailable_reason="DiffGenome timed out after 900s",
     )
     assert ev.status != STATUS_AVAILABLE and ev.reason == "DiffGenome timed out after 900s"
+
+
+def test_impact_labels_name_the_class_for_methods() -> None:
+    from types import SimpleNamespace
+
+    from sydes.verify.analyzer import _symbol_display
+
+    for method in ("do", "run", "execute", "handle", "get", "create", "update", "delete"):
+        entry = SimpleNamespace(symbol=method, qualified_name=f"proj.app.actions.RestoreFromTrashActionType.{method}")
+        assert _symbol_display(entry) == f"RestoreFromTrashActionType.{method}"
+    assert _symbol_display(SimpleNamespace(symbol="helper", qualified_name="proj.app.utils.helper")) == "helper"
+    assert _symbol_display(SimpleNamespace(symbol="x", qualified_name="")) == "x"
