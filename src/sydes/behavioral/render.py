@@ -249,11 +249,14 @@ def _runtime_lines(rt: dict[str, Any], h: Any) -> list[str]:
     lines = [h(
         f"Runtime evidence (existing tests run against the change; scope: {rt.get('test_scope')})"
     )]
-    lines.append(f"  {len(executed)} of {len(fns)} changed function(s) executed")
+    if rt.get("stopped_early"):
+        lines.append(f"  ⚠ the test run was {rt['stopped_early']}: results are partial, and"
+                     " 'not run' may only mean 'not reached before the stop'")
+    lines.append(f"  {len(executed)} of {len(fns)} changed function(s) executed by the selected tests")
     for f in sorted(fns, key=lambda x: (not x.get("executed"), x.get("name") or ""))[:_MAX_RUNTIME_FUNCTIONS]:
         where = f"{f.get('file')}:{f.get('line')}" if f.get("file") else ""
         if not f.get("executed"):
-            lines.append(f"  ✗ {f.get('name')}  {where}  — no existing test executed it")
+            lines.append(f"  ✗ {f.get('name')}  {where}  — not run by the selected tests")
             continue
         roots = ", ".join(f.get("entry_roots") or []) or "tests only"
         exits = ", ".join(f"{k} {v}" for k, v in (f.get("exits") or {}).items())

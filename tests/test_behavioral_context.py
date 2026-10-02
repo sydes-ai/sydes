@@ -193,7 +193,7 @@ def test_render_shows_runtime_section() -> None:
     text = "\n".join(render_terminal(result.behavioral))
     assert "Runtime evidence (existing tests run against the change; scope: tests/)" in text
     assert "✓ service" in text and "entered via handler" in text
-    assert "✗ unused" in text and "no existing test executed it" in text
+    assert "✗ unused" in text and "not run by the selected tests" in text
 
 
 def test_context_loads_from_artifact_and_preamble_is_contract_based(tmp_path: Path) -> None:
@@ -384,3 +384,22 @@ def test_colliding_labels_take_as_many_module_parts_as_needed() -> None:
     assert [rt.display_name(f["symbol"]) for f in fns] == [
         "falcon.app.App._handle_exception", "asgi.app.App._handle_exception", "async_to_sync",
     ]
+
+
+def test_a_run_stopped_early_qualifies_every_not_run_statement() -> None:
+    """datachain #2001 on Linux runners (field study rerun): the run hit the sandbox CPU
+    limit and two unreached functions read as simply "not run"."""
+    from sydes.behavioral.runtime import RuntimeEvidence
+
+    stop = "stopped by the sandbox CPU-time limit (600 s of CPU time)"
+    contract = {
+        "format": "diffgenome-runtime/1",
+        "universe": {"test_scope": "tests", "stopped_early": stop},
+        "changed_functions": [{"symbol": "py:app.a", "file": "app.py", "line": 3, "executed": False}],
+        "edges": [],
+        "gaps": [{"kind": "function_not_executed", "symbol": "py:app.a", "file": "app.py", "line": 3}],
+    }
+    rt = RuntimeEvidence(contract)
+    assert rt.summary()["stopped_early"] == stop
+    [gap] = rt.verification_gaps()
+    assert gap.behavior.endswith(f"(the test run was {stop}: possibly not reached)")

@@ -264,6 +264,10 @@ class RuntimeEvidence:
                 )
             else:
                 continue
+            stopped = (self.contract.get("universe") or {}).get("stopped_early")
+            if stopped and kind in ("function_not_executed", "branch_not_evaluated",
+                                    "branch_outcome_not_observed"):
+                behavior += f" (the test run was {stopped}: possibly not reached)"
             out.append(VerificationGap(
                 id=f"runtime:{kind}:{i}",
                 behavior=behavior,
@@ -355,6 +359,9 @@ class RuntimeEvidence:
         return {
             "format": self.contract.get("format"),
             "test_scope": self.test_scope,
+            # the run ended before all selected tests ran (a sandbox limit): "not run" may
+            # only mean "not reached"
+            "stopped_early": (self.contract.get("universe") or {}).get("stopped_early"),
             "executions": (self.contract.get("universe") or {}).get("executions", 0),
             "functions": [
                 {
