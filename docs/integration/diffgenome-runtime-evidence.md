@@ -20,7 +20,7 @@ enter directly. "Not executed" always means not executed within `universe.test_s
 
 ## Install
 
-Sydes depends on `diffgenome>=0.1.9` from PyPI (the minimum supported version: 0.1.4 skipped
+Sydes depends on `diffgenome>=0.1.10` from PyPI (the minimum supported version: 0.1.4 skipped
 pytest configs in subdirectories, 0.1.5 broke `filterwarnings = error` projects, 0.1.7 traced
 only the first `--source-root`, so workspace members went unreported; 0.1.8 had the
 correctness defects found by the field study (`studies/runtime-beta-field`); none can be resolved) (Python 3.12+; on 3.11 the behavioral map reports

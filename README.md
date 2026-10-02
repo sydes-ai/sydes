@@ -517,7 +517,7 @@ Structural analysis says what *may* be connected. Runtime evidence adds what the
 own tests *actually executed*: which changed functions ran, under which tests, along which call
 paths, and which changed branches were never taken. It is collected by
 [DiffGenome](https://pypi.org/project/diffgenome/) (installed with Sydes on Python 3.12+;
-0.1.9 or later) inside an OS sandbox. Off by default; it never changes the verdict; when the
+0.1.10 or later) inside an OS sandbox. Off by default; it never changes the verdict; when the
 evidence cannot be obtained the report says so instead of implying "no impact".
 
 Supported path (Beta):

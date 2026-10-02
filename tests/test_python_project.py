@@ -250,7 +250,7 @@ def test_diffgenome_floor_excludes_the_broken_releases() -> None:
     """0.1.4 skipped subdirectory pytest configs and 0.1.5 broke filterwarnings=error
     projects; 0.1.7 traced only the first source root (Sydes passes one per workspace member).
     0.1.8 had the correctness defects found by the Runtime Evidence field study.
-    Sydes must never resolve to any of them (0.1.9 is the minimum supported)."""
+    Sydes must never resolve to any of them (0.1.10 is the minimum supported: it reports untraced subprocesses)."""
     import re
     import tomllib
 
@@ -258,10 +258,10 @@ def test_diffgenome_floor_excludes_the_broken_releases() -> None:
     deps = tomllib.loads((root / "pyproject.toml").read_text())["project"]["dependencies"]
     [spec] = [d for d in deps if d.startswith("diffgenome")]
     floor = tuple(int(x) for x in re.search(r">=\s*([\d.]+)", spec).group(1).split("."))
-    assert floor >= (0, 1, 9)
+    assert floor >= (0, 1, 10)
     lock = (root / "uv.lock").read_text()
     locked = re.search(r'name = "diffgenome"\nversion = "([\d.]+)"', lock).group(1)
-    assert tuple(int(x) for x in locked.split(".")) >= (0, 1, 9)
+    assert tuple(int(x) for x in locked.split(".")) >= (0, 1, 10)
 
 
 # -- field study regressions (0.3.1) -------------------------------------------------------------
