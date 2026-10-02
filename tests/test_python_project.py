@@ -220,3 +220,25 @@ def test_a_prepared_environment_is_labelled_prepared_not_an_override(tmp_path: P
     py = _fake_python(tmp_path / "prepared" / "bin" / "python")
     p = detect_python_project(root, [], overrides={}, prepared_python=py)
     assert p.python == str(py) and p.origin["python"] == "prepared"
+
+
+def test_a_testpath_that_is_the_package_is_narrowed_to_its_tests(tmp_path: Path) -> None:
+    """toolz: testpaths = toolz (tests live in toolz/tests); the package must stay code."""
+    root = _repo(tmp_path, {
+        "pyproject.toml": '[project]\nname="toolz"\n[tool.pytest.ini_options]\ntestpaths=["toolz"]\n',
+        "toolz/__init__.py": "", "toolz/functoolz.py": "", "toolz/tests/test_functoolz.py": "",
+        "toolz/curried/__init__.py": "", "toolz/curried/tests/test_curried.py": "",
+    })
+    _fake_python(root / ".venv" / "bin" / "python")
+    p = detect_python_project(root, ["toolz/functoolz.py"], overrides={})
+    assert p.test_roots == ["toolz/curried/tests", "toolz/tests"]
+    assert "inside the package" in p.reasons["test_roots"] and p.import_roots == ["."]
+
+
+def test_single_module_project_with_a_root_test_file(tmp_path: Path) -> None:
+    """six: six.py and test_six.py at the repository root, no tests/ directory."""
+    root = _repo(tmp_path, {"setup.py": "", "six.py": "x = 1\n", "test_six.py": "", "documentation/conf.py": ""})
+    _fake_python(root / ".venv" / "bin" / "python")
+    p = detect_python_project(root, ["six.py", "test_six.py"], overrides={})
+    assert p.test_roots == ["test_six.py"] and p.import_roots == ["."]
+    assert not p.warnings or all("outside" not in w for w in p.warnings)

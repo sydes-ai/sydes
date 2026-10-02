@@ -361,3 +361,12 @@ def test_detection_does_not_change_test_selection(tmp_path: Path, monkeypatch) -
         root, "HEAD", "--runtime python --python /venv/bin/python --source-root src --test-root tests", 0, tmp_path / "o"
     )
     assert len(calls) == 2 and calls[0] == calls[1]
+
+
+def test_closures_keep_their_own_name() -> None:
+    from sydes.behavioral.runtime import short_name
+
+    assert short_name("py:toolz.functoolz.Compose._combined_annotations.<locals>.annotations_of") == (
+        "Compose._combined_annotations.annotations_of"
+    )
+    assert short_name("py:app.svc.handler") == "handler"

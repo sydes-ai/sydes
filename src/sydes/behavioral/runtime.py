@@ -35,8 +35,12 @@ _WRAPPERS = ("<locals>", "<lambda>", "<anon>")
 
 
 def short_name(symbol: str) -> str:
-    """`py:pkg.mod.Class.method` -> `Class.method`; `go:pkg.Type.Method` -> `Type.Method`."""
-    body = symbol.split(":", 1)[-1].split(".<locals>")[0]
+    """`py:pkg.mod.Class.method` -> `Class.method`; `go:pkg.Type.Method` -> `Type.Method`;
+    a closure keeps its own name: `Class.method.<locals>.inner` -> `Class.method.inner`."""
+    body = symbol.split(":", 1)[-1]
+    if ".<locals>." in body:
+        outer, _, inner = body.partition(".<locals>.")
+        return f"{short_name(outer)}.{inner.split('.<locals>.')[-1]}"
     parts = body.split(".")
     if len(parts) >= 2 and parts[-2][:1].isupper():
         return ".".join(parts[-2:])

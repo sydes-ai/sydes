@@ -201,6 +201,30 @@ def _source_dirs(project: Path) -> tuple[list[str], str, str]:
     return ["."], "no packaging metadata or package directories: the project root", "low"
 
 
+_TEST_FILE = re.compile(r"^(test_[^/]*|[^/]*_test)\.py$")
+_NOT_MODULES = {"setup.py", "conftest.py", "noxfile.py", "tasks.py", "fabfile.py", "manage.py"}
+
+
+def _tests_dirs_under(files: list[str], prefix: str) -> list[str]:
+    """tests/ or test/ directories (holding test files) below `prefix` (repo-relative, '' = all)."""
+    dirs = {
+        re.sub(r"(/tests?)/.*$", r"\1", str(Path(f).parent))
+        for f in files
+        if f.startswith(prefix) and re.search(r"(^|/)tests?/(.*/)?(test_[^/]*|[^/]*_test)\.py$", f)
+    }
+    return sorted(d for d in dirs if re.search(r"(^|/)tests?$", d))
+
+
+def _modules_in(d: Path) -> list[str]:
+    """Top-level project modules (single-module projects such as six.py)."""
+    if not d.is_dir():
+        return []
+    return sorted(
+        p.stem for p in d.glob("*.py")
+        if p.name not in _NOT_MODULES and not _TEST_FILE.match(p.name)
+    )
+
+
 def _declared_dependencies(project: Path) -> list[str]:
     data = _toml(project / "pyproject.toml")
     deps = data.get("project", {}).get("dependencies")
@@ -427,8 +451,16 @@ def detect_python_project(
         base = cfg.parent if cfg is not None else project
         tp = [rel(base / t) for t in ini["testpaths"] if (base / t).is_dir()]
         if tp:
-            proj.test_roots = tp
-            proj.note("test_roots", f"pytest testpaths in {proj.pytest_config}")
+            # a testpath that is a source package (toolz: testpaths = toolz) would make the
+            # package itself test code: use the tests/ directories inside it
+            refined: list[str] = []
+            for t in tp:
+                is_package = (repo / t / "__init__.py").is_file()
+                inner = _tests_dirs_under(files, t.rstrip("/") + "/") if is_package else []
+                refined += inner or [t]
+            proj.test_roots = refined
+            proj.note("test_roots", f"pytest testpaths in {proj.pytest_config}" + (
+                " (tests/ directories inside the package it names)" if refined != tp else ""))
         else:
             found = [rel(project / d) for d in ("tests", "test") if (project / d).is_dir()]
             if found:
@@ -437,14 +469,18 @@ def detect_python_project(
             else:
                 # tests kept per package (Django apps: hc/accounts/tests, hc/api/tests, ...)
                 prefix = "" if proj.project_root == "." else proj.project_root.rstrip("/") + "/"
-                per_pkg = sorted({
-                    str(Path(f).parent) for f in files
-                    if f.startswith(prefix) and re.search(r"(^|/)tests?/test_[^/]*\.py$", f)
-                })
-                per_pkg = sorted({re.sub(r"(/tests?)/.*$", r"\1", d) for d in per_pkg})
+                per_pkg = _tests_dirs_under(files, prefix)
+                root_files = sorted(
+                    f for f in files
+                    if str(Path(f).parent) == (proj.project_root if proj.project_root != "." else ".")
+                    and _TEST_FILE.match(Path(f).name)
+                )
                 if per_pkg:
                     proj.test_roots = per_pkg
                     proj.note("test_roots", f"layout: {len(per_pkg)} tests/ directories inside packages")
+                elif root_files:
+                    proj.test_roots = root_files
+                    proj.note("test_roots", "layout: test files at the project root (" + ", ".join(root_files[:3]) + ")")
                 else:
                     proj.test_roots = [proj.project_root]
                     proj.note("test_roots", "no test directory found; the project root")
@@ -452,7 +488,7 @@ def detect_python_project(
 
     outside = [
         c for c in changed_files
-        if c.endswith(".py") and not any(c.startswith(t.rstrip("/") + "/") for t in proj.test_roots)
+        if c.endswith(".py") and not any(c == t or c.startswith(t.rstrip("/") + "/") for t in proj.test_roots)
         and not any(s == "." or c.startswith(s.rstrip("/") + "/") for s in proj.source_roots)
         and Path(c).name not in ("setup.py", "conftest.py")
     ]
@@ -488,7 +524,7 @@ def detect_python_project(
         # Always the source roots that hold packages: prepended inside DiffGenome's workspace,
         # so the PR's code is what runs and is traced, never an installed or editable copy
         # (which points at the original checkout, or another one entirely).
-        proj.import_roots = [s for s, ps in top_pkgs.items() if ps]
+        proj.import_roots = [s for s, ps in top_pkgs.items() if ps or _modules_in(repo / s)]
         # Test roots that are not packages themselves but hold packages (shared test helpers,
         # e.g. Baserow's baserow_premium_tests): pytest's prepend import mode only puts them
         # on sys.path when it collects a test from them, so a selected subset can miss them.
@@ -620,7 +656,10 @@ def prepare_environment(repo: Path, changed: list[str], dest: Path) -> tuple[Pat
         for g in groups:  # PEP 735 (pip 25.1+)
             run([*pip, "--group", g], project, check=False)
     skipped: list[str] = []
-    for req in sorted(project.glob("requirements*.txt")):
+    reqs = sorted(project.glob("requirements*.txt")) + sorted(
+        f for f in project.glob("requirements/*.txt") if re.search(r"test|dev", f.name)
+    )  # requirements/tests.txt (Pallets) as well as requirements-dev.txt
+    for req in reqs:
         if run([*pip, "-r", str(req)], project, check=False):
             continue
         # one uninstallable entry (a native library missing on this host) fails the whole
