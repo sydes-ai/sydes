@@ -252,6 +252,9 @@ def _runtime_lines(rt: dict[str, Any], h: Any) -> list[str]:
     if rt.get("stopped_early"):
         lines.append(f"  ⚠ the test run was {rt['stopped_early']}: results are partial, and"
                      " 'not run' may only mean 'not reached before the stop'")
+    if rt.get("untraced_python_subprocesses"):
+        lines.append(f"  ⚠ the selected tests started {rt['untraced_python_subprocesses']} Python"
+                     " subprocess(es), which are not observed: changed code may run there")
     lines.append(f"  {len(executed)} of {len(fns)} changed function(s) executed by the selected tests")
     for f in sorted(fns, key=lambda x: (not x.get("executed"), x.get("name") or ""))[:_MAX_RUNTIME_FUNCTIONS]:
         where = f"{f.get('file')}:{f.get('line')}" if f.get("file") else ""

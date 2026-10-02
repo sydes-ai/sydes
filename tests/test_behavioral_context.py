@@ -403,3 +403,22 @@ def test_a_run_stopped_early_qualifies_every_not_run_statement() -> None:
     assert rt.summary()["stopped_early"] == stop
     [gap] = rt.verification_gaps()
     assert gap.behavior.endswith(f"(the test run was {stop}: possibly not reached)")
+
+
+
+def test_untraced_subprocesses_qualify_not_run() -> None:
+    """glances #3770 (field study rerun): the tests start the server as a Python subprocess;
+    the changed code ran there, unobserved, and read as "not run"."""
+    from sydes.behavioral.runtime import RuntimeEvidence
+
+    contract = {
+        "format": "diffgenome-runtime/1",
+        "universe": {"test_scope": "tests", "untraced_python_subprocesses": 2},
+        "changed_functions": [{"symbol": "py:app.a", "file": "app.py", "line": 3, "executed": False}],
+        "edges": [],
+        "gaps": [{"kind": "function_not_executed", "symbol": "py:app.a", "file": "app.py", "line": 3}],
+    }
+    rt = RuntimeEvidence(contract)
+    assert rt.summary()["untraced_python_subprocesses"] == 2
+    [gap] = rt.verification_gaps()
+    assert "started 2 Python subprocess(es), which are not observed: it may run there" in gap.behavior

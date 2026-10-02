@@ -264,10 +264,13 @@ class RuntimeEvidence:
                 )
             else:
                 continue
-            stopped = (self.contract.get("universe") or {}).get("stopped_early")
-            if stopped and kind in ("function_not_executed", "branch_not_evaluated",
-                                    "branch_outcome_not_observed"):
-                behavior += f" (the test run was {stopped}: possibly not reached)"
+            universe = self.contract.get("universe") or {}
+            unseen = ("function_not_executed", "branch_not_evaluated", "branch_outcome_not_observed")
+            if universe.get("stopped_early") and kind in unseen:
+                behavior += f" (the test run was {universe['stopped_early']}: possibly not reached)"
+            if universe.get("untraced_python_subprocesses") and kind in unseen:
+                behavior += (f" (the selected tests started {universe['untraced_python_subprocesses']}"
+                             " Python subprocess(es), which are not observed: it may run there)")
             out.append(VerificationGap(
                 id=f"runtime:{kind}:{i}",
                 behavior=behavior,
@@ -362,6 +365,9 @@ class RuntimeEvidence:
             # the run ended before all selected tests ran (a sandbox limit): "not run" may
             # only mean "not reached"
             "stopped_early": (self.contract.get("universe") or {}).get("stopped_early"),
+            # Python child processes the tests started: what ran there was not observed
+            "untraced_python_subprocesses": (self.contract.get("universe") or {}).get(
+                "untraced_python_subprocesses", 0),
             "executions": (self.contract.get("universe") or {}).get("executions", 0),
             "functions": [
                 {
