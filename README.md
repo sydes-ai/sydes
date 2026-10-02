@@ -509,30 +509,54 @@ sydes verify-change --base main --repo app=. --verbose
 sydes verify-change --base main --repo app=. --test-timeout 30
 ```
 
-### Behavioral (executed) evidence from DiffGenome — experimental
+### Sydes Runtime Evidence — Beta
 
-Structural analysis says what *may* be connected. With `--behavioral-map diffgenome`,
-Sydes also asks [DiffGenome](https://pypi.org/project/diffgenome/) (installed with Sydes on Python 3.12+) what the repository's own
-isolated unit tests *actually executed* around the change, and what can be reconstructed
-across mock/fake seams, and merges that with the structural view without flattening
-provenance — every hop is labelled `observed`, `reconstructed · <grade>`, possible-only
-(static), gap, unresolved or external. Off by default; never changes the verdict; when the
-evidence cannot be obtained the report says so explicitly instead of implying "no impact".
+Structural analysis says what *may* be connected. Runtime evidence adds what the repository's
+own tests *actually executed*: which changed functions ran, under which tests, along which call
+paths, and which changed branches were never taken. It is collected by
+[DiffGenome](https://pypi.org/project/diffgenome/) (installed with Sydes on Python 3.12+;
+0.1.8 or later) inside an OS sandbox. Off by default; it never changes the verdict; when the
+evidence cannot be obtained the report says so instead of implying "no impact".
+
+Supported path (Beta):
+
+- Python projects tested with pytest (including unittest and pytest-django suites);
+- automatic project detection: interpreter or environment, source and test roots, pytest
+  config, import paths (`sydes runtime-detect` shows what was found and why;
+  `--prepare DIR` builds an environment from the project's declared dependencies);
+- automatic selection of the relevant tests: the PR's changed tests, then tests calling the
+  changed functions, then one level of callers, within a fixed budget;
+- tests run sandboxed: bubblewrap on Linux, Seatbelt on macOS; no network, writes only to a
+  disposable copy of the repository;
+- `.sydes.yml` for what cannot be inferred (service credentials, settings, a custom
+  interpreter or roots).
 
 ```bash
-# DiffGenome comes with Sydes (override with SYDES_DIFFGENOME_COMMAND); the runtime config is forwarded opaquely.
-sydes verify-change --base main --repo app=. \
-  --behavioral-map diffgenome \
-  --behavioral-args '--runtime go --test-root api --tests ./api/ --mock-dir db/mock'
-
-# Consume a diffgenome-change/1 artifact produced elsewhere (CI, a recorded replay).
-sydes verify-change --base main --repo app=. \
-  --behavioral-map diffgenome --behavioral-artifact diffgenome-change.json
+sydes runtime-detect --base main                 # what would run, and why
+sydes verify-change --base main --repo app=. --behavioral-map diffgenome --runtime-evidence auto
 ```
 
-`--behavioral-probes N` lets DiffGenome generate up to N isolated probes for gaps near the
-change (0 by default: existing tests only, no model call). Design, merge policy and the
-before/after validation: [docs/integration/diffgenome.md](docs/integration/diffgenome.md).
+```yaml
+# .sydes.yml (only when detection is not enough)
+runtime:
+  env: {DATABASE_HOST: 127.0.0.1}
+  python: backend/.venv/bin/python
+  source_roots: [backend/src]
+  test_roots: [backend/tests]
+  allow_loopback: true
+```
+
+In the GitHub Action (v2): `runtime_evidence: auto`. Known limitations:
+
+- on Linux the sandbox's loopback cannot reach services running on the host (a database
+  started by the job); tests that start their own localhost servers work;
+- projects with a custom test-runner setup (for example a Django `TEST_RUNNER` needing
+  settings) may need `.sydes.yml`;
+- projects that cannot run on Python 3.12+ are not supported;
+- AI recovery is separate and experimental, not part of Runtime Evidence.
+
+Contract and design: [docs/integration/diffgenome-runtime-evidence.md](docs/integration/diffgenome-runtime-evidence.md),
+[docs/integration/runtime-zero-config.md](docs/integration/runtime-zero-config.md).
 
 ### Output artifacts
 
