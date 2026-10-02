@@ -106,11 +106,11 @@ wheels = [
 
 [[package]]
 name = "diffgenome"
-version = "0.1.8"
+version = "0.1.9"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/a1/57/aa49482d795d1b9bd40fcddc6ddf27a5c87547c1b282a772af7481d11cfe/diffgenome-0.1.8.tar.gz", hash = "sha256:4e8e729b895f63b0a37ca16f3e785b050ac8f4ce405722867647c9e9ba33c8cc", size = 232095, upload-time = "2026-10-02T07:03:36.62Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/94/33/4d5936920fe6bc315f065e9b66e7e2d09b0b209480b29453229302cc59d8/diffgenome-0.1.9.tar.gz", hash = "sha256:4c4ddf574b71e612050ec0e1a340b644403b3b1e650b891d9c71e4faa587b3c4", size = 238956, upload-time = "2026-10-02T20:53:45.401Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/1d/39/6031c3b3a590f06b656b6996e11d7c5fc0c4814bbec2fa050161019fb423/diffgenome-0.1.8-py3-none-any.whl", hash = "sha256:ca02529c54f5630e7959e7cf51ece1716cc589ac54d9b1831927a2db5223335d", size = 212144, upload-time = "2026-10-02T07:03:35.401Z" },
+    { url = "https://files.pythonhosted.org/packages/8f/2d/4a27df979d92ff159fa31a5d5a6cd04cb19e928fad42acb9b244cb84bed8/diffgenome-0.1.9-py3-none-any.whl", hash = "sha256:72d08aa23c5863693a0764b98592e16f975bf2dbaf2964e97d19a2d368063679", size = 216356, upload-time = "2026-10-02T20:53:46.461Z" },
 ]
 
 [[package]]
@@ -644,7 +644,7 @@ wheels = [
 
 [[package]]
 name = "sydes"
-version = "0.3.0"
+version = "0.3.1"
 source = { editable = "." }
 dependencies = [
     { name = "anthropic" },
@@ -674,7 +674,7 @@ dev = [
 requires-dist = [
     { name = "anthropic", specifier = ">=0.102.0" },
     { name = "codebase-memory-mcp", specifier = "==0.10.8" },
-    { name = "diffgenome", marker = "python_full_version >= '3.12'", specifier = ">=0.1.8" },
+    { name = "diffgenome", marker = "python_full_version >= '3.12'", specifier = ">=0.1.9" },
     { name = "openai", specifier = ">=2.36.0" },
     { name = "pydantic", specifier = ">=2.7,<3.0" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0,<9.0" },
