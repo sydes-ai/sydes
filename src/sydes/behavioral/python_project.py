@@ -568,14 +568,16 @@ def detect_python_project(
 
 
 def diffgenome_args(proj: PythonProject, changed_files: list[str]) -> list[str]:
-    """DiffGenome's existing flags for this project. DiffGenome indexes one source root: the one
-    holding most changed files; the rest stay importable through the environment or
-    --pythonpath."""
+    """DiffGenome's flags for this project."""
     def hits(root: str) -> int:
         return sum(1 for c in changed_files if root == "." or c.startswith(root.rstrip("/") + "/"))
 
-    source = max(proj.source_roots, key=hits) if proj.source_roots else "."
-    args = ["--runtime", "python", "--python", str(proj.python), "--source-root", source]
+    # every source root (uv workspace members too; DiffGenome 0.1.8 takes several), the one
+    # holding most changed files first
+    roots = sorted(proj.source_roots or ["."], key=lambda r: (-hits(r), proj.source_roots.index(r) if r in proj.source_roots else 0))
+    args = ["--runtime", "python", "--python", str(proj.python)]
+    for r in roots:
+        args += ["--source-root", r]
     for t in proj.test_roots or ["."]:
         args += ["--test-root", t]
     if proj.pytest_args:

@@ -111,7 +111,9 @@ def test_monorepo_picks_the_project_holding_most_changed_files_plus_uv_members(t
     p = detect_python_project(root, changed, overrides={})
     assert p.project_root == "backend" and p.source_roots == ["backend/src", "ext/src"]
     assert "backend: 2" in p.reasons["project_root"]
-    assert diffgenome_args(p, changed)[5] == "backend/src"  # indexes the root with most changes
+    args = diffgenome_args(p, changed)
+    # every root, the one with most changes first (a workspace member's changes are reported)
+    assert [args[i + 1] for i, a in enumerate(args) if a == "--source-root"] == ["backend/src", "ext/src"]
 
 
 def test_interpreters_are_validated_and_rejections_explained(tmp_path: Path, monkeypatch) -> None:
@@ -246,7 +248,8 @@ def test_single_module_project_with_a_root_test_file(tmp_path: Path) -> None:
 
 def test_diffgenome_floor_excludes_the_broken_releases() -> None:
     """0.1.4 skipped subdirectory pytest configs and 0.1.5 broke filterwarnings=error
-    projects; Sydes must never resolve to either (0.1.7 is the minimum supported)."""
+    projects; 0.1.7 traced only the first source root (Sydes passes one per workspace member).
+    Sydes must never resolve to any of them (0.1.8 is the minimum supported)."""
     import re
     import tomllib
 
@@ -254,7 +257,7 @@ def test_diffgenome_floor_excludes_the_broken_releases() -> None:
     deps = tomllib.loads((root / "pyproject.toml").read_text())["project"]["dependencies"]
     [spec] = [d for d in deps if d.startswith("diffgenome")]
     floor = tuple(int(x) for x in re.search(r">=\s*([\d.]+)", spec).group(1).split("."))
-    assert floor >= (0, 1, 7)
+    assert floor >= (0, 1, 8)
     lock = (root / "uv.lock").read_text()
     locked = re.search(r'name = "diffgenome"\nversion = "([\d.]+)"', lock).group(1)
-    assert tuple(int(x) for x in locked.split(".")) >= (0, 1, 7)
+    assert tuple(int(x) for x in locked.split(".")) >= (0, 1, 8)
