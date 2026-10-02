@@ -149,6 +149,16 @@ def test_sydes_yml_overrides_inference(tmp_path: Path) -> None:
     assert p.source_roots == ["src"] and p.origin["source_roots"] == "inferred"
     args = diffgenome_args(p, [])
     assert args[-3:] == ["--test-env", "DATABASE_HOST=127.0.0.1", "--allow-loopback"]
+    assert p.origin["allow_loopback"] == ".sydes.yml"
+
+
+def test_loopback_is_allowed_by_default_and_can_be_denied(tmp_path: Path) -> None:
+    root = _repo(tmp_path, {"pyproject.toml": '[project]\nname="p"\n', "app/__init__.py": "", "tests/test_a.py": ""})
+    _fake_python(root / ".venv" / "bin" / "python")
+    p = detect_python_project(root, [], overrides={})
+    assert p.allow_loopback and p.origin["allow_loopback"] == "inferred" and "--allow-loopback" in diffgenome_args(p, [])
+    p = detect_python_project(root, [], overrides={"allow_loopback": False})
+    assert not p.allow_loopback and "--allow-loopback" not in diffgenome_args(p, [])
 
 
 def test_sydes_yml_rejects_unknown_keys(tmp_path: Path) -> None:
@@ -168,3 +178,38 @@ def test_changed_files_outside_known_roots_are_a_warning(tmp_path: Path) -> None
     assert any("outside the source and test roots: scripts/tool.py" in w for w in p.warnings)
     assert p.confidence == "medium"
     assert os.path.isabs(p.python)
+
+
+def test_django_project_with_per_app_tests(tmp_path: Path) -> None:
+    """healthchecks: no pytest config, tests per app, Django's own runner. Each app's tests/ is
+    a test root (DiffGenome 0.1.4 takes several), and the tests run under pytest-django with
+    manage.py's settings; an environment without pytest-django is rejected."""
+    root = _repo(tmp_path, {
+        "manage.py": 'import os\nos.environ.setdefault("DJANGO_SETTINGS_MODULE", "hc.settings")\n',
+        "requirements.txt": "Django==5.1\n",
+        "hc/__init__.py": "", "hc/settings.py": 'TEST_RUNNER = "hc.api.tests.CustomRunner"\n',
+        "hc/accounts/__init__.py": "", "hc/accounts/models.py": "",
+        "hc/accounts/tests/__init__.py": "", "hc/accounts/tests/test_models.py": "",
+        "hc/api/__init__.py": "", "hc/api/tests/__init__.py": "", "hc/api/tests/test_views.py": "",
+    })
+    _fake_python(root / "nodjango" / "bin" / "python", missing=["pytest-django"])
+    p = detect_python_project(root, ["hc/accounts/models.py"], overrides={"python": "nodjango/bin/python"})
+    assert any("pytest-django" in w for w in p.warnings)  # an explicit python is kept, with a warning
+    _fake_python(root / ".venv" / "bin" / "python")
+    p = detect_python_project(root, ["hc/accounts/models.py"], overrides={})
+    assert p.test_roots == ["hc/accounts/tests", "hc/api/tests"]
+    assert p.pytest_args == ["-p", "pytest_django", "--ds=hc.settings"] and p.requires == ["pytest-django"]
+    args = diffgenome_args(p, ["hc/accounts/models.py"])
+    assert args.count("--test-root") == 2 and "--pytest-arg=-p pytest_django --ds=hc.settings" in args
+    assert any("custom Django TEST_RUNNER hc.api.tests.CustomRunner" in w for w in p.warnings)
+
+
+def test_django_already_configured_for_pytest_is_left_alone(tmp_path: Path) -> None:
+    root = _repo(tmp_path, {
+        "manage.py": 'import os\nos.environ.setdefault("DJANGO_SETTINGS_MODULE", "app.settings")\n',
+        "pytest.ini": "[pytest]\nDJANGO_SETTINGS_MODULE = app.settings\n",
+        "app/__init__.py": "", "tests/test_a.py": "",
+    })
+    _fake_python(root / ".venv" / "bin" / "python")
+    p = detect_python_project(root, [], overrides={})
+    assert p.pytest_args == [] and "already configures Django" not in p.reasons.get("pytest_args", "")

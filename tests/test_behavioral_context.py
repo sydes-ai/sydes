@@ -329,3 +329,35 @@ def test_no_runtime_configuration_means_detection_and_a_clear_note(tmp_path: Pat
     path, note, selection, env = verify_change._run_diffgenome_before_analysis(root, "HEAD", "", 0, tmp_path / "o")
     assert path is None and env is None
     assert note.startswith("runtime_evidence unavailable: no usable Python environment")
+
+
+def test_detection_does_not_change_test_selection(tmp_path: Path, monkeypatch) -> None:
+    """Project detection only builds the runtime flags; relevance selection gets the same
+    inputs whether the runtime configuration was detected or written by hand."""
+    import subprocess
+
+    from sydes.behavioral import diffgenome_adapter
+    from sydes.behavioral.python_project import PythonProject
+    from sydes.behavioral.test_selection import TestSelection
+    from sydes.cli import verify_change
+
+    root = tmp_path / "r"
+    root.mkdir()
+    for args in (["init", "-q"], ["config", "user.email", "t@t"], ["config", "user.name", "t"],
+                 ["commit", "-q", "--allow-empty", "-m", "a"]):
+        subprocess.run(["git", *args], cwd=root, check=True, capture_output=True)
+    calls: list[tuple] = []
+
+    def select(*a, **k):
+        calls.append((a[1:], k))
+        return TestSelection(files=["tests/test_a.py"], reasons={"tests/test_a.py": "changed in this diff"})
+
+    monkeypatch.setattr("sydes.behavioral.test_selection.select_python_tests", select)
+    monkeypatch.setattr(diffgenome_adapter, "run_diffgenome", lambda req: ({}, []))
+    detected = PythonProject(repo_root=str(root), python="/venv/bin/python", source_roots=["src"], test_roots=["tests"])
+    monkeypatch.setattr("sydes.behavioral.python_project.detect_python_project", lambda repo, changed: detected)
+    verify_change._run_diffgenome_before_analysis(root, "HEAD", "", 0, tmp_path / "o")
+    verify_change._run_diffgenome_before_analysis(
+        root, "HEAD", "--runtime python --python /venv/bin/python --source-root src --test-root tests", 0, tmp_path / "o"
+    )
+    assert len(calls) == 2 and calls[0] == calls[1]

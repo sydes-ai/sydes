@@ -106,11 +106,11 @@ wheels = [
 
 [[package]]
 name = "diffgenome"
-version = "0.1.3"
+version = "0.1.4"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/85/40/098e5c9993f30c836c3962853d911154f6e7819fe005d91d9ed9eeaac8c0/diffgenome-0.1.3.tar.gz", hash = "sha256:040ae5e5450b63e84d447dee19582f802cd92a5116b6deba654974b8d0501133", size = 222149, upload-time = "2026-10-01T23:33:01.23Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/46/67/dabeea2c47b80aac64ddabb8a58f5427fe73bba47e0018b8dae1746bfcb4/diffgenome-0.1.4.tar.gz", hash = "sha256:59c0b054b70bf9877690ea36f4cde8366c1b3204364e9a6a0b51ea69d18f63e2", size = 223684, upload-time = "2026-10-02T03:27:49.446Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/d0/c9/b4e2de6ee67e516b7cd8c83d6c4491cc51ea5a57c6f1a33207a1a4e475dc/diffgenome-0.1.3-py3-none-any.whl", hash = "sha256:6aec8de36186f77cdd45d11b05ed82175c964a589c292901ddd3bf9d5d6c6e56", size = 207159, upload-time = "2026-10-01T23:33:02.341Z" },
+    { url = "https://files.pythonhosted.org/packages/02/d3/496fab29549cf0a505a515406a3fbc98cd73ad1a3897ff7a1c19ebc4a8bf/diffgenome-0.1.4-py3-none-any.whl", hash = "sha256:82715e0167cdf32bbfc7626f256be1fb2a8396be0beb405e6374bd08da1fee16", size = 208001, upload-time = "2026-10-02T03:27:50.342Z" },
 ]
 
 [[package]]
@@ -674,7 +674,7 @@ dev = [
 requires-dist = [
     { name = "anthropic", specifier = ">=0.102.0" },
     { name = "codebase-memory-mcp", specifier = "==0.10.8" },
-    { name = "diffgenome", marker = "python_full_version >= '3.12'", specifier = ">=0.1.3" },
+    { name = "diffgenome", marker = "python_full_version >= '3.12'", specifier = ">=0.1.4" },
     { name = "openai", specifier = ">=2.36.0" },
     { name = "pydantic", specifier = ">=2.7,<3.0" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0,<9.0" },

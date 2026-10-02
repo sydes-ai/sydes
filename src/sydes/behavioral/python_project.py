@@ -44,6 +44,8 @@ class PythonProject:
     pytest_config: str | None = None
     pytest_pythonpath: list[str] = field(default_factory=list)  # managed by pytest itself
     import_roots: list[str] = field(default_factory=list)  # passed as --pythonpath
+    pytest_args: list[str] = field(default_factory=list)  # e.g. pytest-django for a Django project
+    requires: list[str] = field(default_factory=list)  # test-runner packages the env must have
     python: str | None = None
     python_version: str | None = None
     env: dict[str, str] = field(default_factory=dict)
@@ -121,6 +123,22 @@ def pytest_config(project: Path, repo: Path) -> tuple[Path | None, dict[str, lis
         if d.resolve() == repo.resolve() or d.parent == d:
             return None, {"testpaths": [], "pythonpath": []}
         d = d.parent
+
+
+def _django_settings(project: Path, cfg: Path | None) -> tuple[str | None, str]:
+    """(settings module, reason) for a Django project whose tests pytest cannot run on its own:
+    `manage.py` names the settings and no pytest config sets them."""
+    if cfg is not None:
+        text = cfg.read_text("utf-8", "replace")
+        if "DJANGO_SETTINGS_MODULE" in text or "--ds" in text:
+            return None, f"{cfg.name} already configures Django for pytest"
+    manage = project / "manage.py"
+    if not manage.is_file():
+        return None, ""
+    m = re.search(r"DJANGO_SETTINGS_MODULE['\"]\s*,\s*['\"]([\w.]+)['\"]", manage.read_text("utf-8", "replace"))
+    if not m:
+        return None, "manage.py does not name a settings module"
+    return m.group(1), f"Django project (manage.py sets DJANGO_SETTINGS_MODULE={m.group(1)}); its tests run under pytest-django"
 
 
 def _metadata_source_dirs(project: Path) -> tuple[list[str], str] | None:
@@ -257,7 +275,7 @@ def _probe(python: Path, deps: list[str], pkgs: list[str]) -> dict[str, Any] | N
 
 
 def _choose_interpreter(proj: PythonProject, repo: Path, project: Path, pkgs: list[str]) -> dict[str, Any]:
-    deps = _declared_dependencies(project)
+    deps = _declared_dependencies(project) + proj.requires
     own = os.path.realpath(sys.prefix)
     seen: set[str] = set()
     for path, why in _candidates(repo, project):
@@ -282,7 +300,7 @@ def _choose_interpreter(proj: PythonProject, repo: Path, project: Path, pkgs: li
             proj.rejected_interpreters.append(f"{path} ({why}): " + "; ".join(problems))
             continue
         proj.python, proj.python_version = str(path), version
-        proj.note("python", f"{why}: Python {version}, pytest and the {len(deps)} declared dependencies present")
+        proj.note("python", f"{why}: Python {version}, pytest and the {len(deps)} declared/required packages present")
         return info
     raise DetectionError(
         "no usable Python environment for this repository's tests: "
@@ -369,6 +387,20 @@ def detect_python_project(
         proj.pytest_pythonpath = [rel(cfg.parent / p) for p in ini["pythonpath"]]
         proj.note("pytest_config", "the file pytest uses (pytest.ini > pyproject > tox.ini > setup.cfg)")
 
+    settings, why = _django_settings(project, cfg)
+    if settings:
+        proj.pytest_args = ["-p", "pytest_django", f"--ds={settings}"]
+        proj.requires.append("pytest-django")
+        proj.note("pytest_args", why)
+        base = project / settings.replace(".", "/")
+        for f in (base.with_suffix(".py"), base / "__init__.py"):
+            m = re.search(r"^TEST_RUNNER\s*=\s*['\"]([\w.]+)['\"]", f.read_text("utf-8", "replace"), re.M) if f.is_file() else None
+            if m and m.group(1) != "django.test.runner.DiscoverRunner":
+                proj.warnings.append(
+                    f"custom Django TEST_RUNNER {m.group(1)} is not used under pytest-django: settings it "
+                    "applies for tests are missing (set them as env in .sydes.yml if the settings read env)"
+                )
+
     if over.get("source_roots"):
         proj.source_roots = [str(s) for s in over["source_roots"]]
         proj.note("source_roots", "set in .sydes.yml", OVERRIDE_FILE)
@@ -398,11 +430,24 @@ def detect_python_project(
             proj.note("test_roots", f"pytest testpaths in {proj.pytest_config}")
         else:
             found = [rel(project / d) for d in ("tests", "test") if (project / d).is_dir()]
-            proj.test_roots = found or [proj.project_root]
-            proj.note("test_roots", "layout: tests/ or test/ under the project root" if found
-                      else "no test directory found; the project root")
-            if not found:
-                proj.warnings.append("no tests/ or test/ directory and no pytest testpaths")
+            if found:
+                proj.test_roots = found
+                proj.note("test_roots", "layout: tests/ or test/ under the project root")
+            else:
+                # tests kept per package (Django apps: hc/accounts/tests, hc/api/tests, ...)
+                prefix = "" if proj.project_root == "." else proj.project_root.rstrip("/") + "/"
+                per_pkg = sorted({
+                    str(Path(f).parent) for f in files
+                    if f.startswith(prefix) and re.search(r"(^|/)tests?/test_[^/]*\.py$", f)
+                })
+                per_pkg = sorted({re.sub(r"(/tests?)/.*$", r"\1", d) for d in per_pkg})
+                if per_pkg:
+                    proj.test_roots = per_pkg
+                    proj.note("test_roots", f"layout: {len(per_pkg)} tests/ directories inside packages")
+                else:
+                    proj.test_roots = [proj.project_root]
+                    proj.note("test_roots", "no test directory found; the project root")
+                    proj.warnings.append("no tests/ or test/ directory and no pytest testpaths")
 
     outside = [
         c for c in changed_files
@@ -421,14 +466,14 @@ def detect_python_project(
     if over.get("python"):
         py = Path(str(over["python"]))
         py = py if py.is_absolute() else repo / py
-        info = _probe(py, _declared_dependencies(project), all_pkgs)
+        info = _probe(py, _declared_dependencies(project) + proj.requires, all_pkgs)
         if info is None:
             raise DetectionError(f"{OVERRIDE_FILE} runtime.python {py} does not run")
         proj.python = str(py)
         proj.python_version = ".".join(str(x) for x in info["version"])
         proj.note("python", "set in .sydes.yml", OVERRIDE_FILE)
         if info["missing"]:
-            proj.warnings.append("declared dependencies not installed: " + ", ".join(info["missing"][:5]))
+            proj.warnings.append("declared/required packages not installed: " + ", ".join(info["missing"][:5]))
     else:
         info = _choose_interpreter(proj, repo, project, all_pkgs)
 
@@ -462,11 +507,23 @@ def detect_python_project(
     proj.env = {str(k): str(v) for k, v in (over.get("env") or {}).items()}
     if proj.env:
         proj.note("env", "set in .sydes.yml", OVERRIDE_FILE)
-    proj.allow_loopback = bool(over.get("allow_loopback", False))
-    if "allow_loopback" in over:
-        proj.note("allow_loopback", "set in .sydes.yml", OVERRIDE_FILE)
     if proj.warnings and proj.confidence == "high":
         proj.confidence = "medium"
+    # after confidence: a platform note, not doubt about the detection
+    if "allow_loopback" in over:
+        proj.allow_loopback = bool(over["allow_loopback"])
+        proj.note("allow_loopback", "set in .sydes.yml", OVERRIDE_FILE)
+    else:
+        # test servers bind localhost (pytest-httpbin, live servers); DiffGenome's Go and Node
+        # collectors always allow it. Linux keeps it private to the sandbox; macOS shares the
+        # host's loopback, so say so.
+        proj.allow_loopback = True
+        proj.note("allow_loopback", "default: tests may start localhost servers (as for Go and Node)")
+        if sys.platform == "darwin":
+            proj.warnings.append(
+                "loopback on macOS includes services running on this host; set "
+                "runtime.allow_loopback: false in .sydes.yml to deny it"
+            )
     return proj
 
 
@@ -478,8 +535,11 @@ def diffgenome_args(proj: PythonProject, changed_files: list[str]) -> list[str]:
         return sum(1 for c in changed_files if root == "." or c.startswith(root.rstrip("/") + "/"))
 
     source = max(proj.source_roots, key=hits) if proj.source_roots else "."
-    args = ["--runtime", "python", "--python", str(proj.python), "--source-root", source,
-            "--test-root", proj.test_roots[0] if proj.test_roots else "."]
+    args = ["--runtime", "python", "--python", str(proj.python), "--source-root", source]
+    for t in proj.test_roots or ["."]:
+        args += ["--test-root", t]
+    if proj.pytest_args:
+        args.append("--pytest-arg=" + " ".join(proj.pytest_args))
     for p in proj.import_roots:
         args += ["--pythonpath", p]
     for k, v in sorted(proj.env.items()):
@@ -544,10 +604,30 @@ def prepare_environment(repo: Path, changed: list[str], dest: Path) -> tuple[Pat
     run([base_python, "-m", "venv", str(dest)], project)
     pip = [str(python), "-m", "pip", "install", "-q"]
     if any((project / f).is_file() for f in ("pyproject.toml", "setup.py", "setup.cfg")):
-        for extra in ("[test]", "[tests]", "[dev]", ""):
-            if run([*pip, "-e", f".{extra}"], project, check=False):
-                break
+        # the test extras the project declares (pip only warns about an unknown extra, so
+        # guessing names silently installed none)
+        data = _toml(project / "pyproject.toml")
+        declared = data.get("project", {}).get("optional-dependencies") or {}
+        extras = [e for e in ("test", "tests", "testing", "dev") if e in declared]
+        target = f".[{','.join(extras)}]" if extras else "."
+        if not run([*pip, "-e", target], project, check=False):
+            run([*pip, "-e", "."], project, check=False)
+        groups = [g for g in ("test", "tests", "dev") if g in (data.get("dependency-groups") or {})]
+        for g in groups:  # PEP 735 (pip 25.1+)
+            run([*pip, "--group", g], project, check=False)
+    skipped: list[str] = []
     for req in sorted(project.glob("requirements*.txt")):
-        run([*pip, "-r", str(req)], project, check=False)
-    run([*pip, "pytest"], project)
+        if run([*pip, "-r", str(req)], project, check=False):
+            continue
+        # one uninstallable entry (a native library missing on this host) fails the whole
+        # file: install the rest one by one and say which were skipped
+        for line in req.read_text("utf-8", "replace").splitlines():
+            spec = line.split("#", 1)[0].strip()
+            if spec and not spec.startswith("-") and not run([*pip, spec], project, check=False):
+                skipped.append(spec)
+    cfg, _ = pytest_config(project, repo)
+    runner = ["pytest"] + (["pytest-django"] if _django_settings(project, cfg)[0] else [])
+    run([*pip, *runner], project)
+    if skipped:
+        log.append("skipped (could not install): " + ", ".join(skipped))
     return python, log
