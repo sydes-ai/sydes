@@ -27,14 +27,16 @@ permissions:
 
 jobs:
   sydes:
-    uses: sydes-examples/sydes-action/.github/workflows/verify.yml@v1
+    uses: sydes-examples/sydes-action/.github/workflows/verify.yml@v2
     with:
       repo_alias: app
+      # runtime_evidence: auto   # optional, Python: run the relevant existing tests (Beta)
     secrets:
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
 ```
 
-That's the whole workflow. It's a thin call into [sydes-examples/sydes-action](https://github.com/sydes-examples/sydes-action), a reusable, versioned workflow (`@v1`) maintained alongside Sydes itself — it installs the latest stable Sydes release, runs `verify-change`, and handles the PR comment, job summary, and result artifact for you. This is the same workflow file Sydes's own example repositories use in production.
+That's the whole workflow. Uncomment `runtime_evidence: auto` to add [Sydes Runtime
+Evidence — Beta](#sydes-runtime-evidence--beta) for Python projects. It's a thin call into [sydes-examples/sydes-action](https://github.com/sydes-examples/sydes-action), a reusable, versioned workflow (`@v2`; `@v1` keeps working) maintained alongside Sydes itself — it installs the latest stable Sydes release, runs `verify-change`, and handles the PR comment, job summary, and result artifact for you. This is the same workflow file Sydes's own example repositories use in production.
 
 ### 2. Add your model key
 
