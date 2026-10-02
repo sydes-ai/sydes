@@ -102,3 +102,27 @@ def test_selection_is_forwarded_as_ordinary_diffgenome_arguments(repo) -> None:
     assert args == ["--runtime", "python", "--tests", "tests/test_changed.py", "--pytest-arg=tests/test_rows.py"]
     assert runtime_of(args) == "python" and has_tests_arg(args)
     assert not has_tests_arg(["--runtime", "python", "--test-root", "tests"])
+
+
+def test_changed_test_files_are_never_dropped_by_the_test_budget(tmp_path: Path) -> None:
+    """requests f8bec2f7: a changed 233-test file filled the budget and the changed
+    test_help.py (which runs help._implementation) was left out."""
+    root = tmp_path / "r"
+    root.mkdir()
+    _git(root, "init", "-q")
+    _git(root, "config", "user.email", "t@t")
+    _git(root, "config", "user.name", "t")
+    _write(root, "app/help.py", "def info():\n    return 1\n")
+    _write(root, "tests/test_big.py", "".join(f"def test_{i}():\n    pass\n" for i in range(150)))
+    _write(root, "tests/test_help.py", "from app.help import info\n\ndef test_info():\n    assert info()\n")
+    _write(root, "tests/test_calls.py", "from app.help import info\n\ndef test_x():\n    info()\n")
+    _git(root, "add", "-A")
+    _git(root, "commit", "-qm", "base")
+    base = _git(root, "rev-parse", "HEAD")
+    _write(root, "app/help.py", "def info():\n    return 2\n")
+    _write(root, "tests/test_big.py", (root / "tests/test_big.py").read_text() + "\n")
+    _write(root, "tests/test_help.py", (root / "tests/test_help.py").read_text() + "\n")
+    _git(root, "commit", "-qam", "change")
+    sel = select_python_tests(root, base, _git(root, "rev-parse", "HEAD"), max_tests=100)
+    assert set(sel.files) == {"tests/test_big.py", "tests/test_help.py"}  # both changed files
+    assert "tests/test_calls.py" not in sel.files  # the budget still bounds callers

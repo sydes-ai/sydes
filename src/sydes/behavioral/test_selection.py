@@ -200,13 +200,17 @@ def select_python_tests(
         selection.reasons[path] = reason
         selection.tests_selected += len(_TEST_DEF.findall(texts.get(path, "")))
 
-    ranked = [(path, "changed in this diff") for path in changed_tests]
-    ranked += [(path, reason) for _score, path, reason in scored]
-    for path, reason in ranked:
+    # The PR's own changed test files always run (within the file budget): they are its
+    # declared verification, and one large file must not crowd out another (requests
+    # f8bec2f7: a 233-test file left out the changed test_help.py). max_tests bounds only
+    # the files added because they call the changed code.
+    for path in changed_tests[:budget]:
+        add(path, "changed in this diff")
+    for _score, path, reason in scored:
         if len(selection.files) >= budget:
             break
         n = len(_TEST_DEF.findall(texts.get(path, "")))
-        if selection.files and selection.tests_selected + n > max_tests:
+        if selection.tests_selected + n > max_tests:
             continue  # a smaller, lower-ranked file may still fit
         add(path, reason)
     return selection

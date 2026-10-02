@@ -346,6 +346,7 @@ class RuntimeEvidence:
                 {
                     "symbol": f["symbol"], "name": self.display_name(f["symbol"]), "file": f.get("file"),
                     "line": f.get("line"), "executed": bool(f.get("executed")),
+                    "ran_at_import": bool(f.get("ran_at_import")),
                     "tests": list(f.get("tests") or [])[:50], "tests_total": f.get("tests_total", 0),
                     "exits": dict(f.get("exits") or {}),
                     "entry_roots": [self.display_name(r["symbol"]) for r in self.entry_roots(f["symbol"])][:5],

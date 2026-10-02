@@ -17,7 +17,7 @@ dependencies = [
   "codebase-memory-mcp==0.10.8",
   # Runtime evidence (diffgenome-runtime/1). DiffGenome needs Python 3.12+ (sys.monitoring);
   # on 3.11 Sydes runs without it and reports the behavioral map as unavailable.
-  "diffgenome>=0.1.4; python_version >= '3.12'",
+  "diffgenome>=0.1.5; python_version >= '3.12'",
   "openai>=2.36.0",
   "pydantic>=2.7,<3.0",
   "pyyaml>=6.0",  # .sydes.yml (runtime overrides)
