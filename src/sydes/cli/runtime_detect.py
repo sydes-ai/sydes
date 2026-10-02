@@ -47,13 +47,10 @@ def runtime_detect_command(
     changed = changed_files(repo, merge_base, head)
     prepared: list[str] = []
     try:
-        overrides = None
+        python = None
         if prepare is not None:
             python, prepared = prepare_environment(repo, changed, prepare)
-            from sydes.behavioral.python_project import load_overrides
-
-            overrides = {**load_overrides(repo), "python": str(python)}
-        project = detect_python_project(repo, changed, overrides)
+        project = detect_python_project(repo, changed, prepared_python=python)
     except DetectionError as exc:
         if as_json:
             typer.echo(json.dumps({"ok": False, "error": str(exc)}, indent=1))

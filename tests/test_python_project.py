@@ -213,3 +213,10 @@ def test_django_already_configured_for_pytest_is_left_alone(tmp_path: Path) -> N
     _fake_python(root / ".venv" / "bin" / "python")
     p = detect_python_project(root, [], overrides={})
     assert p.pytest_args == [] and "already configures Django" not in p.reasons.get("pytest_args", "")
+
+
+def test_a_prepared_environment_is_labelled_prepared_not_an_override(tmp_path: Path) -> None:
+    root = _repo(tmp_path, {"pyproject.toml": '[project]\nname="p"\n', "app/__init__.py": "", "tests/test_a.py": ""})
+    py = _fake_python(tmp_path / "prepared" / "bin" / "python")
+    p = detect_python_project(root, [], overrides={}, prepared_python=py)
+    assert p.python == str(py) and p.origin["python"] == "prepared"

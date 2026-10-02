@@ -364,6 +364,7 @@ def load_overrides(repo: Path) -> dict[str, Any]:
 
 def detect_python_project(
     repo: Path, changed_files: list[str], overrides: dict[str, Any] | None = None,
+    prepared_python: Path | None = None,
 ) -> PythonProject:
     repo = repo.resolve()
     over = load_overrides(repo) if overrides is None else overrides
@@ -463,15 +464,18 @@ def detect_python_project(
 
     top_pkgs = {s: _packages_in(repo / s) for s in proj.source_roots}
     all_pkgs = sorted({p for ps in top_pkgs.values() for p in ps})
-    if over.get("python"):
-        py = Path(str(over["python"]))
+    if prepared_python is not None or over.get("python"):
+        py = Path(str(prepared_python or over["python"]))
         py = py if py.is_absolute() else repo / py
         info = _probe(py, _declared_dependencies(project) + proj.requires, all_pkgs)
         if info is None:
             raise DetectionError(f"{OVERRIDE_FILE} runtime.python {py} does not run")
         proj.python = str(py)
         proj.python_version = ".".join(str(x) for x in info["version"])
-        proj.note("python", "set in .sydes.yml", OVERRIDE_FILE)
+        if prepared_python is not None:
+            proj.note("python", "environment prepared by Sydes from the project's declared dependencies", "prepared")
+        else:
+            proj.note("python", "set in .sydes.yml", OVERRIDE_FILE)
         if info["missing"]:
             proj.warnings.append("declared/required packages not installed: " + ", ".join(info["missing"][:5]))
     else:

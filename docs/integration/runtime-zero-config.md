@@ -88,3 +88,36 @@ Failure if any of these:
 
 Tuning for an evaluation repository is allowed only when the change generalizes and gets a
 regression test.
+
+## 5. Evaluation (5 PRs, 3 repositories; no hand-picked tests, no runtime flags)
+
+PRs were chosen mechanically: the most recent non-merge commits changing both source and test
+Python files with 30–400 changed lines, two per repository, plus demo-orders-api #5. The
+environment was prepared with `sydes runtime-detect --prepare`. Runs on macOS (Seatbelt),
+deterministic (no model), DiffGenome 0.1.4. The demo also ran zero-config on ubuntu-latest CI
+(bubblewrap), with the same evidence.
+
+| PR | detection | override | selected | passed | changed fns run | gaps | paths | pytest (plain → traced) | Sydes total |
+|---|---|---|---|---|---|---|---|---|---|
+| healthchecks 29c759d1 | Django, 34 per-app test roots, `.venv`-style env, pytest-django | `env: EMAIL_HOST` (custom TEST_RUNNER) | 1 file, 18 tests | 18/18 | 1/1 (`Profile.send_report`, 14 tests) | 1: new `count := …` branch never false | 0 | 10.1 s → 9.9 s | 17 s |
+| healthchecks dd068b91 | same | same | 2 files (both changed), 33 | 33/33 | 2/2 | 0 | 1 (`send_report → day_boundaries`) | – | 17 s |
+| requests 6f66281a | src layout, pytest testpaths | none | 1 file (changed), 237 | 335/340 | 4/4 (incl. `_encode_files`, raises observed) | 8 | 3 | 38.6 s → 42.0 s | 49 s |
+| requests f8bec2f7 | same | none | 1 file of 3 changed (budget), 233 | 326/331 | 2/4 | 2 | 3 | – | 48 s |
+| demo-orders-api #5 | root package, pyproject pytest config, `[dev]` extra | none | 1 file, 7 | 7/7 | 2/2 (`InsufficientStockError`, `HTTPException`) | 0 | 1 | 0.1 s → 0.4 s | 5 s (99 s in CI with review) |
+
+Failures, all expected and explained: requests' 4 `TestTimeout` tests connect to an external
+blackhole address (10.255.255.1), which the sandbox refuses instead of timing out.
+
+Problems found and fixed generally (each with a regression test): Django tests need
+pytest-django plus the settings (Sydes); per-app test roots (DiffGenome 0.1.4 `--test-root`
+repeatable); unittest failures recorded as passed (DiffGenome 0.1.4); the egress guard
+refused loopback even when allowed (DiffGenome 0.1.4); pytest ids outside the repository
+(DiffGenome 0.1.4 `--rootdir .`); unknown extras installed nothing and one native dependency
+failed a whole requirements file (Sydes prepare); editable installs pointing at another
+checkout (source roots always prepended).
+
+Still misleading or incomplete:
+- import-time code is reported as not executed (`requests._check_cryptography` runs when the
+  package is imported, during collection, which DiffGenome does not trace);
+- a large changed test file can use the whole test budget, so another changed test file is
+  dropped (requests f8bec2f7: `test_help.py`, which would have run `help._implementation`).
