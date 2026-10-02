@@ -138,7 +138,7 @@ were correct. The budget had instead dropped two changed test files (`test_lowle
 | healthchecks 29c759d1 | Django, per-app tests | `env` (custom TEST_RUNNER) | 1 file | 18/18 | 1/1 | 1 | 0 | 19 s |
 | healthchecks dd068b91 | same | same | 2 files | 33/33 | 2/2 | 0 | 1 | 19 s |
 | requests 6f66281a | src, pytest testpaths | none | 1 file | 335/340 | 4/4 | 8 | 3 | 50 s |
-| requests f8bec2f7 | same | none | 3 files (all changed) | 356/361 | 2/4 | 2 | 2 | 72 s |
+| requests f8bec2f7 | same | none | 3 files (all changed) | 356/361 | 2/4 | 2 | 2 | 83 s |
 | demo-orders-api #5 | root package | none | 1 file | 7/7 | 2/2 | 0 | 1 | 6 s |
 | tomlkit 40dd59c | poetry | none | 1 file | 100/100 | 1/1 | 1 | 0 | 10 s |
 | itsdangerous 9a25d98 | Pallets, requirements/ | none | 2 files | 142/142 | 1/1 | 0 | 3 | 8 s |
