@@ -121,3 +121,38 @@ Still misleading or incomplete:
   package is imported, during collection, which DiffGenome does not trace);
 - a large changed test file can use the whole test budget, so another changed test file is
   dropped (requests f8bec2f7: `test_help.py`, which would have run `help._implementation`).
+
+## 6. Round 2: import-time tracing, budget, four more layouts (DiffGenome 0.1.5–0.1.7)
+
+Fixes: DiffGenome traces import and collection time (`pytest_launch`; changed functions
+called then are `ran_at_import`: executed, credited to no test). The PR's own changed test
+files are always selected (the test budget bounds only callers). Correction to section 5: in
+requests f8bec2f7 `_check_cryptography` is not import-time code (it runs only when `ssl`
+lacks SNI, never on modern Python), and `_implementation` is reached through `help.info()`
+from `test_help.py`, which neither changed nor calls it directly. Both "not executed" results
+were correct. The budget had instead dropped two changed test files (`test_lowlevel.py`,
+`test_testserver.py`).
+
+| PR | layout | overrides | selected | passed | changed fns run (at import) | gaps | paths | Sydes total |
+|---|---|---|---|---|---|---|---|---|
+| healthchecks 29c759d1 | Django, per-app tests | `env` (custom TEST_RUNNER) | 1 file | 18/18 | 1/1 | 1 | 0 | 19 s |
+| healthchecks dd068b91 | same | same | 2 files | 33/33 | 2/2 | 0 | 1 | 19 s |
+| requests 6f66281a | src, pytest testpaths | none | 1 file | 335/340 | 4/4 | 8 | 3 | 50 s |
+| requests f8bec2f7 | same | none | 3 files (all changed) | 356/361 | 2/4 | 2 | 2 | 72 s |
+| demo-orders-api #5 | root package | none | 1 file | 7/7 | 2/2 | 0 | 1 | 6 s |
+| tomlkit 40dd59c | poetry | none | 1 file | 100/100 | 1/1 | 1 | 0 | 10 s |
+| itsdangerous 9a25d98 | Pallets, requirements/ | none | 2 files | 142/142 | 1/1 | 0 | 3 | 8 s |
+| toolz a1e25cb | tests inside the package | none | 1 file | 39/39 | 4/4 (1) | 2 | 1 | 5 s |
+| six ac4bdc5 | single module, root test file | none | 1 file | 72/199 | 0/0 (module-level change) | 0 | 0 | 7 s |
+| Baserow #5507 | uv workspace, Django | `env` (database) | 4 files | 105/105 | 22/22 (1: `DatabaseConfig.ready`) | 2 | 3 | 228 s |
+
+Failures: requests' 4 TestTimeout tests (external blackhole address, refused by the sandbox);
+six's 2020 tests fail on Python 3.12 without DiffGenome too (removed stdlib modules).
+
+Found and fixed generally this round (each with a regression test): pytest plugin imported
+before pytest broke `filterwarnings = error` projects (0.1.5, fixed in 0.1.6); 0.1.4's
+`--rootdir .` skipped subdirectory pytest configs (Baserow; fixed in 0.1.5); a testpath that is
+the package (toolz); root test files and single-module projects (six); `requirements/` test
+files (Pallets); class bodies at import broke symbol identity; same-named closures in branches
+(toolz); a run with only the import execution read as available; collection errors stopping
+the other files; pruning crashed on dangling parents from server threads (0.1.7).
