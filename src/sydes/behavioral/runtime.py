@@ -246,29 +246,29 @@ class RuntimeEvidence:
             where = f"{g.get('file')}:{g.get('line')}" if g.get("file") else name
             kind = g.get("kind")
             if kind == "function_not_executed":
-                behavior = f"{name} ({where}) changed, but no existing test executed it"
+                behavior = f"{name} ({where}) changed, but none of the selected tests ran it"
             elif kind == "branch_outcome_not_observed":
                 behavior = (
                     f"{name}: the changed condition `{g.get('predicate')}` ({where}) was never "
-                    f"observed {g.get('outcome')} in any existing test"
+                    f"observed {g.get('outcome')} in the selected tests"
                 )
             elif kind == "branch_not_evaluated":
                 behavior = (
                     f"{name}: the changed condition `{g.get('predicate')}` ({where}) was never "
-                    "evaluated by any existing test, although the function ran"
+                    "evaluated by the selected tests, although the function ran"
                 )
             elif kind == "stand_in_reached":
                 behavior = (
                     f"{name} ({where}) reached `{short_name(str(g.get('target')))}` only through a "
-                    "stand-in (mock/fake/eager) in existing tests: the real dependency was not exercised"
+                    "stand-in (mock/fake/eager) in the selected tests: the real dependency was not run"
                 )
             else:
                 continue
             out.append(VerificationGap(
                 id=f"runtime:{kind}:{i}",
                 behavior=behavior,
-                why=f"Observed by running existing tests ({self.test_scope}); "
-                "absence is relative to those tests.",
+                why=f"Observed by running the selected tests ({self.test_scope}); other tests in the "
+                "suite were not run, so this is selection uncertainty, not proof that nothing tests it.",
                 source="runtime",
             ))
         return out
@@ -313,32 +313,42 @@ class RuntimeEvidence:
                 lines.append("    stand-ins reached: " + ", ".join(short_name(t) for t in f["stand_ins"]))
         gaps = self.verification_gaps()
         if gaps:
-            lines += ["", "Not exercised by existing tests:"] + [f"- {g.behavior}" for g in gaps[:20]]
+            lines += ["", "Not run by the selected tests (other tests in the suite may run them):"] + [
+                f"- {g.behavior}" for g in gaps[:20]
+            ]
         lines += ["", "Not reported by this evidence: " + "; ".join(self.contract.get("not_reported") or [])]
         return "\n".join(lines) + "\n"
 
     # -- summary for the result/report -----------------------------------------------------------
 
     @functools.cached_property
-    def _short_collisions(self) -> set[str]:
-        """Short names that more than one observed symbol shares (`main.create_order` and
+    def _short_owners(self) -> dict[str, set[str]]:
+        """Short name -> the observed symbols that share it (`main.create_order` and
         `service.create_order` are both `create_order`)."""
         owners: dict[str, set[str]] = defaultdict(set)
         symbols = {f["symbol"] for f in self.functions}
         symbols |= {end["symbol"] for e in self.edges for end in (e["caller"], e["callee"])}
         for sym in symbols:
             owners[short_name(sym)].add(sym)
-        return {name for name, syms in owners.items() if len(syms) > 1}
+        return {name: syms for name, syms in owners.items() if len(syms) > 1}
 
     def display_name(self, symbol: str) -> str:
-        """`short_name`, with the enclosing module added when the short name alone is shared by
-        another observed symbol."""
+        """`short_name`, with as many enclosing module parts as it takes to tell it apart from
+        every other observed symbol of the same short name (falcon: `app.App._handle_exception`
+        named both falcon.app's and falcon.asgi.app's; now `asgi.app.App._handle_exception`)."""
         name = short_name(symbol)
-        if name not in self._short_collisions:
+        others = self._short_owners.get(name, set()) - {symbol}
+        if not others:
             return name
-        body = symbol.split(":", 1)[-1].split(".<locals>")[0]
-        prefix = body[: len(body) - len(name)].rstrip(".").split(".")[-1]
-        return f"{prefix}.{name}" if prefix else name
+
+        def body(sym: str) -> list[str]:
+            return sym.split(":", 1)[-1].split(".<locals>")[0].split(".")
+
+        mine, theirs = body(symbol), [body(o) for o in others]
+        for k in range(len(name.split(".")) + 1, len(mine) + 1):
+            if all(o[-k:] != mine[-k:] for o in theirs):
+                return ".".join(mine[-k:])
+        return ".".join(mine)
 
     def summary(self) -> dict[str, Any]:
         """The subset Sydes keeps on its result for reporting."""

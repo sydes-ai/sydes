@@ -266,7 +266,7 @@ def _runtime_lines(rt: dict[str, Any], h: Any) -> list[str]:
         lines.append(f"  … +{len(fns) - _MAX_RUNTIME_FUNCTIONS} more changed function(s)")
     gaps = rt.get("gaps") or []
     if gaps:
-        lines.append("  Not exercised by existing tests (observed, relative to the scope above):")
+        lines.append("  Not run by the selected tests (other tests in the suite may run them):")
         for g in gaps[:_MAX_RUNTIME_GAPS]:
             lines.append(f"  - {g.get('behavior')}")
         if len(gaps) > _MAX_RUNTIME_GAPS:

@@ -147,7 +147,7 @@ def test_runtime_gaps_are_verification_gaps_with_runtime_source() -> None:
     gaps = RuntimeEvidence(_contract()).verification_gaps()
     assert all(isinstance(g, VerificationGap) and g.source == "runtime" for g in gaps)
     text = " | ".join(g.behavior for g in gaps)
-    assert "no existing test executed it" in text
+    assert "none of the selected tests ran it" in text  # selection uncertainty, not "untested"
     assert "never observed false" in text
     assert "only through a stand-in" in text
 
@@ -370,3 +370,17 @@ def test_closures_keep_their_own_name() -> None:
         "Compose._combined_annotations.annotations_of"
     )
     assert short_name("py:app.svc.handler") == "handler"
+
+
+def test_colliding_labels_take_as_many_module_parts_as_needed() -> None:
+    """falcon #2748 (field study): falcon.app.App._handle_exception and
+    falcon.asgi.app.App._handle_exception were both shown as `app.App._handle_exception`."""
+    from sydes.behavioral.runtime import RuntimeEvidence
+
+    fns = [{"symbol": "py:falcon.app.App._handle_exception", "executed": True},
+           {"symbol": "py:falcon.asgi.app.App._handle_exception", "executed": True},
+           {"symbol": "py:falcon.util.sync.async_to_sync", "executed": True}]
+    rt = RuntimeEvidence({"format": "diffgenome-runtime/1", "changed_functions": fns, "edges": [], "gaps": []})
+    assert [rt.display_name(f["symbol"]) for f in fns] == [
+        "falcon.app.App._handle_exception", "asgi.app.App._handle_exception", "async_to_sync",
+    ]

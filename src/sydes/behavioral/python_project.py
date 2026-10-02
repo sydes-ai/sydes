@@ -244,6 +244,51 @@ def _declared_dependencies(project: Path) -> list[str]:
     return names
 
 
+def _poetry_constraint(spec: str) -> str:
+    """Poetry's version syntax as PEP 440: ^1.2 -> >=1.2,<2.0; ^0.9 -> >=0.9,<0.10;
+    ~1.2 -> >=1.2,<1.3; * -> any. Anything else is passed through (already PEP 440)."""
+    spec = spec.strip()
+    if spec in ("", "*"):
+        return ""
+    m = re.fullmatch(r"([\^~])\s*(\d+(?:\.\d+)*)", spec)
+    if not m:
+        return spec if re.match(r"[<>=!~]", spec) else f"=={spec}"
+    op, version = m.groups()
+    parts = [int(x) for x in version.split(".")]
+    if op == "^":
+        i = next((k for k, x in enumerate(parts) if x != 0), len(parts) - 1)
+        upper = parts[: i + 1]
+    else:  # ~1.2 / ~1.2.3: the minor version (~1: the major)
+        upper = parts[:2] if len(parts) > 1 else parts[:1]
+    upper = [*upper[:-1], upper[-1] + 1]
+    return f">={version},<{'.'.join(map(str, upper))}"
+
+
+def _poetry_group_requirements(data: dict[str, Any]) -> list[str]:
+    """What `poetry install` adds beyond the project: every non-optional dependency group,
+    and the legacy dev-dependencies (wemake-python-styleguide keeps pytest-cov, xdist and
+    hypothesis in its dev group; without them its pytest addopts fail)."""
+    poetry = data.get("tool", {}).get("poetry", {})
+    tables = [poetry.get("dev-dependencies") or {}]
+    for group in (poetry.get("group") or {}).values():
+        if isinstance(group, dict) and not group.get("optional"):
+            tables.append(group.get("dependencies") or {})
+    out: list[str] = []
+    for table in tables:
+        for name, spec in table.items():
+            if name.lower() == "python":
+                continue
+            if isinstance(spec, dict):
+                if spec.get("path") or spec.get("git") or spec.get("url"):
+                    continue  # local or VCS sources: not reproducible from here
+                extras = f"[{','.join(spec['extras'])}]" if spec.get("extras") else ""
+                version = str(spec.get("version", "*"))
+            else:
+                extras, version = "", str(spec)
+            out.append(f"{name}{extras}{_poetry_constraint(version)}")
+    return out
+
+
 # -- interpreter ---------------------------------------------------------------------------------
 
 _PROBE = r"""
@@ -504,8 +549,21 @@ def detect_python_project(
         py = Path(str(prepared_python or over["python"]))
         py = py if py.is_absolute() else repo / py
         info = _probe(py, _declared_dependencies(project) + proj.requires, all_pkgs)
+        source = "the prepared environment" if prepared_python is not None else f"{OVERRIDE_FILE} runtime.python"
         if info is None:
-            raise DetectionError(f"{OVERRIDE_FILE} runtime.python {py} does not run")
+            raise DetectionError(f"{source} {py} does not run")
+        # the same checks as an inferred interpreter: an override without pytest ran no
+        # test and surfaced only as "no executions captured" (wemake, field study)
+        problems = []
+        if os.path.realpath(info["prefix"]) == os.path.realpath(sys.prefix):
+            problems.append("is Sydes' own environment")
+        if tuple(info["version"][:2]) < MIN_PYTHON:
+            problems.append(f"Python {'.'.join(map(str, info['version']))} < 3.12 "
+                            "(DiffGenome needs sys.monitoring)")
+        if not info["pytest"]:
+            problems.append("pytest not installed")
+        if problems:
+            raise DetectionError(f"{source} {py} is not usable: " + "; ".join(problems))
         proj.python = str(py)
         proj.python_version = ".".join(str(x) for x in info["version"])
         if prepared_python is not None:
@@ -645,6 +703,8 @@ def prepare_environment(repo: Path, changed: list[str], dest: Path) -> tuple[Pat
         base_python = sys.executable  # Sydes' interpreter is fine as a *base*: a new venv is created
     run([base_python, "-m", "venv", str(dest)], project)
     pip = [str(python), "-m", "pip", "install", "-q"]
+    # a fresh venv carries the base interpreter's pip; dependency groups need pip 25.1+
+    run([*pip, "-U", "pip>=25.1"], project, check=False)
     if any((project / f).is_file() for f in ("pyproject.toml", "setup.py", "setup.cfg")):
         # the test extras the project declares (pip only warns about an unknown extra, so
         # guessing names silently installed none)
@@ -654,9 +714,14 @@ def prepare_environment(repo: Path, changed: list[str], dest: Path) -> tuple[Pat
         target = f".[{','.join(extras)}]" if extras else "."
         if not run([*pip, "-e", target], project, check=False):
             run([*pip, "-e", "."], project, check=False)
-        groups = [g for g in ("test", "tests", "dev") if g in (data.get("dependency-groups") or {})]
-        for g in groups:  # PEP 735 (pip 25.1+)
+        groups = [g for g in ("test", "tests", "testing", "dev")
+                  if g in (data.get("dependency-groups") or {})]
+        for g in groups:  # PEP 735 (pip 25.1+): pdm keeps its test dependencies here
             run([*pip, "--group", g], project, check=False)
+        poetry_reqs = _poetry_group_requirements(data)
+        if poetry_reqs and not run([*pip, *poetry_reqs], project, check=False):
+            for req in poetry_reqs:  # one uninstallable entry must not lose the others
+                run([*pip, req], project, check=False)
     skipped: list[str] = []
     reqs = sorted(project.glob("requirements*.txt")) + sorted(
         f for f in project.glob("requirements/*.txt") if re.search(r"test|dev", f.name)

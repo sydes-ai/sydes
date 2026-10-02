@@ -261,3 +261,44 @@ def test_diffgenome_floor_excludes_the_broken_releases() -> None:
     lock = (root / "uv.lock").read_text()
     locked = re.search(r'name = "diffgenome"\nversion = "([\d.]+)"', lock).group(1)
     assert tuple(int(x) for x in locked.split(".")) >= (0, 1, 8)
+
+
+# -- field study regressions (0.3.1) -------------------------------------------------------------
+
+
+def test_a_sydes_yml_interpreter_is_validated_like_an_inferred_one(tmp_path: Path) -> None:
+    """wemake (Linux, field study): an override interpreter without pytest was accepted
+    and the run ended in DiffGenome's opaque "no executions captured"."""
+    root = _repo(tmp_path, {
+        "pyproject.toml": '[project]\nname="p"\n', "src/p/__init__.py": "", "tests/test_a.py": "",
+        ".sydes.yml": "runtime:\n  python: py/bin/python\n",
+    })
+    _fake_python(root / "py" / "bin" / "python", pytest_ok=False)
+    with pytest.raises(DetectionError, match=r"runtime\.python .* is not usable: pytest not installed"):
+        detect_python_project(root, ["src/p/__init__.py"])
+    _fake_python(root / "py" / "bin" / "python", version=(3, 11, 9))
+    with pytest.raises(DetectionError, match=r"Python 3\.11\.9 < 3\.12"):
+        detect_python_project(root, ["src/p/__init__.py"])
+
+
+def test_poetry_groups_are_what_poetry_install_adds() -> None:
+    """wemake-python-styleguide #3810/#3818/#3826: pytest-cov, xdist and hypothesis live in
+    the Poetry dev group; prepare installed only the project, and pytest's addopts failed."""
+    from sydes.behavioral.python_project import _poetry_constraint, _poetry_group_requirements
+
+    data = {"tool": {"poetry": {
+        "dependencies": {"python": "^3.10", "flake8": "^7.3"},
+        "group": {
+            "dev": {"dependencies": {"pytest-cov": "^7.0", "pytest-xdist": "^3.8",
+                                     "hypothesis": {"version": "^6.164", "extras": ["lark"]},
+                                     "local": {"path": "../x"}}},
+            "docs": {"optional": True, "dependencies": {"furo": "^2025.12"}},
+        },
+        "dev-dependencies": {"astpath": "^0.9"},
+    }}}
+    assert _poetry_group_requirements(data) == [
+        "astpath>=0.9,<0.10", "pytest-cov>=7.0,<8", "pytest-xdist>=3.8,<4", "hypothesis[lark]>=6.164,<7",
+    ]
+    assert [_poetry_constraint(v) for v in ("^0.0.3", "~1.2", "~1.2.3", "*", ">=2,<3", "1.4")] == [
+        ">=0.0.3,<0.0.4", ">=1.2,<1.3", ">=1.2.3,<1.3", "", ">=2,<3", "==1.4",
+    ]
