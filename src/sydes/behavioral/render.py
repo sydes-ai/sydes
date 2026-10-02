@@ -201,7 +201,7 @@ def render_lines(ev: BehavioralEvidence, *, markdown: bool = False) -> list[str]
         listed = " listed in the behavioral artifact" if acc else ""
         lines.append(f"  {len(tests)} existing test(s){listed} executed the changed code: {shown}")
     else:
-        lines.append("  no existing test executed the changed code")
+        lines.append("  none of the selected tests executed the changed code")
     if acc:
         lines.append(
             f"  checked rules: established over {acc.get('relevant_executions_checked', '?')} relevant "
@@ -243,7 +243,7 @@ _MAX_RUNTIME_GAPS = 12
 
 
 def _runtime_lines(rt: dict[str, Any], h: Any) -> list[str]:
-    """What executed, per changed function, and what no existing test exercised."""
+    """What executed, per changed function, and what the selected tests did not run."""
     fns = rt.get("functions") or []
     executed = [f for f in fns if f.get("executed")]
     lines = [h(
