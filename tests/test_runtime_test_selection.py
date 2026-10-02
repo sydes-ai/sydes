@@ -91,8 +91,11 @@ def test_import_only_matches_are_a_fallback(tmp_path: Path) -> None:
 def test_budget_caps_files_and_test_count(repo) -> None:
     root, base, head = repo
     assert select_python_tests(root, base, head, budget=1).files == ["tests/test_changed.py"]
-    sel = select_python_tests(root, base, head, budget=10, max_tests=1)
+    # max_tests bounds only the tests added beyond the changed files
+    sel = select_python_tests(root, base, head, budget=10, max_tests=0)
     assert sel.files == ["tests/test_changed.py"] and sel.tests_selected == 1
+    sel = select_python_tests(root, base, head, budget=10, max_tests=1)
+    assert sel.files == ["tests/test_changed.py", "tests/test_rows.py"]
 
 
 def test_selection_is_forwarded_as_ordinary_diffgenome_arguments(repo) -> None:
@@ -123,9 +126,12 @@ def test_changed_test_files_are_never_dropped_by_the_test_budget(tmp_path: Path)
     _write(root, "tests/test_big.py", (root / "tests/test_big.py").read_text() + "\n")
     _write(root, "tests/test_help.py", (root / "tests/test_help.py").read_text() + "\n")
     _git(root, "commit", "-qam", "change")
-    sel = select_python_tests(root, base, _git(root, "rev-parse", "HEAD"), max_tests=100)
-    assert set(sel.files) == {"tests/test_big.py", "tests/test_help.py"}  # both changed files
-    assert "tests/test_calls.py" not in sel.files  # the budget still bounds callers
+    head = _git(root, "rev-parse", "HEAD")
+    sel = select_python_tests(root, base, head, max_tests=100)
+    assert {"tests/test_big.py", "tests/test_help.py"} <= set(sel.files)  # both changed files
+    assert sel.tiers["tests/test_calls.py"] == "direct"  # the changed files did not use the budget
+    sel = select_python_tests(root, base, head, max_tests=0)
+    assert set(sel.files) == {"tests/test_big.py", "tests/test_help.py"}  # the budget bounds callers
 
 
 # -- one-level transitive callers ------------------------------------------------------------
@@ -210,3 +216,13 @@ def test_a_widely_used_helper_is_not_expanded_through_its_callers(tmp_path: Path
     sel = select_python_tests(root, base, head)
     assert sel.transitive_skipped == ["_implementation"]
     assert all(t != "transitive" for t in sel.tiers.values())
+
+
+def test_large_changed_files_do_not_use_up_the_extra_budget(tmp_path: Path) -> None:
+    """requests f8bec2f7: three changed test files (257 tests) left no room under a shared
+    budget, so test_help.py (reaching _implementation via info) was never added."""
+    big = "".join(f"def test_{i}():\n    pass\n" for i in range(150))
+    root, base, head = _wrapper_repo(tmp_path, {"tests/test_big.py": big}, change_tests=("tests/test_big.py",))
+    sel = select_python_tests(root, base, head, max_tests=100)
+    assert sel.tiers["tests/test_big.py"] == "changed"
+    assert sel.tiers.get("tests/test_help.py") == "transitive"

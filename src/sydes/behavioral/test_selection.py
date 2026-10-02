@@ -281,25 +281,31 @@ def select_python_tests(
     fallback = imports_only if not (changed_tests or direct or transitive) else []
     selection.candidates = len(changed_tests) + len(direct) + len(transitive) + len(fallback)
 
+    extra_tests = 0  # tests in files selected beyond the changed ones: what max_tests bounds
+
     def add(path: str, reason: str, tier: str) -> None:
+        nonlocal extra_tests
+        n = len(_TEST_DEF.findall(texts.get(path, "")))
         selection.files.append(path)
         selection.reasons[path] = reason
         selection.tiers[path] = tier
-        selection.tests_selected += len(_TEST_DEF.findall(texts.get(path, "")))
+        selection.tests_selected += n
+        if tier != "changed":
+            extra_tests += n
 
     # 1. The PR's own changed test files always run (within the file budget): they are its
     #    declared verification (requests f8bec2f7: a 233-test file had crowded out two others).
     for path in changed_tests[:budget]:
         add(path, "changed in this diff", "changed")
     # 2. direct callers, 3. callers of a direct application caller (depth 1), import-only
-    #    as a fallback; max_tests bounds all of them together, tier by tier, and a file that
-    #    does not fit is skipped so smaller relevant files still can.
+    #    as a fallback; max_tests bounds the tests they add (not the changed files'), tier by
+    #    tier, and a file that does not fit is skipped so smaller relevant files still can.
     for tier_name, tier in (("direct", direct), ("transitive", transitive), ("imports", fallback)):
         for _score, path, reason in tier:
             if len(selection.files) >= budget:
                 return selection
             n = len(_TEST_DEF.findall(texts.get(path, "")))
-            if selection.tests_selected + n > max_tests:
+            if extra_tests + n > max_tests:
                 continue
             add(path, reason, tier_name)
     return selection
