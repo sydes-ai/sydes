@@ -20,7 +20,9 @@ enter directly. "Not executed" always means not executed within `universe.test_s
 
 ## Install
 
-Sydes depends on `diffgenome` from PyPI (Python 3.12+; on 3.11 the behavioral map reports
+Sydes depends on `diffgenome>=0.1.7` from PyPI (the minimum supported version: 0.1.4 skipped
+pytest configs in subdirectories and 0.1.5 broke `filterwarnings = error` projects; neither can
+be resolved) (Python 3.12+; on 3.11 the behavioral map reports
 unavailable). The `diffgenome` command is found on PATH, else next to Sydes' interpreter;
 `SYDES_DIFFGENOME_COMMAND` overrides both.
 

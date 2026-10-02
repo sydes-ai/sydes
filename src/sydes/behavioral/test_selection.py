@@ -25,11 +25,17 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 DEFAULT_BUDGET = 10  # test files
+#: a changed function called by more application functions than this is a widely used helper:
+#: its tests are found directly, and expanding through every caller would select half the suite
+MAX_WRAPPERS_PER_FUNCTION = 10
 DEFAULT_MAX_TESTS = 100  # test functions across the selected files (counted statically); DiffGenome's
 # post-processing grows much faster than linearly: 55 Baserow tests take ~1 min, 300 did not
 # finish in 15 (9.7 GB)
 #: a changed name found in more than this share of all test files is too generic to rank by
+#: (`get`, `do` across a large suite); small suites are never filtered below _GENERIC_FLOOR
+#: files, otherwise a name used by two of ten test files would be dropped
 _GENERIC_SHARE = 0.05
+_GENERIC_FLOOR = 5
 _HUNK = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@", re.M)
 
 
@@ -43,6 +49,10 @@ class TestSelection:
     max_tests: int = DEFAULT_MAX_TESTS
     tests_selected: int = 0  # test functions in the selected files (static count)
     changed_functions: list[str] = field(default_factory=list)
+    #: file -> "changed" | "direct" | "transitive" | "imports"
+    tiers: dict[str, str] = field(default_factory=dict)
+    #: changed functions whose callers were not expanded (too many: a widely used helper)
+    transitive_skipped: list[str] = field(default_factory=list)
 
     def as_dict(self) -> dict[str, object]:
         return {
@@ -53,6 +63,8 @@ class TestSelection:
             "budget": self.budget,
             "max_tests": self.max_tests,
             "tests_selected": self.tests_selected,
+            "tiers": dict(self.tiers),
+            "transitive_skipped": list(self.transitive_skipped),
         }
 
 
@@ -117,6 +129,50 @@ def _module_suffix(path: str) -> str | None:
 _TEST_DEF = re.compile(r"^\s*(?:async\s+)?def\s+test", re.M)
 
 
+def _wrappers(
+    repo: Path, source_files: list[str], functions: set[tuple[str, str | None]],
+) -> dict[tuple[str, str | None], set[tuple[str, str | None]]]:
+    """Application functions whose own body calls a changed function (same rule as for tests:
+    a call by name, and for a method its class named), keyed by the changed function. Only
+    source files that mention a changed name are parsed."""
+    names = {n for n, _ in functions}
+    calls = {n: re.compile(rf"\b{re.escape(n)}\s*\(") for n in names}
+    out: dict[tuple[str, str | None], set[tuple[str, str | None]]] = {fn: set() for fn in functions}
+    for path in source_files:
+        try:
+            text = (repo / path).read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        if not any(f"{n}(" in text or re.search(calls[n], text) for n in names):
+            continue
+        try:
+            tree = ast.parse(text)
+        except SyntaxError:
+            continue
+        lines = text.splitlines()
+
+        def visit(node: ast.AST, cls: str | None) -> None:
+            for child in ast.iter_child_nodes(node):
+                if isinstance(child, ast.ClassDef):
+                    visit(child, child.name)
+                elif isinstance(child, ast.FunctionDef | ast.AsyncFunctionDef):
+                    body = "\n".join(lines[child.lineno - 1 : (child.end_lineno or child.lineno)])
+                    for fn in functions:
+                        name, fcls = fn
+                        if (child.name, cls) == fn or not calls[name].search(body):
+                            continue
+                        # a method must be reached through its class: self./cls. inside the
+                        # class itself, or the class named in the body
+                        if fcls is not None and cls != fcls and not re.search(rf"\b{re.escape(fcls)}\b", body):
+                            continue
+                        if not (child.name.startswith("__") and child.name.endswith("__")):
+                            out[fn].add((child.name, cls))
+                    visit(child, cls)
+
+        visit(tree, None)
+    return out
+
+
 def select_python_tests(
     repo: Path, base: str, head: str, *, budget: int = DEFAULT_BUDGET,
     max_tests: int = DEFAULT_MAX_TESTS,
@@ -164,55 +220,88 @@ def select_python_tests(
     df = {fn: sum(1 for t in texts.values() if uses(t, fn)) for fn in functions}
     total = max(len(texts), 1)
     weight = {
-        fn: math.log(total / d) for fn, d in df.items() if 0 < d <= max(1, _GENERIC_SHARE * total)
+        fn: math.log(total / d) for fn, d in df.items() if 0 < d <= max(_GENERIC_FLOOR, _GENERIC_SHARE * total)
     }
     imports = {m: re.compile(rf"(?:from|import)\s+[\w.]*\b{re.escape(m)}\b") for m in modules}
 
-    scored: list[tuple[float, str, str]] = []
+    # tier 3 inputs: one level of callers in application code (wrapper -> changed function)
+    sources = [p for p in _git(repo, "ls-files", "*.py").splitlines() if p not in existing]
+    wrappers_of = _wrappers(repo, sources, functions)
+    wrappers: dict[tuple[str, str | None], tuple[str, str | None]] = {}  # wrapper -> changed fn
+    for fn, ws in sorted(wrappers_of.items(), key=lambda kv: (kv[0][1] or "", kv[0][0])):
+        if len(ws) > MAX_WRAPPERS_PER_FUNCTION:
+            selection.transitive_skipped.append(f"{fn[1]}.{fn[0]}" if fn[1] else fn[0])
+            continue
+        for w in sorted(ws, key=lambda x: (x[1] or "", x[0])):
+            wrappers.setdefault(w, fn)
+    wcalls = {n: re.compile(rf"\b{re.escape(n)}\s*\(") for n, _ in wrappers}
+    wclasses = {c: re.compile(rf"\b{re.escape(c)}\b") for _, c in wrappers if c}
+
+    def uses_wrapper(text: str, w: tuple[str, str | None]) -> bool:
+        name, cls = w
+        return bool(wcalls[name].search(text)) and (cls is None or bool(wclasses[cls].search(text)))
+
+    wdf = {w: sum(1 for t in texts.values() if uses_wrapper(t, w)) for w in wrappers}
+    wweight = {
+        w: math.log(total / d) for w, d in wdf.items() if 0 < d <= max(_GENERIC_FLOOR, _GENERIC_SHARE * total)
+    }
+
+    def label(fn: tuple[str, str | None]) -> str:
+        return f"{fn[1]}.{fn[0]}" if fn[1] else fn[0]
+
+    direct: list[tuple[float, str, str]] = []
+    transitive: list[tuple[float, str, str]] = []
+    imports_only: list[tuple[float, str, str]] = []
     changed_scored: list[tuple[float, str]] = []
     for path, text in texts.items():
         if path in changed_tests:
             changed_scored.append((sum(weight[fn] for fn in weight if uses(text, fn)), path))
             continue
-        hits = sorted((fn for fn in weight if uses(text, fn)), key=lambda fn: -weight[fn])
-        imported = [m for m, pat in imports.items() if pat.search(text)]
-        score = sum(weight[fn] for fn in hits) + (0.5 if imported else 0.0)
-        if score <= 0:
+        hits = sorted((fn for fn in weight if uses(text, fn)), key=lambda fn: (-weight[fn], label(fn)))
+        if hits:
+            shown = [label(fn) for fn in hits[:3]]
+            reason = f"calls {', '.join(shown)}" + (f" +{len(hits) - 3}" if len(hits) > 3 else "")
+            direct.append((sum(weight[fn] for fn in hits), path, reason))
             continue
-        shown = [f"{c}.{n}" if c else n for n, c in hits[:3]]
-        reason = (
-            f"calls {', '.join(shown)}" + (f" +{len(hits) - 3}" if len(hits) > 3 else "")
-            if hits else f"imports {imported[0]}"
-        )
-        scored.append((score, path, reason))
-    scored.sort(key=lambda t: (-t[0], t[1]))
-    # importing a changed module is weak evidence (a utility module is imported everywhere):
-    # only a fallback when no test file changes or calls the changed functions
-    callers = [t for t in scored if t[2].startswith("calls ")]
-    if changed_tests or callers:
-        scored = callers
+        whits = sorted((w for w in wweight if uses_wrapper(text, w)), key=lambda w: (-wweight[w], label(w)))
+        if whits:
+            shown = [f"{label(wrappers[w])} via {label(w)}" for w in whits[:2]]
+            reason = "reaches " + ", ".join(shown) + (f" +{len(whits) - 2}" if len(whits) > 2 else "")
+            transitive.append((sum(wweight[w] for w in whits), path, reason))
+            continue
+        imported = [m for m, pat in imports.items() if pat.search(text)]
+        if imported:
+            imports_only.append((0.5, path, f"imports {imported[0]}"))
+    for tier in (direct, transitive, imports_only):
+        tier.sort(key=lambda t: (-t[0], t[1]))
     changed_scored.sort(key=lambda t: (-t[0], t[1]))
     changed_tests = [path for _score, path in changed_scored]
-    selection.candidates = len(changed_tests) + len(scored)
+    # importing a changed module is weak evidence (a utility module is imported everywhere):
+    # only a fallback when nothing changes, calls or reaches the changed functions
+    fallback = imports_only if not (changed_tests or direct or transitive) else []
+    selection.candidates = len(changed_tests) + len(direct) + len(transitive) + len(fallback)
 
-    def add(path: str, reason: str) -> None:
+    def add(path: str, reason: str, tier: str) -> None:
         selection.files.append(path)
         selection.reasons[path] = reason
+        selection.tiers[path] = tier
         selection.tests_selected += len(_TEST_DEF.findall(texts.get(path, "")))
 
-    # The PR's own changed test files always run (within the file budget): they are its
-    # declared verification, and one large file must not crowd out another (requests
-    # f8bec2f7: a 233-test file left out the changed test_help.py). max_tests bounds only
-    # the files added because they call the changed code.
+    # 1. The PR's own changed test files always run (within the file budget): they are its
+    #    declared verification (requests f8bec2f7: a 233-test file had crowded out two others).
     for path in changed_tests[:budget]:
-        add(path, "changed in this diff")
-    for _score, path, reason in scored:
-        if len(selection.files) >= budget:
-            break
-        n = len(_TEST_DEF.findall(texts.get(path, "")))
-        if selection.tests_selected + n > max_tests:
-            continue  # a smaller, lower-ranked file may still fit
-        add(path, reason)
+        add(path, "changed in this diff", "changed")
+    # 2. direct callers, 3. callers of a direct application caller (depth 1), import-only
+    #    as a fallback; max_tests bounds all of them together, tier by tier, and a file that
+    #    does not fit is skipped so smaller relevant files still can.
+    for tier_name, tier in (("direct", direct), ("transitive", transitive), ("imports", fallback)):
+        for _score, path, reason in tier:
+            if len(selection.files) >= budget:
+                return selection
+            n = len(_TEST_DEF.findall(texts.get(path, "")))
+            if selection.tests_selected + n > max_tests:
+                continue
+            add(path, reason, tier_name)
     return selection
 
 

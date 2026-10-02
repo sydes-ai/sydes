@@ -242,3 +242,19 @@ def test_single_module_project_with_a_root_test_file(tmp_path: Path) -> None:
     p = detect_python_project(root, ["six.py", "test_six.py"], overrides={})
     assert p.test_roots == ["test_six.py"] and p.import_roots == ["."]
     assert not p.warnings or all("outside" not in w for w in p.warnings)
+
+
+def test_diffgenome_floor_excludes_the_broken_releases() -> None:
+    """0.1.4 skipped subdirectory pytest configs and 0.1.5 broke filterwarnings=error
+    projects; Sydes must never resolve to either (0.1.7 is the minimum supported)."""
+    import re
+    import tomllib
+
+    root = Path(__file__).resolve().parents[1]
+    deps = tomllib.loads((root / "pyproject.toml").read_text())["project"]["dependencies"]
+    [spec] = [d for d in deps if d.startswith("diffgenome")]
+    floor = tuple(int(x) for x in re.search(r">=\s*([\d.]+)", spec).group(1).split("."))
+    assert floor >= (0, 1, 7)
+    lock = (root / "uv.lock").read_text()
+    locked = re.search(r'name = "diffgenome"\nversion = "([\d.]+)"', lock).group(1)
+    assert tuple(int(x) for x in locked.split(".")) >= (0, 1, 7)
