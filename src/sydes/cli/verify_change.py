@@ -30,14 +30,19 @@ from sydes.verify.models import ChangeVerificationResult
 def _run_diffgenome_before_analysis(
     repo_root: Path, base: str, runtime_args: str, probes: int, out_dir: Path | None,
     test_budget: int = 10,
-) -> tuple[Path | None, str, dict | None]:
+) -> tuple[Path | None, str, dict | None, dict | None]:
     """Run DiffGenome for merge-base(base, HEAD)..HEAD. Returns (artifact path, note, test
-    selection); a failure is a note, never an error: the analysis then proceeds without runtime
-    evidence. With a Python runtime and no `--tests`, Sydes selects the tests itself."""
+    selection, environment); a failure is a note, never an error: the analysis then proceeds
+    without runtime evidence. With no runtime configuration, Sydes detects the Python project
+    and environment (`sydes.behavioral.python_project`, `.sydes.yml` overrides); with a Python
+    runtime and no `--tests`, it selects the tests itself."""
     import shlex
     import subprocess
 
     from sydes.behavioral.diffgenome_adapter import BehavioralUnavailable, DiffGenomeRequest, run_diffgenome
+    from sydes.behavioral.python_project import (
+        DetectionError, changed_files, detect_python_project, diffgenome_args, provenance,
+    )
     from sydes.behavioral.test_selection import (
         has_tests_arg, runtime_of, select_python_tests, with_selected_tests,
     )
@@ -51,6 +56,12 @@ def _run_diffgenome_before_analysis(
         head = git("rev-parse", "HEAD")
         merge_base = git("merge-base", base, head)
         args = shlex.split(runtime_args)
+        environment: dict | None = None
+        if not args:
+            changed = changed_files(repo_root, merge_base, head)
+            project = detect_python_project(repo_root, changed)
+            args = diffgenome_args(project, changed)
+            environment = provenance(project)
         selection: dict | None = None
         if runtime_of(args) == "python" and not has_tests_arg(args):
             chosen = select_python_tests(repo_root, merge_base, head, budget=test_budget)
@@ -58,7 +69,7 @@ def _run_diffgenome_before_analysis(
                 return None, (
                     "runtime_evidence unavailable: no existing test file changes or calls the "
                     "changed functions (automatic test selection found none)"
-                ), None
+                ), None, environment
             selection = chosen.as_dict()
             args = with_selected_tests(args, chosen)
         request = DiffGenomeRequest(
@@ -67,9 +78,9 @@ def _run_diffgenome_before_analysis(
             runtime_args=args, probe_budget=probes,
         )
         run_diffgenome(request)
-        return request.out_dir / "diffgenome-change.json", "", selection
-    except (BehavioralUnavailable, subprocess.CalledProcessError, OSError) as exc:
-        return None, f"runtime_evidence unavailable: {exc}", None
+        return request.out_dir / "diffgenome-change.json", "", selection, environment
+    except (BehavioralUnavailable, DetectionError, subprocess.CalledProcessError, OSError) as exc:
+        return None, f"runtime_evidence unavailable: {exc}", None, None
 
 
 def verify_change_command(
@@ -402,6 +413,7 @@ def verify_change_command(
         raise typer.BadParameter("must be auto or off", param_hint="--runtime-evidence")
     loaded_context = None
     test_selection: dict | None = None
+    runtime_environment: dict | None = None
     live_run_failed: str | None = None
     use_runtime = behavioral_map == "diffgenome" and (runtime_evidence == "auto" or behavioral_context == "on")
     if use_runtime:
@@ -410,7 +422,7 @@ def verify_change_command(
         if behavioral_artifact is None:
             # live: run DiffGenome before analysis so its evidence can inform reachability; the
             # post-analysis attach then reuses this artifact instead of running it again
-            behavioral_artifact, early_note, test_selection = _run_diffgenome_before_analysis(
+            behavioral_artifact, early_note, test_selection, runtime_environment = _run_diffgenome_before_analysis(
                 Path(repos[0].root), base, behavioral_args, behavioral_probes, behavioral_out,
                 test_budget=runtime_test_budget,
             )
@@ -465,6 +477,7 @@ def verify_change_command(
             artifact_path=behavioral_artifact, runtime_args=behavioral_args,
             probe_budget=behavioral_probes, out_dir=behavioral_out,
             use_runtime=runtime_evidence == "auto", test_selection=test_selection,
+            runtime_environment=runtime_environment,
             unavailable_reason=live_run_failed,
         )
 

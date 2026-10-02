@@ -266,11 +266,11 @@ def test_live_run_selects_python_tests_when_none_are_given(tmp_path: Path, monke
         "sydes.behavioral.test_selection.select_python_tests",
         lambda *a, **k: TestSelection(files=["t/test_a.py", "t/test_b.py"], reasons={"t/test_a.py": "changed in this diff", "t/test_b.py": "calls f"}),
     )
-    _, note, selection = verify_change._run_diffgenome_before_analysis(root, "HEAD", "--runtime python", 0, tmp_path / "o")
+    _, note, selection, _env = verify_change._run_diffgenome_before_analysis(root, "HEAD", "--runtime python", 0, tmp_path / "o")
     assert note == "" and selection is not None and selection["files"] == ["t/test_a.py", "t/test_b.py"]
     assert seen[-1] == ["--runtime", "python", "--tests", "t/test_a.py", "--pytest-arg=t/test_b.py"]
     # tests given explicitly: used as is, no selection
-    _, _, selection = verify_change._run_diffgenome_before_analysis(root, "HEAD", "--runtime python --tests x.py", 0, tmp_path / "o")
+    _, _, selection, _env = verify_change._run_diffgenome_before_analysis(root, "HEAD", "--runtime python --tests x.py", 0, tmp_path / "o")
     assert selection is None and seen[-1] == ["--runtime", "python", "--tests", "x.py"]
 
 
@@ -307,3 +307,25 @@ def test_shared_short_names_are_qualified_by_module() -> None:
     assert rt.display_name("py:app.svc.service") == "svc.service"
     assert rt.display_name("py:app.main.service") == "main.service"
     assert rt.display_name("py:app.svc.handler") == "handler"  # unique: unchanged
+
+
+def test_no_runtime_configuration_means_detection_and_a_clear_note(tmp_path: Path, monkeypatch) -> None:
+    """Zero config: no --behavioral-args. An undetectable environment is a note (runtime
+    evidence unavailable, with the reason), never a crash or a run with the wrong interpreter."""
+    import subprocess
+
+    from sydes.behavioral import diffgenome_adapter
+    from sydes.cli import verify_change
+
+    root = tmp_path / "r"
+    (root / "app").mkdir(parents=True)
+    (root / "pyproject.toml").write_text('[project]\nname="p"\n')
+    (root / "app" / "__init__.py").write_text("")
+    for args in (["init", "-q"], ["add", "-A"], ["-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "a"]):
+        subprocess.run(["git", *args], cwd=root, check=True, capture_output=True)
+    monkeypatch.delenv("VIRTUAL_ENV", raising=False)
+    monkeypatch.setattr(diffgenome_adapter, "run_diffgenome", lambda req: (_ for _ in ()).throw(AssertionError("ran")))
+    monkeypatch.setattr("sydes.behavioral.python_project._candidates", lambda repo, project: [])
+    path, note, selection, env = verify_change._run_diffgenome_before_analysis(root, "HEAD", "", 0, tmp_path / "o")
+    assert path is None and env is None
+    assert note.startswith("runtime_evidence unavailable: no usable Python environment")

@@ -43,6 +43,7 @@ def attach_behavioral_evidence(
     use_runtime: bool = True,
     test_selection: dict | None = None,
     unavailable_reason: str | None = None,
+    runtime_environment: dict | None = None,
 ) -> BehavioralEvidence:
     if provider != "diffgenome":
         ev = BehavioralEvidence(status=STATUS_UNAVAILABLE, reason=f"unknown behavioral provider {provider!r}")
@@ -77,6 +78,8 @@ def attach_behavioral_evidence(
             _apply_runtime(result, ev, runtime)
             if test_selection and ev.runtime_evidence is not None:
                 ev.runtime_evidence["test_selection"] = test_selection
+            if runtime_environment and ev.runtime_evidence is not None:
+                ev.runtime_evidence["environment"] = runtime_environment
         ev.notes.extend(log[-3:])
         added = _added_test_lines(result, repo_root)
         linked = link_supporting_tests(result, ev, artifact, added)
