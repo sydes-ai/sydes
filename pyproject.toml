@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "sydes"
-version = "0.2.9"
+version = "0.3.0"
 description = "CLI-first tool that traces API flows and verifies backend code changes, using code-graph evidence and AI reasoning to show what could be affected and what's still unverified."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -15,8 +15,12 @@ authors = [
 dependencies = [
   "anthropic>=0.102.0",
   "codebase-memory-mcp==0.10.8",
+  # Runtime evidence (diffgenome-runtime/1). DiffGenome needs Python 3.12+ (sys.monitoring);
+  # on 3.11 Sydes runs without it and reports the behavioral map as unavailable.
+  "diffgenome>=0.1.8; python_version >= '3.12'",
   "openai>=2.36.0",
   "pydantic>=2.7,<3.0",
+  "pyyaml>=6.0",  # .sydes.yml (runtime overrides)
   "typer>=0.12,<1.0",
 ]
 

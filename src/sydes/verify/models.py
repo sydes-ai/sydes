@@ -11,6 +11,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
+from sydes.behavioral.models import BehavioralEvidence
 from sydes.core.models import EndpointCandidate, EvidenceRef, RepoRef
 
 # Change classification.
@@ -594,7 +595,9 @@ class AcceptedImpact(BaseModel):
     #: than silently dropped either way.
     verification_model_status: str = "modeled"
     #: "structural" (default, every existing construction site) for the
-    #: deterministic/CBM-backed pipeline, or "ai_recovery" for an impact
+    #: deterministic/CBM-backed pipeline, "runtime_observed" when every path
+    #: to it uses a call edge observed by running the existing tests
+    #: (DiffGenome runtime evidence), or "ai_recovery" for an impact
     #: `sydes.recovery`'s canonical merge added after adversarial
     #: verification. Provenance only, never read by verdict aggregation —
     #: see `sydes.recovery.canonical_merge`.
@@ -942,6 +945,8 @@ class ChangeVerificationResult(BaseModel):
     #: this count. Always 0 for the native backend, which has no concept of
     #: an unresolved symbol distinct from "no route found."
     unresolved_changed_symbols: int = 0
+    #: The names behind `unresolved_changed_symbols` (impact-interpreter backends only).
+    unresolved_changed_symbol_names: list[str] = Field(default_factory=list)
     analysis_status: str = ANALYSIS_COMPLETE
     analysis_notes: list[str] = Field(default_factory=list)
     test_executions: list[TestExecution] = Field(default_factory=list)
@@ -951,6 +956,11 @@ class ChangeVerificationResult(BaseModel):
     cross_repo_impacts: list[CrossRepoImpact] = Field(default_factory=list)
     notes: list[str] = Field(default_factory=list)
     diagnostics: list[str] = Field(default_factory=list)
+    #: Runtime/composed behavioral evidence for the change (DiffGenome), merged
+    #: with the structural view without flattening provenance — see
+    #: `sydes.behavioral`. None when not requested; status="unavailable" with a
+    #: reason when requested but not obtainable. Never affects the verdict.
+    behavioral: BehavioralEvidence | None = None
     #: Every route `discover_endpoints` found for this repo, regardless of
     #: whether the diff ever connected to it — the same deterministic,
     #: language-agnostic route discovery every `verify-change` run already

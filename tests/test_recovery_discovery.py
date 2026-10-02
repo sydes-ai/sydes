@@ -70,7 +70,7 @@ def test_discover_candidate_can_return_no_path(repo: Path):
 
 
 def test_discover_candidate_malformed_output_raises_recovery_error(repo: Path):
-    client = SequencedClient(["nonsense, not json"])
+    client = SequencedClient(["nonsense, not json", "nonsense, not json"])  # malformed twice: re-asked once, then fails
     stats = RecoveryRunStats()
     with pytest.raises(RecoveryError):
         discover_candidate(_context(), tools=_tools(repo), client=client, max_turns=3, max_response_chars=4000, stats=stats)

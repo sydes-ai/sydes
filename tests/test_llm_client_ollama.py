@@ -545,3 +545,40 @@ def test_validate_llm_available_ollama_success_when_model_exists(monkeypatch) ->
     assert result.ok is True
     assert result.provider == "ollama"
     assert result.model == "llama3.1:latest"
+
+
+def test_openai_reasoning_effort_and_default_temperature(monkeypatch) -> None:
+    """`SYDES_LLM_TEMPERATURE=default` omits temperature; `SYDES_LLM_REASONING_EFFORT` is sent."""
+    from sydes.llm.client import LLMRequest, OpenAIClient, create_default_llm_client
+
+    monkeypatch.setenv("SYDES_LLM_PROVIDER", "openai")
+    monkeypatch.setenv("SYDES_LLM_MODEL", "gpt-x")
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    monkeypatch.setenv("SYDES_LLM_TEMPERATURE", "default")
+    monkeypatch.setenv("SYDES_LLM_REASONING_EFFORT", "xhigh")
+    monkeypatch.delenv("SYDES_TRACE_DIR", raising=False)
+    client = create_default_llm_client()
+    assert isinstance(client, OpenAIClient) and client.temperature is None
+    sent = {}
+
+    class _Msg:
+        content = "{}"
+
+    class _Choice:
+        message = _Msg()
+
+    class _Resp:
+        choices = [_Choice()]
+        usage = None
+
+    def fake_create(**kwargs):
+        sent.update(kwargs)
+        return _Resp()
+
+    monkeypatch.setattr(client._client.chat.completions, "create", fake_create)
+    client.generate(LLMRequest(prompt="p"))
+    assert sent["reasoning_effort"] == "xhigh" and "temperature" not in sent
+    monkeypatch.delenv("SYDES_LLM_REASONING_EFFORT")
+    monkeypatch.delenv("SYDES_LLM_TEMPERATURE")
+    plain = create_default_llm_client()
+    assert plain.reasoning_effort is None and plain.temperature == 0.0
