@@ -40,6 +40,7 @@ from sydes.core.models import (
 )
 from sydes.discover.endpoints import discover_endpoints
 from sydes.discover.interface_bridge import bridge_interface_call_edges
+from sydes.discover.dispatch_composition import compose_dispatch_edges, ts_files
 from sydes.discover.java_field_bridge import JAVA_FIELD_BRIDGE_SOURCE, bridge_java_field_call_edges
 from sydes.discover.layer2_declaration_bridge import bridge_layer2_declaration_reference_edges
 from sydes.discover.layer2_treesitter_bridge import bridge_layer2_treesitter_edges
@@ -2167,6 +2168,22 @@ def analyze_change(
             "behavioral_context_observed_edges: "
             + ", ".join(f"{k}={v}" for k, v in sorted(observed_stats.items()))
         )
+        # A runtime `through_external` observation (callee executed within an external
+        # dispatch) composes a dispatch edge only together with matching static facts; see
+        # discover/dispatch_composition.py. Tagged so every path through it says so.
+        bridges = behavioral_context.runtime.external_bridges()
+        if bridges:
+            composed_edges, composed_records, composed_notes = compose_dispatch_edges(
+                bridges, repo_root=primary_root, files=ts_files(primary_root),
+                resolve=_static_definition_resolver(structural.symbol_index, primary.name),
+                repo=primary.name,
+            )
+            structural.call_edges.extend(composed_edges)
+            result.composed_dispatch_edges = composed_records
+            result.diagnostics.append(
+                f"composed_dispatch_edges: runtime_bridges={len(bridges)} composed={len(composed_edges)}"
+            )
+            result.diagnostics.extend(f"composed_dispatch: {note}" for note in composed_notes)
 
     # Which entrypoints the change reaches: the impact interpreter is the
     # primary source when CBM supplied a call graph, since it resolves
@@ -2730,3 +2747,32 @@ def _collect_unique_mapped_tests(result: ChangeVerificationResult) -> list[Mappe
                 seen.add(test.id)
                 tests.append(test)
     return tests
+
+
+def _static_definition_resolver(symbol_index: dict[str, Any], repo: str):
+    """`(file, name, line, owner_class)` -> `{"qualified", "line"}` for the code-intelligence
+    symbol of that definition, or None when it is absent or ambiguous (never guessed)."""
+    by_key: dict[tuple[str, str], list[dict[str, Any]]] = {}
+    for repo_payload in symbol_index.get("repos", []) or []:
+        if repo_payload.get("repo") != repo:
+            continue
+        for item in repo_payload.get("files", []) or []:
+            for sym in item.get("symbols", []) or []:
+                if sym.get("cbm_qualified_name") and sym.get("name"):
+                    by_key.setdefault((str(item.get("path")), str(sym["name"])), []).append(sym)
+
+    def resolve(file: str, name: str, line: int | None, owner_class: str | None) -> dict[str, Any] | None:
+        cands = by_key.get((file, name), [])
+        if owner_class:
+            cands = [
+                c for c in cands
+                if c.get("parent") == owner_class
+                or str(c.get("cbm_qualified_name", "")).endswith(f".{owner_class}.{name}")
+            ]
+        if line is not None and len(cands) > 1:
+            cands = [c for c in cands if (c.get("start_line") or 0) - 3 <= line <= (c.get("end_line") or 0)]
+        if len(cands) != 1:
+            return None
+        return {"qualified": cands[0]["cbm_qualified_name"], "line": cands[0].get("start_line")}
+
+    return resolve

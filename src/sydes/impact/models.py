@@ -36,6 +36,11 @@ RELATION_SOURCE_CONFIRMED = "source_confirmed"
 #: proven hop from an inferred one at a glance, same as `RELATION_SOURCE_CONFIRMED`
 #: distinguishes a guided source read from a plain graph edge.
 RELATION_LLM_INFERRED = "llm_inferred"
+#: A framework-mediated dispatch the static graph cannot see, composed from a static call
+#: site, a static handler declaration and a runtime observation of the callee executing
+#: within that external dispatch (`sydes.discover.dispatch_composition`). Not a call and
+#: not an observed call: the production call site itself was not observed.
+RELATION_COMPOSED_DISPATCH = "composed_dispatch"
 
 #: Which strategy proposed a path. Recorded so a surprising result can be
 #: attributed to the rule that produced it rather than to the system at large.
@@ -56,6 +61,8 @@ STRATEGY_GUIDED_INVESTIGATION = "guided_investigation"
 #: graph/source relationship) — this strategy carries no such proof, only a
 #: model's rationale and confidence, however corroboration may have gone.
 STRATEGY_LLM_SEMANTIC_INFERENCE = "llm_semantic_inference"
+#: A path containing at least one `RELATION_COMPOSED_DISPATCH` hop.
+STRATEGY_COMPOSED_DISPATCH = "composed_dispatch_reachability"
 
 #: An entrypoint's kind, as far as the facts support. `unknown` is a real
 #: answer: a decorated symbol that is plainly an entrypoint but whose framework
@@ -146,6 +153,8 @@ PROVENANCE_DETERMINISTIC = "deterministic"
 #: the hop was observed executing (DiffGenome), not derived from the static graph
 PROVENANCE_RUNTIME_OBSERVED = "runtime_observed"
 PROVENANCE_LLM_GUIDED_SOURCE_CONFIRMED = "llm_guided_source_confirmed"
+#: composed from static facts plus a runtime through-external observation, under a named rule
+PROVENANCE_COMPOSED_STATIC_RUNTIME = "composed_static_runtime"
 #: An inferred candidate whose entrypoint matched something already present
 #: in the known facts (a declared route/entrypoint) — cheap corroboration,
 #: not a graph path. Still `IMPACT_STATUS_INFERRED`, never promoted to

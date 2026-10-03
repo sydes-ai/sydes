@@ -509,6 +509,9 @@ def build_layered_trace_expansion(
             unresolved_calls.append({"call": call_name, "reason": "slice_unavailable"})
             continue
 
+        # a composed dispatch edge (static + runtime, discover/dispatch_composition.py) is
+        # followed like any edge but keeps saying what it is, all the way to the report
+        composed = edge.get("composed") if edge is not None and isinstance(edge.get("composed"), dict) else None
         followed_calls.append(
             {
                 "call": call_name,
@@ -517,6 +520,7 @@ def build_layered_trace_expansion(
                 "importance": score,
                 "called_from_statement": stmt.get("text"),
                 "symbol_kind": symbol.get("kind"),
+                **({"composed": composed, "evidence": edge.get("evidence")} if composed else {}),
             }
         )
         visited_functions.add(key)
@@ -543,6 +547,7 @@ def build_layered_trace_expansion(
                 #: step by what was actually called instead of assuming
                 #: every followed call is a generic service call.
                 "symbol_kind": symbol.get("kind"),
+                **({"composed": composed} if composed else {}),
             }
         )
 

@@ -510,6 +510,11 @@ def _flow_chain_lines(flow: AffectedFlow, changed_identities: set[str]) -> list[
         last_symbol = symbol
         short = str(symbol).rsplit(".", 1)[-1]
         tag = " [changed]" if symbol in changed_identities or short in changed_identities else ""
+        composed = (step.get("metadata") or {}).get("composed")
+        if isinstance(composed, dict):
+            # not a call in the source: composed from a static call site, a static handler
+            # declaration and a runtime observation (see result.composed_dispatch_edges)
+            out.append(f"  → [dispatch via {composed.get('via')}({composed.get('message')}), composed]")
         out.append(f"  → {short}{tag}")
     for sink in flow.sinks:
         if not isinstance(sink, dict):

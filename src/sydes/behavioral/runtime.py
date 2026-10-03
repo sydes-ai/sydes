@@ -13,6 +13,11 @@ evidence it applies in four places:
 - AI recovery: which first-pass gaps observation already answers, and which changed functions
   still need it (those no test executed, which runtime evidence cannot speak to).
 
+An edge carrying `relation: "through_external"` is not a call: its callee was entered while the
+caller's invocation of external code (`via`, e.g. CommandBus.execute) was active. Such edges are
+read as `RuntimeExternalBridge`s and never join the call graph as observed calls. A missing
+`relation` is unspecified (legacy) and is read exactly as before.
+
 Every "not executed" is relative to the contract's test scope. Values, except-handler coverage
 and per-line coverage are not in the contract and are never inferred here.
 """
@@ -31,6 +36,7 @@ from sydes.verify.models import VerificationGap
 
 FORMAT = "diffgenome-runtime/1"
 EDGE_SOURCE = "diffgenome:observed-runtime"
+THROUGH_EXTERNAL = "through_external"
 _WRAPPERS = ("<locals>", "<lambda>", "<anon>")
 
 
@@ -45,6 +51,29 @@ def short_name(symbol: str) -> str:
     if len(parts) >= 2 and parts[-2][:1].isupper():
         return ".".join(parts[-2:])
     return parts[-1]
+
+
+@dataclass(frozen=True)
+class RuntimeExternalBridge:
+    """A `through_external` contract edge: `caller` invoked external code (`owner.member`,
+    with these argument shapes) and `callee` executed while that invocation was active.
+    Not "the external code called `callee`", and `caller` is whoever invoked it at runtime
+    (often a test), not necessarily any production call site."""
+
+    caller: dict[str, Any]
+    callee: dict[str, Any]
+    symbol: str
+    owner: str | None
+    member: str | None
+    arg_shapes: tuple[tuple[str, ...], ...]
+    exits: dict[str, int]
+    tests: tuple[str, ...]
+    tests_total: int
+    executions: int
+
+
+def _is_through_external(edge: dict[str, Any]) -> bool:
+    return edge.get("relation") == THROUGH_EXTERNAL and isinstance(edge.get("via"), dict)
 
 
 @dataclass
@@ -80,6 +109,31 @@ class RuntimeEvidence:
     @property
     def edges(self) -> list[dict[str, Any]]:
         return list(self.contract.get("edges") or [])
+
+    @property
+    def call_edges(self) -> list[dict[str, Any]]:
+        """Edges that may be read as observed calls: everything but `through_external`."""
+        return [e for e in self.edges if not _is_through_external(e)]
+
+    def external_bridges(self) -> list[RuntimeExternalBridge]:
+        out: list[RuntimeExternalBridge] = []
+        for e in self.edges:
+            if not _is_through_external(e):
+                continue
+            via = e["via"]
+            out.append(RuntimeExternalBridge(
+                caller=dict(e.get("caller") or {}), callee=dict(e.get("callee") or {}),
+                symbol=str(via.get("symbol") or ""),
+                owner=via.get("owner") if isinstance(via.get("owner"), str) else None,
+                member=via.get("member") if isinstance(via.get("member"), str) else None,
+                arg_shapes=tuple(tuple(str(x) for x in shape) for shape in via.get("arg_shapes") or []
+                                 if isinstance(shape, list)),
+                exits={str(k): int(v) for k, v in (via.get("exits") or {}).items()},
+                tests=tuple(str(t) for t in e.get("tests") or []),
+                tests_total=int(e.get("tests_total") or len(e.get("tests") or [])),
+                executions=int(e.get("executions") or 0),
+            ))
+        return out
 
     @property
     def test_scope(self) -> str:
@@ -142,7 +196,7 @@ class RuntimeEvidence:
         it reached. One path per entry root, the roots reaching the most changed functions first.
         Each step is `{"name", "changed"}`; a long path keeps its ends around an ellipsis step."""
         app = defaultdict(list)
-        for e in self.edges:
+        for e in self.call_edges:
             if e["caller"].get("origin") != "test" and e["callee"].get("origin") != "test":
                 app[e["caller"]["symbol"]].append(e["callee"]["symbol"])
         changed = {f["symbol"] for f in self.functions if f.get("executed")}
@@ -198,6 +252,9 @@ class RuntimeEvidence:
         stats = {"observed_pairs": 0, "already_static": 0, "unresolved_ends": 0}
         seen: set[tuple[str, str]] = set()
         for e in self.edges:
+            if _is_through_external(e):
+                stats["through_external_not_calls"] = stats.get("through_external_not_calls", 0) + 1
+                continue  # entered within external code, not called by the caller
             if e["caller"].get("origin") == "test":
                 continue
             caller, callee = resolver.resolve(e["caller"]), resolver.resolve(e["callee"])

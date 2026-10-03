@@ -365,6 +365,13 @@ def build_layered_trace_contract(
                     confidence=0.85,
                 )
             ]
+            if isinstance(layer.get("composed"), dict):
+                # reached through a composed dispatch edge, not a call in the source
+                follow_steps[0]["metadata"] = {
+                    **follow_steps[0]["metadata"],
+                    "relation": "composed_dispatch",
+                    "composed": dict(layer["composed"]),
+                }
             for stmt in layer.get("steps", [])[:6]:
                 if not isinstance(stmt, dict):
                     continue

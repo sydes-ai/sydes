@@ -936,6 +936,11 @@ class ChangeVerificationResult(BaseModel):
     #: Empty (cbm backend with nothing found, or native backend, which does
     #: not run boundary discovery at all) is a normal, non-error result.
     affected_boundaries: list[AffectedBoundary] = Field(default_factory=list)
+    #: Framework-mediated dispatch edges composed from static facts plus a runtime
+    #: `through_external` observation (`sydes.discover.dispatch_composition`), each with its
+    #: rule, the static facts and the runtime fact it rests on. Evidence for impact reachability
+    #: only: never a call, never an observed call of the production call site.
+    composed_dispatch_edges: list[dict[str, Any]] = Field(default_factory=list)
     affected_flows: list[AffectedFlow] = Field(default_factory=list)
     #: Changed symbols the deterministic impact interpreter never reached any
     #: entrypoint from (`ImpactResult.unresolved`, cbm backend only) — set by

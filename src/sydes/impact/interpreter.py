@@ -28,6 +28,7 @@ import time
 from typing import Any, Iterable
 
 from sydes.code_intelligence.base import StructuralFacts
+from sydes.discover.dispatch_composition import COMPOSED_DISPATCH_SOURCE
 from sydes.impact.boundary_discovery import (
     BoundaryBudget,
     discover_boundaries,
@@ -76,6 +77,9 @@ from sydes.impact.models import (
     STRATEGY_RUNTIME_OBSERVED_REACHABILITY,
     RELATION_OBSERVED_RUNTIME,
     PROVENANCE_RUNTIME_OBSERVED,
+    PROVENANCE_COMPOSED_STATIC_RUNTIME,
+    RELATION_COMPOSED_DISPATCH,
+    STRATEGY_COMPOSED_DISPATCH,
     STRATEGY_LLM_SEMANTIC_INFERENCE,
     STRATEGY_SIGNATURE_REFERENCE,
     STRATEGY_USAGE_REACHABILITY,
@@ -1108,6 +1112,8 @@ class ImpactInterpreter:
                         if relation == RELATION_SOURCE_CONFIRMED
                         else PROVENANCE_RUNTIME_OBSERVED
                         if relation == RELATION_OBSERVED_RUNTIME
+                        else PROVENANCE_COMPOSED_STATIC_RUNTIME
+                        if relation == RELATION_COMPOSED_DISPATCH
                         else PROVENANCE_DETERMINISTIC
                     ),
                 )
@@ -1116,6 +1122,8 @@ class ImpactInterpreter:
                 if entry is not None:
                     if any(item.relation == RELATION_SOURCE_CONFIRMED for item in extended):
                         strategy = STRATEGY_GUIDED_INVESTIGATION
+                    elif any(item.relation == RELATION_COMPOSED_DISPATCH for item in extended):
+                        strategy = STRATEGY_COMPOSED_DISPATCH
                     elif any(item.relation == RELATION_OBSERVED_RUNTIME for item in extended) and all(
                         item.relation in (RELATION_CALLS, RELATION_OBSERVED_RUNTIME) for item in extended
                     ):
@@ -1753,11 +1761,18 @@ class _FactIndex:
                 line=edge.get("caller_line"),
             )
             observed = str(edge.get("source") or "").startswith("diffgenome:")
+            composed = edge.get("source") == COMPOSED_DISPATCH_SOURCE
+            relation = (
+                RELATION_COMPOSED_DISPATCH if composed
+                else RELATION_OBSERVED_RUNTIME if observed
+                else RELATION_CALLS
+            )
             self._inbound.setdefault(callee.key, []).append(
                 (
-                    RELATION_OBSERVED_RUNTIME if observed else RELATION_CALLS,
+                    relation,
                     caller,
-                    {"_edge_file": callee_file, **({"evidence": edge.get("evidence", "")} if observed else {})},
+                    {"_edge_file": callee_file,
+                     **({"evidence": edge.get("evidence", "")} if observed or composed else {})},
                 )
             )
             if callee_file:
