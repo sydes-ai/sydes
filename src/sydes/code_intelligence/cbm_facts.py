@@ -29,8 +29,18 @@ module where Sydes' attribution finds the changed symbols); `get_architecture` (
 a node count); `trace_path` itself (subsumed by `calls_path` plus the graph slice: same
 CALLS-only answer, one request for many pairs).
 
+Measured CBM 0.11.0 limits the callers work around rather than paper over: no HANDLES /
+Route for a route whose decorator argument is an expression (NestJS `@Delete(routes.x)`);
+HANDLES paths omit an `include_router` mount prefix; DECORATES keeps one edge per decorator
+name (a repeated `@ApiResponse` survives only in the decorator sweep); CONFIGURES records
+configuration keys and environment access, never a registration; overloads collapse to one
+symbol, so a search hit inside one is placed in the class; INHERITS can resolve to a node in
+a configuration file; a `search_code` excerpt of a large symbol covers only its first match;
+`query_graph` cannot `ORDER BY type(r)`.
+
 Everything is batched (one request per family per wave, all seeds together), cached per
-session (relations per seed; paths, searches and schema per question) and counted.
+session (relations per seed; paths, searches and schema per question) and counted. A failed
+query is noted and costs only its fact.
 """
 
 from __future__ import annotations
