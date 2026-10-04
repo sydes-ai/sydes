@@ -821,28 +821,123 @@ class CBMClient:
         self.malformed_rows += malformed
         return rows
 
-    def inbound_references(
-        self, project: str, qualified_names: list[str], *, limit: int = 500,
+    # -- structural fact families (Track A planner; see cbm_facts.py) -------
+
+    def graph_capabilities(self, project: str) -> dict[str, dict[str, int]]:
+        """Node labels and edge types this project's graph actually contains, with
+        counts, from `get_graph_schema`: which relation families a query can expect."""
+        payload = self.graph_schema(project)
+        text = payload.get("_text") if isinstance(payload, dict) else None
+        out: dict[str, dict[str, int]] = {"labels": {}, "edge_types": {}}
+        if isinstance(payload, dict) and isinstance(payload.get("edge_types"), list):
+            for item in payload.get("edge_types") or []:
+                if isinstance(item, dict) and item.get("type"):
+                    out["edge_types"][str(item["type"])] = int(item.get("count") or 0)
+            for item in payload.get("node_labels") or []:
+                if isinstance(item, dict) and item.get("label"):
+                    out["labels"][str(item["label"])] = int(item.get("count") or 0)
+            return out
+        section = None
+        for line in str(text or "").splitlines():
+            if line.startswith("node_labels:"):
+                section = "labels"
+            elif line.startswith("edge_types:"):
+                section = "edge_types"
+            elif not line.startswith("  "):
+                section = None
+            elif section:
+                parts = line.split()
+                if len(parts) == 2 and parts[1].isdigit():
+                    out[section][parts[0]] = int(parts[1])
+        return out
+
+    def relations(
+        self, project: str, qualified_names: list[str], relation_types: list[str], *, limit: int = 2000,
     ) -> list[list[str]]:
-        """Who calls, uses or passes each of `qualified_names`: rows of
-        `[target qualified name, relation, source qualified name, source label,
-        source file, source line]`, relation being `CALLS`, `USAGE` or
-        `CALL_REFERENCE`. One batched query for every target (structural
-        enrichment asks once per run); continued across pages by
-        `_query_graph`, and any row or page lost is counted like every other
-        query's."""
-        if not qualified_names:
+        """Every relation of the given types touching any of `qualified_names`, in
+        either direction, with its properties (CALLS args/line/confidence, DECORATES
+        decorator text, HANDLES handler, HTTP_CALLS url/args, CONFIGURES strategy...):
+        rows of `[source qn, source label, source file, relation, target qn, target
+        label, target file, properties JSON]`. One batched request for all seeds and
+        types; continued across pages, and any row or page lost is counted."""
+        if not qualified_names or not relation_types:
             return []
-        targets = _qualified_list_literal(qualified_names)
+        seeds = _qualified_list_literal(qualified_names)
+        types = "|".join(t for t in relation_types if re.fullmatch(r"[A-Z_]+", t))
         query = (
-            "MATCH (a)-[r:CALLS|USAGE|CALL_REFERENCE]->(b) "
-            f"WHERE b.qualified_name IN {targets} "
-            "RETURN b.qualified_name, type(r), a.qualified_name, a.label, a.file_path, a.start_line "
-            f"ORDER BY b.qualified_name, a.qualified_name LIMIT {int(limit)}"
+            f"MATCH (a)-[r:{types}]->(b) "
+            f"WHERE a.qualified_name IN {seeds} OR b.qualified_name IN {seeds} "
+            "RETURN a.qualified_name, a.label, a.file_path, type(r), "
+            "b.qualified_name, b.label, b.file_path, properties(r) "
+            f"ORDER BY a.qualified_name, b.qualified_name LIMIT {int(limit)}"
         )
-        rows, malformed = parse_rows(self._query_graph(project, query), columns=6)
+        rows, malformed = parse_rows(self._query_graph(project, query), columns=8)
         self.malformed_rows += malformed
         return rows
+
+    def direct_relations(
+        self, project: str, left: list[str], right: list[str], *, limit: int = 200,
+    ) -> list[list[str]]:
+        """Any relation, any type, directly between a `left` and a `right` symbol, in
+        either direction: rows of `[source qn, relation, target qn, properties JSON]`."""
+        if not left or not right:
+            return []
+        lhs, rhs = _qualified_list_literal(left), _qualified_list_literal(right)
+        query = (
+            "MATCH (a)-[r]->(b) "
+            f"WHERE (a.qualified_name IN {lhs} AND b.qualified_name IN {rhs}) "
+            f"OR (a.qualified_name IN {rhs} AND b.qualified_name IN {lhs}) "
+            f"RETURN a.qualified_name, type(r), b.qualified_name, properties(r) LIMIT {int(limit)}"
+        )
+        rows, malformed = parse_rows(self._query_graph(project, query), columns=4)
+        self.malformed_rows += malformed
+        return rows
+
+    def calls_paths(
+        self, project: str, sources: list[str], targets: list[str], *, max_hops: int = 5, limit: int = 50,
+    ) -> list[list[str]]:
+        """Pairs `[source qn, target qn]` joined by a CALLS path of 1..`max_hops` hops
+        (a bounded variable-length match: what `trace_path` answers, for many pairs at once)."""
+        if not sources or not targets:
+            return []
+        hops = max(1, min(int(max_hops), 8))
+        query = (
+            f"MATCH (a)-[:CALLS*1..{hops}]->(b) "
+            f"WHERE a.qualified_name IN {_qualified_list_literal(sources)} "
+            f"AND b.qualified_name IN {_qualified_list_literal(targets)} "
+            f"RETURN DISTINCT a.qualified_name, b.qualified_name LIMIT {int(limit)}"
+        )
+        rows, malformed = parse_rows(self._query_graph(project, query), columns=2)
+        self.malformed_rows += malformed
+        return rows
+
+    def search_code(
+        self, project: str, pattern: str, *, path_filter: str | None = None, mode: str = "full",
+        context: int = 2, limit: int = 20,
+    ) -> dict[str, Any]:
+        """CBM's literal source search: per match, the enclosing symbol (qualified name,
+        label, file, line span), the matching lines and that symbol's source
+        (`mode="full"`), or just the files (`mode="files"`). `{"rows": [...], "files":
+        [...], "truncated": bool}`; a result CBM reports as cut short is counted."""
+        arguments: dict[str, Any] = {
+            "project": project, "pattern": pattern, "mode": mode, "format": "json",
+            "limit": int(limit), "context": int(context),
+        }
+        if path_filter:
+            arguments["path_filter"] = path_filter
+        payload = self._session.call_tool("search_code", arguments)
+        columns = payload.get("cols") if isinstance(payload.get("cols"), list) else []
+        rows = []
+        for values in payload.get("rows", []) or []:
+            if isinstance(values, list) and len(values) == len(columns):
+                record = dict(zip(columns, values))
+                source = record.get("source")
+                record["source"] = source.get("source", "") if isinstance(source, dict) else str(source or "")
+                rows.append(record)
+        truncated = bool(payload.get("has_more") or payload.get("truncated"))
+        if truncated:
+            self.truncated_responses += 1
+        return {"rows": rows, "files": list(payload.get("files") or []), "truncated": truncated}
 
     def decorated_symbols(self, project: str, *, page_size: int = 500) -> list[dict[str, Any]]:
         """Symbols carrying route metadata or decorator source.

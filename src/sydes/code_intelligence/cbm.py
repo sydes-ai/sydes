@@ -224,9 +224,8 @@ class CBMCodeIntelligence:
         # later bounded slice fetch can address the same index without
         # re-indexing. Only populated for repos this adapter actually indexed.
         self._projects: dict[str, str] = {}
-        #: structural enrichment: per-run cache and the number of CBM requests it made
-        self._reference_cache: dict[tuple[str, tuple[str, ...]], list[list[str]]] = {}
-        self.enrichment_queries = 0
+        #: per-repository structural fact layers (cbm_facts.CBMFacts), cached for the session
+        self._fact_layers: dict[str, Any] = {}
         # One cache per adapter instance, and an adapter lives exactly as long
         # as one `verify-change` run — so memoization is run-local by
         # construction and never spans repos or commits.
@@ -392,20 +391,17 @@ class CBMCodeIntelligence:
 
     # -- structural enrichment --------------------------------------------
 
-    def inbound_references(self, repo: str, qualified_names: list[str]) -> list[list[str]]:
-        """CALLS/USAGE/CALL_REFERENCE edges into `qualified_names`, for targeted
-        structural enrichment after ordinary traversal stalled. Cached per
-        target set for the run and counted in `enrichment_queries`; empty when
-        the repository was not indexed in this session."""
+    def facts(self, repo: str) -> Any:
+        """The structural fact layer for `repo` (`cbm_facts.CBMFacts`): every relation
+        family Track A may ask about, batched and cached for this session; None when the
+        repository was not indexed here."""
         project = self._projects.get(repo)
-        names = sorted({name for name in qualified_names if name})
-        if project is None or not names:
-            return []
-        key = (project, tuple(names))
-        if key not in self._reference_cache:
-            self.enrichment_queries += 1
-            self._reference_cache[key] = self._ensure_client().inbound_references(project, names)
-        return self._reference_cache[key]
+        if project is None:
+            return None
+        if repo not in self._fact_layers:
+            from sydes.code_intelligence.cbm_facts import CBMFacts
+            self._fact_layers[repo] = CBMFacts(self._ensure_client(), project)
+        return self._fact_layers[repo]
 
     # -- bounded edge acquisition -----------------------------------------
 

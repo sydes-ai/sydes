@@ -2822,23 +2822,21 @@ def _enrich_framework_boundaries(
          "handler_file": (f.artifact_refs or {}).get("handler_file")}
         for f in result.affected_flows if f.entry_kind == "route" and f.handler and f.repo == repo
     ]
-    fetch = None
-    if hasattr(code_intelligence, "inbound_references"):
-        def fetch(names: list[str]) -> list[list[str]]:
-            return code_intelligence.inbound_references(repo, names)
-    before = getattr(code_intelligence, "enrichment_queries", 0)
+    facts = code_intelligence.facts(repo) if hasattr(code_intelligence, "facts") else None
     outcome = enrich(EnrichmentInput(
         repo=repo, repo_root=repo_root, unresolved=unresolved, reached_entrypoints=reached,
         route_flows=flows, decorated=list(structural.entrypoints or []),
         symbol_index=structural.symbol_index, route_index=structural.route_index,
         composed=list(result.composed_dispatch_edges),
-    ), fetch)
+    ), facts)
     result.framework_boundary_candidates = [c.to_dict() for c in outcome.candidates]
-    extra = getattr(code_intelligence, "enrichment_queries", 0) - before
+    stats = outcome.stats or {}
+    requests = ",".join(f"{k}:{v}" for k, v in sorted((stats.get("requests") or {}).items())) or "none"
+    hits = ",".join(f"{k}:{v}" for k, v in sorted((stats.get("cache_hits") or {}).items())) or "none"
     result.diagnostics.append(
         f"structural_enrichment: triggered=[{'; '.join(outcome.triggered)}] "
-        f"reference_targets={outcome.reference_targets} cbm_requests={extra} "
-        f"candidates={len(outcome.candidates)} "
+        f"cbm_requests={stats.get('total_requests', 0)} ({requests}) cache_hits=({hits}) "
+        f"families=[{','.join(outcome.families)}] candidates={len(outcome.candidates)} "
         f"unresolved={sum(c.status == 'unresolved' for c in outcome.candidates)}"
     )
     result.diagnostics.extend(f"structural_enrichment: {note}" for note in outcome.notes)

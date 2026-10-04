@@ -724,7 +724,7 @@ def _render_system_impact_default(result: ChangeVerificationResult, lines: list[
         lines.append(flow.entry_label)
         registration = _route_registration_line(flow, candidates)
         if registration:
-            lines.append(registration)
+            lines.extend(registration.split("\n"))
         lines.extend(_flow_chain_lines(flow, changed_identities))
         rendered_anything = True
     boundaries = _non_http_boundaries(result)[:_BOUNDARY_DEFAULT_CAP]
@@ -754,10 +754,13 @@ def _route_registration_line(flow: Any, candidates: list[dict[str, Any]]) -> str
         located = f" ({where['file']}:{where['line']})" if where and where.get("file") else ""
         registered = next((f["fact"] for f in c.get("facts", []) if " is registered on `" in f.get("fact", "")), "")
         receiver = registered.split(" is registered on `", 1)[-1].split("`", 1)[0] if registered else "its router"
+        discrepancy = next((f["fact"].removeprefix("discrepancy: ") for f in c.get("facts", [])
+                            if f.get("fact", "").startswith("discrepancy: ")), None)
+        flagged = f"\n  CBM route differs: {discrepancy}" if discrepancy else ""
         if c.get("status") == "resolved":
             return (f"  registered on `{receiver}`{', mounted ' + mount_text + located if mount_text else ''}"
-                    " · path composed from literals")
-        return "  route composition unresolved: " + "; ".join(c.get("missing") or [])
+                    " · path composed from literals" + flagged)
+        return "  route composition unresolved: " + "; ".join(c.get("missing") or []) + flagged
     return None
 
 
@@ -772,20 +775,32 @@ def _framework_boundary_blocks(candidates: list[dict[str, Any]]) -> list[list[st
         if c.get("category") == "message_dispatch":
             decorator = next((f["fact"].split(" is decorated ", 1)[-1] for f in c.get("facts", [])
                               if f.get("provenance") == "cbm_decorator"), "")
+            decorator = re.sub(r" \((?:DECORATES|decorator sweep)\)$", "", decorator)
             blocks.append([
                 c.get("source_symbol", "?"),
                 f"  → {c.get('via')}",
                 "  → [framework dispatch unresolved]",
                 f"  → candidate: {targets}" + (f" ({decorator})" if decorator else ""),
-            ])
+            ] + _checks_line(c))
         elif c.get("category") == "callback_registration":
             blocks.append([
                 c.get("source_symbol", "?"),
                 f"  → {c.get('via')}: registers {targets.rsplit('.', 1)[0]}",
                 "  → [framework lifecycle unresolved]",
                 f"  → candidate: {targets}",
-            ])
+            ] + _checks_line(c))
     return blocks
+
+
+def _checks_line(candidate: dict[str, Any]) -> list[str]:
+    """The structural path checks run before calling the hop unresolved."""
+    checks = candidate.get("checks") or {}
+    if not checks:
+        return []
+    direct, path = checks.get("direct_relation", "?"), checks.get("calls_path", "?")
+    if direct == "none" and path.startswith("none"):
+        return [f"  · CBM: no direct relation, no CALLS path ({path.removeprefix('none ')})"]
+    return [f"  · CBM: direct relation {direct}; CALLS path {path}"]
 
 
 def _render_behavioral_default(result: ChangeVerificationResult, lines: list[str]) -> None:
