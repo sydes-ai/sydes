@@ -821,6 +821,29 @@ class CBMClient:
         self.malformed_rows += malformed
         return rows
 
+    def inbound_references(
+        self, project: str, qualified_names: list[str], *, limit: int = 500,
+    ) -> list[list[str]]:
+        """Who calls, uses or passes each of `qualified_names`: rows of
+        `[target qualified name, relation, source qualified name, source label,
+        source file, source line]`, relation being `CALLS`, `USAGE` or
+        `CALL_REFERENCE`. One batched query for every target (structural
+        enrichment asks once per run); continued across pages by
+        `_query_graph`, and any row or page lost is counted like every other
+        query's."""
+        if not qualified_names:
+            return []
+        targets = _qualified_list_literal(qualified_names)
+        query = (
+            "MATCH (a)-[r:CALLS|USAGE|CALL_REFERENCE]->(b) "
+            f"WHERE b.qualified_name IN {targets} "
+            "RETURN b.qualified_name, type(r), a.qualified_name, a.label, a.file_path, a.start_line "
+            f"ORDER BY b.qualified_name, a.qualified_name LIMIT {int(limit)}"
+        )
+        rows, malformed = parse_rows(self._query_graph(project, query), columns=6)
+        self.malformed_rows += malformed
+        return rows
+
     def decorated_symbols(self, project: str, *, page_size: int = 500) -> list[dict[str, Any]]:
         """Symbols carrying route metadata or decorator source.
 

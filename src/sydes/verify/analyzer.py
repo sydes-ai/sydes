@@ -41,6 +41,7 @@ from sydes.core.models import (
 from sydes.discover.endpoints import discover_endpoints
 from sydes.discover.interface_bridge import bridge_interface_call_edges
 from sydes.discover.dispatch_composition import compose_dispatch_edges, ts_files
+from sydes.discover.structural_enrichment import EnrichmentInput, enrich
 from sydes.discover.java_field_bridge import JAVA_FIELD_BRIDGE_SOURCE, bridge_java_field_call_edges
 from sydes.discover.layer2_declaration_bridge import bridge_layer2_declaration_reference_edges
 from sydes.discover.layer2_treesitter_bridge import bridge_layer2_treesitter_edges
@@ -2584,6 +2585,11 @@ def analyze_change(
     for flow in result.affected_flows:
         resolve_flow_status(flow)
     result.accepted_impacts = _build_accepted_impacts(impact_result, result.affected_flows)
+    if impact_result is not None:
+        _enrich_framework_boundaries(
+            result, impact_result=impact_result, structural=structural, change=change,
+            code_intelligence=code_intelligence, repo=primary.name, repo_root=primary_root,
+        )
     result.summary = _compute_summary(result, changed_test_case_count=len(changed_test_cases))
     _trace.record_final_decision(
         run_id=trace_run_id,
@@ -2791,3 +2797,48 @@ def _static_definition_resolver(symbol_index: dict[str, Any], repo: str):
         return {"qualified": cands[0]["cbm_qualified_name"], "line": cands[0].get("start_line")}
 
     return resolve
+
+
+def _enrich_framework_boundaries(
+    result: ChangeVerificationResult, *, impact_result: ImpactResult, structural: Any, change: Any,
+    code_intelligence: Any, repo: str, repo_root: Path,
+) -> None:
+    """Ask CBM targeted structural questions where ordinary traversal stalled at a
+    framework-invoked symbol (discover/structural_enrichment.py). Adds unresolved or resolved
+    framework-boundary candidates for the report; never an edge, never a verdict input."""
+    unresolved_names = {item.symbol for item in impact_result.unresolved}
+    unresolved = [
+        {"name": s.name, "file": s.file, "qualified_name": getattr(s, "qualified_name", None)}
+        for s in change.symbols if s.repo == repo and (s.name in unresolved_names
+                                                         or s.name.rsplit(".", 1)[-1] in unresolved_names)
+    ]
+    reached = [
+        {"symbol": e.symbol, "qualified_name": e.qualified_name, "file": e.file, "kind": e.kind,
+         "route_method": e.route_method}
+        for e in impact_result.affected if e.repo == repo
+    ]
+    flows = [
+        {"method": f.method, "path": f.path, "handler": f.handler,
+         "handler_file": (f.artifact_refs or {}).get("handler_file")}
+        for f in result.affected_flows if f.entry_kind == "route" and f.handler and f.repo == repo
+    ]
+    fetch = None
+    if hasattr(code_intelligence, "inbound_references"):
+        def fetch(names: list[str]) -> list[list[str]]:
+            return code_intelligence.inbound_references(repo, names)
+    before = getattr(code_intelligence, "enrichment_queries", 0)
+    outcome = enrich(EnrichmentInput(
+        repo=repo, repo_root=repo_root, unresolved=unresolved, reached_entrypoints=reached,
+        route_flows=flows, decorated=list(structural.entrypoints or []),
+        symbol_index=structural.symbol_index, route_index=structural.route_index,
+        composed=list(result.composed_dispatch_edges),
+    ), fetch)
+    result.framework_boundary_candidates = [c.to_dict() for c in outcome.candidates]
+    extra = getattr(code_intelligence, "enrichment_queries", 0) - before
+    result.diagnostics.append(
+        f"structural_enrichment: triggered=[{'; '.join(outcome.triggered)}] "
+        f"reference_targets={outcome.reference_targets} cbm_requests={extra} "
+        f"candidates={len(outcome.candidates)} "
+        f"unresolved={sum(c.status == 'unresolved' for c in outcome.candidates)}"
+    )
+    result.diagnostics.extend(f"structural_enrichment: {note}" for note in outcome.notes)

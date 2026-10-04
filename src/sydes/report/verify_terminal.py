@@ -8,6 +8,7 @@ for GitHub or a UI later.
 from __future__ import annotations
 
 import re
+from typing import Any
 
 from sydes.verify.models import (
     ANALYSIS_COMPLETE,
@@ -716,10 +717,14 @@ def _render_system_impact_default(result: ChangeVerificationResult, lines: list[
     _header(lines, "System impact")
     changed_identities = _changed_symbol_identities(result)
     rendered_anything = False
+    candidates = list(getattr(result, "framework_boundary_candidates", []) or [])
     for index, flow in enumerate(result.affected_flows):
         if index > 0:
             lines.append("")
         lines.append(flow.entry_label)
+        registration = _route_registration_line(flow, candidates)
+        if registration:
+            lines.append(registration)
         lines.extend(_flow_chain_lines(flow, changed_identities))
         rendered_anything = True
     boundaries = _non_http_boundaries(result)[:_BOUNDARY_DEFAULT_CAP]
@@ -732,6 +737,55 @@ def _render_system_impact_default(result: ChangeVerificationResult, lines: list[
         rendered_anything = True
     if not rendered_anything:
         lines.append("No structural propagation path was established.")
+    for block in _framework_boundary_blocks(candidates):
+        lines.append("")
+        lines.extend(block)
+
+
+def _route_registration_line(flow: Any, candidates: list[dict[str, Any]]) -> str | None:
+    """How the route was assembled, from structural enrichment: decorator, router, mount."""
+    label = f"{flow.method} {flow.path}" if getattr(flow, "method", None) else flow.entry_label
+    for c in candidates:
+        if c.get("category") != "route_registration" or c.get("via") != label:
+            continue
+        mounts = [f["fact"] for f in c.get("facts", []) if "is mounted" in f.get("fact", "")]
+        where = next((f for f in c.get("facts", []) if "is mounted" in f.get("fact", "")), None)
+        mount_text = (mounts[0].split("` is mounted", 1)[-1].strip() if mounts else "")
+        located = f" ({where['file']}:{where['line']})" if where and where.get("file") else ""
+        registered = next((f["fact"] for f in c.get("facts", []) if " is registered on `" in f.get("fact", "")), "")
+        receiver = registered.split(" is registered on `", 1)[-1].split("`", 1)[0] if registered else "its router"
+        if c.get("status") == "resolved":
+            return (f"  registered on `{receiver}`{', mounted ' + mount_text + located if mount_text else ''}"
+                    " · path composed from literals")
+        return "  route composition unresolved: " + "; ".join(c.get("missing") or [])
+    return None
+
+
+def _framework_boundary_blocks(candidates: list[dict[str, Any]]) -> list[list[str]]:
+    """Unresolved framework boundaries: where explicit traversal stopped and what structure
+    says comes next. Never drawn as calls: the framework hop is marked unresolved."""
+    blocks = []
+    for c in candidates:
+        if c.get("status") != "unresolved" or c.get("category") == "route_registration":
+            continue
+        targets = ", ".join(c.get("targets") or [])
+        if c.get("category") == "message_dispatch":
+            decorator = next((f["fact"].split(" is decorated ", 1)[-1] for f in c.get("facts", [])
+                              if f.get("provenance") == "cbm_decorator"), "")
+            blocks.append([
+                c.get("source_symbol", "?"),
+                f"  → {c.get('via')}",
+                "  → [framework dispatch unresolved]",
+                f"  → candidate: {targets}" + (f" ({decorator})" if decorator else ""),
+            ])
+        elif c.get("category") == "callback_registration":
+            blocks.append([
+                c.get("source_symbol", "?"),
+                f"  → {c.get('via')}: registers {targets.rsplit('.', 1)[0]}",
+                "  → [framework lifecycle unresolved]",
+                f"  → candidate: {targets}",
+            ])
+    return blocks
 
 
 def _render_behavioral_default(result: ChangeVerificationResult, lines: list[str]) -> None:

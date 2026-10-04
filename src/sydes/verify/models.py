@@ -941,6 +941,12 @@ class ChangeVerificationResult(BaseModel):
     #: rule, the static facts and the runtime fact it rests on. Evidence for impact reachability
     #: only: never a call, never an observed call of the production call site.
     composed_dispatch_edges: list[dict[str, Any]] = Field(default_factory=list)
+    #: Where ordinary traversal stopped at a framework-invoked symbol, what targeted
+    #: structural enrichment found (`sydes.discover.structural_enrichment`): candidates with
+    #: provenance-labelled facts and what is still missing. Not edges and not verdict inputs;
+    #: `status` is `resolved` only when the facts compose deterministically or an existing
+    #: rule (composed dispatch) closed it.
+    framework_boundary_candidates: list[dict[str, Any]] = Field(default_factory=list)
     affected_flows: list[AffectedFlow] = Field(default_factory=list)
     #: Changed symbols the deterministic impact interpreter never reached any
     #: entrypoint from (`ImpactResult.unresolved`, cbm backend only) — set by
