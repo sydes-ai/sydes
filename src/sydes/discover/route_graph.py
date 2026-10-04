@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 import re
 
-from sydes.core.models import EndpointCandidate, EvidenceRef, RepoRef
+from sydes.core.models import UNRESOLVED_ROUTE_PATH, EndpointCandidate, EvidenceRef, RepoRef
 from sydes.discover.route_index import build_route_index_batch
 
 _EXTS = (".ts", ".tsx", ".js", ".jsx")
@@ -25,6 +25,8 @@ class _Container:
     file: str
     kind: str
     own_prefix: str = ""
+    #: the container declares a prefix that is not a literal (`@Controller(routes.x)`)
+    own_prefix_unresolved: bool = False
 
 
 @dataclass(frozen=True)
@@ -36,6 +38,8 @@ class _Declaration:
     file: str
     line: int | None
     snippet: str | None
+    #: the declared path is not a literal (`@Delete(routes.user.delete)`)
+    path_unresolved: bool = False
 
 
 @dataclass(frozen=True)
@@ -177,6 +181,7 @@ def _build_route_graph_for_repo(repo_payload: dict) -> dict:
                 file=file_path,
                 kind=str(declared.get("callee") or "router_instance"),
                 own_prefix=_normalize_basic_path(str(declared.get("prefix") or "")) if declared.get("prefix") else "",
+                own_prefix_unresolved=bool(declared.get("prefix_unresolved")),
             )
             containers[container_id] = container
             containers_by_file_symbol[(file_path, symbol)] = container_id
@@ -281,6 +286,7 @@ def _build_route_graph_for_repo(repo_payload: dict) -> dict:
                     file=file_path,
                     line=call.get("line") if isinstance(call.get("line"), int) else None,
                     snippet=call.get("snippet") if isinstance(call.get("snippet"), str) else None,
+                    path_unresolved=bool(call.get("path_unresolved")),
                 )
             )
 
@@ -453,8 +459,11 @@ def _build_route_graph_for_repo(repo_payload: dict) -> dict:
         combos = prefixes_for(dec.container_id)
         if not combos:
             combos = [("", [])]
+        container = containers.get(dec.container_id)
+        unresolved = dec.path_unresolved or bool(container and container.own_prefix_unresolved)
         for prefix, chain in combos:
-            full_path = _join_paths(prefix or "/", dec.path)
+            # a path or prefix that is not a literal was never established: never shown as `/`
+            full_path = UNRESOLVED_ROUTE_PATH if unresolved else _join_paths(prefix or "/", dec.path)
             evidence: list[EvidenceRef] = []
             if dec.snippet:
                 evidence.append(

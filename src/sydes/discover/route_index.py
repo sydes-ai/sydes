@@ -24,6 +24,7 @@ from sydes.discover.deterministic_routes import (
     _compose_container_prefix,
     _decorator_name,
     _decorator_path_arg,
+    _decorator_path_unresolved,
     _decorator_version_arg,
     _join_open_calls,
     _parse_spring_mapping,
@@ -502,7 +503,8 @@ def _extract_index_for_file(relative_path: str, text: str, role: str) -> dict:
                 version = _decorator_version_arg(container_ann)
                 composed_prefix = _compose_container_prefix(prefix, version)
                 containers.append(
-                    {"symbol": ts_current_class, "prefix": composed_prefix, "callee": "ts_decorator_controller"},
+                    {"symbol": ts_current_class, "prefix": composed_prefix, "callee": "ts_decorator_controller",
+                     "prefix_unresolved": _decorator_path_unresolved(container_ann)},
                 )
                 router_symbols.append(ts_current_class)
                 signals.add("route_container:ts_decorator_controller")
@@ -522,6 +524,7 @@ def _extract_index_for_file(relative_path: str, text: str, role: str) -> dict:
                         "receiver": ts_current_class,
                         "method": verb.lower(),
                         "path": _decorator_path_arg(ann) or "",
+                        "path_unresolved": _decorator_path_unresolved(ann),
                         "handler_hint": handler,
                         "line": idx,
                         "snippet": _trim(f"{ann} {raw_line.strip()}"),

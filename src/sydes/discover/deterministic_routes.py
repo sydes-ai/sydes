@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 
-from sydes.core.models import CandidateFileRead, EndpointCandidate, EvidenceRef
+from sydes.core.models import UNRESOLVED_ROUTE_PATH, CandidateFileRead, EndpointCandidate, EvidenceRef
 from sydes.ingest.file_roles import FILE_ROLE_SOURCE_ROUTE_CANDIDATE, classify_candidate_file_role
 
 _HTTP_METHODS = {"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD", "ALL"}
@@ -246,6 +246,26 @@ def _decorator_path_arg(annotation: str) -> str | None:
     return None
 
 
+_TS_DECORATOR_ARGS_RE = re.compile(r"^@[A-Za-z_$][\w$]*\s*\((?P<args>.*)\)\s*$")
+
+
+def _decorator_path_unresolved(annotation: str) -> bool:
+    """True when the decorator declares a path that is not a literal -- an identifier or
+    expression (`@Delete(routes.user.delete)`), or an object literal whose `path` is one --
+    so its path cannot be established. No argument, a string literal, or an object literal
+    with no `path` key (`@Controller({ host: ... })`) is resolved."""
+    match = _TS_DECORATOR_ARGS_RE.match(annotation.strip())
+    if match is None:
+        return False
+    args = match.group("args").strip()
+    if not args or _decorator_path_arg(annotation) is not None:
+        return False
+    body = _decorator_object_body(annotation)
+    if body is not None:
+        return re.search(r"\bpath\s*:", body) is not None
+    return True
+
+
 def _decorator_version_arg(annotation: str) -> str | None:
     """A decorator's `version` key, only from the object-literal form --
     there is no equivalent in the bare-string form. Only ever a plain
@@ -346,6 +366,7 @@ def _extract_typescript_decorator_routes(
     endpoints: list[EndpointCandidate] = []
     pending_decorators: list[str] = []
     class_prefix = ""
+    class_prefix_unresolved = False
 
     for line in lines:
         stripped = line.strip()
@@ -366,7 +387,9 @@ def _extract_typescript_decorator_routes(
                 (ann for ann in pending_decorators if _decorator_name(ann) in _TS_CONTAINER_DECORATORS),
                 None,
             )
+            class_prefix_unresolved = False
             if container_ann:
+                class_prefix_unresolved = _decorator_path_unresolved(container_ann)
                 prefix = _decorator_path_arg(container_ann) or ""
                 version = _decorator_version_arg(container_ann)
                 composed = _compose_container_prefix(prefix, version)
@@ -387,7 +410,10 @@ def _extract_typescript_decorator_routes(
                 if not verb:
                     continue
                 route_path = _decorator_path_arg(ann) or ""
-                full_path = _compose_ts_path(class_prefix, route_path)
+                if class_prefix_unresolved or _decorator_path_unresolved(ann):
+                    full_path = UNRESOLVED_ROUTE_PATH
+                else:
+                    full_path = _compose_ts_path(class_prefix, route_path)
                 endpoints.append(
                     EndpointCandidate(
                         method=verb,

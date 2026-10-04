@@ -13,7 +13,7 @@ from sydes.cli.output_paths import (
     resolve_trace_output_target,
     write_output_text,
 )
-from sydes.core.models import RoutesResult
+from sydes.core.models import UNRESOLVED_ROUTE_PATH, RoutesResult
 from sydes.discover.endpoints import discover_endpoints
 from sydes.discover.discovery_coverage import composition_is_unresolved, evaluate_discovery_coverage
 from sydes.discover.discovery_cache import (
@@ -93,6 +93,8 @@ def _repo_index_by_name(payload: dict | None, key: str) -> dict[str, dict]:
 def _normalize_identity_path(path: str | None) -> str:
     if path is None:
         return ""
+    if path == UNRESOLVED_ROUTE_PATH:
+        return path
     value = path.strip()
     if not value:
         return ""

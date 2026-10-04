@@ -297,6 +297,12 @@ class Unknown(BaseModel):
     confidence: float | None = None
 
 
+#: The visible path of a route whose declared path or container prefix is not a literal
+#: (e.g. `@Delete(routes.user.delete)`): the path was never established, so it is shown as
+#: unresolved -- never as `/`, which is reserved for a route that really is the root.
+UNRESOLVED_ROUTE_PATH = "<unresolved route>"
+
+
 class EndpointCandidate(BaseModel):
     """Soft candidate API endpoint discovered from repository code."""
 

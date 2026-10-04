@@ -10,6 +10,7 @@ from collections import Counter
 import re
 
 from sydes.core.models import (
+    UNRESOLVED_ROUTE_PATH,
     CandidateFileRead,
     ConfidenceSummary,
     EndpointCandidate,
@@ -156,6 +157,8 @@ def _normalize_path(path: str | None) -> str | None:
     """Normalize endpoint path values when present."""
     if path is None:
         return None
+    if path == UNRESOLVED_ROUTE_PATH:
+        return path
     normalized = path.strip()
     if not normalized:
         return None
@@ -168,6 +171,8 @@ def _normalize_path(path: str | None) -> str | None:
 
 def _normalize_path_identity(path: str | None) -> str | None:
     """Normalize path for route identity/dedupe across framework syntax variants."""
+    if path == UNRESOLVED_ROUTE_PATH:  # an unestablished path is not a path to normalize
+        return path
     normalized = _normalize_path(path)
     if normalized is None:
         return None
