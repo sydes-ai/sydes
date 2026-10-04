@@ -149,7 +149,7 @@ def test_runtime_gaps_are_verification_gaps_with_runtime_source() -> None:
     text = " | ".join(g.behavior for g in gaps)
     assert "none of the selected tests ran it" in text  # selection uncertainty, not "untested"
     assert "never observed false" in text
-    assert "only through a stand-in" in text
+    assert "ran, but its call to `db.save` reached a stand-in" in text
 
 
 def test_recovery_needed_only_where_runtime_cannot_answer() -> None:
@@ -194,6 +194,49 @@ def test_render_shows_runtime_section() -> None:
     assert "Runtime evidence (existing tests run against the change; scope: tests/)" in text
     assert "✓ service" in text and "entered via handler" in text
     assert "✗ unused" in text and "not run by the selected tests" in text
+
+
+def _jest_contract() -> dict:
+    """A selected test runs the changed handler, whose repository dependency is a jest.fn."""
+    execute = "js:src/delete-user.service.DeleteUserService.execute"
+    loc = {"symbol": execute, "file": "src/delete-user.service.ts", "line": 24, "origin": "repo"}
+    return {
+        "format": "diffgenome-runtime/1",
+        "universe": {"test_scope": "tests/cqrs.e2e-spec.ts", "executions": 1, "passed": 1, "failed": 0, "tests": []},
+        "changed_functions": [{**loc, "executed": True, "calls": 1, "tests": ["t::dispatches"], "tests_total": 1,
+                       "exits": {"returned": 1}, "raised_inside": {}, "arg_shapes": [], "callers": [],
+                       "stand_ins": {"js:jest.fn": 1}, "changed_sites": []}],
+        "edges": [], "boundaries": [],
+        "gaps": [{"kind": "stand_in_reached", **loc, "target": "js:jest.fn", "calls": 1}],
+        "not_reported": [],
+    }
+
+
+def test_an_executed_handler_behind_a_stand_in_is_never_listed_as_not_run() -> None:
+    rt = RuntimeEvidence(_jest_contract())
+    result = ChangeVerificationResult(change=ChangeSet(base="main"))
+    ev = BehavioralEvidence(status=STATUS_AVAILABLE)
+    _apply_runtime(result, ev, rt)
+    text = "\n".join(render_terminal(ev))
+    assert "✓ DeleteUserService.execute" in text
+    assert "Not run by the selected tests" not in text
+    substituted = text.split("Substituted boundaries", 1)[1]
+    assert "the real dependency beyond the stand-in did not" in substituted.splitlines()[0]
+    assert "DeleteUserService.execute (src/delete-user.service.ts:24) ran, but its call to `jest.fn` reached a stand-in" \
+        in substituted
+    assert "the real dependency beyond it was not run" in substituted
+    # the model context says the same thing as the terminal
+    context = rt.compact_evidence()
+    assert "Not run by the selected tests" not in context
+    assert "Substituted boundaries" in context and "`jest.fn` reached a stand-in" in context
+
+
+def test_not_run_and_substituted_gaps_keep_their_own_headings() -> None:
+    result = _result_with_runtime([])
+    text = "\n".join(render_terminal(result.behavioral))
+    not_run, substituted = text.split("Not run by the selected tests", 1)[1].split("Substituted boundaries", 1)
+    assert "none of the selected tests ran it" in not_run and "stand-in" not in not_run
+    assert "`db.save` reached a stand-in" in substituted
 
 
 def test_context_loads_from_artifact_and_preamble_is_contract_based(tmp_path: Path) -> None:

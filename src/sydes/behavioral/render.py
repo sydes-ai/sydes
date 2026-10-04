@@ -28,6 +28,7 @@ from sydes.behavioral.models import (
     BehavioralEdge,
     BehavioralEvidence,
 )
+from sydes.behavioral.runtime import NOT_RUN_HEADING, SUBSTITUTED_HEADING, split_stand_in_gaps
 
 _GRADE_LABEL = {
     COMPOSED_STATE: "STATE",
@@ -270,9 +271,11 @@ def _runtime_lines(rt: dict[str, Any], h: Any) -> list[str]:
             lines.append(f"      tests: {', '.join(tests[:3])}{more}")
     if len(fns) > _MAX_RUNTIME_FUNCTIONS:
         lines.append(f"  … +{len(fns) - _MAX_RUNTIME_FUNCTIONS} more changed function(s)")
-    gaps = rt.get("gaps") or []
-    if gaps:
-        lines.append("  Not run by the selected tests (other tests in the suite may run them):")
+    not_run, substituted = split_stand_in_gaps(rt.get("gaps") or [])
+    for heading, gaps in ((NOT_RUN_HEADING, not_run), (SUBSTITUTED_HEADING, substituted)):
+        if not gaps:
+            continue
+        lines.append(f"  {heading}:")
         for g in gaps[:_MAX_RUNTIME_GAPS]:
             lines.append(f"  - {g.get('behavior')}")
         if len(gaps) > _MAX_RUNTIME_GAPS:

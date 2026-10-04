@@ -53,6 +53,30 @@ def short_name(symbol: str) -> str:
     return parts[-1]
 
 
+def stand_in_name(symbol: str) -> str:
+    """A stand-in's name as written (`js:jest.fn` -> `jest.fn`); a repository symbol as
+    `short_name`."""
+    body = symbol.split(":", 1)[-1]
+    return body if "/" not in body and body.count(".") <= 1 else short_name(symbol)
+
+
+#: Runtime gaps come in two kinds a reader must not confuse: changed code (or a changed
+#: condition) the selected tests did not run, and changed code that ran but reached a
+#: stand-in, so the real dependency beyond it did not run.
+NOT_RUN_HEADING = "Not run by the selected tests (other tests in the suite may run them)"
+SUBSTITUTED_HEADING = "Substituted boundaries (the changed code ran; the real dependency beyond the stand-in did not)"
+STAND_IN_GAP_PREFIX = "runtime:stand_in_reached:"
+
+
+def split_stand_in_gaps(gaps: list[Any]) -> tuple[list[Any], list[Any]]:
+    """(not-run gaps, substituted-boundary gaps), for `VerificationGap`s or their dicts."""
+    def gap_id(g: Any) -> str:
+        return str(g.get("id") if isinstance(g, dict) else getattr(g, "id", ""))
+
+    substituted = [g for g in gaps if gap_id(g).startswith(STAND_IN_GAP_PREFIX)]
+    return [g for g in gaps if not gap_id(g).startswith(STAND_IN_GAP_PREFIX)], substituted
+
+
 @dataclass(frozen=True)
 class RuntimeExternalBridge:
     """A `through_external` contract edge: `caller` invoked external code (`owner.member`,
@@ -315,9 +339,10 @@ class RuntimeEvidence:
                     "evaluated by the selected tests, although the function ran"
                 )
             elif kind == "stand_in_reached":
+                # the function ran; what it called was a stand-in, so the real dependency did not
                 behavior = (
-                    f"{name} ({where}) reached `{short_name(str(g.get('target')))}` only through a "
-                    "stand-in (mock/fake/eager) in the selected tests: the real dependency was not run"
+                    f"{name} ({where}) ran, but its call to `{stand_in_name(str(g.get('target')))}` reached "
+                    "a stand-in (mock/fake/eager) in the selected tests: the real dependency beyond it was not run"
                 )
             else:
                 continue
@@ -375,11 +400,11 @@ class RuntimeEvidence:
                 lines.append(f"    `{s['predicate']}` (line {s['line']}): true {s['true']}, false {s['false']}")
             if f.get("stand_ins"):
                 lines.append("    stand-ins reached: " + ", ".join(short_name(t) for t in f["stand_ins"]))
-        gaps = self.verification_gaps()
-        if gaps:
-            lines += ["", "Not run by the selected tests (other tests in the suite may run them):"] + [
-                f"- {g.behavior}" for g in gaps[:20]
-            ]
+        not_run, substituted = split_stand_in_gaps(self.verification_gaps())
+        if not_run:
+            lines += ["", f"{NOT_RUN_HEADING}:"] + [f"- {g.behavior}" for g in not_run[:20]]
+        if substituted:
+            lines += ["", f"{SUBSTITUTED_HEADING}:"] + [f"- {g.behavior}" for g in substituted[:20]]
         lines += ["", "Not reported by this evidence: " + "; ".join(self.contract.get("not_reported") or [])]
         return "\n".join(lines) + "\n"
 
