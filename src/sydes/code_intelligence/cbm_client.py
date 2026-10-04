@@ -27,12 +27,14 @@ from __future__ import annotations
 
 from collections import deque
 from dataclasses import dataclass, field
+import importlib.metadata
 import json
 import os
 import re
 from pathlib import Path
 import shutil
 import subprocess
+import sys
 import threading
 import time
 from typing import Any, Protocol
@@ -69,12 +71,49 @@ _BULK_QUERY_PAGE_SIZE = 4000
 #: consistently returning a full page) cannot loop forever.
 _BULK_QUERY_MAX_PAGES = 500
 
+#: CBM 0.11 caps what one response shows (`query_graph` 200 rows,
+#: `search_graph` ~3200 tokens by default) and marks the rest `has_more`.
+#: Sydes asks for the most it allows; anything still cut is continued from
+#: `next_offset` rather than taken as the whole answer.
+_QUERY_MAX_ROWS = 99998
+_MAX_OUTPUT_TOKENS = 1_000_000
+#: Continuations of one truncated response, bounded like the bulk pages.
+_CONTINUATION_MAX = 500
+
+
+def _bundled_executable() -> str | None:
+    """The CBM installed into Sydes' own environment -- the pinned dependency.
+
+    Preferred over PATH: a global `codebase-memory-mcp` (which can update
+    itself) earlier on PATH would otherwise silently replace the version
+    Sydes was released against."""
+    for directory in (Path(sys.executable).parent, Path(sys.prefix) / "bin",
+                      Path(sys.prefix) / "Scripts"):
+        for name in (_DEFAULT_EXECUTABLE, f"{_DEFAULT_EXECUTABLE}.exe"):
+            path = directory / name
+            if path.is_file() and os.access(path, os.X_OK):
+                return str(path)
+    return None
+
+
+def pinned_version() -> str | None:
+    """The `codebase-memory-mcp` version installed with Sydes (its exact pin), or None when
+    Sydes runs without the package (an external CBM chosen through SYDES_CBM_EXECUTABLE)."""
+    try:
+        return importlib.metadata.version("codebase-memory-mcp")
+    except importlib.metadata.PackageNotFoundError:
+        return None
+
 
 def resolve_executable(candidate: str | None = None) -> str:
-    """Locate the CBM binary, or say plainly that it is absent."""
-    name = (candidate or os.environ.get(CBM_EXECUTABLE_ENV_VAR, "").strip()
-            or _DEFAULT_EXECUTABLE)
-    resolved = shutil.which(name) or (name if Path(name).is_file() else None)
+    """Locate the CBM binary, or say plainly that it is absent.
+
+    An explicit candidate or `SYDES_CBM_EXECUTABLE` wins; otherwise the copy
+    installed with Sydes; PATH only as a last resort."""
+    explicit = candidate or os.environ.get(CBM_EXECUTABLE_ENV_VAR, "").strip()
+    name = explicit or _DEFAULT_EXECUTABLE
+    resolved = None if explicit else _bundled_executable()
+    resolved = resolved or shutil.which(name) or (name if Path(name).is_file() else None)
     if resolved is None:
         raise CodeIntelligenceError(
             f"Codebase Memory executable {name!r} was not found. Install it, set "
@@ -385,10 +424,17 @@ def parse_rows(payload: dict[str, Any], *, columns: int) -> tuple[list[list[str]
     """
     structured = payload.get("rows")
     if isinstance(structured, list):
-        return [[str(cell) for cell in row] for row in structured], 0
+        rows = []
+        malformed = 0
+        for row in structured:
+            if not isinstance(row, list) or len(row) != columns:
+                malformed += 1
+                continue
+            rows.append(["" if cell is None else str(cell) for cell in row])
+        return rows, malformed
 
     text = payload.get("_text") or _text_of(payload)
-    rows: list[list[str]] = []
+    rows = []
     malformed = 0
     for line in str(text).splitlines():
         if not line.startswith("  ") or line.lstrip().startswith(("total:", "rows:")):
@@ -413,6 +459,8 @@ class CBMClient:
     def __init__(self, session: CBMSession) -> None:
         self._session = session
         self.malformed_rows = 0
+        #: Responses CBM reported as cut short that could not be continued.
+        self.truncated_responses = 0
 
     @classmethod
     def spawn(cls, executable: str | None = None) -> CBMClient:
@@ -436,13 +484,27 @@ class CBMClient:
     @property
     def server_version(self) -> str | None:
         """The running CBM server's own reported version, from the MCP
-        handshake `serverInfo` — diagnostics only, never a compatibility
-        gate: the pinned package dependency is what actually controls
-        compatibility, and imperfect version text is never a reason to
-        reject an otherwise-working session."""
+        handshake `serverInfo`. Never a reason to reject a working session,
+        but compared with the pin (`version_mismatch`) so a different server
+        is reported, not silently used."""
         info = getattr(self._session, "server_info", None)
         version = info.get("version") if isinstance(info, dict) else None
         return str(version) if version else None
+
+    @property
+    def executable(self) -> str | None:
+        return getattr(self._session, "_executable", None)
+
+    def version_mismatch(self) -> str | None:
+        """Why the running server is not the version Sydes pins, or None. The
+        queries and their parsing are written against the pinned CBM; another
+        version (a self-updating global binary first on PATH, an explicit
+        SYDES_CBM_EXECUTABLE) may answer them differently."""
+        expected, running = pinned_version(), self.server_version
+        if expected is None or running is None or running == expected:
+            return None
+        return (f"CBM server {running} ({self.executable or 'unknown executable'}) is not "
+                f"the pinned codebase-memory-mcp {expected}; its answers may differ")
 
     # -- indexing ---------------------------------------------------------
 
@@ -489,7 +551,8 @@ class CBMClient:
         limit: int = 100,
     ) -> dict[str, Any]:
         """Find symbols by regex, keyword, or label via CBM's own search."""
-        arguments: dict[str, Any] = {"project": project, "limit": limit, "format": "json"}
+        arguments: dict[str, Any] = {"project": project, "limit": limit, "format": "json",
+                                     "max_output_tokens": _MAX_OUTPUT_TOKENS}
         if name_pattern:
             arguments["name_pattern"] = name_pattern
         if query:
@@ -518,7 +581,7 @@ class CBMClient:
             {
                 "project": project, "label": "Method",
                 "qn_pattern": f"^{re.escape(class_qualified_name)}\\.",
-                "format": "json", "limit": 200,
+                "format": "json", "limit": 200, "max_output_tokens": _MAX_OUTPUT_TOKENS,
             },
         )
         rows, _has_more = _search_rows(payload)
@@ -544,6 +607,7 @@ class CBMClient:
                 "project": project, "qn_pattern": pattern,
                 "fields": ["is_test", "is_entry_point"],
                 "format": "json", "limit": len(qualified_names) + 10,
+                "max_output_tokens": _MAX_OUTPUT_TOKENS,
             },
         )
         rows, _has_more = _search_rows(payload)
@@ -795,6 +859,7 @@ class CBMClient:
                         "format": "json",
                         "limit": page_size,
                         "offset": offset,
+                        "max_output_tokens": _MAX_OUTPUT_TOKENS,
                     },
                 )
                 rows, has_more = _search_rows(payload)
@@ -803,7 +868,14 @@ class CBMClient:
                         out.append(row)
                 if not has_more:
                     break
-                offset += page_size
+                # A page cut by CBM's output budget holds fewer than
+                # `page_size` rows; continue where it stopped, not past it.
+                next_offset = payload.get("next_offset")
+                advanced = next_offset if isinstance(next_offset, int) else offset + len(rows)
+                if advanced <= offset:
+                    self.truncated_responses += 1
+                    break
+                offset = advanced
         return out
 
     def resolve_qualified_name(self, project: str, bare_name: str, file_path: str) -> str | None:
@@ -821,7 +893,8 @@ class CBMClient:
         short_name = bare_name.rsplit(".", 1)[-1]
         payload = self._session.call_tool(
             "search_graph",
-            {"project": project, "name_pattern": f"^{re.escape(short_name)}$", "format": "json", "limit": 10},
+            {"project": project, "name_pattern": f"^{re.escape(short_name)}$", "format": "json", "limit": 10,
+             "max_output_tokens": _MAX_OUTPUT_TOKENS},
         )
         rows, _has_more = _search_rows(payload)
         if not rows:
@@ -834,9 +907,35 @@ class CBMClient:
     # -- internals --------------------------------------------------------
 
     def _query_graph(self, project: str, query: str) -> dict[str, Any]:
-        return self._session.call_tool(
-            "query_graph", {"project": project, "query": query}
-        )
+        """One logical answer to `query`, however many responses CBM splits it into.
+
+        Asks for JSON rows (0.11's default tree format abbreviates shared
+        prefixes as `@N+suffix`, which no caller may see) and follows
+        `next_offset` while CBM says more rows exist."""
+        arguments: dict[str, Any] = {
+            "project": project, "query": query, "format": "json",
+            "max_rows": _QUERY_MAX_ROWS, "max_output_tokens": _MAX_OUTPUT_TOKENS,
+        }
+        payload = self._session.call_tool("query_graph", arguments)
+        rows = payload.get("rows")
+        for _ in range(_CONTINUATION_MAX):
+            if not payload.get("has_more"):
+                break
+            next_offset = payload.get("next_offset")
+            if not isinstance(rows, list) or not isinstance(next_offset, int):
+                self.truncated_responses += 1
+                break
+            payload = self._session.call_tool("query_graph", {**arguments, "offset": next_offset})
+            more = payload.get("rows")
+            if not isinstance(more, list) or not more:
+                self.truncated_responses += 1
+                break
+            rows = rows + more
+        else:
+            self.truncated_responses += 1
+        if isinstance(rows, list):
+            return {**payload, "rows": rows, "has_more": False}
+        return payload
 
     def _rows(self, project: str, query: str, *, columns: int, order_by: str) -> list[list[str]]:
         """Run a bulk Cypher sweep, paging with `SKIP`/`LIMIT` rather than

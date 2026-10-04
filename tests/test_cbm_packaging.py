@@ -78,7 +78,7 @@ sys.exit(1)
 def test_pyproject_declares_the_exact_cbm_pin() -> None:
     data = tomllib.loads((_REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
     deps = data["project"]["dependencies"]
-    assert "codebase-memory-mcp==0.10.8" in deps
+    assert "codebase-memory-mcp==0.11.0" in deps
     # An exact pin, never a floor — CBM changes rapidly and upgrades must be
     # intentional, not silently picked up by a `>=` resolver.
     assert not any(dep.startswith("codebase-memory-mcp>=") for dep in deps)
@@ -92,7 +92,7 @@ def test_lockfile_pins_the_same_exact_version_if_present() -> None:
     lock = tomllib.loads(lock_path.read_text(encoding="utf-8"))
     entry = next((p for p in lock["package"] if p["name"] == "codebase-memory-mcp"), None)
     assert entry is not None, "codebase-memory-mcp must be a locked package"
-    assert entry["version"] == "0.10.8"
+    assert entry["version"] == "0.11.0"
 
 
 # --------------------------------------------------------------------------
@@ -114,7 +114,7 @@ def test_real_cbm_executable_resolves_and_a_session_starts_cleanly() -> None:
     adapter = CBMCodeIntelligence()
     try:
         client = adapter._ensure_client()  # noqa: SLF001 - the one seam this test exercises
-        assert client.server_version == "0.10.8"
+        assert client.server_version == "0.11.0"
     finally:
         adapter.close()
 

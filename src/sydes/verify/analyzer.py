@@ -1969,6 +1969,21 @@ def analyze_change(
         changed_files_by_repo=changed_files_by_repo,
     )
     result.diagnostics.extend(structural.diagnostics)
+    # Structural facts the code-intelligence backend dropped or truncated
+    # make every "no impact found" below weaker; say so in the report, not
+    # only in verbose diagnostics.
+    lost_facts = [
+        item.split(": ", 1)[-1] for item in structural.diagnostics
+        if item.startswith("cbm_gap:")
+        and ("were dropped" in item or "cut short" in item or "is not the pinned" in item)
+    ]
+    if lost_facts:
+        result.analysis_notes.append(
+            "Code intelligence structural facts may be incomplete ("
+            + "; ".join(lost_facts)
+            + "); changed symbols and impact may be under-reported."
+        )
+        result.analysis_status = ANALYSIS_PARTIAL
     handler_index = structural.symbol_index
     result.diagnostics.append(
         "handler_symbol_index: "

@@ -672,12 +672,22 @@ class CBMCodeIntelligence:
                 f"{client.malformed_rows} query row(s) did not match the expected "
                 "column arity and were dropped rather than mis-parsed"
             )
+        mismatch = client.version_mismatch() if hasattr(client, "version_mismatch") else None
+        if mismatch:
+            gaps.append(mismatch)
+        truncated_responses = getattr(client, "truncated_responses", 0)
+        if truncated_responses:
+            gaps.append(
+                f"{truncated_responses} CBM response(s) were cut short and "
+                "could not be continued; structural facts are incomplete"
+            )
 
         total_ms = (time.perf_counter() - started) * 1000.0
         session = client.metrics
         diagnostics = [
             f"code_intelligence_backend=cbm transport=persistent_mcp_stdio"
-            f" cbm_server_version={client.server_version or 'unknown'}",
+            f" cbm_server_version={client.server_version or 'unknown'}"
+            f" cbm_executable={getattr(client, 'executable', None) or 'unknown'}",
             f"cbm_session_start_ms={session.get('session_start_ms', 0)}"
             f" cbm_calls={session.get('calls', 0)}"
             f" cbm_mean_call_ms={session.get('mean_call_ms', 0)}",

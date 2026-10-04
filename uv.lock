@@ -88,11 +88,11 @@ wheels = [
 
 [[package]]
 name = "codebase-memory-mcp"
-version = "0.10.8"
+version = "0.11.0"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/55/d0/6e6276883e919fa8f474bbad74a436ef05d02fe0c8b2a7f75a8e6a409903/codebase_memory_mcp-0.10.8.tar.gz", hash = "sha256:d8186745440b33e4c11d66c619a425b8270933a0120f2b8ffc9e484c1a523ee0", size = 35192, upload-time = "2026-08-19T02:41:44.53Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/d8/a3/4e38e31b3de4de605bcec00926c43a8cbcf7e373cb03fce320978d5732e6/codebase_memory_mcp-0.11.0.tar.gz", hash = "sha256:e481d411545655bf2f90d968474783eef7472bcc0d397e7781a93b938a109f62", size = 35245, upload-time = "2026-09-15T23:40:13.106Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/ec/0c/41dcce39589044ffbdee1e3d4a86f8860b62905123bd3e26c6cbe88b323d/codebase_memory_mcp-0.10.8-py3-none-any.whl", hash = "sha256:a5e39e6886bbdd7836cadaec13cdeb3ee3648c34fdf88359d9395abccc16287c", size = 14871, upload-time = "2026-08-19T02:41:43.469Z" },
+    { url = "https://files.pythonhosted.org/packages/cb/2b/98a14097307d4bb556a3d8d6d1bebaee07499fd03800eab9be55a686a07f/codebase_memory_mcp-0.11.0-py3-none-any.whl", hash = "sha256:2775931b6615344777926ef6ba4e11330a4b26040be06901d2556edb5e673be7", size = 14877, upload-time = "2026-09-15T23:40:12.187Z" },
 ]
 
 [[package]]
@@ -673,7 +673,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "anthropic", specifier = ">=0.102.0" },
-    { name = "codebase-memory-mcp", specifier = "==0.10.8" },
+    { name = "codebase-memory-mcp", specifier = "==0.11.0" },
     { name = "diffgenome", marker = "python_full_version >= '3.12'", specifier = ">=0.1.11" },
     { name = "openai", specifier = ">=2.36.0" },
     { name = "pydantic", specifier = ">=2.7,<3.0" },

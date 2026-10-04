@@ -401,7 +401,7 @@ Support depth varies by language, framework, and boundary. See [Current limitati
 
 Sydes uses repository/code intelligence so AI reasoning operates over a relevant slice of the codebase instead of blindly consuming the entire repository.
 
-Sydes ships two code-intelligence backends: `native` (Sydes' own lightweight parser, the default) and `cbm` (the fuller `codebase-memory-mcp` code-graph backend, installed as a Sydes runtime dependency). **`--impact-guide` requires the `cbm` backend** — set `SYDES_CODE_INTELLIGENCE=cbm` to enable it; on the default `native` backend, `--impact-guide` has nothing to consult and is a no-op.
+Sydes ships two code-intelligence backends: `native` (Sydes' own lightweight parser, the default) and `cbm` (the fuller `codebase-memory-mcp` code-graph backend, installed as a Sydes runtime dependency). **`--impact-guide` requires the `cbm` backend** — set `SYDES_CODE_INTELLIGENCE=cbm` to enable it; on the default `native` backend, `--impact-guide` has nothing to consult and is a no-op. Sydes runs the `codebase-memory-mcp` installed with it, at its pinned version, not one that happens to be first on `PATH`; `SYDES_CBM_EXECUTABLE` chooses another explicitly, and a server whose version differs from the pin is reported in the result as a possibly incomplete analysis.
 
 On first use with `cbm`, Sydes bootstraps the Codebase Memory native runtime into a local cache. This can take a noticeable moment once; subsequent runs reuse the local runtime/cache where possible.
 
