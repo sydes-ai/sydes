@@ -22,8 +22,9 @@ as a possible dispatch with the evidence that was insufficient.
 
 Keyed on the rule's vocabulary (CommandBus / execute / @CommandHandler), never on
 repository paths or class names. QueryBus, EventBus and other frameworks are out of scope.
-`tree_sitter`/`tree_sitter_language_pack` (the optional `sydes[treesitter]` extra) are
-imported lazily; without them this composes nothing.
+`tree_sitter`/`tree_sitter_language_pack` are required Sydes dependencies, imported
+lazily; if a broken environment lacks them the rule is not evaluated and says so
+(`PARSER_UNAVAILABLE`), and the analyzer reports the analysis as partial.
 """
 
 from __future__ import annotations
@@ -69,6 +70,9 @@ class ProducerSite:
     receiver_type: str
     member: str
     argument_type: str
+
+
+PARSER_UNAVAILABLE = "structural parser (tree-sitter) unavailable"
 
 
 def _get_parser():
@@ -260,7 +264,7 @@ def compose_dispatch_edges(
     get_parser = _get_parser()
     rule_bridges = [b for b in bridges if b.owner == _BUS_OWNER and b.member == _BUS_MEMBER]
     if get_parser is None or not files:
-        return [], [], ([f"{RULE}: not evaluated (tree-sitter extra not installed)"]
+        return [], [], ([f"{RULE}: not evaluated ({PARSER_UNAVAILABLE})"]
                         if get_parser is None and rule_bridges else [])
     sources: dict[str, str] = {}
     handlers: dict[str, list[HandlerDecl]] = defaultdict(list)

@@ -17,8 +17,10 @@ import pytest
 
 from sydes.behavioral.runtime import RuntimeEvidence
 from sydes.code_intelligence.base import StructuralFacts
+from sydes.discover import dispatch_composition
 from sydes.discover.dispatch_composition import (
     COMPOSED_DISPATCH_SOURCE,
+    PARSER_UNAVAILABLE,
     compose_dispatch_edges,
     ts_files,
 )
@@ -29,9 +31,6 @@ from sydes.impact.models import (
     RELATION_OBSERVED_RUNTIME,
     SymbolIdentity,
 )
-
-pytest.importorskip("tree_sitter")
-pytest.importorskip("tree_sitter_language_pack")
 
 PRODUCER = """\
 import { CommandBus } from '@nestjs/cqrs';
@@ -134,6 +133,21 @@ def test_a_static_call_site_runtime_bridge_and_handler_compose_one_edge(tmp_path
     assert record["runtime"]["relation"] == "through_external"
     assert record["runtime"]["via"] == {"symbol": "js:external:CommandBus.execute", "owner": "CommandBus",
                                         "member": "execute", "arg_shape": "RemoveItemCommand"}
+
+
+def test_the_structural_parser_is_installed_with_sydes() -> None:
+    # a required dependency: its absence must fail here, never skip into "no composition"
+    import tree_sitter  # noqa: F401
+    import tree_sitter_language_pack  # noqa: F401
+
+    assert dispatch_composition._get_parser() is not None
+
+
+def test_a_missing_parser_is_reported_not_silently_empty(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(dispatch_composition, "_get_parser", lambda: None)
+    edges, records, notes = _compose(_repo(tmp_path), _runtime(_edge()))
+    assert edges == [] and records == []
+    assert notes == [f"nestjs_cqrs_command_handler: not evaluated ({PARSER_UNAVAILABLE})"]
 
 
 def test_b_a_different_runtime_argument_composes_nothing(tmp_path: Path) -> None:

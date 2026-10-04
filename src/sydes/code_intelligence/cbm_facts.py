@@ -95,6 +95,7 @@ class CBMFacts:
         self.requests: Counter[str] = Counter()
         self.cache_hits: Counter[str] = Counter()
         self.errors: Counter[str] = Counter()
+        self._truncated_before = self._truncated()
         self.notes: list[str] = []
 
     # -- capability -------------------------------------------------------
@@ -195,7 +196,12 @@ class CBMFacts:
 
     def stats(self) -> dict[str, Any]:
         return {"requests": dict(self.requests), "cache_hits": dict(self.cache_hits),
-                "errors": dict(self.errors), "total_requests": sum(self.requests.values())}
+                "errors": dict(self.errors), "total_requests": sum(self.requests.values()),
+                "truncated": self._truncated() - self._truncated_before}
+
+    def _truncated(self) -> int:
+        """Responses the client saw cut short (partial answers) -- counted, never hidden."""
+        return int(getattr(self.client, "truncated_responses", 0) or 0)
 
 
 def _first_line(exc: Exception, limit: int = 160) -> str:

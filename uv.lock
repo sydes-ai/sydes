@@ -653,6 +653,8 @@ dependencies = [
     { name = "openai" },
     { name = "pydantic" },
     { name = "pyyaml" },
+    { name = "tree-sitter" },
+    { name = "tree-sitter-language-pack" },
     { name = "typer" },
 ]
 
@@ -679,7 +681,9 @@ requires-dist = [
     { name = "pydantic", specifier = ">=2.7,<3.0" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0,<9.0" },
     { name = "pyyaml", specifier = ">=6.0" },
+    { name = "tree-sitter", specifier = ">=0.23" },
     { name = "tree-sitter", marker = "extra == 'treesitter'", specifier = ">=0.23" },
+    { name = "tree-sitter-language-pack", specifier = ">=0.2" },
     { name = "tree-sitter-language-pack", marker = "extra == 'treesitter'", specifier = ">=0.2" },
     { name = "typer", specifier = ">=0.12,<1.0" },
 ]

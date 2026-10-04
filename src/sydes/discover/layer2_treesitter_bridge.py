@@ -13,10 +13,9 @@ SAME-FILE resolution only. Python's cross-file one-hop import resolution
 (`resolve_cross_file_parameter_types`) has no validated equivalent here yet
 -- a real, scoped follow-up, not invented in this pass.
 
-`tree_sitter`/`tree_sitter_language_pack` are an optional extra
-(`sydes[treesitter]`) imported lazily here so a Python-only install is
-entirely unaffected by their absence -- callers get an empty edge list with
-a clear reason, not an ImportError.
+`tree_sitter`/`tree_sitter_language_pack` are required Sydes dependencies,
+imported lazily here; in a broken environment without them callers get an
+empty edge list with a clear reason, not an ImportError.
 """
 
 from __future__ import annotations

@@ -40,7 +40,7 @@ from sydes.core.models import (
 )
 from sydes.discover.endpoints import discover_endpoints
 from sydes.discover.interface_bridge import bridge_interface_call_edges
-from sydes.discover.dispatch_composition import compose_dispatch_edges, ts_files
+from sydes.discover.dispatch_composition import PARSER_UNAVAILABLE, compose_dispatch_edges, ts_files
 from sydes.discover.structural_enrichment import EnrichmentInput, enrich
 from sydes.discover.java_field_bridge import JAVA_FIELD_BRIDGE_SOURCE, bridge_java_field_call_edges
 from sydes.discover.layer2_declaration_bridge import bridge_layer2_declaration_reference_edges
@@ -2156,9 +2156,8 @@ def analyze_change(
         result.diagnostics.append(f"layer2_declaration_reference_edges_added={len(layer2_edges)}")
 
     # Same relation, TypeScript/Java/Go via tree-sitter (same-file only; no
-    # cross-file resolution yet for these languages). Requires the optional
-    # `sydes[treesitter]` extra -- a no-op, not an error, when it isn't
-    # installed. See discover/layer2_treesitter_bridge.py.
+    # cross-file resolution yet for these languages). Uses the tree-sitter
+    # dependency. See discover/layer2_treesitter_bridge.py.
     changed_non_python_files = [
         item.path for item in change.files
         if item.repo == primary.name and item.change_type != CHANGE_DELETED
@@ -2200,6 +2199,12 @@ def analyze_change(
                 f"composed_dispatch_edges: runtime_bridges={len(bridges)} composed={len(composed_edges)}"
             )
             result.diagnostics.extend(f"composed_dispatch: {note}" for note in composed_notes)
+            if any(PARSER_UNAVAILABLE in note for note in composed_notes):
+                result.analysis_notes.append(
+                    f"Deterministic dispatch composition was not evaluated: {PARSER_UNAVAILABLE}; "
+                    "runtime dispatch evidence could not be composed with static facts."
+                )
+                result.analysis_status = ANALYSIS_PARTIAL
 
     # Which entrypoints the change reaches: the impact interpreter is the
     # primary source when CBM supplied a call graph, since it resolves
@@ -2836,7 +2841,14 @@ def _enrich_framework_boundaries(
     result.diagnostics.append(
         f"structural_enrichment: triggered=[{'; '.join(outcome.triggered)}] "
         f"cbm_requests={stats.get('total_requests', 0)} ({requests}) cache_hits=({hits}) "
+        f"errors={sum((stats.get('errors') or {}).values())} truncated={stats.get('truncated', 0)} "
         f"families=[{','.join(outcome.families)}] candidates={len(outcome.candidates)} "
         f"unresolved={sum(c.status == 'unresolved' for c in outcome.candidates)}"
     )
     result.diagnostics.extend(f"structural_enrichment: {note}" for note in outcome.notes)
+    if stats.get("truncated") or stats.get("errors"):
+        result.analysis_notes.append(
+            "Structural enrichment facts may be incomplete (CBM returned "
+            f"{stats.get('truncated', 0)} partial response(s) and {sum((stats.get('errors') or {}).values())} "
+            "failed query(ies)); framework-boundary candidates may be missing facts."
+        )

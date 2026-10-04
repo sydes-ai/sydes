@@ -21,6 +21,10 @@ dependencies = [
   "openai>=2.36.0",
   "pydantic>=2.7,<3.0",
   "pyyaml>=6.0",  # .sydes.yml (runtime overrides)
+  # Structural parser for deterministic Track A analysis (dispatch composition on TS,
+  # Layer 2 generic edges on TS/Java/Go): required so a plain install is never silently partial.
+  "tree-sitter>=0.23",
+  "tree-sitter-language-pack>=0.2",
   "typer>=0.12,<1.0",
 ]
 
@@ -31,10 +35,8 @@ sydes = "sydes.cli.main:app"
 dev = [
   "pytest>=8.0,<9.0"
 ]
-# Only needed for SYDES_LAYER2_GENERIC_EDGES on non-Python files (TS/Java/Go).
-# Python's own Layer 2 support uses the stdlib `ast` module and needs none of
-# this; imported lazily in layer2_treesitter_bridge.py so a Python-only
-# install is entirely unaffected by this extra being absent.
+# Kept so existing `sydes[treesitter]` installs keep resolving; tree-sitter is
+# now a required dependency (see [project].dependencies).
 treesitter = [
   "tree-sitter>=0.23",
   "tree-sitter-language-pack>=0.2",

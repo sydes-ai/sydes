@@ -587,6 +587,15 @@ def test_a_cbm_error_costs_the_fact_never_the_analysis() -> None:
     assert facts.stats()["errors"] == {"relations": 1} and "not fully parsed" in facts.notes[0]
 
 
+def test_partial_cbm_answers_are_counted_in_the_stats() -> None:
+    client = FakeClient()
+    client.truncated_responses = 2  # before the fact layer existed: not its own
+    facts = _facts(client)
+    facts.relations(["a"])
+    client.truncated_responses += 1
+    assert facts.stats()["truncated"] == 1
+
+
 def test_capabilities_come_from_the_schema_once() -> None:
     client = FakeClient(edge_types={"CALLS", "DECORATES"})
     facts = _facts(client)
