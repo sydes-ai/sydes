@@ -60,6 +60,24 @@ class LLMClientError(RuntimeError):
     """Raised when an LLM provider request fails."""
 
 
+def counted(generate: Any) -> Any:
+    """Count one provider call (stage, model, tokens, error) in the run's metrics."""
+
+    def wrapper(self: Any, request_data: LLMRequest) -> LLMResponse:
+        stage = getattr(self, "usage_stage", "unspecified")
+        model = str(getattr(self, "model", ""))
+        try:
+            response = generate(self, request_data)
+        except LLMClientError as exc:
+            _trace.note_llm_usage(stage, model, None, str(exc))
+            raise
+        _trace.note_llm_usage(stage, model, response.usage, None)
+        return response
+
+    wrapper.__doc__ = generate.__doc__
+    return wrapper
+
+
 class TracingLLMClient:
     """Wraps any `LLMClient` to record call metadata via
     `sydes.observability.trace` — no-op unless `SYDES_TRACE_DIR` is set.
@@ -181,6 +199,7 @@ class OllamaClient:
         self.keep_alive = keep_alive
         self.temperature = temperature
 
+    @counted
     def generate(self, request_data: LLMRequest) -> LLMResponse:
         """Generate text using Ollama's non-streaming generate endpoint."""
         payload: dict[str, object] = {
@@ -291,12 +310,15 @@ class OpenAIClient:
         self.temperature = temperature
         #: `SYDES_LLM_REASONING_EFFORT` (e.g. high, xhigh) for reasoning models; sent only when set.
         self.reasoning_effort = reasoning_effort
+        #: learned from the provider: this model rejects an explicit temperature
+        self._temperature_unsupported = (self.base_url, model) in _MODELS_WITHOUT_TEMPERATURE
         self._client = OpenAI(
             api_key=api_key,
             base_url=self.base_url,
             timeout=self.timeout_seconds,
         )
 
+    @counted
     def generate(self, request_data: LLMRequest) -> LLMResponse:
         """Generate text using OpenAI chat completions API."""
         messages: list[dict[str, str]] = []
@@ -315,12 +337,22 @@ class OpenAIClient:
         # when unresolved is the provider/model-capability-safe choice,
         # rather than guessing a value that might be rejected.
         create_kwargs: dict[str, Any] = {"model": self.model, "messages": messages}
-        if resolved_temperature is not None:
+        if resolved_temperature is not None and not self._temperature_unsupported:
             create_kwargs["temperature"] = resolved_temperature
         if self.reasoning_effort:
             create_kwargs["reasoning_effort"] = self.reasoning_effort
         try:
-            response = self._client.chat.completions.create(**create_kwargs)
+            try:
+                response = self._client.chat.completions.create(**create_kwargs)
+            except OpenAIError as exc:
+                # A model that accepts only its own default temperature (reasoning models)
+                # says so; learn it once for this client and resend without the parameter.
+                if "temperature" not in create_kwargs or not _rejects_temperature(exc):
+                    raise
+                self._temperature_unsupported = True
+                _MODELS_WITHOUT_TEMPERATURE.add((self.base_url, self.model))
+                create_kwargs.pop("temperature")
+                response = self._client.chat.completions.create(**create_kwargs)
         except OpenAIError as exc:
             status_code = getattr(exc, "status_code", None)
             if status_code == 404:
@@ -347,6 +379,22 @@ class OpenAIClient:
         raise LLMClientError("OpenAI response missing completion text.")
 
 
+#: (base URL, model) pairs the provider told us accept only their default temperature;
+#: shared across the clients one run creates per stage.
+_MODELS_WITHOUT_TEMPERATURE: set[tuple[str, str]] = set()
+
+
+def _rejects_temperature(exc: Exception) -> bool:
+    """The provider rejected the `temperature` parameter itself (HTTP 400), e.g. "'temperature'
+    does not support 0.0 with this model. Only the default (1) value is supported"."""
+    if getattr(exc, "status_code", None) != 400:
+        return False
+    body = getattr(exc, "body", None)
+    if isinstance(body, dict) and body.get("param") == "temperature":
+        return True
+    return "temperature" in str(exc).lower() and ("unsupported" in str(exc).lower() or "not support" in str(exc).lower())
+
+
 class AnthropicClient:
     """Anthropic text generation client via official Anthropic Python SDK."""
 
@@ -371,6 +419,7 @@ class AnthropicClient:
             timeout=self.timeout_seconds,
         )
 
+    @counted
     def generate(self, request_data: LLMRequest) -> LLMResponse:
         """Generate text using Anthropic messages API."""
         resolved_temperature = (
@@ -489,14 +538,16 @@ def create_default_llm_client(
 
     `stage` is observability-only metadata (e.g. "impact_guide",
     "route_discovery", "code_review") naming which LLM path this client is
-    for. It has no effect on the client's behavior; when `SYDES_TRACE_DIR`
-    is unset the returned client is exactly what it always was. When tracing
-    is enabled, the client is transparently wrapped so every call it makes
-    is recorded under that stage name — see `TracingLLMClient`.
+    for. It has no effect on the client's behavior; each call is counted under it
+    for the run's metrics (`counted`). When `SYDES_TRACE_DIR` is unset the returned
+    client is the provider client itself. When tracing is enabled, it is transparently
+    wrapped so every call is recorded under that stage name — see `TracingLLMClient`.
     """
     client = _build_llm_client(
         model_spec, timeout_seconds_override=timeout_seconds_override, temperature=temperature,
     )
+    # the run's call/token counts (`run_metrics`) are kept by the provider client, by stage
+    client.usage_stage = stage or "unspecified"
     if not _trace.is_enabled():
         return client
     provider, model, _settings = _resolve_provider_and_model(model_spec)

@@ -582,3 +582,79 @@ def test_openai_reasoning_effort_and_default_temperature(monkeypatch) -> None:
     monkeypatch.delenv("SYDES_LLM_TEMPERATURE")
     plain = create_default_llm_client()
     assert plain.reasoning_effort is None and plain.temperature == 0.0
+
+
+def test_openai_model_that_rejects_temperature_is_retried_without_it_and_remembered(monkeypatch) -> None:
+    """A model that accepts only its default temperature (e.g. gpt-5.6-sol rejecting 0.0)
+    works with no environment override: the 400 is read as a capability, the request is
+    resent without the parameter, and later clients for that model never send it."""
+    import httpx
+    from openai import BadRequestError
+
+    from sydes.llm import client as client_module
+    from sydes.llm.client import LLMRequest
+
+    monkeypatch.setattr(client_module, "_MODELS_WITHOUT_TEMPERATURE", set())
+    sent: list[dict] = []
+
+    class _FakeCompletions:
+        @staticmethod
+        def create(**kwargs):
+            sent.append(dict(kwargs))
+            if "temperature" in kwargs:
+                raise BadRequestError(
+                    "Unsupported value: 'temperature' does not support 0.0 with this model.",
+                    response=httpx.Response(400, request=httpx.Request("POST", "https://api.openai.com/v1")),
+                    body={"message": "Unsupported value", "param": "temperature", "type": "invalid_request_error"},
+                )
+            return type("Resp", (), {
+                "choices": [type("Choice", (), {"message": type("Msg", (), {"content": "ok"})()})()],
+            })()
+
+    class _FakeOpenAI:
+        def __init__(self, **_kwargs):
+            self.chat = type("Chat", (), {"completions": _FakeCompletions()})()
+
+    monkeypatch.setattr("sydes.llm.client.OpenAI", _FakeOpenAI)
+    first = OpenAIClient(model="gpt-5.6-sol", api_key="k", base_url="https://api.openai.com/v1")
+    assert first.generate(LLMRequest(prompt="hi")).text == "ok"
+    assert [("temperature" in k) for k in sent] == [True, False]
+    second = OpenAIClient(model="gpt-5.6-sol", api_key="k", base_url="https://api.openai.com/v1")
+    second.generate(LLMRequest(prompt="hi"))
+    assert "temperature" not in sent[-1] and len(sent) == 3  # no second rejected request
+    # the capability is learned per model: another model still sends its temperature first
+    other = OpenAIClient(model="gpt-4.1-mini", api_key="k", base_url="https://api.openai.com/v1")
+    sent.clear()
+    other.generate(LLMRequest(prompt="hi"))
+    assert sent[0]["temperature"] == 0.0
+
+
+def test_openai_other_bad_requests_are_not_retried(monkeypatch) -> None:
+    import httpx
+    from openai import BadRequestError
+
+    from sydes.llm.client import LLMClientError, LLMRequest
+
+    calls: list[dict] = []
+
+    class _FakeCompletions:
+        @staticmethod
+        def create(**kwargs):
+            calls.append(kwargs)
+            raise BadRequestError(
+                "context length exceeded",
+                response=httpx.Response(400, request=httpx.Request("POST", "https://api.openai.com/v1")),
+                body={"message": "context length exceeded", "param": "messages"},
+            )
+
+    class _FakeOpenAI:
+        def __init__(self, **_kwargs):
+            self.chat = type("Chat", (), {"completions": _FakeCompletions()})()
+
+    monkeypatch.setattr("sydes.llm.client.OpenAI", _FakeOpenAI)
+    client = OpenAIClient(model="gpt-x", api_key="k", base_url="https://api.openai.com/v1")
+    import pytest
+
+    with pytest.raises(LLMClientError):
+        client.generate(LLMRequest(prompt="hi"))
+    assert len(calls) == 1

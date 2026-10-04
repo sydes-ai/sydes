@@ -164,8 +164,9 @@ def test_build_contract_falls_back_when_file_missing() -> None:
     contract = build_api_contract_from_routes(routes, repo_roots={"api": "/tmp/does-not-exist"})
     route_contract = contract.routes[0]
     assert route_contract.request.body is not None
-    assert route_contract.responses
-    assert any("source" in note.lower() or "scaffold" in note.lower() for note in route_contract.notes)
+    # without source, no success status is established: none is claimed (never a POST -> 201 guess)
+    assert route_contract.responses == {}
+    assert any("not established" in note for note in route_contract.notes)
 
 
 # ---------------------------------------------------------------------------
@@ -271,7 +272,37 @@ export class AuthController {
 
     contract = build_api_contract_from_routes(routes, repo_roots={"api": str(repo_root)})
     register_responses = contract.routes[0].responses
-    # No decorator of its own -- must fall back to the method-default
-    # scaffold ("201" for POST), never `logout`'s "204".
+    # No status decorator of its own -- NestJS's documented POST default (201, identified
+    # from the handler's own `@Post` declaration), never `logout`'s "204".
     assert set(register_responses) == {"201"}
-    assert register_responses["201"].confidence == "low"
+    assert register_responses["201"].evidence[0].kind == "framework_default_status"
+
+
+
+def _contract_for(tmp_path, source: str, handler: str, method: str = "POST"):
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir(exist_ok=True)
+    (repo_root / "routes.py").write_text(source, encoding="utf-8")
+    routes = RoutesResult(
+        repos=[RepoRef(name="api", root=str(repo_root))],
+        routes=[EndpointCandidate(method=method, path="/x", file="routes.py", repo="api", handler=handler)],
+    )
+    return build_api_contract_from_routes(routes, repo_roots={"api": str(repo_root)}).routes[0]
+
+
+def test_a_post_without_an_explicit_status_gets_the_framework_default_not_201(tmp_path) -> None:
+    contract = _contract_for(tmp_path, '@router.post("/audio/speech")\nasync def create_speech(request):\n    return StreamingResponse(gen())\n', "create_speech")
+    assert set(contract.responses) == {"200"}  # FastAPI's default for a POST route
+    assert contract.responses["200"].evidence[0].kind == "framework_default_status"
+
+
+def test_a_post_with_an_explicit_201_is_201(tmp_path) -> None:
+    contract = _contract_for(tmp_path, '@router.post("/items", status_code=201)\nasync def create_item(item):\n    pass\n', "create_item")
+    assert set(contract.responses) == {"201"}
+    contract = _contract_for(tmp_path, '@router.post("/items", status_code=status.HTTP_201_CREATED)\nasync def create_item(item):\n    pass\n', "create_item")
+    assert set(contract.responses) == {"201"}
+
+
+def test_an_unknown_status_is_not_claimed(tmp_path) -> None:
+    contract = _contract_for(tmp_path, "def create_item(item):\n    pass\n", "create_item")
+    assert contract.responses == {}

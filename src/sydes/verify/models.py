@@ -946,6 +946,9 @@ class ChangeVerificationResult(BaseModel):
     #: provenance-labelled facts and what is still missing. Not edges and not verdict inputs;
     #: `status` is `resolved` only when the facts compose deterministically or an existing
     #: rule (composed dispatch) closed it.
+    #: run economics (LLM calls by purpose, tokens, estimated cost when priced, CBM requests,
+    #: wall time) -- summary metadata, not rendered in the report body
+    run_metrics: dict[str, Any] = Field(default_factory=dict)
     framework_boundary_candidates: list[dict[str, Any]] = Field(default_factory=list)
     affected_flows: list[AffectedFlow] = Field(default_factory=list)
     #: Changed symbols the deterministic impact interpreter never reached any

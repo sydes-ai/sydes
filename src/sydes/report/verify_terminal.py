@@ -721,7 +721,9 @@ def _render_system_impact_default(result: ChangeVerificationResult, lines: list[
     for index, flow in enumerate(result.affected_flows):
         if index > 0:
             lines.append("")
-        lines.append(flow.entry_label)
+        lines.append(flow.entry_label + _flow_provenance_tag(flow))
+        if flow.impact_status == _IMPACT_INFERRED:
+            lines.append("  impact proposed by AI inference; no structural path from the change was established")
         registration = _route_registration_line(flow, candidates)
         if registration:
             lines.extend(registration.split("\n"))
@@ -740,6 +742,16 @@ def _render_system_impact_default(result: ChangeVerificationResult, lines: list[
     for block in _framework_boundary_blocks(candidates):
         lines.append("")
         lines.extend(block)
+
+
+def _flow_provenance_tag(flow: Any) -> str:
+    """How the flow's impact was established, when it was not structural proof. Composed
+    and runtime-observed hops are labelled on the hops themselves (`_flow_chain_lines`)."""
+    if getattr(flow, "impact_status", None) == _IMPACT_INFERRED:
+        return "   [AI-inferred]"
+    if getattr(flow, "provenance", "structural") == "ai_recovery":
+        return "   [AI recovery]"
+    return ""
 
 
 def _route_registration_line(flow: Any, candidates: list[dict[str, Any]]) -> str | None:

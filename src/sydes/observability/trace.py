@@ -251,6 +251,56 @@ def record_final_decision(*, run_id: str, risk: str, verdict: str, headline: str
     _write_json(_RUN_JSON, existing)
 
 
+# ---------------------------------------------------------------------------
+# Always-on run usage: counts only (no request/response content), aggregated in
+# process from the same two hooks every LLM and CBM call already passes through,
+# whether or not the full trace above is enabled.
+# ---------------------------------------------------------------------------
+
+_RUN_USAGE: dict[str, Any] = {}
+
+
+def reset_run_usage() -> None:
+    _RUN_USAGE.clear()
+    _RUN_USAGE.update({"llm": {}, "cbm": {"calls": 0, "errors": 0, "by_operation": {}}})
+
+
+reset_run_usage()
+
+
+def note_llm_usage(stage: str, model: str, usage: dict[str, Any] | None, error: str | None) -> None:
+    """Count one provider call in the run's usage (called by the provider clients)."""
+    entry = _RUN_USAGE["llm"].setdefault(stage, {
+        "calls": 0, "errors": 0, "input_tokens": 0, "output_tokens": 0, "reasoning_tokens": 0, "models": [],
+    })
+    entry["calls"] += 1
+    entry["errors"] += 1 if error else 0
+    for key, source in (("input_tokens", "prompt_tokens"), ("output_tokens", "completion_tokens"),
+                        ("reasoning_tokens", "reasoning_tokens")):
+        value = (usage or {}).get(source)
+        if isinstance(value, int):
+            entry[key] += value
+    if model and model not in entry["models"]:
+        entry["models"].append(model)
+
+
+def run_usage(*, price_per_mtok: tuple[float, float] | None = None) -> dict[str, Any]:
+    """This run's LLM calls by purpose and CBM requests, with totals. `price_per_mtok`
+    (USD per million input, output tokens) adds an estimated cost; without it, no cost is
+    claimed."""
+    llm = {stage: dict(entry) for stage, entry in _RUN_USAGE["llm"].items()}
+    totals = {
+        key: sum(entry[key] for entry in llm.values())
+        for key in ("calls", "errors", "input_tokens", "output_tokens", "reasoning_tokens")
+    }
+    out: dict[str, Any] = {"llm_by_purpose": llm, "llm_totals": totals, "cbm": dict(_RUN_USAGE["cbm"])}
+    if price_per_mtok is not None:
+        out["estimated_cost_usd"] = round(
+            totals["input_tokens"] / 1e6 * price_per_mtok[0] + totals["output_tokens"] / 1e6 * price_per_mtok[1], 4
+        )
+    return out
+
+
 def record_llm_call(
     *, call_id: str, stage: str, provider: str, model: str,
     request: Any, response_text: str | None, error: str | None,
@@ -286,6 +336,10 @@ def record_cbm_call(
     """One CBM tool call: operation/tool name, arguments, duration,
     success/error, a compact summary, plus the full raw response written to
     `raw/cbm/<call_id>.json` (never inlined into the JSONL line)."""
+    cbm = _RUN_USAGE["cbm"]
+    cbm["calls"] += 1
+    cbm["errors"] += 0 if success else 1
+    cbm["by_operation"][operation] = cbm["by_operation"].get(operation, 0) + 1
     if not is_enabled():
         return
     raw_path = _write_raw("cbm", call_id, raw_response)

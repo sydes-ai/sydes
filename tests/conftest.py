@@ -74,3 +74,14 @@ def pytest_configure(config: pytest.Config) -> None:
         "isolated temporary one; only for tests that assert default-path behavior "
         "and never write to the store.",
     )
+
+
+@pytest.fixture(autouse=True)
+def native_code_intelligence_in_tests(monkeypatch) -> None:
+    """Tests run on the native backend unless they choose otherwise.
+
+    The product default is CBM (see `code_intelligence/factory.py`); most tests here
+    exercise analysis logic on small temporary repositories and were written against
+    the native parser, and starting a CBM session per test would dominate the suite.
+    Tests about backend selection clear this (`monkeypatch.delenv`)."""
+    monkeypatch.setenv("SYDES_CODE_INTELLIGENCE", "native")

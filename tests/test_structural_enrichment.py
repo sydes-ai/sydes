@@ -722,3 +722,18 @@ def test_the_report_shows_a_cbm_route_discrepancy() -> None:
                   {"fact": "discrepancy: CBM POST /speak vs Sydes POST /v1/speak"}]}])
     assert line == ("  registered on `router`, mounted with prefix '/v1' (app/main.py:2) · path composed from literals\n"
                     "  CBM route differs: CBM POST /speak vs Sydes POST /v1/speak")
+
+
+def test_route_shape_ignores_parameter_names_but_not_prefix_or_position() -> None:
+    from sydes.discover.structural_enrichment import route_shape
+
+    assert route_shape("/download/{}") == route_shape("/download/{filename}") == route_shape("/download/:filename")
+    assert route_shape("/v1/download/{filename}") != route_shape("/download/{}")
+    assert route_shape("/items/{id}/parts") != route_shape("/items/parts/{id}")
+    assert route_shape("/") == "/"
+
+
+def test_a_parameter_naming_difference_is_not_a_discrepancy(tmp_path: Path) -> None:
+    [route] = _route_case(tmp_path, decl='@router.post("/speak")', mount='app.include_router(api_router, prefix="/v1")',
+                          handles="/v1/speak/", http_arg="'/speak'").candidates
+    assert not any("discrepancy" in f.fact for f in route.facts)

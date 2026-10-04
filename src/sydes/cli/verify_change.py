@@ -4,6 +4,9 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 import json
+import os
+import re
+import time
 from pathlib import Path
 from typing import Annotated, Literal
 
@@ -14,6 +17,7 @@ from sydes.code_intelligence.base import CodeIntelligenceError
 from sydes.core.models import RepoRef
 from sydes.ingest.repos import parse_repo_specs
 from sydes.llm.client import LLMClientError, _resolve_provider_and_model, create_default_llm_client
+from sydes.observability import trace as _trace
 from sydes.recovery.agent import RecoveryBudget, recover
 from sydes.recovery.canonical_merge import merge_verified_recovery_into_result
 from sydes.recovery.context import build_context
@@ -383,6 +387,8 @@ def verify_change_command(
     ] = False,
 ) -> None:
     """Analyze a change, run the tests that verify it, and report the evidence."""
+    run_started = time.monotonic()
+    _trace.reset_run_usage()
     try:
         repos = parse_repo_specs(repo or [])
     except ValueError as exc:
@@ -491,6 +497,9 @@ def verify_change_command(
             use_graph_path_search=recovery_graph_path_search,
         )
 
+    result.run_metrics = run_metrics(result, wall_seconds=time.monotonic() - run_started)
+    result.diagnostics.append(run_metrics_line(result.run_metrics))
+
     workspace_id = compute_workspace_id(repos)
     run_id = create_run_id()
     try:
@@ -518,6 +527,43 @@ def verify_change_command(
             typer.echo(str(exc))
             raise typer.Exit(code=1) from exc
         typer.echo(f"Wrote verification result: {target}")
+
+
+#: `SYDES_LLM_PRICE_PER_MTOK="<input>,<output>"`: USD per million input/output tokens for
+#: the selected model. Sydes keeps no price list; without it no cost is estimated.
+PRICE_ENV_VAR = "SYDES_LLM_PRICE_PER_MTOK"
+
+
+def _price_per_mtok() -> tuple[float, float] | None:
+    raw = os.environ.get(PRICE_ENV_VAR, "").strip()
+    try:
+        input_price, output_price = (float(part) for part in raw.split(","))
+    except ValueError:
+        return None
+    return input_price, output_price
+
+
+def run_metrics(result: ChangeVerificationResult, *, wall_seconds: float) -> dict:
+    """Run economics, as summary metadata: LLM calls by purpose with tokens (and an estimated
+    cost when a price is configured), CBM requests (enrichment's own included), wall time."""
+    usage = _trace.run_usage(price_per_mtok=_price_per_mtok())
+    enrichment = next((item for item in result.diagnostics if item.startswith("structural_enrichment: triggered")), "")
+    match = re.search(r"cbm_requests=(\d+)", enrichment)
+    usage["cbm"]["enrichment_requests"] = int(match.group(1)) if match else 0
+    usage["wall_seconds"] = round(wall_seconds, 1)
+    return usage
+
+
+def run_metrics_line(metrics: dict) -> str:
+    totals = metrics["llm_totals"]
+    purposes = ",".join(f"{stage}:{entry['calls']}" for stage, entry in sorted(metrics["llm_by_purpose"].items()))
+    cost = metrics.get("estimated_cost_usd")
+    return (
+        f"run_metrics: wall_seconds={metrics['wall_seconds']} llm_calls={totals['calls']} ({purposes or 'none'}) "
+        f"llm_errors={totals['errors']} input_tokens={totals['input_tokens']} output_tokens={totals['output_tokens']} "
+        f"estimated_cost_usd={cost if cost is not None else f'unavailable (set {PRICE_ENV_VAR})'} "
+        f"cbm_requests={metrics['cbm']['calls']} cbm_enrichment_requests={metrics['cbm']['enrichment_requests']}"
+    )
 
 
 AI_RECOVERY_DISABLED_NOTE = "AI recovery: disabled (--no-ai-recovery); not run."

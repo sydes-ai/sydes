@@ -165,6 +165,7 @@ def build_code_review_context(
     change: ChangeSet,
     diff_text: str,
     repo_root: Path | None = None,
+    related_code: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """Deterministic-only context for the independent code-review branch.
 
@@ -229,11 +230,16 @@ def build_code_review_context(
                 entry["changed_region"] = region
         symbols.append(entry)
 
-    return {
+    context: dict[str, Any] = {
         "version": "v1",
         "change": {"base": change.base, "files": files, "symbols": symbols},
         "diff": diff_text,  # whole; `_bounded_prompt` selects by priority and hunk
     }
+    if related_code:
+        # source the changed code calls/constructs near its changed lines, and its callers --
+        # deterministic graph facts (see `sydes.verify.review_context`), never conclusions
+        context["related_code"] = related_code
+    return context
 
 
 def _drop_regions(keep: int) -> Any:
@@ -271,11 +277,13 @@ def _bounded_prompt(
         limit=context_chars(MAX_PROMPT_CHARS, model_spec) + extra_budget,
         full_diff=str(context.get("diff") or ""),
         trims=[
+            trim_list("related_code", 4),
             _drop_regions(6),
             trim_list("affected_flows", 3),
             trim_list("symbols", 20, nested="change"),
             trim_list("files", 20, nested="change"),
             _drop_regions(0),
+            trim_list("related_code", 0),
         ],
     )
     return prompt
@@ -284,8 +292,10 @@ def _bounded_prompt(
 _CODE_FINDINGS_HEADER = (
     "You are reviewing a backend code change for concrete implementation defects.\n"
     "The one question you answer is: does this patch introduce a defect?\n"
-    "You are given only the change itself — the diff, the changed files and symbols, and the "
-    "source of the changed regions. Reason from that alone.\n"
+    "You are given the change itself — the diff, the changed files and symbols, and the "
+    "source of the changed regions — and, under `related_code`, the source of repository code "
+    "the changed code calls or constructs next to its changed lines (or that calls it), each "
+    "with the structural reason it was included. Reason from that alone.\n"
     "Report a finding only for a defect in one of these classes:\n"
     "- null/nil/undefined failure\n"
     "- wrong conditional or inverted branch\n"
@@ -480,6 +490,7 @@ def _validate_findings(raw: dict[str, Any], context: dict[str, Any]) -> tuple[li
                 for item in change.get("symbols", []) or []
                 if isinstance(item, dict)
             ),
+            *(str(item.get("source") or "") for item in context.get("related_code", []) or [] if isinstance(item, dict)),
         ])
     )
     candidates: list[CodeFinding] = []

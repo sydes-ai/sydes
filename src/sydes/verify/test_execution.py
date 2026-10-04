@@ -75,6 +75,20 @@ _VENV_PYTHON_PATHS = (
 _MISSING_MODULE_RE = re.compile(
     r"(?:ModuleNotFoundError|ImportError):[^\n]*?No module named ['\"](?P<module>[\w.\-]+)['\"]"
 )
+#: The interpreter could not load the test runner itself: `python3 -m pytest` on an
+#: interpreter without pytest prints `/path/python3: No module named pytest` (no
+#: `ModuleNotFoundError:` prefix) and exits 1 -- the same code pytest uses for failing tests.
+_RUNNER_MODULE_MISSING_RE = re.compile(
+    r"^(?P<interpreter>\S*python[\w.]*): No module named ['\"]?(?P<module>[\w.\-]+)['\"]?\s*$", re.MULTILINE
+)
+#: The executable or interpreter itself is absent, reported by a wrapper/shell.
+_EXECUTABLE_MISSING_RE = re.compile(
+    r"(?:command not found|No such file or directory|is not recognized as an internal or external command)",
+)
+#: What pytest prints when tests actually ran and some failed (the only meaning of exit 1).
+_PYTEST_FAILURE_REPORTED_RE = re.compile(
+    r"^\s*(?:FAILED|ERROR)\s+\S|\b\d+ (?:failed|error|errors)\b", re.MULTILINE
+)
 _NODE_MISSING_MODULE_RE = re.compile(
     r"Cannot find module ['\"](?P<module>[^'\"]+)['\"]"
 )
@@ -485,6 +499,10 @@ def _classify_output(combined: str) -> tuple[str | None, str | None]:
     if failures is not None and failures.group("count") != "0":
         return None, None
 
+    runner = _RUNNER_MODULE_MISSING_RE.search(combined)
+    if runner is not None:
+        return BLOCKER_RUNNER_MISSING, f"{runner.group('module')} (in {runner.group('interpreter')})"
+
     match = _MISSING_MODULE_RE.search(combined) or _NODE_MISSING_MODULE_RE.search(combined)
     if match:
         return BLOCKER_MISSING_DEPENDENCY, match.group("module")
@@ -516,9 +534,15 @@ def _interpret_exit(
 
     if framework == FRAMEWORK_PYTEST:
         # pytest: 1 = tests failed, 2/3/4 = runner problems, 5 = nothing collected.
-        # A node id that does not exist exits 4, so read the message too.
+        # A node id that does not exist exits 4, so read the message too. Exit 1 is a
+        # failure only when pytest itself reported one: anything else exiting 1 (a
+        # wrapper, an interpreter that never started pytest) is not evidence about the code.
         if exit_code == 1:
-            return VERIFICATION_FAILED, None, None
+            if _PYTEST_FAILURE_REPORTED_RE.search(combined):
+                return VERIFICATION_FAILED, None, None
+            if _EXECUTABLE_MISSING_RE.search(combined):
+                return VERIFICATION_UNKNOWN, BLOCKER_RUNNER_MISSING, None
+            return VERIFICATION_UNKNOWN, BLOCKER_COLLECTION_ERROR, None
         if exit_code == 5 or re.search(r"ERROR: not found:|no tests ran", combined):
             return VERIFICATION_UNKNOWN, BLOCKER_NO_TESTS_COLLECTED, None
         return VERIFICATION_UNKNOWN, BLOCKER_COLLECTION_ERROR, None
@@ -612,6 +636,12 @@ def _run_once(
             f"Test requires `{detail}`, which is not available in this environment"
             if detail
             else "Test could not reach a required service"
+        )
+    elif blocker == BLOCKER_RUNNER_MISSING:
+        reason = (
+            f"Test execution unavailable: the test runner `{detail}` is not installed"
+            if detail
+            else "Test execution unavailable: the test runner or its interpreter could not be started"
         )
     elif blocker == BLOCKER_NO_TESTS_COLLECTED:
         reason = "The runner collected no tests for this target"
@@ -737,6 +767,8 @@ def execute_mapped_tests(
 
     executions: list[TestExecution] = []
     seen: set[str] = set()
+    #: a runner that could not start fails the same way for every test: stop running it
+    runner_missing: dict[int, TestExecution] = {}
     for test in tests:
         if test.id in seen:
             continue
@@ -744,14 +776,22 @@ def execute_mapped_tests(
         if len(executions) >= settings.max_executions:
             notes.append(f"test_execution_truncated_at={settings.max_executions}")
             break
-        executions.append(
-            execute_mapped_test(
-                test=test,
-                detections=detections,
-                repo_root=repo_root,
-                settings=settings,
-            )
+        detection = _select_detection(detections, test.file or "")
+        known = runner_missing.get(id(detection)) if detection is not None else None
+        if known is not None:
+            executions.append(_blocked(test, known.framework, BLOCKER_RUNNER_MISSING, known.reason or "",
+                                       command=known.command, granularity=known.granularity))
+            continue
+        execution = execute_mapped_test(
+            test=test,
+            detections=detections,
+            repo_root=repo_root,
+            settings=settings,
         )
+        if execution.blocker == BLOCKER_RUNNER_MISSING and detection is not None:
+            runner_missing[id(detection)] = execution
+            notes.append(f"test_execution_unavailable={detection.framework} reason={execution.reason}")
+        executions.append(execution)
     notes.append(f"tests_executed={len(executions)}")
     return executions, notes
 
@@ -1141,6 +1181,12 @@ def run_ci_suite(
             f"Suite requires `{detail}`, which is not available in this environment"
             if detail
             else "Suite could not reach a required service"
+        )
+    elif blocker == BLOCKER_RUNNER_MISSING:
+        reason = (
+            f"Test execution unavailable: the test runner `{detail}` is not installed"
+            if detail
+            else "Test execution unavailable: the test runner or its interpreter could not be started"
         )
     elif blocker is not None:
         reason = f"The runner exited with code {completed.returncode} without a usable result"

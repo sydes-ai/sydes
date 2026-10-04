@@ -295,7 +295,7 @@ Sydes does not guarantee complete coverage, full system testing, or universal fr
 
 ## Common usage
 
-Every example below passes `--impact-guide auto`. That flag requires the `cbm` backend (see [Repository and code intelligence](#repository-and-code-intelligence)) — set `export SYDES_CODE_INTELLIGENCE=cbm` first, or it silently does nothing.
+Every example below passes `--impact-guide auto`, which consults the `cbm` code graph — the default backend (see [Repository and code intelligence](#repository-and-code-intelligence)). If the guide cannot run, the result says so.
 
 ### Compare the current branch with `origin/main`
 
@@ -401,7 +401,7 @@ Support depth varies by language, framework, and boundary. See [Current limitati
 
 Sydes uses repository/code intelligence so AI reasoning operates over a relevant slice of the codebase instead of blindly consuming the entire repository.
 
-Sydes ships two code-intelligence backends: `native` (Sydes' own lightweight parser, the default) and `cbm` (the fuller `codebase-memory-mcp` code-graph backend, installed as a Sydes runtime dependency). **`--impact-guide` requires the `cbm` backend** — set `SYDES_CODE_INTELLIGENCE=cbm` to enable it; on the default `native` backend, `--impact-guide` has nothing to consult and is a no-op. Sydes runs the `codebase-memory-mcp` installed with it, at its pinned version, not one that happens to be first on `PATH`; `SYDES_CBM_EXECUTABLE` chooses another explicitly, and a server whose version differs from the pin is reported in the result as a possibly incomplete analysis.
+Sydes ships two code-intelligence backends: `cbm` (the `codebase-memory-mcp` code-graph backend, installed and pinned as a Sydes runtime dependency — the default) and `native` (Sydes' own lightweight parser, selected explicitly with `SYDES_CODE_INTELLIGENCE=native`). `--impact-guide` consults the `cbm` code graph; on `native` it cannot run, and the result says so. If the default `cbm` backend cannot start, Sydes falls back to `native` and reports the analysis as partial; an explicitly selected backend that cannot start is an error. The effective backend is recorded in the result's diagnostics (`code_intelligence_effective_backend`). Sydes runs the `codebase-memory-mcp` installed with it, at its pinned version, not one that happens to be first on `PATH`; `SYDES_CBM_EXECUTABLE` chooses another explicitly, and a server whose version differs from the pin is reported in the result as a possibly incomplete analysis.
 
 On first use with `cbm`, Sydes bootstraps the Codebase Memory native runtime into a local cache. This can take a noticeable moment once; subsequent runs reuse the local runtime/cache where possible.
 
@@ -442,6 +442,10 @@ sydes verify-change \
   --model openai:gpt-4.1-mini \
   --impact-guide auto
 ```
+
+Models that accept only their default temperature (reasoning models) need no setting: Sydes omits the parameter once the provider says so.
+
+Each run records its economics in the JSON result (`run_metrics`) and diagnostics: LLM calls by purpose, input/output tokens, CBM requests and wall time. Sydes keeps no price list; set `SYDES_LLM_PRICE_PER_MTOK="<input>,<output>"` (USD per million tokens for your model) to also get an estimated cost.
 
 ### Anthropic
 

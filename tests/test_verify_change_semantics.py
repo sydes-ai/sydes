@@ -604,15 +604,14 @@ def test_satisfied_change_critical_obligations_can_reach_verified(
     repo: Path, tmp_path: Path
 ) -> None:
     """Contextual sinks must not block a change whose own behavior is proven."""
-    # This flow's every required obligation must be demonstrable, so the stub
-    # client answers with the contract's declared success status.
-    _write(repo, "conftest.py", _CONFTEST.replace("_Response(200,", "_Response(201,"))
+    # This flow's every required obligation must be demonstrable: the route declares no
+    # status, so its success status is the framework default (200), which the stub returns.
     _write(
         repo,
         "tests/test_students.py",
         "def test_create_student_succeeds(client):\n"
         '    response = client.post("/students", json={"name": "Ada"})\n'
-        "    assert response.status_code == 201\n"
+        "    assert response.status_code == 200\n"
         "\n"
         "def test_blank_name_is_rejected(client):\n"
         '    response = client.post("/students", json={"name": "   "})\n'

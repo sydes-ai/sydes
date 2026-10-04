@@ -47,7 +47,10 @@ from sydes.discover.layer2_declaration_bridge import bridge_layer2_declaration_r
 from sydes.discover.layer2_treesitter_bridge import bridge_layer2_treesitter_edges
 from sydes.discover.member_call_bridge import MEMBER_CALL_BRIDGE_SOURCE, bridge_member_call_edges
 from sydes.code_intelligence import get_code_intelligence
-from sydes.code_intelligence.base import StructuralFacts
+from sydes.code_intelligence.factory import resolve_backend
+from sydes.code_intelligence.native import NATIVE_BACKEND
+from sydes.verify.review_context import select_related_code
+from sydes.code_intelligence.base import CodeIntelligenceError, StructuralFacts
 from sydes.code_intelligence.cbm import CBM_BACKEND
 from sydes.code_intelligence.symbol_identity import (
     SEED_KIND_CHANGED,
@@ -93,6 +96,7 @@ from sydes.verify.models import (
     ANALYSIS_UNKNOWN,
     BLOCKER_EXECUTION_DISABLED,
     BLOCKER_MISSING_DEPENDENCY,
+    BLOCKER_RUNNER_MISSING,
     CHANGE_ADDED,
     CHANGE_DELETED,
     CODE_REVIEW_COMPLETED,
@@ -224,6 +228,22 @@ def _symbols_by_file(handler_index: dict) -> dict[str, list[dict]]:
     return by_file
 
 
+#: Structured-data and document formats. Their keys and headings (a workflow's `on:` /
+#: `permissions:`) are document structure, not program symbols: such files stay in the change
+#: as changed files -- change analysis and inferred impact still discuss them -- but contribute
+#: no symbols to code-symbol impact propagation.
+_NON_PROGRAM_SUFFIXES = frozenset({
+    ".yml", ".yaml", ".json", ".jsonc", ".toml", ".ini", ".cfg", ".conf", ".properties",
+    ".xml", ".plist", ".md", ".mdx", ".rst", ".txt", ".lock", ".env", ".csv",
+})
+
+
+def is_program_source(path: str) -> bool:
+    """False for configuration/document formats whose structure is not code symbols."""
+    name = Path(path).name.lower()
+    return Path(name).suffix not in _NON_PROGRAM_SUFFIXES and not name.startswith(".env")
+
+
 def attribute_changed_symbols(
     change, handler_index: dict, *, repo_root: Path | None = None,
 ) -> list[ChangedSymbol]:
@@ -241,6 +261,8 @@ def attribute_changed_symbols(
 
     for changed_file in change.files:
         if changed_file.change_type == CHANGE_DELETED or changed_file.binary:
+            continue
+        if not is_program_source(changed_file.path):
             continue
         candidates = by_file.get(changed_file.path, [])
         if not candidates:
@@ -1961,14 +1983,39 @@ def analyze_change(
     # a symbol this call has not resolved yet — `change.symbols` below needs
     # this call's own symbol index first. They are fetched as a bounded
     # neighborhood once the seeds are known (`_attach_bounded_graph_edges`).
-    code_intelligence = get_code_intelligence()
+    backend_name, backend_source = resolve_backend()
+    code_intelligence = get_code_intelligence(backend_name)
     changed_files_by_repo: dict[str, list[str]] = {}
     for changed_file in change.files:
         changed_files_by_repo.setdefault(changed_file.repo, []).append(changed_file.path)
-    structural = code_intelligence.build_or_update(
-        normalized_repos, workspace_id=workspace_id, defer_edges=True,
-        changed_files_by_repo=changed_files_by_repo,
-    )
+    try:
+        structural = code_intelligence.build_or_update(
+            normalized_repos, workspace_id=workspace_id, defer_edges=True,
+            changed_files_by_repo=changed_files_by_repo,
+        )
+    except CodeIntelligenceError as exc:
+        # An explicitly chosen backend fails loudly. The default (CBM) that cannot start
+        # degrades to the native parser -- visibly, as a partial analysis.
+        if backend_source != "default" or backend_name == NATIVE_BACKEND:
+            raise
+        result.analysis_notes.append(
+            f"The default code-intelligence backend ({backend_name}) could not start ({exc}); "
+            "this analysis used the lighter native parser, without the code graph, structural "
+            "enrichment or the impact guide."
+        )
+        result.analysis_status = ANALYSIS_PARTIAL
+        backend_name, backend_source = NATIVE_BACKEND, "fallback"
+        code_intelligence = get_code_intelligence(backend_name)
+        structural = code_intelligence.build_or_update(
+            normalized_repos, workspace_id=workspace_id, defer_edges=True,
+            changed_files_by_repo=changed_files_by_repo,
+        )
+    result.diagnostics.append(f"code_intelligence_effective_backend={backend_name} selected_by={backend_source}")
+    if options.impact_guide != GUIDE_OFF and not structural.provides_call_graph:
+        result.analysis_notes.append(
+            f"--impact-guide {options.impact_guide} was requested but is inactive: the "
+            f"{backend_name} code-intelligence backend provides no call graph for it to consult."
+        )
     result.diagnostics.extend(structural.diagnostics)
     # Structural facts the code-intelligence backend dropped or truncated
     # make every "no impact found" below weaker; say so in the report, not
@@ -2054,12 +2101,19 @@ def analyze_change(
 
     if options.code_review:
         try:
+            facts = code_intelligence.facts(primary.name) if hasattr(code_intelligence, "facts") else None
+            related_code, related_notes = select_related_code(
+                change=change, facts=facts, symbol_index=structural.symbol_index, repo=primary.name,
+                repo_root=primary_root, program_source=is_program_source,
+            )
+            result.diagnostics.extend(related_notes)
             code_context = build_code_review_context(
                 change=change,
                 diff_text=read_unified_diff(
                     repo_root=primary_root, base_rev=options.base, max_chars=4_000_000
                 ),
                 repo_root=primary_root,
+                related_code=related_code,
             )
             findings, finding_notes = generate_code_findings(
                 context=code_context,
@@ -2699,6 +2753,14 @@ def _run_test_execution(
             tests=mapped_tests, files=repo_files, repo_root=repo_root, settings=settings,
         )
         result.diagnostics.extend(exec_notes)
+        unavailable = [e for e in executions if e.blocker == BLOCKER_RUNNER_MISSING]
+        if unavailable:
+            # the runner never started: an environment fact, never evidence about the change
+            result.analysis_notes.append(
+                f"Test execution unavailable/incomplete: {unavailable[0].reason} "
+                f"({len(unavailable)} of {len(executions)} mapped test run(s) could not start); "
+                "no test result was produced for them."
+            )
         for execution in executions:
             if execution.blocker == BLOCKER_MISSING_DEPENDENCY:
                 _link_runtime_blockers(execution, result.runtime_dependencies)

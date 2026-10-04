@@ -146,6 +146,21 @@ _DECORATOR_STATUS_NAME_RE = re.compile(
     r"\b(" + "|".join(sorted(_HTTP_STATUS_NAME_TO_CODE, key=len, reverse=True)) + r")\b"
 )
 _DECORATOR_LINE_RE = re.compile(r"^\s*@")
+#: A numeric status given to the route declaration itself: `status_code=201`,
+#: `status_code=status.HTTP_201_CREATED`, `code=201`.
+_DECORATOR_STATUS_KEYWORD_RE = re.compile(
+    r"\b(?:status_code|status|code)\s*=\s*(?:[\w.]*HTTP_)?(\d{3})(?!\d)"
+)
+#: A route declared with a lowercase verb on a router/app object -- FastAPI, Flask,
+#: Starlette, Express (`@router.post(`, `app.get(`): their documented success default is 200.
+_LOWERCASE_VERB_ROUTE_RE = re.compile(
+    r"(?:@|\b)[A-Za-z_$][\w$]*\.(?:get|post|put|patch|delete|options|head|route|api_route)\s*\("
+)
+#: A capitalized verb decorator (`@Post(`) -- NestJS, whose documented default is 201 for
+#: POST and 200 for every other verb.
+_CAPITALIZED_VERB_DECORATOR_RE = re.compile(r"^\s*@(Get|Post|Put|Patch|Delete|Options|Head|All)\s*\(")
+#: Spring's mapping annotations: 200 unless a `@ResponseStatus` says otherwise.
+_SPRING_MAPPING_RE = re.compile(r"^\s*@(?:Get|Post|Put|Patch|Delete|Request)Mapping\b")
 
 
 def _find_handler_declaration_line(source_lines: list[str], handler: str | None) -> int | None:
@@ -205,9 +220,10 @@ def _explicit_status_from_decorators(
     status_code: str | None = None
     match_line = 0
     for offset, decorator_line in enumerate(decorator_lines):
+        keyword = _DECORATOR_STATUS_KEYWORD_RE.search(decorator_line)
         name_match = _DECORATOR_STATUS_NAME_RE.search(decorator_line)
-        if name_match:
-            status_code = _HTTP_STATUS_NAME_TO_CODE[name_match.group(1)]
+        if keyword or name_match:
+            status_code = keyword.group(1) if keyword else _HTTP_STATUS_NAME_TO_CODE[name_match.group(1)]
             match_line = handler_line - 1 - offset
             break
     if status_code is None:
@@ -234,38 +250,65 @@ def _explicit_status_from_decorators(
     }
 
 
-def _default_statuses_for_method(method: str | None) -> list[str]:
-    normalized = (method or "").upper()
-    status_map = {
-        "GET": ["200"],
-        "POST": ["201"],
-        "PUT": ["200"],
-        "PATCH": ["200"],
-        "DELETE": ["204"],
-    }
-    return status_map.get(normalized, ["200"])
+def _handler_decorator_lines(source_lines: list[str], handler: str | None) -> list[str]:
+    handler_line = _find_handler_declaration_line(source_lines, handler)
+    if handler_line is None:
+        return []
+    out: list[str] = []
+    idx = handler_line - 2
+    while idx >= 0:
+        stripped = source_lines[idx].strip()
+        if not stripped:
+            idx -= 1
+            continue
+        if not _DECORATOR_LINE_RE.match(source_lines[idx]):
+            break
+        out.append(source_lines[idx])
+        idx -= 1
+    return out
 
 
-def _default_responses(method: str | None, file: str | None, handler: str | None) -> dict[str, ApiResponseContract]:
-    responses: dict[str, ApiResponseContract] = {}
-    for status in _default_statuses_for_method(method):
-        responses[status] = ApiResponseContract(
+def _framework_default_status(source: str, handler: str | None, method: str | None) -> str | None:
+    """The success status a framework returns when the handler states none -- only when the
+    handler's own route declaration identifies the framework convention deterministically;
+    None otherwise (no status is then claimed). Never derived from the HTTP verb alone."""
+    decorators = _handler_decorator_lines(source.splitlines(), handler)
+    for line in decorators:
+        nest = _CAPITALIZED_VERB_DECORATOR_RE.match(line)
+        if nest:
+            return "201" if nest.group(1) == "Post" else "200"
+        if _SPRING_MAPPING_RE.match(line):
+            return "200"
+        if _LOWERCASE_VERB_ROUTE_RE.search(line):
+            return "200"
+    name = (handler or "").split(".")[-1]
+    if name and re.search(
+        rf"\b[A-Za-z_$][\w$]*\.(?:get|post|put|patch|delete|all)\s*\(\s*['\"`][^'\"`]*['\"`]\s*,[^\n]*\b{re.escape(name)}\b",
+        source,
+    ):
+        return "200"  # an Express/Flask-style registration naming this handler
+    return None
+
+
+def _framework_default_response(status: str, file: str | None, handler: str | None) -> dict[str, ApiResponseContract]:
+    return {
+        status: ApiResponseContract(
             status=status,
-            description=f"Default {status} response skeleton.",
+            description=f"Framework default {status} response (no explicit status on the handler).",
             body=_unknown_response_schema(),
-            confidence="low",
+            confidence="medium",
             evidence=[
                 ApiContractEvidence(
-                    kind="route_handler_reference",
+                    kind="framework_default_status",
                     file=file,
                     symbol=handler,
-                    source="routes_discovery",
-                    confidence="low",
-                    notes=["Default response placeholder generated by basic contract builder."],
+                    source="handler_source",
+                    confidence="medium",
+                    notes=["Success status is the framework's documented default for this route declaration."],
                 )
             ],
         )
-    return responses
+    }
 
 
 def _guess_property_type(name: str) -> tuple[str | None, str | None, Any | None]:
@@ -585,7 +628,7 @@ def _extract_responses_from_source(source: str, base_line: int, method: str | No
 
     for node in ast.walk(tree):
         if isinstance(node, ast.Return):
-            status = _extract_status_from_return_node(node) or _default_statuses_for_method(method)[0]
+            status = _extract_status_from_return_node(node) or "200"
             body_node = _extract_response_body_node(node.value)
             if body_node is None:
                 continue
@@ -698,7 +741,9 @@ def build_api_contract_from_routes(
             body=_default_request_body(route.method),
             examples=[],
         )
-        responses = _default_responses(route.method, route.file, route.handler)
+        # No status is claimed until the source establishes one (below): a status derived
+        # from the HTTP verb alone (POST -> 201) is a guess, not a contract.
+        responses: dict[str, ApiResponseContract] = {}
         route_notes = ["API contract initialized from route discovery scaffold."]
 
         route_evidence = [
@@ -745,6 +790,16 @@ def build_api_contract_from_routes(
                     responses = explicit
                     route_evidence.extend(evidence for response in explicit.values() for evidence in response.evidence)
                     route_notes.append("Response status read from an explicit decorator on the handler.")
+                elif not responses:
+                    default = _framework_default_status(source_text, route.handler, route.method)
+                    if default is not None:
+                        responses = _framework_default_response(default, route.file, route.handler)
+                        route_notes.append(
+                            f"No explicit status on the handler; {default} is the framework default "
+                            "identified from its own route declaration."
+                        )
+        if not responses:
+            route_notes.append("Success status not established from source; no status is claimed.")
 
         route_contracts.append(
             ApiRouteContract(

@@ -703,6 +703,18 @@ def _route_argument(snippet: str) -> str | None:
     return re.sub(r"^(?:value|path)\s*=\s*", "", (match.group(1) or "").strip())
 
 
+_ROUTE_PARAM = re.compile(r"\{[^}]*\}|<[^>]*>|:[A-Za-z_]\w*|\*\w*")
+
+
+def route_shape(path: str) -> str:
+    """A route path with every parameter anonymised (`/download/{filename}`, `/download/{}`,
+    `/download/:filename` -> `/download/{}`) and the trailing slash dropped: what two
+    representations of the same route agree on -- method, prefix, static segments and the
+    number and position of parameters."""
+    shaped = _ROUTE_PARAM.sub("{}", path.strip())
+    return shaped.rstrip("/") or "/"
+
+
 def _route_wave1(plan: _Planner, flow: dict[str, Any]) -> dict[str, Any]:
     handler, hfile = str(flow.get("handler") or ""), str(flow.get("handler_file") or "")
     handler_qn = plan.symbols.qn(handler, hfile)
@@ -737,8 +749,10 @@ def _route_finish(plan: _Planner, s: dict[str, Any]) -> FrameworkBoundaryCandida
         route = _ROUTE_QN.search(r.target)
         cbm = (route.group(1), route.group(2)) if route else ("?", _short(r.target))
         facts.append(StructuralFact(PROVENANCE_CBM_HANDLES, f"CBM: {handler} HANDLES {cbm[0]} {cbm[1]}", hfile))
-        if cbm != sydes:
-            prefixed = cbm[0] == sydes[0] and sydes[1].endswith(cbm[1].rstrip("/") or "/") and cbm[1] != sydes[1]
+        cbm_shape, sydes_shape = (cbm[0], route_shape(cbm[1])), (sydes[0], route_shape(sydes[1]))
+        if cbm_shape != sydes_shape:  # parameter naming alone (`{}` vs `{filename}`) is not a difference
+            prefixed = (cbm_shape[0] == sydes_shape[0] and cbm_shape[1] != sydes_shape[1]
+                        and sydes_shape[1].endswith(cbm_shape[1].rstrip("/") or "/"))
             facts.append(StructuralFact(PROVENANCE_CBM_HANDLES,
                                         f"discrepancy: CBM {cbm[0]} {cbm[1]} vs Sydes {sydes[0]} {sydes[1]}"
                                         + (" (Sydes includes a mount/container prefix CBM does not compose)" if prefixed else ""),

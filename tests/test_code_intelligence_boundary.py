@@ -22,6 +22,7 @@ from typer.testing import CliRunner
 from sydes.cli.main import app
 from sydes.code_intelligence import (
     BACKEND_ENV_VAR,
+    CBM_BACKEND,
     NATIVE_BACKEND,
     CodeIntelligence,
     CodeIntelligenceError,
@@ -29,6 +30,7 @@ from sydes.code_intelligence import (
     available_backends,
     get_code_intelligence,
 )
+from sydes.code_intelligence.factory import resolve_backend
 from sydes.core.models import RepoRef
 from sydes.discover.file_facts import build_structural_index
 
@@ -208,10 +210,18 @@ def test_trace_output_is_semantically_unchanged(repo: Path) -> None:
 # --------------------------------------------------------------------------
 
 
-def test_default_backend_is_native() -> None:
-    """Native remains the default until CBM is proven on real repositories."""
-    assert get_code_intelligence().name == NATIVE_BACKEND
+def test_default_backend_is_cbm_and_native_stays_available(monkeypatch) -> None:
+    """With no override, the normal product path uses the installed, pinned CBM backend."""
+    monkeypatch.delenv(BACKEND_ENV_VAR, raising=False)
+    assert get_code_intelligence().name == CBM_BACKEND
+    assert resolve_backend() == (CBM_BACKEND, "default")
     assert NATIVE_BACKEND in available_backends()
+
+
+def test_the_selection_source_is_reported(monkeypatch) -> None:
+    monkeypatch.setenv(BACKEND_ENV_VAR, NATIVE_BACKEND)
+    assert resolve_backend() == (NATIVE_BACKEND, BACKEND_ENV_VAR)
+    assert resolve_backend("cbm") == ("cbm", "argument")
 
 
 def test_explicit_native_selection_works() -> None:
