@@ -26,7 +26,9 @@ from pathlib import Path
 from typing import Any
 
 from sydes.code_intelligence.base import CodeIntelligenceError
-from sydes.code_intelligence.cbm_client import CBMClient
+from sydes.code_intelligence.cbm import CBM_BACKEND
+from sydes.code_intelligence.cbm_client import CBMClient, _qualified_list_literal, parse_rows
+from sydes.code_intelligence.factory import resolve_backend
 from sydes.code_intelligence.graph_slice import GraphSlice, GraphSliceLimits, build_graph_slice
 
 #: Same spirit as `sydes.recovery.tools`'s `_MAX_READ_CHARS` -- one graph
@@ -56,6 +58,11 @@ class CBMGraphTools:
             return self._project
         if self._unavailable_reason is not None:
             return None
+        backend, source = resolve_backend()
+        if backend != CBM_BACKEND and self._client_factory == CBMClient.spawn:
+            # the run's own backend choice holds here too: no code-graph session is started
+            self._unavailable_reason = f"code-intelligence backend is {backend} ({source})"
+            return None
         try:
             client = self._client_factory()
             payload = client.index_repository(str(self._repo_root), mode="fast")
@@ -68,6 +75,34 @@ class CBMGraphTools:
 
     def _unavailable(self) -> str:
         return f"ERROR: CBM graph unavailable ({self._unavailable_reason or 'could not index this repository'})"
+
+    def call_site(self, caller: str, caller_file: str, callee: str, callee_file: str) -> int | None:
+        """The line of an explicit CALLS edge `caller -> callee` the code graph holds (bare
+        names, each pinned to its declaring file), or None. An explicit call is a graph fact:
+        looked up here, never asked of a model."""
+        project = self._ensure_project()
+        if project is None or self._client is None:
+            return None
+        names = [caller.rsplit(".", 1)[-1], callee.rsplit(".", 1)[-1]]
+        query = (
+            "MATCH (a)-[r:CALLS]->(b) "
+            f"WHERE a.name IN {_qualified_list_literal([names[0]])} "
+            f"AND a.file_path IN {_qualified_list_literal([caller_file])} "
+            f"AND b.name IN {_qualified_list_literal([names[1]])} "
+            f"AND b.file_path IN {_qualified_list_literal([callee_file])} "
+            "RETURN properties(r) LIMIT 5"
+        )
+        try:
+            rows, _ = parse_rows(self._client._query_graph(project, query), columns=1)
+        except CodeIntelligenceError:
+            return None
+        for (props,) in rows:
+            try:
+                line = json.loads(props).get("line") if props else None
+            except (TypeError, ValueError):
+                line = None
+            return int(line) if isinstance(line, int) else 0
+        return None
 
     def trace_callers(self, symbol: str, *, depth: int = 3) -> str:
         """Inbound CALLS closure for a symbol -- who calls it, transitively.

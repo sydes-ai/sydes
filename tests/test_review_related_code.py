@@ -95,3 +95,49 @@ def test_related_code_reaches_the_review_context_and_backs_snippets(tmp_path: Pa
     # a finding must still sit on a changed line of a changed file
     off = {"findings": [{"severity": "P1", "title": "t", "file": "app/wrap.py", "line": 3}]}
     assert _validate_findings(off, context)[0] == []
+
+
+# ----------------------------------------------------------------------------- review questions
+
+
+def test_open_questions_from_earlier_stages_reach_review_as_questions(tmp_path: Path) -> None:
+    from sydes.verify.models import (
+        ChangeSemanticAnalysis,
+        SemanticInvestigationHint,
+        SemanticRisk,
+    )
+    from sydes.verify.review_context import review_questions
+
+    semantic = ChangeSemanticAnalysis(
+        investigation_hints=[SemanticInvestigationHint(description="check that closing the response closes its source")],
+        local_risks=[SemanticRisk(description="the writer may be closed twice")],
+        uncertainties=["whether cleanup runs on every exit path is not shown"],
+    )
+    candidates = [
+        {"status": "unresolved", "category": "callback_registration", "source_symbol": "Config.setup",
+         "missing": ["the framework's invocation of Filter.run"]},
+        {"status": "resolved", "category": "route_registration", "source_symbol": "speak", "missing": []},
+    ]
+    questions = review_questions(semantic_analysis=semantic, framework_candidates=candidates)
+    assert [q["source"] for q in questions] == [
+        "change analysis: to investigate", "change analysis: unverified risk", "change analysis: uncertain",
+        "structural analysis: unresolved callback_registration at Config.setup",
+    ]
+    change, _facts, _index = _setup(tmp_path)
+    context = build_code_review_context(change=change, diff_text="diff", review_questions=questions)
+    assert context["review_questions"][0]["question"] == "check that closing the response closes its source"
+
+
+def test_the_review_prompt_allows_grounded_cross_boundary_findings_and_still_forbids_speculation() -> None:
+    from sydes.verify.llm_findings import _CODE_FINDINGS_HEADER as prompt
+
+    # questions are questions, not conclusions
+    assert "They are questions, not findings and not conclusions" in prompt
+    # supplied related code plus language semantics are evidence a finding may rely on
+    assert "the defined semantics of the programming language itself" in prompt
+    assert "may cross from the changed code into supplied related code" in prompt
+    assert "`evidence_snippet` may quote `related_code`" in prompt
+    # unsupplied behavior is still not evidence
+    assert "how an unsupplied library or framework behaves" in prompt
+    assert "Do not emit the finding" in prompt
+    assert "Default to silence" in prompt

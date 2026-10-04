@@ -52,6 +52,7 @@ from dataclasses import dataclass
 
 from sydes.recovery.graph_tools import CBMGraphTools
 from sydes.recovery.schema import (
+    PROVENANCE_EXPLICIT_RELATION,
     EntityRef, ROOT_CANDIDATE_BOUNDARY, ROOT_VERIFIED_BOUNDARY, RecoveredEdge, RecoveredEvidence, RecoveredPath,
 )
 from sydes.recovery.tools import RepoTools
@@ -672,12 +673,16 @@ def propose_graph_path(
     edges: list[RecoveredEdge] = []
     for from_qn, to_qn, edge in hops:
         relationship, evidence = _edge_evidence(from_qn, to_qn, edge, tools=tools, file_by_qn=file_by_qn)
+        explicit_call = ("caller_qualified_name" in edge and not edge.get("_defines_method")
+                         and not edge.get("_override") and not edge.get("_bridge"))
         edges.append(RecoveredEdge(
             **{
                 "from": _entity_ref(_Node(qualified_name=from_qn, file=""), file_by_qn=file_by_qn),
                 "to": _entity_ref(_Node(qualified_name=to_qn, file=""), file_by_qn=file_by_qn),
             },
             relationship=relationship, evidence=evidence,
+            # a code-graph CALLS edge is an explicit relation, never re-judged by a model
+            **({"provenance": PROVENANCE_EXPLICIT_RELATION} if explicit_call else {}),
         ))
         nodes.append(_entity_ref(_Node(qualified_name=to_qn, file=""), file_by_qn=file_by_qn))
 

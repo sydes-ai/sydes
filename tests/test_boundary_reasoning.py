@@ -775,7 +775,7 @@ def test_packet_carries_the_documented_evidence_fields_and_stays_bounded() -> No
         "version", "change_summary", "behavior_changes", "changed_symbols",
         "deterministic_boundaries", "boundary_candidates", "accepted_impacts",
         "unresolved_changed_symbols", "relevant_source_snippets", "repo_context",
-        "uncertainties",
+        "uncertainties", "established_call_edges",
     }
     # No profile supplied — the field exists but stays empty, so boundary
     # reasoning behaves exactly as it did before Increment B.
@@ -799,3 +799,28 @@ def test_packet_supplies_already_established_boundaries_to_avoid_reproposal() ->
     assert packet["deterministic_boundaries"] == [
         {"kind": "api", "subtype": "http", "label": "GET /x"},
     ]
+
+
+# --------------------------------------------------------------------------
+# Established edges are facts: boundary text never calls them missing
+# --------------------------------------------------------------------------
+
+def test_an_established_call_edge_is_supplied_and_never_described_as_missing() -> None:
+    structural = facts()
+    structural.call_edges = [{"caller_symbol": "handler", "callee_symbol": "helper",
+                              "caller_file": "app/svc.py", "caller_line": 12}]
+    uncertainty = ("The supplied snippets do not show the concrete call edge from handler to helper. "
+                   "Which request modes reach the changed branch is not established.")
+    client = CountingClient(_response(_boundary("api", uncertainty=uncertainty)))
+    [boundary], _ = run(client, structural=structural)
+    packet = json.loads(client.requests[0].prompt.split("Evidence:\n", 1)[1])
+    assert packet["established_call_edges"] == [
+        {"caller": "handler", "callee": "helper", "file": "app/svc.py", "line": 12}]
+    # the contradicting sentence is gone; genuine uncertainty stays
+    assert boundary.uncertainty == "Which request modes reach the changed branch is not established."
+
+
+def test_uncertainty_without_an_established_edge_is_kept() -> None:
+    uncertainty = "The supplied snippets do not show the concrete call edge from handler to helper."
+    [boundary], _ = run(CountingClient(_response(_boundary("api", uncertainty=uncertainty))))
+    assert boundary.uncertainty == uncertainty

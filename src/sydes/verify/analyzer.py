@@ -49,7 +49,7 @@ from sydes.discover.member_call_bridge import MEMBER_CALL_BRIDGE_SOURCE, bridge_
 from sydes.code_intelligence import get_code_intelligence
 from sydes.code_intelligence.factory import resolve_backend
 from sydes.code_intelligence.native import NATIVE_BACKEND
-from sydes.verify.review_context import select_related_code
+from sydes.verify.review_context import review_questions, select_related_code
 from sydes.code_intelligence.base import CodeIntelligenceError, StructuralFacts
 from sydes.code_intelligence.cbm import CBM_BACKEND
 from sydes.code_intelligence.symbol_identity import (
@@ -2099,39 +2099,6 @@ def analyze_change(
             f"changed function(s) executed by existing tests ({behavioral_context.runtime.test_scope})"
         )
 
-    if options.code_review:
-        try:
-            facts = code_intelligence.facts(primary.name) if hasattr(code_intelligence, "facts") else None
-            related_code, related_notes = select_related_code(
-                change=change, facts=facts, symbol_index=structural.symbol_index, repo=primary.name,
-                repo_root=primary_root, program_source=is_program_source,
-            )
-            result.diagnostics.extend(related_notes)
-            code_context = build_code_review_context(
-                change=change,
-                diff_text=read_unified_diff(
-                    repo_root=primary_root, base_rev=options.base, max_chars=4_000_000
-                ),
-                repo_root=primary_root,
-                related_code=related_code,
-            )
-            findings, finding_notes = generate_code_findings(
-                context=code_context,
-                model_spec=options.model_spec,
-                llm_client=options.llm_client,
-                checked_behavior_preamble=options.checked_behavior_preamble,
-            )
-            result.code_findings = findings
-            result.code_review_status = CODE_REVIEW_COMPLETED
-            result.diagnostics.extend(finding_notes)
-        except LLMClientError as exc:
-            result.code_review_status = CODE_REVIEW_UNAVAILABLE
-            result.diagnostics.append(f"code_review_unavailable: {exc}")
-            result.analysis_notes.append(
-                "Code review was requested but its provider call failed; no code findings "
-                "were produced. Verification is unaffected — code findings never enter the verdict."
-            )
-
     # --- PR-level semantic analysis (Increment A) -------------------------
     # A separate, complementary read of the change as a whole — never a
     # replacement for the structural analysis below, and never able to
@@ -2649,6 +2616,47 @@ def analyze_change(
             result, impact_result=impact_result, structural=structural, change=change,
             code_intelligence=code_intelligence, repo=primary.name, repo_root=primary_root,
         )
+    # Code review runs last among the analyses: it receives the open questions the change
+    # analysis and structural enrichment raised (as questions, never conclusions).
+    if options.code_review:
+        try:
+            facts = code_intelligence.facts(primary.name) if hasattr(code_intelligence, "facts") else None
+            related_code, related_notes = select_related_code(
+                change=change, facts=facts, symbol_index=structural.symbol_index, repo=primary.name,
+                repo_root=primary_root, program_source=is_program_source,
+            )
+            result.diagnostics.extend(related_notes)
+            questions = review_questions(
+                semantic_analysis=result.pr_semantic_analysis,
+                framework_candidates=result.framework_boundary_candidates,
+            )
+            result.diagnostics.append(f"code_review_questions={len(questions)}")
+            code_context = build_code_review_context(
+                change=change,
+                diff_text=read_unified_diff(
+                    repo_root=primary_root, base_rev=options.base, max_chars=4_000_000
+                ),
+                repo_root=primary_root,
+                related_code=related_code,
+                review_questions=questions,
+            )
+            findings, finding_notes = generate_code_findings(
+                context=code_context,
+                model_spec=options.model_spec,
+                llm_client=options.llm_client,
+                checked_behavior_preamble=options.checked_behavior_preamble,
+            )
+            result.code_findings = findings
+            result.code_review_status = CODE_REVIEW_COMPLETED
+            result.diagnostics.extend(finding_notes)
+        except LLMClientError as exc:
+            result.code_review_status = CODE_REVIEW_UNAVAILABLE
+            result.diagnostics.append(f"code_review_unavailable: {exc}")
+            result.analysis_notes.append(
+                "Code review was requested but its provider call failed; no code findings "
+                "were produced. Verification is unaffected — code findings never enter the verdict."
+            )
+
     result.summary = _compute_summary(result, changed_test_case_count=len(changed_test_cases))
     _trace.record_final_decision(
         run_id=trace_run_id,

@@ -44,6 +44,7 @@ and `AffectedBoundary` as the single product-facing model.
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from typing import Any
 
@@ -307,6 +308,11 @@ def build_reasoning_packet(
         "unresolved_changed_symbols": [
             item.symbol for item in impact_result.unresolved[:MAX_CHANGED_SYMBOLS]
         ],
+        # Proven call edges touching the changed symbols or the candidates: facts, never to be
+        # described as missing (see rule 11 and `_drop_contradicted_uncertainty`).
+        "established_call_edges": established_call_edges(
+            facts, {item.name for item in change.symbols} | {c.get("symbol", "") for c in candidates},
+        ),
         "relevant_source_snippets": _snippets_for(
             candidates, facts=facts, repo=repo, repo_root=repo_root,
         ),
@@ -320,6 +326,46 @@ def build_reasoning_packet(
         ),
         "uncertainties": uncertainties,
     }
+
+
+MAX_ESTABLISHED_EDGES = 30
+_ABSENCE_WORDS = re.compile(
+    r"\b(?:not|never|no|cannot|can't|isn't|aren't|without|missing|absent|unknown|unclear|unshown|unestablished)\b",
+    re.IGNORECASE,
+)
+
+
+def established_call_edges(facts: StructuralFacts, symbols: set[str]) -> list[dict[str, Any]]:
+    """Proven CALLS edges with a changed symbol or candidate at either end (bounded)."""
+    names = {str(name).rsplit(".", 1)[-1] for name in symbols if name}
+    out: list[dict[str, Any]] = []
+    seen: set[tuple[str, str]] = set()
+    for edge in facts.call_edges:
+        caller, callee = str(edge.get("caller_symbol") or ""), str(edge.get("callee_symbol") or "")
+        if not caller or not callee or (caller not in names and callee not in names) or (caller, callee) in seen:
+            continue
+        seen.add((caller, callee))
+        out.append({"caller": caller, "callee": callee, "file": edge.get("caller_file"),
+                    "line": edge.get("caller_line")})
+        if len(out) >= MAX_ESTABLISHED_EDGES:
+            break
+    return out
+
+
+def _drop_contradicted_uncertainty(text: str | None, edges: list[dict[str, Any]]) -> str | None:
+    """Remove each uncertainty sentence that says an established edge is missing or unshown
+    -- it contradicts a proven fact. Every other uncertainty is kept."""
+    if not text or not edges:
+        return text
+    kept = []
+    for sentence in re.split(r"(?<=[.;])\s+", text):
+        contradicts = _ABSENCE_WORDS.search(sentence) and any(
+            re.search(rf"\b{re.escape(e['caller'])}\b", sentence) and re.search(rf"\b{re.escape(e['callee'])}\b", sentence)
+            for e in edges
+        )
+        if not contradicts:
+            kept.append(sentence)
+    return " ".join(kept).strip() or None
 
 
 def has_reasonable_evidence(packet: dict[str, Any]) -> bool:
@@ -367,6 +413,7 @@ Rules — these are absolute:
 8. Do NOT re-propose a boundary already listed in `deterministic_boundaries` — those are already proven.
 9. Do not infer `async` merely because a symbol is decorated; the supplied evidence must actually show event/scheduler/queue semantics. Likewise do not infer `api` merely because a symbol looks web-ish, and do not infer `callable` merely because something is exported or generically "used".
 10. `repo_context` describes the repository's architecture (which package is backend or frontend-only, which is a publishable library, which directories are internal). Use it ONLY to INTERPRET candidates you already have concrete evidence for — e.g. do not propose a backend boundary inside a frontend-only package. `repo_context` PLUS the PR's semantic summary, with no concrete candidate/source/structural fact behind it, is NEVER enough to emit a boundary.
+11. `established_call_edges` are proven call relations. Never say that one of them is missing, not shown, or not established; rely on them as facts.
 
 Do not summarize the PR — that is already done and supplied to you. Answer only the boundary question.
 
@@ -599,6 +646,9 @@ def parse_inferred_boundaries(
         if key in seen:
             continue
         seen.add(key)
+        boundary.uncertainty = _drop_contradicted_uncertainty(
+            boundary.uncertainty, (packet or {}).get("established_call_edges") or [],
+        )
         out.append(boundary)
         if len(out) >= MAX_INFERRED_BOUNDARIES:
             break

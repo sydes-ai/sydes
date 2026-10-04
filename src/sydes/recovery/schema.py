@@ -75,6 +75,10 @@ ROOT_INTERNAL_NODE = "internal_node"
 
 #: An AI-recovered path/edge/test that repository evidence supports.
 PROVENANCE_AI_RECOVERY = "ai_recovery"
+#: An edge that is an explicit relation already in the code (a code-graph CALLS edge or the
+#: literal call in the caller's own source): a deterministic fact recovery reuses, which no
+#: model verdict may downgrade.
+PROVENANCE_EXPLICIT_RELATION = "explicit_relation"
 #: A path/edge/test the agent could not establish even after the retry
 #: budget — distinct from never having tried; see `sydes.recovery.agent`.
 PROVENANCE_AI_RECOVERY_EXHAUSTED = "ai_recovery_exhausted"

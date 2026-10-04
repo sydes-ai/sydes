@@ -22,9 +22,11 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 import json
 from pathlib import Path
+import os
 import re
 import shutil
 import subprocess
+import sys
 import time
 
 from sydes.core.models import EvidenceRef
@@ -137,6 +139,10 @@ class FrameworkDetection:
     # Directory the manifest lives in, relative to the repo root. Monorepos keep
     # their runner config next to the package, not at the top level.
     working_dir: str = "."
+    #: which environment runs the tests and why, and whose it is ("target", "configured",
+    #: "none"); empty for runners resolved from the repository's own tooling (node_modules, go)
+    environment: str = ""
+    environment_owner: str = ""
 
 
 @dataclass(slots=True)
@@ -182,15 +188,80 @@ def _relative_to_working_dir(working_dir: str, repo_relative_path: str) -> str:
     return repo_relative_path
 
 
-def _repo_python(root: Path, working_dir: str = ".") -> tuple[list[str], bool]:
-    """Pick the interpreter to run Python tests with, preferring a repo venv."""
+#: An interpreter chosen explicitly for running the target repository's tests.
+TEST_PYTHON_ENV_VAR = "SYDES_TEST_PYTHON"
+NO_TARGET_ENVIRONMENT = "test execution unavailable: no runnable target-project environment found"
+
+
+@dataclass(slots=True)
+class PythonEnvironment:
+    """The interpreter mapped tests run with, and why. `argv` is None when no target
+    environment exists: Sydes' own interpreter is never substituted for one."""
+
+    argv: list[str] | None
+    owner: str  # "target", "configured" (SYDES_TEST_PYTHON) or "none"
+    reason: str
+
+
+def _is_sydes_interpreter(path: Path) -> bool:
+    """True for an interpreter inside the environment Sydes itself runs in. Compared by the
+    environment directory, not the interpreter binary: virtualenvs symlink to a shared base
+    Python, so two different environments can resolve to the same executable."""
+    own = Path(os.path.realpath(sys.prefix))
+    env_dir = Path(os.path.realpath(path.parent.parent))
+    return env_dir == own
+
+
+def _query_env(command: list[str], cwd: Path) -> Path | None:
+    """A read-only query (`poetry env info -p`, `pipenv --venv`) for an existing env path."""
+    if shutil.which(command[0]) is None:
+        return None
+    try:
+        out = subprocess.run(command, cwd=str(cwd), capture_output=True, text=True, timeout=20, check=False)
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    path = (out.stdout or "").strip().splitlines()[-1:] if out.returncode == 0 else []
+    return Path(path[0]) if path and Path(path[0]).is_dir() else None
+
+
+def resolve_python_environment(root: Path, working_dir: str = ".") -> PythonEnvironment:
+    """The target repository's own Python environment, in a conservative order:
+    `SYDES_TEST_PYTHON`; a repo-local virtualenv; an active `VIRTUAL_ENV` that is not Sydes'
+    own; an existing Poetry / Pipenv environment (queried read-only). Nothing is created or
+    installed. Without one, test execution is unavailable -- `python3` from PATH (which, under
+    `uv run`, is Sydes' own environment) is never used as a stand-in."""
+    configured = os.environ.get(TEST_PYTHON_ENV_VAR, "").strip()
+    if configured:
+        return PythonEnvironment([configured], "configured", f"{TEST_PYTHON_ENV_VAR}={configured}")
     bases = [root / working_dir, root] if working_dir != "." else [root]
     for base in bases:
         for relative in _VENV_PYTHON_PATHS:
             candidate = base / relative
-            if candidate.is_file():
-                return [str(candidate)], True
-    return ["python3"], False
+            if candidate.is_file() and not _is_sydes_interpreter(candidate):
+                where = candidate.relative_to(root) if root in candidate.parents else candidate
+                return PythonEnvironment([str(candidate)], "target", f"repository virtualenv `{where}`")
+    active = os.environ.get("VIRTUAL_ENV", "").strip()
+    if active:
+        candidate = Path(active) / "bin" / "python"
+        if candidate.is_file() and not _is_sydes_interpreter(candidate):
+            return PythonEnvironment([str(candidate)], "target", f"active virtualenv `{active}` (VIRTUAL_ENV)")
+    project = root / working_dir
+    pyproject = (project / "pyproject.toml").read_text(encoding="utf-8", errors="replace") \
+        if (project / "pyproject.toml").is_file() else ""
+    if "[tool.poetry" in pyproject:
+        env = _query_env(["poetry", "env", "info", "-p"], project)
+        if env is not None and (env / "bin" / "python").is_file():
+            return PythonEnvironment([str(env / "bin" / "python")], "target", f"existing Poetry environment `{env}`")
+    if (project / "Pipfile").is_file():
+        env = _query_env(["pipenv", "--venv"], project)
+        if env is not None and (env / "bin" / "python").is_file():
+            return PythonEnvironment([str(env / "bin" / "python")], "target", f"existing Pipenv environment `{env}`")
+    if "[tool.uv" in pyproject or (project / "uv.lock").is_file():
+        return PythonEnvironment(None, "none", f"{NO_TARGET_ENVIRONMENT} (uv project with no synced `.venv`; "
+                                 "Sydes does not create or install environments)")
+    if "[tool.poetry" in pyproject:
+        return PythonEnvironment(None, "none", f"{NO_TARGET_ENVIRONMENT} (Poetry project with no existing environment)")
+    return PythonEnvironment(None, "none", NO_TARGET_ENVIRONMENT)
 
 
 def _node_binary(root: Path, working_dir: str, name: str) -> Path | None:
@@ -205,7 +276,7 @@ def _detect_python(files: RepoFiles) -> list[FrameworkDetection]:
     manifest_names = ("pyproject.toml", "pytest.ini", "setup.cfg", "tox.ini", "requirements.txt")
 
     for working_dir in _manifest_dirs(files, manifest_names):
-        argv, from_venv = _repo_python(files.root, working_dir)
+        env = resolve_python_environment(files.root, working_dir)
         source: tuple[str, str] | None = None
         for name in ("pytest.ini", "tox.ini", "setup.cfg", "pyproject.toml"):
             path = _in_dir(working_dir, name)
@@ -231,15 +302,17 @@ def _detect_python(files: RepoFiles) -> list[FrameworkDetection]:
             continue
 
         path, why = source
-        if not from_venv:
-            why = f"{why}; no repo virtualenv found, using `python3`"
         detections.append(
             FrameworkDetection(
                 framework=FRAMEWORK_PYTEST,
                 language="python",
-                runner_argv=[*argv, "-m", "pytest"],
+                runner_argv=[*env.argv, "-m", "pytest"] if env.argv else [],
+                runner_available=env.argv is not None,
+                unavailable_reason=None if env.argv else env.reason,
                 working_dir=working_dir,
                 evidence=EvidenceRef(file=path, label="test_framework", snippet=why),
+                environment=env.reason,
+                environment_owner=env.owner,
             )
         )
 
@@ -254,16 +327,18 @@ def _detect_python(files: RepoFiles) -> list[FrameworkDetection]:
         source_file = unittest_files[0]
         # unittest resolves dotted module paths from the directory it runs in,
         # so anchor it at the repository root.
-        argv, from_venv = _repo_python(files.root)
+        env = resolve_python_environment(files.root)
         why = "test module builds on unittest.TestCase"
-        if not from_venv:
-            why = f"{why}; no repo virtualenv found, using `python3`"
         detections.append(
             FrameworkDetection(
                 framework=FRAMEWORK_UNITTEST,
                 language="python",
-                runner_argv=[*argv, "-m", "unittest"],
+                runner_argv=[*env.argv, "-m", "unittest"] if env.argv else [],
+                runner_available=env.argv is not None,
+                unavailable_reason=None if env.argv else env.reason,
                 evidence=EvidenceRef(file=source_file.path, label="test_framework", snippet=why),
+                environment=env.reason,
+                environment_owner=env.owner,
             )
         )
     return detections
@@ -739,6 +814,15 @@ def execute_mapped_test(
     return execution
 
 
+def environment_notes(detections: list[FrameworkDetection]) -> list[str]:
+    """Which environment each detected runner uses, why, and whose it is."""
+    return [
+        f"test_environment={item.framework} owner={item.environment_owner} "
+        f"interpreter={item.runner_argv[0] if item.runner_argv else 'none'} reason={item.environment}"
+        for item in detections if item.environment
+    ]
+
+
 def execute_mapped_tests(
     *,
     tests: list[MappedTest],
@@ -754,6 +838,7 @@ def execute_mapped_tests(
         "test_frameworks_detected="
         + (",".join(sorted({item.framework for item in detections})) if detections else "none")
     ]
+    notes.extend(environment_notes(detections))
     for detection in detections:
         if not detection.runner_available:
             notes.append(
@@ -868,9 +953,13 @@ class _CiCandidate:
     framework: str
 
 
+#: Tools whose `run` may create, sync or install into an environment before running.
+_ENVIRONMENT_MANAGERS = frozenset({"uv", "poetry", "pipenv", "pdm", "hatch", "rye"})
+
+
 def _resolve_declared_runner_argv(
     command: list[str], detections: list[FrameworkDetection]
-) -> tuple[list[str], str, str]:
+) -> tuple[list[str], str, str] | None:
     """Re-point a declared `pytest`/`jest`/`mocha` command at the
     environment-resolved binary/interpreter an existing detection already
     found (repo virtualenv, `node_modules/.bin`), rather than whatever
@@ -880,13 +969,21 @@ def _resolve_declared_runner_argv(
     matching detection exists.
     """
     head = command[0]
+    if head in _ENVIRONMENT_MANAGERS:
+        # `uv run [opts] pytest ...` (poetry/pipenv/pdm/hatch alike) syncs or installs into the
+        # target environment before running: never executed as declared. Its runner command
+        # is re-pointed at the resolved target environment, or the candidate is dropped.
+        runner_at = next((i for i, token in enumerate(command) if token in {FRAMEWORK_PYTEST, FRAMEWORK_JEST, FRAMEWORK_MOCHA}), None)
+        if runner_at is None:
+            return None
+        command, head = command[runner_at:], command[runner_at]
     if head not in {FRAMEWORK_PYTEST, FRAMEWORK_JEST, FRAMEWORK_MOCHA}:
         return command, ".", head
     detection = next(
         (item for item in detections if item.framework == head and item.runner_available), None,
     )
     if detection is None:
-        return command, ".", head
+        return None if head == FRAMEWORK_PYTEST else (command, ".", head)
     return [*detection.runner_argv, *command[1:]], detection.working_dir, head
 
 
@@ -901,7 +998,10 @@ def _build_ci_candidates(
     seen: set[tuple[str, ...]] = set()
 
     for command, source in _workflow_test_commands(files):
-        argv, working_dir, framework = _resolve_declared_runner_argv(command, detections)
+        resolved = _resolve_declared_runner_argv(command, detections)
+        if resolved is None:  # needs an environment manager / no target environment: not run
+            continue
+        argv, working_dir, framework = resolved
         key = (source, *argv)
         if key in seen:
             continue
@@ -1096,6 +1196,7 @@ def run_ci_suite(
         "test_frameworks_detected="
         + (",".join(sorted({item.framework for item in detections})) if detections else "none")
     ]
+    notes.extend(environment_notes(detections))
     if not settings.enabled:
         return None, [*notes, "ci_suite=disabled"]
 

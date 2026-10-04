@@ -58,6 +58,7 @@ from typing import TYPE_CHECKING
 from sydes.llm.client import LLMClient, LLMClientError, LLMRequest
 from sydes.recovery.schema import (
     PROVENANCE_AI_RECOVERY,
+    PROVENANCE_EXPLICIT_RELATION,
     PROVENANCE_AI_RECOVERY_EXHAUSTED,
     PathRecoveryResult,
     RecoveredEdge,
@@ -269,7 +270,7 @@ def _verify_edges(
         reason1 = _evidence_layer1(edge.evidence, (edge.from_entity.symbol, edge.to_entity.symbol), tools)
         if reason1 is not None:
             layer1_rejections[i] = reason1
-        else:
+        elif edge.provenance != PROVENANCE_EXPLICIT_RELATION:  # explicit relations are not put to a model
             survivors.append((i, edge))
 
     llm_verdicts: dict[int, tuple[bool, str]] = {}
@@ -304,6 +305,10 @@ def _verify_edges(
                 "status": STATUS_UNRESOLVED, "provenance": PROVENANCE_AI_RECOVERY_EXHAUSTED,
                 "rejection_reason": layer1_rejections[i],
             }))
+        elif edge.provenance == PROVENANCE_EXPLICIT_RELATION:
+            # an explicit call already in the code: Layers 0/1 checked its identity and cited
+            # line; no model verdict may downgrade it
+            verified.append(edge.model_copy(update={"status": STATUS_ESTABLISHED}))
         else:
             accept, reason = llm_verdicts.get(i, (False, "no verifier verdict recorded"))
             if accept:

@@ -85,3 +85,13 @@ def native_code_intelligence_in_tests(monkeypatch) -> None:
     the native parser, and starting a CBM session per test would dominate the suite.
     Tests about backend selection clear this (`monkeypatch.delenv`)."""
     monkeypatch.setenv("SYDES_CODE_INTELLIGENCE", "native")
+
+
+@pytest.fixture(autouse=True)
+def test_python_for_fixture_repositories(monkeypatch) -> None:
+    """Fixture repositories in this suite have no environment of their own; their tests run
+    with this interpreter, chosen explicitly (`SYDES_TEST_PYTHON`) as a user would. Tests
+    about environment resolution clear it."""
+    import sys
+
+    monkeypatch.setenv("SYDES_TEST_PYTHON", sys.executable)

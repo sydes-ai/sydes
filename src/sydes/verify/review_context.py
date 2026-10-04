@@ -113,3 +113,34 @@ def select_related_code(
         notes.append(f"code_review_context_added: {target['file']}:{target.get('name')} -- {reason}")
     notes.append(f"code_review_context_related={len(entries)}")
     return entries, notes
+
+
+MAX_REVIEW_QUESTIONS = 10
+
+
+def review_questions(*, semantic_analysis: Any | None, framework_candidates: list[dict[str, Any]]) -> list[dict[str, str]]:
+    """Open questions earlier analysis raised about this change, handed to code review as
+    questions -- never as findings or conclusions: the change analysis' investigation hints,
+    uncertainties and unverified local risks, and what structural enrichment could not
+    establish at a framework boundary. Review decides from the supplied evidence whether any
+    of them is an actual defect."""
+    questions: list[dict[str, str]] = []
+
+    def add(source: str, text: Any) -> None:
+        text = " ".join(str(text or "").split())
+        if text and len(questions) < MAX_REVIEW_QUESTIONS and all(q["question"] != text for q in questions):
+            questions.append({"source": source, "question": text})
+
+    if semantic_analysis is not None:
+        for hint in getattr(semantic_analysis, "investigation_hints", []) or []:
+            add("change analysis: to investigate", getattr(hint, "description", hint))
+        for risk in getattr(semantic_analysis, "local_risks", []) or []:
+            add("change analysis: unverified risk", getattr(risk, "description", risk))
+        for item in getattr(semantic_analysis, "uncertainties", []) or []:
+            add("change analysis: uncertain", item)
+    for candidate in framework_candidates or []:
+        if candidate.get("status") != "unresolved":
+            continue
+        for missing in candidate.get("missing") or []:
+            add(f"structural analysis: unresolved {candidate.get('category')} at {candidate.get('source_symbol')}", missing)
+    return questions

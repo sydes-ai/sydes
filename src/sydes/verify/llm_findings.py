@@ -166,6 +166,7 @@ def build_code_review_context(
     diff_text: str,
     repo_root: Path | None = None,
     related_code: list[dict[str, Any]] | None = None,
+    review_questions: list[dict[str, str]] | None = None,
 ) -> dict[str, Any]:
     """Deterministic-only context for the independent code-review branch.
 
@@ -239,6 +240,10 @@ def build_code_review_context(
         # source the changed code calls/constructs near its changed lines, and its callers --
         # deterministic graph facts (see `sydes.verify.review_context`), never conclusions
         context["related_code"] = related_code
+    if review_questions:
+        # open questions earlier stages raised -- questions to answer from the evidence,
+        # never findings (see `sydes.verify.review_context.review_questions`)
+        context["review_questions"] = review_questions
     return context
 
 
@@ -277,6 +282,7 @@ def _bounded_prompt(
         limit=context_chars(MAX_PROMPT_CHARS, model_spec) + extra_budget,
         full_diff=str(context.get("diff") or ""),
         trims=[
+            trim_list("review_questions", 5),
             trim_list("related_code", 4),
             _drop_regions(6),
             trim_list("affected_flows", 3),
@@ -295,7 +301,12 @@ _CODE_FINDINGS_HEADER = (
     "You are given the change itself — the diff, the changed files and symbols, and the "
     "source of the changed regions — and, under `related_code`, the source of repository code "
     "the changed code calls or constructs next to its changed lines (or that calls it), each "
-    "with the structural reason it was included. Reason from that alone.\n"
+    "with the structural reason it was included. Under `review_questions` you are given open "
+    "questions earlier analysis raised about this change. They are questions, not findings and "
+    "not conclusions: answer each from the supplied evidence. Raise a finding for one only when "
+    "the evidence shows the implementation is unsafe or incomplete, or that a guarantee the "
+    "change itself claims (in its code, comments, tests or changelog) is not established by the "
+    "code; otherwise it stays an open question and you stay silent about it.\n"
     "Report a finding only for a defect in one of these classes:\n"
     "- null/nil/undefined failure\n"
     "- wrong conditional or inverted branch\n"
@@ -321,10 +332,18 @@ _CODE_FINDINGS_HEADER = (
     "2. A concrete input/state/execution condition that triggers the failure.\n"
     "3. The observable incorrect result or failure.\n"
     "4. The supplied code that establishes 1-3 — cite it as `evidence_snippet`.\n"
-    "If any of the four depends on code or behavior NOT present in the supplied context — another "
-    "caller, a middleware, a permission layer, 'the rest of the system' — you cannot establish it "
-    "here. Do not emit the finding; that gap belongs to risk/uncertainty analysis, a separate "
-    "concern this pass does not perform.\n"
+    "What counts as supplied evidence: the diff and changed regions, the source under "
+    "`related_code`, and the defined semantics of the programming language itself (how calls, "
+    "exceptions, `finally` blocks, generators and async generators, iteration, context managers "
+    "and closing behave). A finding may cross from the changed code into supplied related code: "
+    "when the changed code's correctness depends on an assumption, and the supplied code together "
+    "with language semantics shows that assumption is not guaranteed, that is a defect you can "
+    "establish — cite the supplied code that shows it (`evidence_snippet` may quote "
+    "`related_code`).\n"
+    "If any of the four depends on code or behavior that is NOT supplied and is not language "
+    "semantics — an unseen caller, a middleware, a permission layer, how an unsupplied library "
+    "or framework behaves, 'the rest of the system' — you cannot establish it here. Do not emit "
+    "the finding; that gap belongs to risk/uncertainty analysis.\n"
     "Before claiming a field, parameter, or value is missing, unchecked, or absent, re-read the "
     "FULL supplied context — not just the diff hunk — for the same object/schema/definition the "
     "claim is about. A constraint declared elsewhere in that same object (e.g. a sibling field "
@@ -393,7 +412,7 @@ _CODE_FINDINGS_HEADER = (
     "state the concrete trigger — the input or state that reaches it — and the resulting "
     "observable failure. Together they must read as premises 1-3 of the evidentiary standard "
     "above, not as a risk statement.\n"
-    "- `evidence_snippet` must be copied verbatim from the supplied diff or changed region.\n"
+    "- `evidence_snippet` must be copied verbatim from the supplied diff, changed region or related_code.\n"
     "- Do not invent files, symbols, or behavior not visible in the provided context.\n"
     "Default to silence. Most changes contain no defect, and a security-sensitive change with no "
     "demonstrated broken control is one of the most common cases where silence is correct. "

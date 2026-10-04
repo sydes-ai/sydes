@@ -1176,6 +1176,29 @@ def _render_headline_default(result: ChangeVerificationResult, lines: list[str])
         lines.append(f"{risk} RISK")
 
 
+_MAX_DEFAULT_FINDING_CHARS = 360
+
+
+def _render_code_review_default(result: ChangeVerificationResult, lines: list[str]) -> None:
+    """Code review findings when `--code-review` produced any: advisory, never part of the
+    verdict, but shown -- a requested review whose findings only `--verbose` reveals is lost."""
+    if not result.code_findings:
+        return
+    _header(lines, "Code review (advisory; excluded from the verdict)")
+    for index, finding in enumerate(result.code_findings):
+        if index:
+            lines.append("")
+        location = f"{finding.file}:{finding.line}" if finding.line else (finding.file or "")
+        lines.append(f"[{finding.severity}] {finding.title}")
+        lines.append(f"  {location}")
+        for label, text in (("Why", finding.explanation), ("Impact", finding.impact), ("Fix", finding.suggested_fix)):
+            if text:
+                text = " ".join(text.split())
+                if len(text) > _MAX_DEFAULT_FINDING_CHARS:
+                    text = text[: _MAX_DEFAULT_FINDING_CHARS - 1] + "…"
+                lines.append(f"  {label}: {text}")
+
+
 def _render_default_report(result: ChangeVerificationResult) -> str:
     """The concise report a developer opening a PR reads in ~20 seconds:
     what changed, how it propagates, what evidence covers it, what remains
@@ -1193,6 +1216,7 @@ def _render_default_report(result: ChangeVerificationResult) -> str:
     _render_behavioral_default(result, lines)
     _render_inferred_boundaries_default(result, lines)
     _render_inferred_impact_default(result, lines)
+    _render_code_review_default(result, lines)
 
     obligations = _required_obligations_default(result)
     if obligations:

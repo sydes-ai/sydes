@@ -35,6 +35,7 @@ discard test recovery, and vice versa — see `recover`.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -46,6 +47,7 @@ from sydes.recovery.evidence import decompose_relationship, prove_relationship, 
 from sydes.recovery.graph_path import propose_graph_path
 from sydes.recovery.graph_tools import CBMGraphTools
 from sydes.recovery.schema import (
+    PROVENANCE_EXPLICIT_RELATION,
     EntityRef,
     MAX_BRIDGE_NODES,
     PathRecoveryResult,
@@ -60,7 +62,7 @@ from sydes.recovery.schema import (
     TestRecoveryResult,
     recompute_test_status,
 )
-from sydes.recovery.tools import RepoTools, ToolCallRecord
+from sydes.recovery.tools import RepoToolError, RepoTools, ToolCallRecord, _resolve_within_repo
 from sydes.recovery.verify import verify_paths, verify_tests
 
 
@@ -122,6 +124,8 @@ class RecoveryRunStats:
     pipeline_retries: int = 0
     files_read: list[str] = field(default_factory=list)
     recursive_decompositions_attempted: int = 0
+    #: hops reused from an explicit relation (code-graph CALLS edge or the caller's own source)
+    explicit_relation_edges: int = 0
     recursive_decompositions_used: int = 0
     #: How many candidate paths `sydes.recovery.graph_path.propose_graph_path`
     #: proposed (one attempt per changed symbol, see `recover`), and how
@@ -192,6 +196,68 @@ def _prove_once_more_if_still_unresolved(
     return current
 
 
+_DEF_RE = re.compile(
+    r"^\s*(?:async\s+def|def|async\s+function|function|(?:public|private|protected|static|async|\s)*)"
+    r"\s*(?P<name>[A-Za-z_$][\w$]*)\s*\("
+)
+
+
+def explicit_call_edge(from_entity: EntityRef, to_entity: EntityRef, *, tools: RepoTools) -> RecoveredEdge | None:
+    """An explicit call already in the code, reused instead of asked of a model: the
+    code graph's CALLS edge first, then the literal call inside the caller's own body (a
+    bounded read of one file). The edge is established as an explicit relation; its
+    evidence is the call line, so it still passes the deterministic identity/evidence
+    checks, and no model verdict can downgrade it. None when neither finds the call."""
+    if not from_entity.file or not to_entity.file:
+        return None
+    caller, callee = from_entity.symbol.rsplit(".", 1)[-1], to_entity.symbol.rsplit(".", 1)[-1]
+    graph = getattr(tools, "_graph", None)
+    line = graph.call_site(caller, from_entity.file, callee, to_entity.file) if graph is not None else None
+    source = "code graph CALLS edge"
+    if not line:
+        line = _call_line_in_body(_raw_source(tools, from_entity.file), caller, callee)
+        source = "the caller's own source"
+    if not line:
+        return None
+    return RecoveredEdge(
+        **{"from": from_entity, "to": to_entity},
+        relationship=f"{caller} calls {callee} directly ({source})",
+        evidence=[RecoveredEvidence(file=from_entity.file, line_start=line, line_end=line,
+                                    fact=f"{caller} calls {callee} at this line")],
+        status=STATUS_ESTABLISHED, provenance=PROVENANCE_EXPLICIT_RELATION,
+    )
+
+
+def _raw_source(tools: RepoTools, path: str) -> str:
+    try:
+        return _resolve_within_repo(tools._repo_root, path).read_text(encoding="utf-8", errors="replace")
+    except (OSError, RepoToolError):
+        return ""
+
+
+def _call_line_in_body(text: str, caller: str, callee: str) -> int | None:
+    """The first line inside `caller`'s body (by indentation) that calls `callee(`."""
+    if not text:
+        return None
+    call = re.compile(rf"(?<![\w$.]){re.escape(callee)}\s*\(|\.{re.escape(callee)}\s*\(")
+    inside, indent = False, -1
+    for number, raw in enumerate(text.splitlines(), start=1):
+        stripped = raw.strip()
+        if not stripped:
+            continue
+        current = len(raw) - len(raw.lstrip())
+        if inside and current <= indent and not stripped.startswith((")", "}", "@", "#")):
+            inside = False
+        match = _DEF_RE.match(raw)
+        declares = stripped.startswith(("def ", "async def", "function", "async function")) or stripped.endswith("{")
+        if match and match.group("name") == caller and declares:
+            inside, indent = True, current
+            continue
+        if inside and call.search(raw):
+            return number
+    return None
+
+
 def _prove_hop_with_recursion(
     from_entity: EntityRef, to_entity: EntityRef, path_context: str, *, tools: RepoTools, client: LLMClient,
     budget: RecoveryBudget, stats: RecoveryRunStats,
@@ -211,6 +277,10 @@ def _prove_hop_with_recursion(
     evidence — never in place of decomposition, only after it has already
     had its one attempt.
     """
+    explicit = explicit_call_edge(from_entity, to_entity, tools=tools)
+    if explicit is not None:
+        stats.explicit_relation_edges += 1
+        return [explicit]
     direct = prove_relationship(
         from_entity, to_entity, path_context, tools=tools, client=client,
         max_turns=budget.max_edge_turns, max_response_chars=budget.max_response_chars, stats=stats,
@@ -236,6 +306,11 @@ def _prove_hop_with_recursion(
     edges: list[RecoveredEdge] = []
     for a, b in zip(chain, chain[1:]):
         sub_context = f"{path_context} (intermediate hop found via recursive decomposition)"
+        known = explicit_call_edge(a, b, tools=tools)
+        if known is not None:
+            stats.explicit_relation_edges += 1
+            edges.append(known.model_copy(update={"from_decomposition": True}))
+            continue
         edge = prove_relationship(
             a, b, sub_context, tools=tools, client=client,
             max_turns=budget.max_edge_turns, max_response_chars=budget.max_response_chars, stats=stats,

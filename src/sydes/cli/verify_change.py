@@ -551,7 +551,29 @@ def run_metrics(result: ChangeVerificationResult, *, wall_seconds: float) -> dic
     match = re.search(r"cbm_requests=(\d+)", enrichment)
     usage["cbm"]["enrichment_requests"] = int(match.group(1)) if match else 0
     usage["wall_seconds"] = round(wall_seconds, 1)
+    usage["tests"] = _test_metrics(result)
     return usage
+
+
+def _test_metrics(result: ChangeVerificationResult) -> dict:
+    """The test environment(s) used and what the mapped test runs produced."""
+    executions = {}
+    for flow in result.affected_flows:
+        for obligation in flow.obligations:
+            for execution in obligation.executions:
+                executions.setdefault(execution.test_id, execution)
+    outcomes: dict[str, int] = {}
+    for execution in executions.values():
+        key = f"unavailable:{execution.blocker}" if execution.blocker else execution.status
+        outcomes[key] = outcomes.get(key, 0) + 1
+    suite = result.ci_suite
+    return {
+        "environments": sorted({item.split(" ", 1)[1] for item in result.diagnostics if item.startswith("test_environment=")}),
+        "mapped_executions": len(executions),
+        "mapped_outcomes": outcomes,
+        "ci_suite": None if suite is None else {"status": suite.status, "blocker": suite.blocker,
+                                                 "passed": suite.tests_passed, "failed": suite.tests_failed},
+    }
 
 
 def run_metrics_line(metrics: dict) -> str:
@@ -562,7 +584,9 @@ def run_metrics_line(metrics: dict) -> str:
         f"run_metrics: wall_seconds={metrics['wall_seconds']} llm_calls={totals['calls']} ({purposes or 'none'}) "
         f"llm_errors={totals['errors']} input_tokens={totals['input_tokens']} output_tokens={totals['output_tokens']} "
         f"estimated_cost_usd={cost if cost is not None else f'unavailable (set {PRICE_ENV_VAR})'} "
-        f"cbm_requests={metrics['cbm']['calls']} cbm_enrichment_requests={metrics['cbm']['enrichment_requests']}"
+        f"cbm_requests={metrics['cbm']['calls']} cbm_enrichment_requests={metrics['cbm']['enrichment_requests']} "
+        f"test_executions={metrics.get('tests', {}).get('mapped_executions', 0)} "
+        f"test_outcomes={metrics.get('tests', {}).get('mapped_outcomes', {})}"
     )
 
 
@@ -661,7 +685,8 @@ def _run_ai_recovery(
         f"edge_retries_succeeded={outcome.stats.edge_retries_succeeded} "
         f"graph_paths_proposed={outcome.stats.graph_paths_proposed} "
         f"graph_paths_established={outcome.stats.graph_paths_established} "
-        f"graph_paths_established_unverified_boundary={outcome.stats.graph_paths_established_unverified_boundary}"
+        f"graph_paths_established_unverified_boundary={outcome.stats.graph_paths_established_unverified_boundary} "
+        f"explicit_relation_edges={outcome.stats.explicit_relation_edges}"
     )
 
     if json_output is not None:
