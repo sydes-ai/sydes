@@ -25,7 +25,6 @@ from sydes.impact.models import (
     BOUNDARY_API,
     BOUNDARY_ASYNC,
     BOUNDARY_CALLABLE,
-    IMPACT_STATUS_INFERRED,
     IMPACT_STATUS_PROVEN,
     SymbolIdentity,
 )
@@ -459,18 +458,17 @@ def test_j_semantic_hint_with_no_structural_edges_at_all_produces_no_boundary() 
 
 
 def test_j_signature_only_reference_never_becomes_a_boundary_or_proven_impact() -> None:
-    """A changed *type* named only in a handler's signature — the weakest
-    evidence the interpreter produces. It must not appear in `boundaries`
-    (this traversal never walks signature references at all) and the
-    existing entrypoint record it does produce must be INFERRED, not
-    PROVEN — the prior soundness fix `_record(status=...)` still holds."""
+    """A changed *type* named only in a handler's signature. It must not appear
+    in `boundaries` (this traversal never walks signature references at all),
+    and with no symbol model resolving the name to the changed type's own
+    definition it is a spelling, not a reference: no affected record at all
+    (see test_signature_reference_identity.py for the resolved case)."""
     f = facts(entrypoints=[entrypoint("update_item", method="PUT", path="/items/{id}")])
     f.entrypoints[0]["signature"] = "(item_in: ItemUpdate, db: Session)"
     result = interpret(changed("ItemUpdate"), f)
 
     assert result.boundaries == []
-    assert len(result.affected) == 1
-    assert result.affected[0].status == IMPACT_STATUS_INFERRED
+    assert result.affected == []
 
 
 def test_semantically_relevant_candidate_is_emitted_before_an_unrelated_one() -> None:

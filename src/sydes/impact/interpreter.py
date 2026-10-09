@@ -256,10 +256,11 @@ class ImpactInterpreter:
                 reached = True
 
             for path, target in self._signature_references(symbol, index):
-                # Weakest evidence this module produces — see `_record`'s
-                # docstring. Never PROVEN on the strength of a signature
-                # reference alone.
-                self._record(found, target, name, path, index, status=IMPACT_STATUS_INFERRED)
+                # A repository-resolved reference: deterministic evidence, so it
+                # is recorded like every other deterministic strategy, never as
+                # the guide's inference (`IMPACT_STATUS_INFERRED` means exactly
+                # that). The path keeps its own strategy for the reader.
+                self._record(found, target, name, path, index)
                 reached = True
 
             if not reached:
@@ -1143,7 +1144,7 @@ class ImpactInterpreter:
                 # changed symbol would miss every composed case, because the
                 # new symbol never appears in a decorator itself.
                 for referrer in index.entrypoints_referencing_any(
-                    _reference_names(predecessor_identity)
+                    _reference_names(predecessor_identity, index)
                 ):
                     reference_step = ImpactStep(
                         symbol=referrer["symbol"],
@@ -1192,14 +1193,14 @@ class ImpactInterpreter:
         """
         identity = index.identity_of(symbol)
         seen: dict[str, dict[str, Any]] = {}
-        for name in _reference_names(identity):
+        for name in _reference_names(identity, index):
             for entry in index.entrypoints_referencing(name):
                 key = entry.get("qualified_name") or entry["symbol"]
                 seen.setdefault(key, entry)
         out = []
         for entry in seen.values():
             matched = next(
-                (name for name in _reference_names(identity)
+                (name for name in _reference_names(identity, index)
                  if name in _identifiers_outside_string_literals(str(entry.get("decorators") or ""))),
                 identity.short_name,
             )
@@ -1228,18 +1229,17 @@ class ImpactInterpreter:
         its own short name.
         """
         identity = index.identity_of(symbol)
-        seen: dict[str, dict[str, Any]] = {}
-        for name in _reference_names(identity):
+        names = _reference_names(identity, index)
+        seen: dict[str, tuple[dict[str, Any], str]] = {}
+        for name in names:
             for entry in index.entrypoints_with_signature_reference(name):
-                key = entry.get("qualified_name") or entry["symbol"]
-                seen.setdefault(key, entry)
+                # the name in the signature must denote this very symbol (or its
+                # owner), not merely be spelled the same
+                if not index.resolves_to(name, str(entry.get("file") or ""), identity.file):
+                    continue
+                seen.setdefault(entry.get("qualified_name") or entry["symbol"], (entry, name))
         out = []
-        for entry in seen.values():
-            matched = next(
-                (name for name in _reference_names(identity)
-                 if name in _identifiers_outside_string_literals(str(entry.get("signature") or ""))),
-                identity.short_name,
-            )
+        for entry, matched in seen.values():
             step = ImpactStep(
                 symbol=entry["symbol"],
                 qualified_name=entry.get("qualified_name", ""),
@@ -1264,16 +1264,12 @@ class ImpactInterpreter:
     ) -> None:
         """Record one deterministically-reached entrypoint.
 
-        `status` defaults to `IMPACT_STATUS_PROVEN` for every strategy except
-        `_signature_references` — a changed *type* merely named in an
-        entrypoint's signature is the weakest evidence this module produces
-        (no call, no usage, no decorator reference: just a name appearing in
-        a type annotation), and must not read as established behavioral
-        impact on its own. If a *stronger* path later reaches the same
-        entrypoint (a real call/usage/decorator-reference from a different
-        changed symbol), it upgrades an existing weak record to PROVEN —
-        never the reverse: nothing here ever downgrades an already-PROVEN
-        entry.
+        `status` defaults to `IMPACT_STATUS_PROVEN`, the status of every
+        deterministic strategy (`_signature_references` included: it records
+        only a reference resolved to the changed symbol's own definition, see
+        `_FactIndex.resolves_to`). If a PROVEN path reaches an entrypoint
+        already recorded otherwise, it upgrades the record -- never the
+        reverse: nothing here ever downgrades an already-PROVEN entry.
 
         This is the one place every deterministic strategy (`_direct`,
         `_reachability`, `_decorator_references`, `_signature_references`,
@@ -1408,17 +1404,21 @@ def _classify(entry: dict[str, Any]) -> str:
     return ENTRYPOINT_UNKNOWN
 
 
-def _reference_names(identity: SymbolIdentity) -> list[str]:
-    """Names under which a reached symbol might be cited in a decorator.
+def _reference_names(identity: SymbolIdentity, index: _FactIndex) -> list[str]:
+    """Names under which a reached symbol might be cited in a decorator or signature.
 
     A dependency is usually declared by its class name while the symbol the
     graph reached is a method on that class, so the owning class is offered
-    alongside the method's own name.
+    alongside the method's own name -- but only when the symbol model
+    establishes that ownership (`_FactIndex.owner_of`). A segment of a
+    qualified name is not an owner by position: CBM qualifies a Java field
+    by its package (`...application.user.passwordEncoder`), and `user` there
+    is a package, not a type anything can be declared as.
     """
     names = [identity.short_name]
-    parts = identity.qualified_name.split(".")
-    if len(parts) >= 2 and parts[-2] and parts[-2] != identity.short_name:
-        names.append(parts[-2])
+    owner = index.owner_of(identity)
+    if owner and owner != identity.short_name:
+        names.append(owner)
     return [name for name in names if name not in _UNINFORMATIVE and len(name) >= 3]
 
 
@@ -1692,6 +1692,8 @@ class _FactIndex:
         # that maps to more than one qualified name is left unresolved rather
         # than picked between.
         self._known_qualified: dict[tuple[str, str], str | None] = {}
+        self._supplied_owner: dict[str, str] = {}
+        self._model: tuple[Any, Any, Any] | None = None
 
         def _learn(file: str, name: str, qualified: str) -> None:
             if not file or not name or not qualified:
@@ -1840,6 +1842,7 @@ class _FactIndex:
         qualified = str(symbol.get("qualified_name") or "")
         if "." not in qualified:
             qualified = ""
+        supplied = qualified
         if not qualified:
             learned = self._known_qualified.get((file, name))
             if learned:
@@ -1847,7 +1850,7 @@ class _FactIndex:
         canonical = str(symbol.get("cbm_qualified_name") or "")
         if "." not in canonical:
             canonical = ""
-        return SymbolIdentity.from_fields(
+        identity = SymbolIdentity.from_fields(
             repo=self.repo_of(symbol),
             file=file,
             qualified_name=qualified,
@@ -1855,6 +1858,11 @@ class _FactIndex:
             short_name=name,
             line=symbol.get("start_line") or symbol.get("line"),
         )
+        if supplied:
+            # the change attribution's `Owner.member` form is built from the symbol
+            # model's parsed parent: explicit ownership, unlike a learned graph name
+            self._supplied_owner[identity.key] = supplied.split(".")[-2]
+        return identity
 
     def inbound(
         self, identity: SymbolIdentity
@@ -2003,6 +2011,61 @@ class _FactIndex:
             for entry in self.entrypoints_referencing(name):
                 seen.setdefault(entry.get("qualified_name") or entry["symbol"], entry)
         return [seen[key] for key in sorted(seen)]
+
+    def _symbol_model(self) -> tuple[dict[str, set[str]], dict[tuple[str, str], set[str]],
+                                     dict[str, list[dict[str, Any]]]]:
+        """Name -> defining files, (file, name) -> declared owners, file -> imports, from the
+        symbol index (built once)."""
+        if getattr(self, "_model", None) is None:
+            defined: dict[str, set[str]] = {}
+            parents: dict[tuple[str, str], set[str]] = {}
+            imports: dict[str, list[dict[str, Any]]] = {}
+            for repo_index in (getattr(self.facts, "symbol_index", None) or {}).get("repos", []) or []:
+                if self._repo is not None and repo_index.get("repo") != self._repo:
+                    continue
+                for item in repo_index.get("files", []) or []:
+                    path = str(item.get("path") or "")
+                    imports[path] = [i for i in item.get("imports", []) or [] if isinstance(i, dict)]
+                    for sym in item.get("symbols", []) or []:
+                        name = str(sym.get("name") or "")
+                        if not name:
+                            continue
+                        defined.setdefault(name, set()).add(path)
+                        if sym.get("parent"):
+                            parents.setdefault((path, name), set()).add(str(sym["parent"]))
+            self._model = (defined, parents, imports)
+        return self._model
+
+    def owner_of(self, identity: SymbolIdentity) -> str | None:
+        """The type that owns this symbol, when the symbol model says so: the change
+        attribution's own `Owner.member` name (built from the parsed parent), or a symbol
+        index entry declaring that parent in the symbol's file. Never a qualified-name
+        segment taken by position."""
+        parts = identity.qualified_name.split(".")
+        if len(parts) < 2 or not parts[-2]:
+            return None
+        candidate = parts[-2]
+        if self._supplied_owner.get(identity.key) == candidate:
+            return candidate
+        _defined, parents, _imports = self._symbol_model()
+        return candidate if candidate in parents.get((identity.file, identity.short_name), set()) else None
+
+    def resolves_to(self, name: str, from_file: str, target_file: str) -> bool:
+        """Whether `name`, written in `from_file`, denotes what `target_file` defines: the
+        same file, an import of it resolved to that file, or the repository's only
+        definition of that name. Anything else -- another definition, or none known --
+        is not that symbol."""
+        if not target_file:
+            return False
+        defined, _parents, imports = self._symbol_model()
+        if target_file not in defined.get(name, set()):
+            return False
+        if from_file == target_file:
+            return True
+        for item in imports.get(from_file, []):
+            if name in (item.get("local"), item.get("imported")) and item.get("resolved_file"):
+                return item.get("resolved_file") == target_file
+        return defined.get(name) == {target_file}
 
     def entrypoints_with_signature_reference(self, name: str) -> list[dict[str, Any]]:
         out = []

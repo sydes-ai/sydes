@@ -71,8 +71,9 @@ def _entry(symbol: str, file: str, **overrides) -> dict:
     return base
 
 
-def _facts(entrypoints: list[dict]) -> StructuralFacts:
-    return StructuralFacts(entrypoints=entrypoints, provides_call_graph=True, backend="cbm")
+def _facts(entrypoints: list[dict], symbol_index: dict | None = None) -> StructuralFacts:
+    return StructuralFacts(entrypoints=entrypoints, provides_call_graph=True, backend="cbm",
+                           symbol_index=symbol_index or {})
 
 
 # --------------------------------------------------------------------------
@@ -401,7 +402,12 @@ def test_signature_reference_still_resolves_a_genuine_bare_type() -> None:
             _entry("delete", "examples/pastebin/src/main.rs",
                     route_method="DELETE", route_path="/{id}",
                     signature="(id: PasteId<'_>)", decorators='#[delete("/<id>")]'),
-        ]),
+        ], symbol_index={"repos": [{"repo": REPO, "files": [
+            {"path": "examples/pastebin/src/paste_id.rs", "symbols": [
+                {"name": "PasteId", "kind": "class"},
+                {"name": "new", "kind": "class_method", "parent": "PasteId"}]},
+            {"path": "examples/pastebin/src/main.rs", "symbols": [{"name": "delete", "kind": "function"}]},
+        ]}]}),
     )
     assert [item.label for item in result.affected] == ["DELETE /{id}"]
 

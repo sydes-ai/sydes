@@ -492,6 +492,11 @@ def _extract_express_routes(repo: str, relative_path: str, text: str) -> list[En
     return endpoints
 
 
+#: An explicitly declared request method the parser cannot read (`method = verbs()`).
+UNRESOLVED_METHOD = "ANY"
+_SPRING_METHOD_ATTRIBUTE = re.compile(r"\bmethod\s*=\s*(\{[^}]*\}|[^,)]+)")
+
+
 def _parse_spring_mapping(annotation: str) -> tuple[list[str], str | None]:
     ann = annotation.strip()
     path_value: str | None = None
@@ -508,9 +513,15 @@ def _parse_spring_mapping(annotation: str) -> tuple[list[str], str | None]:
             methods = [method]
             break
     if ann.startswith("@RequestMapping") and not methods:
-        method_match = re.search(r"RequestMethod\.(GET|POST|PUT|PATCH|DELETE|OPTIONS|HEAD)", ann)
-        if method_match:
-            methods = [method_match.group(1)]
+        explicit = _SPRING_METHOD_ATTRIBUTE.search(ann)
+        if explicit:
+            # `method = POST` (statically imported), `RequestMethod.POST`, or a `{...}` list:
+            # each element's last name segment is the constant. One that is not a method
+            # name leaves the mapping's method unresolved -- never a guessed GET.
+            elements = [e.strip() for e in explicit.group(1).strip("{} ").split(",") if e.strip()]
+            constants = [e.rsplit(".", 1)[-1] for e in elements]
+            known = {"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"}
+            methods = constants if constants and all(c in known for c in constants) else [UNRESOLVED_METHOD]
     if not methods:
         methods = ["GET"]
 
@@ -575,7 +586,7 @@ def _extract_spring_routes(repo: str, relative_path: str, text: str) -> list[End
                     route_path = ""
                 full_path = _normalize_basic_path(f"{class_prefix.rstrip('/')}/{route_path.lstrip('/')}" if class_prefix else route_path)
                 for method in methods:
-                    if method not in _HTTP_METHODS:
+                    if method not in _HTTP_METHODS and method != UNRESOLVED_METHOD:
                         continue
                     endpoints.append(
                         EndpointCandidate(

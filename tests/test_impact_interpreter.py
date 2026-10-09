@@ -17,6 +17,7 @@ from sydes.impact import (
     COMPLETENESS_TRUNCATED,
     ENTRYPOINT_DECORATED,
     ENTRYPOINT_HTTP,
+    IMPACT_STATUS_PROVEN,
     RELATION_CALLS,
     RELATION_DECORATOR_REFERENCE,
     RELATION_DIRECT,
@@ -74,7 +75,15 @@ def facts(**kwargs) -> StructuralFacts:
         entrypoints=kwargs.get("entrypoints", []),
         provides_call_graph=True,
         backend="cbm",
+        symbol_index=kwargs.get("symbol_index", {}),
     )
+
+
+def defines(**files: list[str]) -> dict:
+    """A symbol index: each keyword is a file stem under app/, its value the names it defines."""
+    return {"repos": [{"repo": REPO, "files": [
+        {"path": f"app/{stem}.py", "symbols": [{"name": name, "kind": "class"} for name in names]}
+        for stem, names in files.items()]}]}
 
 
 def changed(*names: str, file: str = "app/svc.py") -> list[dict]:
@@ -252,11 +261,13 @@ def test_signature_reference_links_a_changed_type_to_a_handler() -> None:
             entrypoint("update_item", method="PUT", path="/items/{id}",
                        signature="(item_in: ItemUpdate, db: Session)"),
             entrypoint("list_items", method="GET", path="/items", signature="(db: Session)"),
-        ]),
+        ], symbol_index=defines(svc=["ItemUpdate"])),
     )
 
     assert [item.label for item in result.affected] == ["PUT /items/{id}"]
     assert result.affected[0].paths[0].strategy == STRATEGY_SIGNATURE_REFERENCE
+    # a resolved reference is deterministic evidence, never the guide's inference
+    assert result.affected[0].status == IMPACT_STATUS_PROVEN
 
 
 def test_common_type_names_do_not_match_everything() -> None:
@@ -376,6 +387,7 @@ def test_multiple_reasons_for_one_entrypoint_are_all_kept() -> None:
             call_edges=[call_edge("handler", "Thing")],
             entrypoints=[entrypoint("handler", method="GET", path="/h",
                                     signature="(item: Thing)")],
+            symbol_index=defines(svc=["Thing"]),
         ),
     )
 
