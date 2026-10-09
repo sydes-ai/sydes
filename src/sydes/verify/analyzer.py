@@ -22,7 +22,7 @@ named on the command line).
 
 from __future__ import annotations
 
-from collections import defaultdict
+from collections import Counter, defaultdict
 import re
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -86,7 +86,7 @@ from sydes.llm.client import LLMClient, LLMClientError, create_default_llm_clien
 from sydes.trace.call_follower import CallFollowBudgets, build_layered_trace_expansion
 from sydes.trace.expand import prepare_flow_expansion_context, run_flow_expansion
 from sydes.trace.function_body_slicer import slice_resolved_handler_body
-from sydes.trace.handler_resolver import resolve_handler_reference
+from sydes.trace.handler_resolver import canonicalize_proposed_handler, resolve_handler_reference
 from sydes.trace.layered_contract import build_layered_trace_contract
 from sydes.trace.sinks import normalize_sink_candidates
 from sydes.verify.git_change import read_unified_diff, resolve_change_set
@@ -2144,6 +2144,7 @@ def analyze_change(
         changed_files={item.path for item in change.files},
         adjacent_files=candidate_files,
     )
+    _canonicalize_proposed_handlers(routes.routes, handler_index, result)
     _attach_rpc_identities(routes.routes, code_intelligence, primary.name, result)
     result.known_routes = routes.routes
     result.diagnostics.extend(
@@ -2879,6 +2880,35 @@ def _static_definition_resolver(symbol_index: dict[str, Any], repo: str):
         return {"qualified": cands[0]["cbm_qualified_name"], "line": cands[0].get("start_line")}
 
     return resolve
+
+
+def _canonicalize_proposed_handlers(endpoints: list[Any], handler_index: dict | None,
+                                    result: ChangeVerificationResult) -> None:
+    """A model-proposed entrypoint's handler is a lookup hint, never structural identity:
+    before it seeds tracing, selection or flows, it is replaced by the repository symbol it
+    uniquely names (`canonicalize_proposed_handler`). One that names no symbol, or several,
+    is left exactly as proposed -- the deterministic resolver downstream then keeps it
+    unresolved as before; nothing is guessed. Deterministically discovered routes already
+    carry their declaration's own reference and are not touched."""
+    counts: Counter[str] = Counter()
+    for endpoint in endpoints:
+        if not endpoint.handler or str(endpoint.status or "").startswith("deterministic"):
+            continue
+        repo_index = next((item for item in (handler_index or {}).get("repos", []) or []
+                           if item.get("repo") == endpoint.repo), None)
+        canonical, how = canonicalize_proposed_handler(endpoint, repo_index)
+        counts[how.split(":", 1)[0]] += 1
+        if canonical is None:
+            result.diagnostics.append(f"proposed_handler_unresolved: `{endpoint.handler}` in {endpoint.file} ({how})")
+            continue
+        if canonical != endpoint.handler:
+            endpoint.evidence.append(EvidenceRef(
+                file=endpoint.file, symbol=canonical, label="handler_resolved_from_symbol_index",
+                snippet=f"proposed `{endpoint.handler}` -> {canonical} ({how.split(':', 1)[1]})",
+            ))
+            endpoint.handler = canonical
+    if counts:
+        result.diagnostics.append("proposed_handlers: " + " ".join(f"{k}={v}" for k, v in sorted(counts.items())))
 
 
 _RPC_ROUTE_PREFIX = "__grpc__"

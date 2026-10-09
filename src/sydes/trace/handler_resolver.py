@@ -490,3 +490,64 @@ def resolve_handler_reference(
     if result["primary_handler"] is not None:
         result["resolution_chain"] = result["primary_handler"].get("resolution_chain", [])
     return result
+
+
+#: A dotted reference as written in any language (`name`, `Type.member`, `pkg.Type.member`).
+_REFERENCE = re.compile(r"[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*")
+
+
+def canonicalize_proposed_handler(
+    endpoint: EndpointCandidate,
+    handler_symbol_index: dict | None,
+) -> tuple[str | None, str]:
+    """Resolve a model-proposed handler to the repository symbol it names, or nothing.
+
+    The proposal is only a lookup hint: its references (every dotted identifier in it, so a
+    signature or decorated form still yields its name) are matched against the symbol index,
+    strongest evidence first -- a qualified name in the endpoint's own file, a bare name there,
+    then a qualified name and a bare name anywhere in the repository. The first level with
+    any match decides: exactly one invocable symbol resolves, more than one is ambiguous and
+    stays unresolved (never a first hit), none falls to the next level.
+
+    Returns the canonical handler -- the form `resolve_handler_reference` maps back to that
+    same symbol -- and how it was decided (`resolved:<level>`, `ambiguous:<level>`,
+    `no_match`, `not_canonical`)."""
+    if not endpoint.handler or not handler_symbol_index:
+        return None, "no_match"
+    files_by_path, _ = _build_file_maps(handler_symbol_index)
+    refs = list(dict.fromkeys(_REFERENCE.findall(_normalize_qualifier_separators(endpoint.handler))))
+    qualified = {ref for ref in refs if "." in ref}
+    names = {ref.rsplit(".", 1)[-1] for ref in refs}
+    route_file = Path(endpoint.file).as_posix() if endpoint.file else ""
+
+    def invocables(paths: list[str]) -> list[dict]:
+        return [{**s, "file": s.get("file") or path} for path in paths
+                for s in (files_by_path.get(path) or {}).get("symbols", []) or []
+                if isinstance(s, dict) and s.get("kind") in _INVOCABLE_SYMBOL_KINDS]
+
+    local, everywhere = invocables([route_file]), invocables(list(files_by_path))
+    levels = (
+        ("qualified_in_file", [s for s in local if s.get("qualified_name") in qualified]),
+        ("name_in_file", [s for s in local if s.get("name") in names]),
+        ("qualified_in_repo", [s for s in everywhere if s.get("qualified_name") in qualified]),
+        ("name_in_repo", [s for s in everywhere if s.get("name") in names]),
+    )
+    for level, matches in levels:
+        distinct = {(s.get("file"), s.get("qualified_name") or s.get("name"), s.get("start_line")): s
+                    for s in matches}
+        if not distinct:
+            continue
+        if len(distinct) > 1:
+            return None, f"ambiguous:{level}"
+        [symbol] = distinct.values()
+        identity = (symbol.get("qualified_name") or symbol.get("name"), symbol.get("start_line"))
+        for form in dict.fromkeys(f for f in (symbol.get("name"), symbol.get("qualified_name")) if f):
+            primary = resolve_handler_reference(
+                endpoint.model_copy(update={"handler": form, "evidence": []}), handler_symbol_index,
+            ).get("primary_handler") or {}
+            resolved = primary.get("symbol") or {}
+            if ((resolved.get("qualified_name"), resolved.get("start_line")) == identity
+                    and resolved.get("file") in (None, symbol.get("file"))):
+                return form, f"resolved:{level}"
+        return None, "not_canonical"
+    return None, "no_match"
