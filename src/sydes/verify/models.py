@@ -754,6 +754,34 @@ class SemanticInvestigationHint(BaseModel):
     likely_boundary_types: list[str] = Field(default_factory=list)
 
 
+#: What an uncertainty is about. Structural kinds (which route/caller/boundary reaches the
+#: change) are questions later structural analysis can answer; the rest it cannot.
+UNCERTAINTY_ROUTE_IDENTITY = "route_identity"
+UNCERTAINTY_CALLER_REACHABILITY = "caller_reachability"
+UNCERTAINTY_KINDS = frozenset({
+    UNCERTAINTY_ROUTE_IDENTITY, UNCERTAINTY_CALLER_REACHABILITY, "boundary_identity",
+    "runtime_condition", "external_state", "dependency_semantics", "other",
+})
+#: Kinds an established structural path answers outright (which route reaches the change).
+STRUCTURALLY_ANSWERABLE_UNCERTAINTY = frozenset({UNCERTAINTY_ROUTE_IDENTITY})
+#: Kinds established paths inform but do not close: they show which callers exist on the
+#: established paths, never that no other caller exists (exploration is bounded).
+STRUCTURALLY_INFORMED_UNCERTAINTY = frozenset({UNCERTAINTY_CALLER_REACHABILITY})
+
+
+class SemanticUncertainty(BaseModel):
+    """One thing the semantic pass could not establish from the diff, typed by what it is
+    about. `resolved_by` is set by deterministic reconciliation when an established
+    structural path answers it (see `pr_semantic_analysis.reconcile_uncertainties`)."""
+
+    kind: str = "other"
+    text: str
+    symbols: list[str] = Field(default_factory=list)
+    resolved_by: str | None = None
+    #: for a caller question established paths inform but do not close: what is established
+    established_context: str | None = None
+
+
 class ChangeSemanticAnalysis(BaseModel):
     """One bounded, PR-level LLM read of the change as a whole — the
     semantic perspective, complementary to (never a replacement for) Sydes'
@@ -779,7 +807,11 @@ class ChangeSemanticAnalysis(BaseModel):
     #: — but do NOT feed `verification_state`, which stays scoped to
     #: `behavior_changes` only.
     local_risks: list[SemanticRisk] = Field(default_factory=list)
+    #: The user-facing open uncertainties (texts). After reconciliation, items an
+    #: established structural path answered are no longer listed here.
     uncertainties: list[str] = Field(default_factory=list)
+    #: Every uncertainty, typed, including those later answered (`resolved_by`).
+    uncertainty_items: list[SemanticUncertainty] = Field(default_factory=list)
     #: Deterministic, computed from citation verification across
     #: `behavior_changes` (never the model's own confidence) — one of
     #: `SEMANTIC_VERIFICATION_STATES`. See that constant's docstring for the

@@ -68,6 +68,7 @@ from sydes.impact.models import (
     BOUNDARY_SUBTYPE_SERVICE,
     BOUNDARY_UNKNOWN,
     IMPACT_STATUS_INFERRED,
+    IMPACT_STATUS_PROVEN,
     ImpactResult,
     SymbolIdentity,
 )
@@ -152,6 +153,43 @@ def _deterministic_keys(boundaries: list[AffectedBoundary]) -> set[tuple[str, st
         if item.status != IMPACT_STATUS_INFERRED:
             keys.add((item.kind, (item.symbol or item.label or "").lower()))
     return keys
+
+
+def established_http_surfaces(impact_result: ImpactResult) -> list[dict[str, Any]]:
+    """HTTP surfaces structural analysis already ESTABLISHED: proven affected entrypoints
+    with a route, identified by defining file and handler symbol (method/path shown for the
+    model). Inferred entrypoints are not established and are not listed."""
+    out: list[dict[str, Any]] = []
+    for item in impact_result.affected:
+        if item.status != IMPACT_STATUS_PROVEN or not item.route_method:
+            continue
+        out.append({"method": item.route_method, "path": item.route_path, "file": item.file,
+                    "handler": item.symbol.rsplit(".", 1)[-1]})
+    return out
+
+
+def _surface_identity(file: str | None, symbol: str | None) -> tuple[str, str] | None:
+    """Structural identity of an HTTP surface: defining file + bare handler symbol. Never
+    a presentation label."""
+    bare = (symbol or "").rsplit(".", 1)[-1].strip()
+    if not bare:
+        return None
+    return ((file or "").strip().lstrip("./"), bare)
+
+
+def _duplicates_established_surface(boundary: AffectedBoundary, surfaces: list[dict[str, Any]]) -> bool:
+    """An inferred `api` boundary whose structural identity is an established HTTP surface
+    re-presents an established path. Matched by file + handler symbol; with no file, by a
+    handler symbol that identifies exactly one established surface."""
+    if boundary.kind != BOUNDARY_API or not surfaces:
+        return False
+    identity = _surface_identity(boundary.file, boundary.symbol)
+    if identity is None:
+        return False
+    known = {_surface_identity(item.get("file"), item.get("handler")) for item in surfaces}
+    if identity[0]:
+        return identity in known
+    return sum(1 for _, handler in known if handler == identity[1]) == 1
 
 
 def _candidate_records(
@@ -310,6 +348,9 @@ def build_reasoning_packet(
         ],
         # Proven call edges touching the changed symbols or the candidates: facts, never to be
         # described as missing (see rule 11 and `_drop_contradicted_uncertainty`).
+        # HTTP surfaces already ESTABLISHED structurally (identified by file + handler):
+        # never re-proposed as inferred boundaries (rule 12, `_duplicates_established_surface`).
+        "established_http_surfaces": established_http_surfaces(impact_result),
         "established_call_edges": established_call_edges(
             facts, {item.name for item in change.symbols} | {c.get("symbol", "") for c in candidates},
         ),
@@ -414,6 +455,7 @@ Rules — these are absolute:
 9. Do not infer `async` merely because a symbol is decorated; the supplied evidence must actually show event/scheduler/queue semantics. Likewise do not infer `api` merely because a symbol looks web-ish, and do not infer `callable` merely because something is exported or generically "used".
 10. `repo_context` describes the repository's architecture (which package is backend or frontend-only, which is a publishable library, which directories are internal). Use it ONLY to INTERPRET candidates you already have concrete evidence for — e.g. do not propose a backend boundary inside a frontend-only package. `repo_context` PLUS the PR's semantic summary, with no concrete candidate/source/structural fact behind it, is NEVER enough to emit a boundary.
 11. `established_call_edges` are proven call relations. Never say that one of them is missing, not shown, or not established; rely on them as facts.
+12. `established_http_surfaces` are HTTP routes whose path to the change is already established. Never propose an `api` boundary for one of them (same handler and file) — it is not an inference. Propose only a genuinely different boundary.
 
 Do not summarize the PR — that is already done and supplied to you. Answer only the boundary question.
 
@@ -643,6 +685,8 @@ def parse_inferred_boundaries(
         key = (boundary.kind, (boundary.symbol or boundary.label or "").lower())
         if key in established:
             continue  # deterministic proof wins; never duplicate it as inferred
+        if _duplicates_established_surface(boundary, (packet or {}).get("established_http_surfaces") or []):
+            continue  # an established HTTP path is not re-presented as an inferred boundary
         if key in seen:
             continue
         seen.add(key)

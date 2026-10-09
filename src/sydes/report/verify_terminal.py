@@ -657,6 +657,12 @@ def _render_change_analysis_verbose(analysis: ChangeSemanticAnalysis, lines: lis
         lines.append("  Uncertain:")
         for item in analysis.uncertainties:
             lines.append(f"    - {item}")
+    answered = [item for item in analysis.uncertainty_items if item.resolved_by]
+    if answered:
+        lines.append("")
+        lines.append("  Answered by structural analysis:")
+        for item in answered:
+            lines.append(f"    - {item.text} — {item.resolved_by}")
 
 
 #: Roughly a handful — matches `_CHANGED_DEFAULT_CAP`'s own reasoning.

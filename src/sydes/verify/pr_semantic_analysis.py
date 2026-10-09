@@ -55,6 +55,9 @@ from sydes.verify.models import (
     SEMANTIC_VERIFICATION_PARTIALLY_VERIFIED,
     SEMANTIC_VERIFICATION_UNVERIFIED,
     SEMANTIC_VERIFICATION_VERIFIED,
+    STRUCTURALLY_ANSWERABLE_UNCERTAINTY,
+    STRUCTURALLY_INFORMED_UNCERTAINTY,
+    UNCERTAINTY_KINDS,
     ChangeSemanticAnalysis,
     ChangeSet,
     SemanticBehaviorChange,
@@ -62,6 +65,7 @@ from sydes.verify.models import (
     SemanticInvestigationHint,
     SemanticKeySymbol,
     SemanticRisk,
+    SemanticUncertainty,
     normalize_severity,
 )
 
@@ -153,6 +157,12 @@ _SEMANTIC_ANALYSIS_HEADER = (
     "- Distinguish what the diff directly supports, from what is merely likely, from "
     "what needs further investigation, from what cannot be established here at all — "
     "put the last category in `uncertainties` rather than guessing or inventing it.\n"
+    "- Each `uncertainties` entry states ONE concern and its `kind`: `route_identity` (which "
+    "HTTP route/endpoint reaches the changed code), `caller_reachability` (which callers reach "
+    "it), `boundary_identity`, `runtime_condition`, `external_state`, `dependency_semantics`, "
+    "or `other`; list the changed `symbols` it is about. Never combine a structural question "
+    "(which route or caller reaches the code) with a runtime, deployment or dependency question "
+    "in one entry — write two entries.\n"
     "- Describe BEHAVIOR, not syntax: what a user or caller of the system would observe "
     "differently, not which statement was added. Never reuse example wording from these "
     "instructions themselves — describe THIS diff's own behavior, in its own terms.\n"
@@ -237,9 +247,69 @@ _SEMANTIC_ANALYSIS_HEADER = (
     '"likely_boundary_types":["..."],'
     '"local_risks":[{"description":"...","severity":"P0|P1|P2|P3",'
     '"citations":[{"file":"...","line":0,"quoted_text":"..."}]}],'
-    '"uncertainties":["..."],'
+    '"uncertainties":[{"kind":"route_identity|caller_reachability|boundary_identity|runtime_condition|'
+    'external_state|dependency_semantics|other","text":"...","symbols":["..."]}],'
     '"indeterminate":{"is_indeterminate":false,"reason":null,"detail":"..."}}'
 )
+
+
+def _parse_uncertainties(raw: Any) -> list[SemanticUncertainty]:
+    """Typed uncertainties; a bare string (older shape) is kept as kind `other`."""
+    out: list[SemanticUncertainty] = []
+    for item in raw if isinstance(raw, list) else []:
+        if isinstance(item, str) and item.strip():
+            out.append(SemanticUncertainty(text=item.strip()[:400]))
+        elif isinstance(item, dict) and str(item.get("text") or "").strip():
+            kind = str(item.get("kind") or "other").strip().lower()
+            out.append(SemanticUncertainty(
+                kind=kind if kind in UNCERTAINTY_KINDS else "other",
+                text=str(item["text"]).strip()[:400],
+                symbols=_as_str_list(item.get("symbols"), cap=MAX_LIST_ITEMS),
+            ))
+        if len(out) >= MAX_LIST_ITEMS:
+            break
+    return out
+
+
+def reconcile_uncertainties(
+    analysis: ChangeSemanticAnalysis | None, *, established: dict[str, list[str]], changed_symbols: list[str],
+) -> int:
+    """Deterministic reconciliation with later, stronger facts. `established` maps each
+    changed symbol (bare name) to the established HTTP paths that reach it.
+
+    - A `route_identity` uncertainty (which route reaches the change) is answered when every
+      symbol it is about -- or, naming none, every changed program symbol -- is reached by an
+      established path: it leaves the user-facing `uncertainties` and keeps `resolved_by`.
+    - A `caller_reachability` uncertainty stays open (established paths show callers that
+      exist, not that no other caller does) but is listed with what is established, so it
+      can no longer read as if no path were known.
+    - Runtime, external-state, dependency, boundary and other uncertainty is never touched.
+
+    Returns how many were answered. No model call."""
+    if analysis is None or not established or not analysis.uncertainty_items:
+        return 0
+    answered = 0
+    for item in analysis.uncertainty_items:
+        if item.resolved_by:
+            continue
+        structural = item.kind in STRUCTURALLY_ANSWERABLE_UNCERTAINTY
+        informed = item.kind in STRUCTURALLY_INFORMED_UNCERTAINTY
+        if not structural and not informed:
+            continue
+        about = [name.rsplit(".", 1)[-1] for name in (item.symbols or changed_symbols) if name]
+        reached = [name for name in about if name in established]
+        if structural and about and len(reached) == len(about):
+            paths = sorted({path for name in about for path in established[name]})
+            item.resolved_by = "established by structural analysis: " + "; ".join(paths[:6])
+            answered += 1
+        elif informed and reached:
+            paths = sorted({path for name in reached for path in established[name]})
+            item.established_context = "established paths: " + "; ".join(paths[:6])
+    analysis.uncertainties = [
+        f"{item.text} ({item.established_context})" if item.established_context else item.text
+        for item in analysis.uncertainty_items if not item.resolved_by
+    ]
+    return answered
 
 
 def _as_str_list(raw: Any, *, cap: int) -> list[str]:
@@ -444,6 +514,7 @@ def parse_semantic_analysis(raw: dict[str, Any]) -> ChangeSemanticAnalysis:
     is_indeterminate, indeterminate_reason, indeterminate_detail = _parse_indeterminate(
         raw.get("indeterminate")
     )
+    uncertainty_items = _parse_uncertainties(raw.get("uncertainties"))
 
     return ChangeSemanticAnalysis(
         change_summary=str(raw.get("change_summary") or "").strip()[:800],
@@ -452,7 +523,8 @@ def parse_semantic_analysis(raw: dict[str, Any]) -> ChangeSemanticAnalysis:
         investigation_hints=investigation_hints,
         likely_boundary_types=_filtered_boundary_types(raw.get("likely_boundary_types")),
         local_risks=local_risks,
-        uncertainties=_as_str_list(raw.get("uncertainties"), cap=MAX_LIST_ITEMS),
+        uncertainties=[item.text for item in uncertainty_items],
+        uncertainty_items=uncertainty_items,
         # Always the safe default here -- the real, evidence-only value is
         # computed by `_apply_verification` once citations can be checked.
         verification_state=SEMANTIC_VERIFICATION_UNVERIFIED,

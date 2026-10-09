@@ -775,7 +775,7 @@ def test_packet_carries_the_documented_evidence_fields_and_stays_bounded() -> No
         "version", "change_summary", "behavior_changes", "changed_symbols",
         "deterministic_boundaries", "boundary_candidates", "accepted_impacts",
         "unresolved_changed_symbols", "relevant_source_snippets", "repo_context",
-        "uncertainties", "established_call_edges",
+        "uncertainties", "established_call_edges", "established_http_surfaces",
     }
     # No profile supplied — the field exists but stays empty, so boundary
     # reasoning behaves exactly as it did before Increment B.
@@ -824,3 +824,45 @@ def test_uncertainty_without_an_established_edge_is_kept() -> None:
     uncertainty = "The supplied snippets do not show the concrete call edge from handler to helper."
     [boundary], _ = run(CountingClient(_response(_boundary("api", uncertainty=uncertainty))))
     assert boundary.uncertainty == uncertainty
+
+
+
+# --------------------------------------------------------------------------
+# Established HTTP surfaces are not re-presented as inferred boundaries
+# --------------------------------------------------------------------------
+
+def _routed(symbol: str, file: str, method: str, path: str) -> AffectedEntrypoint:
+    return AffectedEntrypoint(repo=REPO, symbol=symbol, qualified_name=f"app.{symbol}", file=file,
+                              route_method=method, route_path=path)
+
+
+def test_an_established_http_surface_is_not_inferred_again_whatever_its_label() -> None:
+    impact = ImpactResult(affected=[_routed("dialogue", "app/dev.py", "POST", "/dev/dialogue")])
+    duplicate = _boundary("api", subtype="http", symbol="dialogue", file="app/dev.py",
+                          label="Development dialogue speech streaming")
+    client = CountingClient(_response(duplicate))
+    boundaries, _ = run(client, impact_result=impact)
+    assert boundaries == []
+    packet = json.loads(client.requests[0].prompt.split("Evidence:\n", 1)[1])
+    assert packet["established_http_surfaces"] == [
+        {"method": "POST", "path": "/dev/dialogue", "file": "app/dev.py", "handler": "dialogue"}]
+
+
+def test_a_genuinely_new_inferred_boundary_still_renders() -> None:
+    impact = ImpactResult(affected=[_routed("dialogue", "app/dev.py", "POST", "/dev/dialogue")])
+    new_api = _boundary("api", subtype="http", symbol="handler", file="app/svc.py", label="POST /dev/dialogue")
+    callable_ = _boundary("callable", subtype="service", symbol="dialogue", file="app/dev.py")
+    boundaries, _ = run(CountingClient(_response(new_api, callable_)),
+                        impact_result=ImpactResult(affected=[*impact.affected, _routed("handler", "app/other.py", "GET", "/x")]))
+    # identity is structural: same label as an established route, different handler/file -> kept;
+    # a non-api boundary on the same symbol is a different kind of claim -> kept
+    assert {(b.kind, b.symbol, b.file) for b in boundaries} == {("api", "handler", "app/svc.py"),
+                                                                ("callable", "dialogue", "app/dev.py")}
+
+
+def test_an_inferred_entrypoint_is_not_an_established_surface() -> None:
+    inferred = _routed("dialogue", "app/dev.py", "POST", "/dev/dialogue")
+    inferred.status = "inferred"
+    boundaries, _ = run(CountingClient(_response(_boundary("api", symbol="dialogue", file="app/dev.py"))),
+                        impact_result=ImpactResult(affected=[inferred]))
+    assert [(b.symbol, b.file) for b in boundaries] == [("dialogue", "app/dev.py")]

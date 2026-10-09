@@ -130,7 +130,8 @@ from sydes.verify.models import (
 from sydes.verify.boundary_reasoning import infer_boundaries
 from sydes.verify.mutation import run_mutation_verification
 from sydes.verify.obligations import compute_canonical_id, derive_obligations
-from sydes.verify.pr_semantic_analysis import generate_pr_semantic_analysis
+from sydes.ingest.file_roles import FILE_ROLE_TEST_USAGE_CANDIDATE
+from sydes.verify.pr_semantic_analysis import generate_pr_semantic_analysis, reconcile_uncertainties
 from sydes.verify.repo_profile import get_or_build_repo_profile
 from sydes.verify.runtime import infer_runtime_dependencies
 from sydes.verify.source_files import load_repo_files
@@ -2611,6 +2612,7 @@ def analyze_change(
     for flow in result.affected_flows:
         resolve_flow_status(flow)
     result.accepted_impacts = _build_accepted_impacts(impact_result, result.affected_flows)
+    _reconcile_change_analysis(result, change)
     if impact_result is not None:
         _enrich_framework_boundaries(
             result, impact_result=impact_result, structural=structural, change=change,
@@ -2872,6 +2874,24 @@ def _static_definition_resolver(symbol_index: dict[str, Any], repo: str):
         return {"qualified": cands[0]["cbm_qualified_name"], "line": cands[0].get("start_line")}
 
     return resolve
+
+
+def _reconcile_change_analysis(result: ChangeVerificationResult, change: Any) -> None:
+    """Later, stronger facts dominate the early semantic hypotheses shown to the user: a
+    structural uncertainty (which route / caller reaches the change) that an established HTTP
+    path answers is no longer listed as open. The early analysis still informed ranking,
+    boundary reasoning and review as it was; nothing here calls a model."""
+    established: dict[str, list[str]] = {}
+    for impact in result.accepted_impacts:
+        if impact.status != IMPACT_STATUS_PROVEN or not impact.route_method:
+            continue
+        for symbol in impact.changed_symbols:
+            established.setdefault(symbol.rsplit(".", 1)[-1], []).append(impact.label)
+    test_files = {f.path for f in change.files if f.role == FILE_ROLE_TEST_USAGE_CANDIDATE}
+    changed = [s.name for s in change.symbols if s.file not in test_files and is_program_source(s.file)]
+    answered = reconcile_uncertainties(result.pr_semantic_analysis, established=established, changed_symbols=changed)
+    if answered:
+        result.diagnostics.append(f"change_analysis_uncertainties_answered_by_structure={answered}")
 
 
 def _enrich_framework_boundaries(
