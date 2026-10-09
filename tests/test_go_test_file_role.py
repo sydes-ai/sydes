@@ -16,7 +16,12 @@ from sydes.ingest.file_roles import (
 )
 from sydes.recovery.context import _changed_symbol_entities, _changed_symbols
 from sydes.verify.analyzer import _changed_symbols_for_impact
-from sydes.verify.models import ChangedFile, ChangedSymbol, ChangeSet, ChangeVerificationResult
+from sydes.verify.models import (
+    ChangedFile,
+    ChangedSymbol,
+    ChangeSet,
+    ChangeVerificationResult,
+)
 
 
 def test_go_production_and_test_files_are_told_apart() -> None:

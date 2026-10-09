@@ -763,8 +763,8 @@ def _registration_finish(plan: _Planner, state: dict[str, Any]) -> list[Framewor
             via=f"registers {name}" + (f" (line {caller.props['line']})" if caller.props.get("line") else ""),
             targets=sorted(routes), facts=facts,
             runtime_needed=f"{name} invoked by the framework for requests to routes {container} registers",
-            missing=[f"which of {container}'s routes the framework applies {name} to, and that invocation "
-                     "(framework-mediated, not a call in the source)"],
+            missing=[(f"which of {container}'s routes the framework applies {name} to, and that invocation "
+                      "(framework-mediated, not a call in the source)")],
         ))
     return out
 
@@ -909,11 +909,14 @@ def _route_finish(plan: _Planner, s: dict[str, Any]) -> FrameworkBoundaryCandida
             if symbolic:
                 missing.append(f"mount prefix `{symbolic}` is not a literal; the route as shown omits it")
     if not mounted and receiver:
+        # a bare receiver name means that router only where it is declared; anywhere else it
+        # takes an import resolved to the declaring file (never a same-named, unrelated object)
+        home = {hfile, decl_file}
         for path, item in files.items():
-            aliases = {receiver}
+            aliases = {receiver} if path in home else set()
             for imp in plan.symbols.imports_of(path):
                 # CBM import records: `from m import router as r` is source="router", local="r"
-                if imp.get("resolved_file") == hfile and receiver in (imp.get("source"), imp.get("imported")):
+                if imp.get("resolved_file") in home and receiver in (imp.get("source"), imp.get("imported")):
                     aliases.add(str(imp.get("local") or ""))
             for m in item.get("mount_calls", []) or []:
                 if m.get("child") in aliases:

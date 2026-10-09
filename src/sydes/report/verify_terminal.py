@@ -669,20 +669,18 @@ def _render_change_analysis_verbose(analysis: ChangeSemanticAnalysis, lines: lis
 _BOUNDARY_DEFAULT_CAP = 5
 
 
-#: A code-graph qualified name (`<project>.pkg.module.Symbol`): at least three dots, no spaces.
-_QUALIFIED_NAME = re.compile(r"[\w-]+(?:\.[\w-]+){3,}")
-
-
-def _short_qn(qualified: str) -> str:
-    return ".".join(qualified.split(".")[-2:])
+def _graph_project_prefix(label: str) -> str | None:
+    """The code graph's project segment heading a qualified-name label (`<project>.api.setupRouter`,
+    the project being the repository path with dashes), which no module or symbol name can be."""
+    head, _, rest = (label or "").partition(".")
+    return head if rest and "-" in head and " " not in label else None
 
 
 def _boundary_identity(boundary: AffectedBoundary) -> str:
-    """A boundary's structural identity for display: its label, or -- when the label is a raw
-    code-graph qualified name -- its symbol and defining file."""
-    if _QUALIFIED_NAME.fullmatch(boundary.label or "") and boundary.symbol:
-        return f"{boundary.symbol} ({boundary.file})" if boundary.file else boundary.symbol
-    return boundary.label
+    """A boundary's structural identity for display: its label, without the code graph's
+    project prefix when the label is a raw qualified name."""
+    prefix = _graph_project_prefix(boundary.label)
+    return boundary.label[len(prefix) + 1:] if prefix else boundary.label
 
 
 def _non_http_boundaries(result: ChangeVerificationResult) -> list[AffectedBoundary]:
@@ -757,7 +755,10 @@ def _render_system_impact_default(result: ChangeVerificationResult, lines: list[
             lines.append("")
         lines.append(f"{boundary.kind} · {_boundary_identity(boundary)}")
         for evidence_line in boundary.evidence[:1]:
-            lines.append(f"    {_QUALIFIED_NAME.sub(lambda m: _short_qn(m.group(0)), evidence_line)}")
+            prefix = _graph_project_prefix(boundary.label)
+            if prefix:
+                evidence_line = evidence_line.replace(prefix + ".", "")
+            lines.append(f"    {evidence_line}")
         rendered_anything = True
     if not rendered_anything:
         lines.append("No structural propagation path was established.")

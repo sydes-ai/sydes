@@ -55,8 +55,8 @@ def test_an_established_path_answers_route_questions_and_informs_caller_question
     # a caller question stays open (other callers may exist) but carries what is established;
     # genuine runtime uncertainty and an unanswered route question stay as they were
     assert analysis.uncertainties == [
-        f"{CALLER_Q} (established paths: create_speech → POST /dev/dialogue, POST /v1/audio/speech; "
-        "helper → POST /x)",
+        (f"{CALLER_Q} (established paths: create_speech → POST /dev/dialogue, POST /v1/audio/speech; "
+         "helper → POST /x)"),
         RUNTIME_Q, "Which route reaches orphan is unknown."]
     route = analysis.uncertainty_items[0]
     assert route.resolved_by == "established by structural analysis: POST /dev/dialogue; POST /v1/audio/speech"

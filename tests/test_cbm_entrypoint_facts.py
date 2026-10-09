@@ -85,7 +85,10 @@ def _go_case(tmp_path: Path, *, handles: bool = True, container_routes: bool = T
     ]}]}
     route_index = {"repos": [{"repo": "app", "files": [{"path": "api/server.go", "mount_calls": [], "route_calls": [
         {"receiver": "router", "method": "post", "handler_hint": "server.loginUser", "path": "/users/login",
-         "line": 2, "snippet": DECL}]}]}]}
+         "line": 2, "snippet": DECL}]},
+        # a same-named, unrelated object elsewhere (a frontend `app.use(router)`)
+        {"path": "frontend/src/main.ts", "route_calls": [], "mount_calls": [
+            {"receiver": "app", "prefix": "", "child": "router", "line": 11, "snippet": "app.use(router)"}]}]}]}
     relations = [
         _rel(SETUP, "Method", "api/server.go", "CALLS", AUTH, "Function", "api/middleware.go", line=50),
         _rel(f"{P}.api.TestAuthMiddleware", "Function", "api/middleware_test.go", "CALLS", AUTH, "Function",
@@ -115,7 +118,7 @@ def _go_case(tmp_path: Path, *, handles: bool = True, container_routes: bool = T
 
 
 def test_a_method_value_handler_is_extracted_with_its_reference() -> None:
-    text = "\n".join([DECL, "router.get('/a', auth, controller.list)", "router.post('/b', async (req, res) => {})"])
+    text = f"{DECL}\nrouter.get('/a', auth, controller.list)\nrouter.post('/b', async (req, res) => {{}})"
     read = CandidateFileRead(repo="app", relative_path="api/server.go", role="source_route_candidate",
                              snippet=ReadFileSnippet(repo="app", relative_path="api/server.go", text=text,
                                                      line_count=3, char_count=len(text)))
@@ -135,6 +138,8 @@ def test_handles_is_consumed_and_the_method_and_path_survive(tmp_path: Path) -> 
     declaration = next(f for f in route.facts if " is registered on " in f.fact)
     assert (declaration.file, declaration.line) == ("api/server.go", 2)
     assert "HANDLES" in result.families and client.calls.count("relations") >= 1
+    # a same-named object in a file that does not import the router is not its mount
+    assert not any("frontend/src/main.ts" in (f.file or "") or "is mounted" in f.fact for f in route.facts)
 
 
 def test_without_handles_the_route_says_so_and_nothing_is_inferred(tmp_path: Path) -> None:
@@ -238,8 +243,10 @@ def test_a_boundary_labelled_with_a_raw_qualified_name_renders_its_symbol_and_fi
     from sydes.report.verify_terminal import _boundary_identity
     from sydes.verify.models import AffectedBoundary
 
-    raw = AffectedBoundary(id="b", kind="api", label="private-tmp-x-simplebank.api.Server.setupRouter",
+    raw = AffectedBoundary(id="b", kind="api", label="private-tmp-x-simplebank.api.setupRouter",
                            symbol="setupRouter", file="api/server.go")
-    assert _boundary_identity(raw) == "setupRouter (api/server.go)"
+    assert _boundary_identity(raw) == "api.setupRouter"
+    native = AffectedBoundary(id="d", kind="async", label="app.cleanup", symbol="cleanup")
+    assert _boundary_identity(native) == "app.cleanup"  # a module-qualified label stays as it is
     named = AffectedBoundary(id="c", kind="api", label="Protected HTTP request authorization", symbol="x")
     assert _boundary_identity(named) == "Protected HTTP request authorization"
