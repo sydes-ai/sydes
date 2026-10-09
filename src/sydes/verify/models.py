@@ -778,8 +778,12 @@ class SemanticUncertainty(BaseModel):
     text: str
     symbols: list[str] = Field(default_factory=list)
     resolved_by: str | None = None
-    #: for a caller question established paths inform but do not close: what is established
+    #: for a caller question established paths inform but do not close, or a route question
+    #: established for only some of its subjects: what is established
     established_context: str | None = None
+    #: a route question established for only some subjects: the question restated for the
+    #: subjects still unresolved (the original `text` would deny the established ones)
+    scoped_text: str | None = None
 
 
 class ChangeSemanticAnalysis(BaseModel):

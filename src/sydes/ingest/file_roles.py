@@ -41,6 +41,21 @@ TEST_SUFFIXES = {
 TEST_DIR_MARKERS = {"tests", "test", "__tests__", "spec"}
 
 
+#: Test-file naming conventions not visible to the directory/suffix rules below (Java/
+#: Kotlin `*Test.java`, `*Tests.kt`, ...), for `is_test_path`.
+_CLASS_TEST_SUFFIXES = ("test.java", "tests.java", "test.kt", "tests.kt", "test.cs", "tests.cs")
+
+
+def is_test_path(path: str) -> bool:
+    """True for a test file in any supported language (Go `*_test.go`, Python
+    `test_*.py`/`*_test.py`, JS/TS `.spec`/`.test`, Java/Kotlin/C# `*Test(s)`, test
+    directories, Rust `tests.rs`). The single predicate every production-vs-test decision
+    uses, so test code never masquerades as a changed production symbol."""
+    if classify_candidate_file_role(path) == FILE_ROLE_TEST_USAGE_CANDIDATE:
+        return True
+    return PurePosixPath(path.replace("\\", "/")).name.lower().endswith(_CLASS_TEST_SUFFIXES)
+
+
 def classify_candidate_file_role(path: str) -> str:
     """Classify a candidate file path into source/test/docs/unknown role."""
     normalized = path.replace("\\", "/").strip()

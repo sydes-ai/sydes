@@ -22,7 +22,11 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from sydes.recovery.entrypoint_heuristic import find_declarative_entrypoints, nearby_files
+from sydes.ingest.file_roles import is_test_path
+from sydes.recovery.entrypoint_heuristic import (
+    find_declarative_entrypoints,
+    nearby_files,
+)
 from sydes.recovery.schema import EntityRef
 from sydes.recovery.trigger import RecoveryTrigger
 from sydes.verify.models import ChangeVerificationResult
@@ -152,7 +156,8 @@ def _known_entrypoints(result: ChangeVerificationResult) -> tuple[str, ...]:
 def _changed_symbol_entities(result: ChangeVerificationResult) -> tuple[EntityRef, ...]:
     out: list[EntityRef] = []
     for symbol in result.change.symbols:
-        if not symbol.file:
+        # production targets only: a changed test is not a behavior to find an entrypoint for
+        if not symbol.file or is_test_path(symbol.file):
             continue
         out.append(EntityRef(
             symbol=symbol.qualified_name or symbol.name, file=symbol.file,

@@ -55,14 +55,54 @@ def test_an_established_path_answers_route_questions_and_informs_caller_question
     # a caller question stays open (other callers may exist) but carries what is established;
     # genuine runtime uncertainty and an unanswered route question stay as they were
     assert analysis.uncertainties == [
-        f"{CALLER_Q} (established paths: POST /dev/dialogue; POST /v1/audio/speech; POST /x)",
+        f"{CALLER_Q} (established paths: create_speech → POST /dev/dialogue, POST /v1/audio/speech; "
+        "helper → POST /x)",
         RUNTIME_Q, "Which route reaches orphan is unknown."]
     route = analysis.uncertainty_items[0]
     assert route.resolved_by == "established by structural analysis: POST /dev/dialogue; POST /v1/audio/speech"
-    # a route question naming no symbols is answered only when every changed program symbol is reached
-    partial = _analysis({"kind": "route_identity", "text": ROUTE_Q})
-    assert reconcile_uncertainties(partial, established=established, changed_symbols=["create_speech", "orphan"]) == 0
-    assert partial.uncertainties == [ROUTE_Q]
+
+
+GROUPED_Q = "The supplied diff does not show which concrete HTTP routes invoke loginUser, renewAccessToken, or authMiddleware."
+LOGIN_PATHS = {"loginUser": ["POST /users/login"], "renewAccessToken": ["POST /tokens/renew_access"]}
+
+
+def test_route_question_with_every_subject_established_is_answered() -> None:
+    analysis = _analysis({"kind": "route_identity", "text": GROUPED_Q, "symbols": ["Server.loginUser", "Server.renewAccessToken"]})
+    assert reconcile_uncertainties(analysis, established=LOGIN_PATHS, changed_symbols=[]) == 1
+    assert analysis.uncertainties == []
+
+
+def test_route_question_with_some_subjects_established_is_scoped_to_the_rest() -> None:
+    analysis = _analysis({"kind": "route_identity", "text": GROUPED_Q,
+                          "symbols": ["Server.loginUser", "Server.renewAccessToken", "authMiddleware"]})
+    assert reconcile_uncertainties(analysis, established=LOGIN_PATHS, changed_symbols=[]) == 0
+    [text] = analysis.uncertainties
+    # the established subjects are no longer described as unknown; the unresolved one stays visible
+    assert text == ("Which HTTP route reaches authMiddleware is not established by this analysis. "
+                    "(routes established for the others: loginUser → POST /users/login; "
+                    "renewAccessToken → POST /tokens/renew_access)")
+    assert GROUPED_Q not in text
+    item = analysis.uncertainty_items[0]
+    assert item.text == GROUPED_Q and item.resolved_by is None  # the original stays in the data
+    # never a claim that no other route or caller exists
+    assert "no other" not in text and "only" not in text
+
+
+def test_route_question_with_no_subject_established_is_unchanged() -> None:
+    analysis = _analysis({"kind": "route_identity", "text": GROUPED_Q, "symbols": ["authMiddleware"]})
+    assert reconcile_uncertainties(analysis, established=LOGIN_PATHS, changed_symbols=[]) == 0
+    assert analysis.uncertainties == [GROUPED_Q]
+
+
+def test_caller_questions_stay_conservative_and_runtime_is_untouched() -> None:
+    caller = "Which gRPC methods call authorizeUser, or whether every protected operation passes through it, is not shown."
+    analysis = _analysis(
+        {"kind": "caller_reachability", "text": caller, "symbols": ["Server.loginUser", "authorizeUser"]},
+        {"kind": "runtime_condition", "text": RUNTIME_Q, "symbols": ["Server.loginUser"]},
+    )
+    assert reconcile_uncertainties(analysis, established=LOGIN_PATHS, changed_symbols=[]) == 0
+    assert analysis.uncertainties == [
+        f"{caller} (established paths: loginUser → POST /users/login)", RUNTIME_Q]
 
 
 def test_the_analyzer_reconciles_against_proven_http_impacts_only() -> None:

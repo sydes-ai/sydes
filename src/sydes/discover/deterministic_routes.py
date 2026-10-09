@@ -465,7 +465,10 @@ def _extract_express_routes(repo: str, relative_path: str, text: str) -> list[En
             if "=>" in raw_handler or raw_handler.startswith("(") or raw_handler.startswith("async"):
                 handler = "<inline>"
             else:
-                handler_match = re.match(r"([A-Za-z_]\w*)", raw_handler)
+                # the handler is the last argument (middleware comes first), referenced as
+                # written: `server.loginUser`, `controller.list` -- not its receiver
+                last = raw_handler.rsplit(",", 1)[-1].strip()
+                handler_match = re.match(r"([A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*)", last)
                 handler = handler_match.group(1) if handler_match else "<inline>"
         endpoints.append(
             EndpointCandidate(

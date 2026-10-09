@@ -15,16 +15,17 @@ system analysis enters the review context.
 
 from __future__ import annotations
 
-import re
 from pathlib import Path
 from typing import Any
+
+from sydes.ingest.file_roles import is_test_path
 
 NEAR_CHANGE_LINES = 6
 MAX_RELATED = 8
 MAX_RELATED_CALLERS = 3
 MAX_RELATED_LINES = 120
 MAX_RELATED_CHARS = 5_000
-_TEST_PATH = re.compile(r"(^|/)(tests?|__tests__|spec)(/|$)|\.(spec|test)\.[jt]sx?$|Test\.java$|(^|/)test_[^/]*\.py$")
+
 
 
 def _index_by_qn(symbol_index: dict[str, Any], repo: str) -> dict[str, dict[str, Any]]:
@@ -61,7 +62,7 @@ def select_related_code(
         return [], ["code_review_context_related=none (no code graph for this repository)"]
     by_qn = _index_by_qn(symbol_index, repo)
     changed = [s for s in change.symbols if s.repo == repo and s.cbm_qualified_name
-               and program_source(s.file) and not _TEST_PATH.search(s.file)]
+               and program_source(s.file) and not is_test_path(s.file)]
     if not changed:
         return [], ["code_review_context_related=none (no changed program symbols)"]
     changed_qns = {s.cbm_qualified_name for s in change.symbols if s.cbm_qualified_name}
@@ -78,7 +79,7 @@ def select_related_code(
             if rel.source == symbol.cbm_qualified_name:  # outgoing: what the changed code calls/constructs
                 target = by_qn.get(rel.target)
                 line = rel.props.get("line")
-                if target is None or rel.target in changed_qns or _TEST_PATH.search(target["file"]):
+                if target is None or rel.target in changed_qns or is_test_path(target["file"]):
                     continue
                 if not isinstance(line, int) or not ranges:
                     continue
@@ -93,7 +94,7 @@ def select_related_code(
                     candidates[rel.target] = (distance, reason, target)
             elif rel.target == symbol.cbm_qualified_name:  # incoming: who depends on the changed code
                 caller = by_qn.get(rel.source)
-                if caller is None or rel.source in changed_qns or _TEST_PATH.search(caller["file"]):
+                if caller is None or rel.source in changed_qns or is_test_path(caller["file"]):
                     continue
                 callers.setdefault(rel.source, (0, f"{caller.get('name')} calls the changed {symbol.name}", caller))
 

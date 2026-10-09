@@ -274,18 +274,21 @@ def _parse_uncertainties(raw: Any) -> list[SemanticUncertainty]:
 def reconcile_uncertainties(
     analysis: ChangeSemanticAnalysis | None, *, established: dict[str, list[str]], changed_symbols: list[str],
 ) -> int:
-    """Deterministic reconciliation with later, stronger facts. `established` maps each
-    changed symbol (bare name) to the established HTTP paths that reach it.
+    """Deterministic reconciliation with later, stronger facts, per subject. `established`
+    maps each changed symbol (bare name) to the established HTTP paths that reach it; an
+    uncertainty's subjects are the symbols it names (or, naming none, every changed program
+    symbol).
 
-    - A `route_identity` uncertainty (which route reaches the change) is answered when every
-      symbol it is about -- or, naming none, every changed program symbol -- is reached by an
-      established path: it leaves the user-facing `uncertainties` and keeps `resolved_by`.
-    - A `caller_reachability` uncertainty stays open (established paths show callers that
-      exist, not that no other caller does) but is listed with what is established, so it
-      can no longer read as if no path were known.
+    - `route_identity` (which route reaches the change): established for every subject ->
+      answered (`resolved_by`), no longer listed. Established for some -> restated for the
+      unresolved subjects only (`scoped_text`), with what is established for the others
+      (`established_context`): the original sentence would deny those. For none -> unchanged.
+    - `caller_reachability` stays open (established paths show callers that exist, never that
+      no other caller does) and is listed with the established paths for its subjects.
     - Runtime, external-state, dependency, boundary and other uncertainty is never touched.
 
-    Returns how many were answered. No model call."""
+    No uncertainty may negate a fact established for one of its subjects because another
+    subject is unresolved. Returns how many were fully answered. No model call."""
     if analysis is None or not established or not analysis.uncertainty_items:
         return 0
     answered = 0
@@ -296,20 +299,32 @@ def reconcile_uncertainties(
         informed = item.kind in STRUCTURALLY_INFORMED_UNCERTAINTY
         if not structural and not informed:
             continue
-        about = [name.rsplit(".", 1)[-1] for name in (item.symbols or changed_symbols) if name]
+        about = list(dict.fromkeys(name.rsplit(".", 1)[-1] for name in (item.symbols or changed_symbols) if name))
         reached = [name for name in about if name in established]
-        if structural and about and len(reached) == len(about):
+        if not reached:
+            continue
+        per_subject = "; ".join(f"{name} → {', '.join(sorted(set(established[name]))[:3])}" for name in reached)
+        if structural and len(reached) == len(about):
             paths = sorted({path for name in about for path in established[name]})
             item.resolved_by = "established by structural analysis: " + "; ".join(paths[:6])
             answered += 1
-        elif informed and reached:
-            paths = sorted({path for name in reached for path in established[name]})
-            item.established_context = "established paths: " + "; ".join(paths[:6])
+        elif structural:
+            unresolved = [name for name in about if name not in established]
+            item.scoped_text = (f"Which HTTP route reaches {_join_names(unresolved)} is not established by "
+                                "this analysis.")
+            item.established_context = f"routes established for the others: {per_subject}"
+        else:
+            item.established_context = f"established paths: {per_subject}"
     analysis.uncertainties = [
-        f"{item.text} ({item.established_context})" if item.established_context else item.text
+        f"{item.scoped_text or item.text} ({item.established_context})" if item.established_context
+        else item.scoped_text or item.text
         for item in analysis.uncertainty_items if not item.resolved_by
     ]
     return answered
+
+
+def _join_names(names: list[str]) -> str:
+    return names[0] if len(names) == 1 else ", ".join(names[:-1]) + " or " + names[-1]
 
 
 def _as_str_list(raw: Any, *, cap: int) -> list[str]:

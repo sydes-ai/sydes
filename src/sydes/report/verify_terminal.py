@@ -669,6 +669,22 @@ def _render_change_analysis_verbose(analysis: ChangeSemanticAnalysis, lines: lis
 _BOUNDARY_DEFAULT_CAP = 5
 
 
+#: A code-graph qualified name (`<project>.pkg.module.Symbol`): at least three dots, no spaces.
+_QUALIFIED_NAME = re.compile(r"[\w-]+(?:\.[\w-]+){3,}")
+
+
+def _short_qn(qualified: str) -> str:
+    return ".".join(qualified.split(".")[-2:])
+
+
+def _boundary_identity(boundary: AffectedBoundary) -> str:
+    """A boundary's structural identity for display: its label, or -- when the label is a raw
+    code-graph qualified name -- its symbol and defining file."""
+    if _QUALIFIED_NAME.fullmatch(boundary.label or "") and boundary.symbol:
+        return f"{boundary.symbol} ({boundary.file})" if boundary.file else boundary.symbol
+    return boundary.label
+
+
 def _non_http_boundaries(result: ChangeVerificationResult) -> list[AffectedBoundary]:
     """ESTABLISHED boundaries not already covered by an HTTP `AffectedFlow`
     above them — an `api`/`http` boundary is the same real route an
@@ -739,9 +755,9 @@ def _render_system_impact_default(result: ChangeVerificationResult, lines: list[
     for boundary in boundaries:
         if rendered_anything:
             lines.append("")
-        lines.append(f"{boundary.kind} · {boundary.label}")
+        lines.append(f"{boundary.kind} · {_boundary_identity(boundary)}")
         for evidence_line in boundary.evidence[:1]:
-            lines.append(f"    {evidence_line}")
+            lines.append(f"    {_QUALIFIED_NAME.sub(lambda m: _short_qn(m.group(0)), evidence_line)}")
         rendered_anything = True
     if not rendered_anything:
         lines.append("No structural propagation path was established.")
@@ -799,6 +815,15 @@ def _framework_boundary_blocks(candidates: list[dict[str, Any]]) -> list[list[st
                 f"  → {c.get('via')}",
                 "  → [framework dispatch unresolved]",
                 f"  → candidate: {targets}" + (f" ({decorator})" if decorator else ""),
+            ] + _checks_line(c))
+        elif c.get("category") == "route_container_registration":
+            routes = c.get("targets") or []
+            shown = ", ".join(routes[:6]) + (f", … +{len(routes) - 6}" if len(routes) > 6 else "")
+            blocks.append([
+                c.get("source_symbol", "?"),
+                f"  → {c.get('via')}",
+                "  → [framework application unresolved]",
+                f"  → candidate routes ({c.get('source_symbol', '?')} registers them): {shown}",
             ] + _checks_line(c))
         elif c.get("category") == "callback_registration":
             blocks.append([

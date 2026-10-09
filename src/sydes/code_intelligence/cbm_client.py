@@ -875,6 +875,22 @@ class CBMClient:
         self.malformed_rows += malformed
         return rows
 
+    def handled_routes(self, project: str, names: list[str], *, limit: int = 500) -> list[list[str]]:
+        """HANDLES facts by route name: `[route qualified name, route name, handler qn,
+        handler file]` for each Route node named in `names` (the HANDLES family read from its
+        target side, for entrypoints identified by name such as an RPC method)."""
+        if not names:
+            return []
+        query = (
+            "MATCH (a)-[:HANDLES]->(b) "
+            f"WHERE b.name IN {_qualified_list_literal(names)} "
+            "RETURN b.qualified_name, b.name, a.qualified_name, a.file_path "
+            f"ORDER BY b.qualified_name LIMIT {int(limit)}"
+        )
+        rows, malformed = parse_rows(self._query_graph(project, query), columns=4)
+        self.malformed_rows += malformed
+        return rows
+
     def direct_relations(
         self, project: str, left: list[str], right: list[str], *, limit: int = 200,
     ) -> list[list[str]]:

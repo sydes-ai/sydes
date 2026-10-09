@@ -44,6 +44,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from sydes.ingest.file_roles import is_test_path
+
 PROVENANCE_CBM_SYMBOL = "cbm_symbol"
 PROVENANCE_CBM_CALL = "cbm_call"
 PROVENANCE_CBM_CALL_REFERENCE = "cbm_call_reference"
@@ -68,6 +70,10 @@ _REFERENCE_VERB = {"CALLS": "calls", "CALL_REFERENCE": "passes/stores a referenc
 CATEGORY_MESSAGE_DISPATCH = "message_dispatch"
 CATEGORY_CALLBACK_REGISTRATION = "callback_registration"
 CATEGORY_ROUTE_REGISTRATION = "route_registration"
+#: a changed function a route container (a function that registers route handlers) calls
+#: when registering routes -- e.g. a middleware it attaches: the framework applies it.
+CATEGORY_ROUTE_CONTAINER_REGISTRATION = "route_container_registration"
+MAX_CONTAINER_HANDLERS = 40
 
 STATUS_UNRESOLVED = "unresolved"
 STATUS_RESOLVED = "resolved"
@@ -75,7 +81,7 @@ STATUS_RESOLVED = "resolved"
 MAX_SEEDS = 80
 MAX_SPAN_LINES = 400
 _DECORATOR_WITH_TYPE = re.compile(r"@\s*([A-Za-z_][\w.]*)\s*\(\s*([A-Za-z_]\w*)\s*\)\s*$")
-_TEST_PATH = re.compile(r"(^|/)(tests?|__tests__|spec)(/|$)|\.(spec|test)\.[jt]sx?$|Test\.java$|(^|/)test_[^/]*\.py$")
+
 _STRING_ARG = re.compile(r"""^\s*(?:[rbuf]{0,2})(['"`])(?P<value>[^'"`]*)\1\s*$""")
 _ROUTE_QN = re.compile(r"__route__([A-Z]+)__(.*)$")
 _MOUNT_CALL = re.compile(r"\.\s*(include_router|register_blueprint|mount|use|add_router)\s*\(")
@@ -387,7 +393,16 @@ def enrich(ctx: EnrichmentInput, facts: Any) -> EnrichmentResult:
         result.triggered.append(f"{CATEGORY_CALLBACK_REGISTRATION}: {len(callbacks)} callback entrypoint(s)")
     if ctx.route_flows:
         result.triggered.append(f"{CATEGORY_ROUTE_REGISTRATION}: {len(ctx.route_flows)} route(s)")
-    if not (dispatch or callbacks or ctx.route_flows):
+    dispatched = {(method.get("name"), file) for method, _owner, file, _message in dispatch}
+    registered = []
+    for changed in ctx.unresolved:
+        name, file = str(changed.get("name") or "").rsplit(".", 1)[-1], str(changed.get("file") or "")
+        qn = symbols.qn(name, file)
+        if qn and (name, file) not in dispatched and not is_test_path(file):
+            registered.append({"name": name, "file": file, "qn": qn})
+    if registered:
+        result.triggered.append(f"{CATEGORY_ROUTE_CONTAINER_REGISTRATION}: {len(registered)} unresolved changed symbol(s)")
+    if not (dispatch or callbacks or ctx.route_flows or registered):
         return result
 
     # ---- wave 1: relations of the symbols each trigger starts from (one request)
@@ -397,7 +412,8 @@ def enrich(ctx: EnrichmentInput, facts: Any) -> EnrichmentResult:
     for cb in callbacks:
         wave1 += [symbols.qn(cb["owner"], cb.get("file"), "class"), cb.get("qualified_name")]
     for flow in ctx.route_flows:
-        wave1.append(symbols.qn(str(flow.get("handler")), str(flow.get("handler_file"))))
+        wave1.append(symbols.qn(_leaf(flow.get("handler")), str(flow.get("handler_file"))))
+    wave1 += [item["qn"] for item in registered]
     dropped = plan.fetch(wave1)
 
     pending: list[tuple[str, dict[str, Any]]] = []
@@ -407,9 +423,15 @@ def enrich(ctx: EnrichmentInput, facts: Any) -> EnrichmentResult:
         pending.append(("callback", _callback_wave1(plan, cb)))
     for flow in ctx.route_flows:
         pending.append(("route", _route_wave1(plan, flow)))
+    for item in registered:
+        pending.append(("registration", _registration_wave1(plan, item)))
 
     # ---- wave 2: relations of what wave 1 discovered: producers, wiring, routes, routers (one request)
     dropped += plan.fetch([s for _, state in pending for s in state.get("wave2", [])])
+    # wave 3, only for a changed symbol called by a route container: what that container registers
+    containers = [state for kind, state in pending if kind == "registration" and state["callers"]]
+    if containers:
+        dropped += plan.fetch([h for state in containers for h in _container_handlers(plan, state)])
     if dropped:
         result.notes.append(f"structural enrichment skipped relations of {len(dropped)} symbol(s) over the {MAX_SEEDS}-seed cap")
 
@@ -418,6 +440,8 @@ def enrich(ctx: EnrichmentInput, facts: Any) -> EnrichmentResult:
             result.candidates.extend(_dispatch_finish(plan, state))
         elif kind == "callback":
             result.candidates.extend(_callback_finish(plan, state))
+        elif kind == "registration":
+            result.candidates.extend(_registration_finish(plan, state))
         else:
             candidate = _route_finish(plan, state)
             if candidate is not None:
@@ -443,7 +467,7 @@ def _dispatch_wave1(plan: _Planner, method: dict[str, Any], owner: str, file: st
     facts = [StructuralFact(PROVENANCE_CBM_DECORATOR, f"{owner} is decorated {_first_line(decorator)} ({how})", file)]
     producers = []
     for r in plan.rel(message_qn, ["CALLS", "CALL_REFERENCE", "USAGE"], inbound=True):
-        if r.source_label in ("Method", "Function") and not _TEST_PATH.search(r.source_file or ""):
+        if r.source_label in ("Method", "Function") and not is_test_path(r.source_file or ""):
             producers.append(r)
             facts.append(StructuralFact(REFERENCE_PROVENANCE[r.type],
                                         f"{_short(r.source)} {_REFERENCE_VERB[r.type]} {message}{_call_props(r.props)}",
@@ -451,9 +475,9 @@ def _dispatch_wave1(plan: _Planner, method: dict[str, Any], owner: str, file: st
     # where the handler class is wired: files naming it (CBM), else files importing it (local index)
     found = plan.search(owner, None, "files")
     if found is not None:
-        wiring = [(f, PROVENANCE_CBM_SOURCE) for f in found.get("files", []) if f != file and not _TEST_PATH.search(f)]
+        wiring = [(f, PROVENANCE_CBM_SOURCE) for f in found.get("files", []) if f != file and not is_test_path(f)]
     else:
-        wiring = [(p, PROVENANCE_SOURCE_FALLBACK) for p in symbols.files if p != file and not _TEST_PATH.search(p)
+        wiring = [(p, PROVENANCE_SOURCE_FALLBACK) for p in symbols.files if p != file and not is_test_path(p)
                   and any(i.get("local") == owner or i.get("imported") == owner for i in symbols.imports_of(p))]
     wiring_classes = [s.get("cbm_qualified_name") for f, _ in wiring for s in symbols.in_file(f)
                       if s.get("kind") == "class" and s.get("cbm_qualified_name")]
@@ -579,7 +603,7 @@ def _callback_wave1(plan: _Planner, cb: dict[str, Any]) -> dict[str, Any]:
         facts.append(StructuralFact(PROVENANCE_CBM_OVERRIDE, f"{target} overrides {_short(r.target)}", file))
     users = []
     for r in plan.rel(owner_qn, ["CALLS", "CALL_REFERENCE", "USAGE"], inbound=True):
-        if r.source_file != file and not _TEST_PATH.search(r.source_file or ""):
+        if r.source_file != file and not is_test_path(r.source_file or ""):
             users.append(r)
             facts.append(StructuralFact(REFERENCE_PROVENANCE[r.type], f"{_who(r)} {_REFERENCE_VERB[r.type]} {owner}",
                                         r.source_file, r.props.get("line")))
@@ -685,6 +709,66 @@ def _enclosing_by_signature(lines: list[str], line: int) -> str | None:
     return None
 
 
+# ----------------------------------------------------------------------------- route-container registration
+
+
+def _registration_wave1(plan: _Planner, item: dict[str, Any]) -> dict[str, Any]:
+    """Production functions that call or reference an unresolved changed symbol."""
+    callers = [r for r in plan.rel(item["qn"], ["CALLS", "CALL_REFERENCE"], inbound=True)
+               if r.source_label in ("Method", "Function") and r.source != item["qn"] and not is_test_path(r.source_file or "")]
+    return {**item, "callers": callers, "wave2": [r.source for r in callers]}
+
+
+def _container_handlers(plan: _Planner, state: dict[str, Any]) -> list[str]:
+    """The functions each caller references without calling them (route handlers it hands to
+    a router), bounded."""
+    out: list[str] = []
+    for caller in state["callers"]:
+        for r in plan.rel(caller.source, ["USAGE", "CALL_REFERENCE"], inbound=False):
+            if r.target_label in ("Method", "Function") and r.target != state["qn"] and not is_test_path(r.target_file or ""):
+                out.append(r.target)
+    return list(dict.fromkeys(out))[:MAX_CONTAINER_HANDLERS]
+
+
+def _route_label(route_qn: str) -> str:
+    http = _ROUTE_QN.search(route_qn)
+    if http:
+        return f"{http.group(1)} {http.group(2)}"
+    return "GRPC " + route_qn.split("__grpc__", 1)[1] if "__grpc__" in route_qn else _short(route_qn)
+
+
+def _registration_finish(plan: _Planner, state: dict[str, Any]) -> list[FrameworkBoundaryCandidate]:
+    """A changed function a route container calls while registering route handlers: the
+    framework applies it to (some of) those routes. Reported as an unresolved candidate with
+    the container's routes as candidate targets -- which routes, and the invocation itself,
+    are framework behavior the graph does not show. Never an edge."""
+    out = []
+    for caller in state["callers"]:
+        routes: dict[str, str] = {}
+        facts: list[StructuralFact] = []
+        for use in plan.rel(caller.source, ["USAGE", "CALL_REFERENCE"], inbound=False):
+            for handled in plan.rel(use.target, ["HANDLES"], inbound=False):
+                routes.setdefault(_route_label(handled.target), _short(use.target, 1))
+        if not routes:
+            continue  # not a route container: nothing here registers routes
+        container, name = _short(caller.source), state["name"]
+        facts.append(StructuralFact(REFERENCE_PROVENANCE.get(caller.type, PROVENANCE_CBM_CALL),
+                                    f"{container} {_REFERENCE_VERB.get(caller.type, 'calls')} {name}{_call_props(caller.props)}",
+                                    caller.source_file, caller.props.get("line")))
+        for label, handler in sorted(routes.items()):
+            facts.append(StructuralFact(PROVENANCE_CBM_HANDLES, f"{container} registers {handler}, which HANDLES {label}",
+                                        caller.source_file))
+        out.append(FrameworkBoundaryCandidate(
+            category=CATEGORY_ROUTE_CONTAINER_REGISTRATION, source_symbol=container,
+            via=f"registers {name}" + (f" (line {caller.props['line']})" if caller.props.get("line") else ""),
+            targets=sorted(routes), facts=facts,
+            runtime_needed=f"{name} invoked by the framework for requests to routes {container} registers",
+            missing=[f"which of {container}'s routes the framework applies {name} to, and that invocation "
+                     "(framework-mediated, not a call in the source)"],
+        ))
+    return out
+
+
 # ----------------------------------------------------------------------------- route registration
 
 _ROUTE_DECLARATION = re.compile(
@@ -715,21 +799,31 @@ def route_shape(path: str) -> str:
     return shaped.rstrip("/") or "/"
 
 
+def _leaf(reference: Any) -> str:
+    """A handler as referenced at its registration (`server.loginUser`) -> its symbol name."""
+    return str(reference or "").rsplit(".", 1)[-1]
+
+
 def _route_wave1(plan: _Planner, flow: dict[str, Any]) -> dict[str, Any]:
-    handler, hfile = str(flow.get("handler") or ""), str(flow.get("handler_file") or "")
+    reference, hfile = str(flow.get("handler") or ""), str(flow.get("handler_file") or "")
+    handler = _leaf(reference)
     handler_qn = plan.symbols.qn(handler, hfile)
     routes = plan.rel(handler_qn, ["HANDLES"], inbound=False)
     routers = [s.get("cbm_qualified_name") for s in plan.symbols.in_file(hfile)
                if s.get("kind") == "variable" and s.get("cbm_qualified_name")]
-    return {"flow": flow, "handler": handler, "hfile": hfile, "handler_qn": handler_qn, "routes": routes,
-            "wave2": [r.target for r in routes] + routers}
+    return {"flow": flow, "handler": handler, "reference": reference, "hfile": hfile, "handler_qn": handler_qn,
+            "routes": routes, "wave2": [r.target for r in routes] + routers}
 
 
 def _route_finish(plan: _Planner, s: dict[str, Any]) -> FrameworkBoundaryCandidate | None:
     ctx, flow, handler, hfile = plan.ctx, s["flow"], s["handler"], s["hfile"]
     files = {str(f.get("path")): f for p in ctx.route_index.get("repos", []) or [] if p.get("repo") == ctx.repo
              for f in p.get("files", []) or []}
-    decl = next((r for r in (files.get(hfile) or {}).get("route_calls", []) or [] if r.get("handler_hint") == handler), None)
+    # declared where the handler is defined (decorators) or in a separate router file
+    route_file = str(flow.get("route_file") or "")
+    decl, decl_file = next(((r, path) for path in dict.fromkeys((hfile, route_file)) if path
+                            for r in (files.get(path) or {}).get("route_calls", []) or []
+                            if r.get("handler_hint") in (handler, s.get("reference"))), (None, hfile))
     if decl is None and not s["routes"]:
         return None
     facts: list[StructuralFact] = []
@@ -772,7 +866,9 @@ def _route_finish(plan: _Planner, s: dict[str, Any]) -> FrameworkBoundaryCandida
     # the declaration's path expression and container: CBM (HTTP_CALLS, DECORATES) first, Sydes' route index last
     handler_sym = next(iter(plan.symbols.find(handler, hfile)), {})
     container = str(handler_sym.get("parent") or "") or (str(decl.get("receiver") or "") if decl else "")
-    receiver = declared_on or container or (str(decl.get("receiver") or "") if decl else "")
+    # what the route is declared on: CBM's declaration, else the route index's, else the
+    # enclosing class (a decorator-declared controller, where all three agree)
+    receiver = declared_on or (str(decl.get("receiver") or "") if decl else "") or container
     declaration = next((d for d in decorators if _route_argument(d) is not None), None)
     if declaration is not None or declared_http is not None or decl is not None:
         if declared_http is not None:
@@ -786,7 +882,7 @@ def _route_finish(plan: _Planner, s: dict[str, Any]) -> FrameworkBoundaryCandida
         shown = (_STRING_ARG.match(expression).group("value") if literal and expression else "")
         facts.append(StructuralFact(provenance, f"{handler} is registered on `{receiver}` with path "
                                     + (f"'{shown}'" if literal else f"expression `{expression or '?'}`") + f" ({how})",
-                                    hfile, decl.get("line") if decl else None))
+                                    decl_file, decl.get("line") if decl else None))
         if not literal:
             missing.append(f"route path `{expression or '?'}` is not a literal")
         for decorator, _how in plan.decorators(plan.symbols.qn(container, hfile, "class"), container, hfile):

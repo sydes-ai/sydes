@@ -92,6 +92,7 @@ class CBMFacts:
         self._direct: dict[tuple[frozenset[str], frozenset[str]], list[list[str]]] = {}
         self._paths: dict[tuple[frozenset[str], frozenset[str], int], list[list[str]]] = {}
         self._searches: dict[tuple[str, str | None, str], dict[str, Any] | None] = {}
+        self._handled: dict[str, list[list[str]]] = {}
         self.requests: Counter[str] = Counter()
         self.cache_hits: Counter[str] = Counter()
         self.errors: Counter[str] = Counter()
@@ -144,6 +145,22 @@ class CBMFacts:
                     if end in self._relations:
                         self._relations[end].append(relation)
         return {seed: list(self._relations.get(seed, [])) for seed in wanted}
+
+    def handled_routes(self, names: list[str]) -> dict[str, list[list[str]]]:
+        """The Route nodes named in `names` and what HANDLES them (cached per name, one
+        request for the uncached ones; nothing when the graph has no HANDLES)."""
+        wanted = sorted({n for n in names if n})
+        missing = [n for n in wanted if n not in self._handled]
+        if len(missing) < len(wanted):
+            self.cache_hits["handles"] += len(wanted) - len(missing)
+        if missing and self.supports("HANDLES"):
+            self.requests["handles"] += 1
+            rows = self._guard("HANDLES", lambda: self.client.handled_routes(self.project, missing), [])
+            for name in missing:
+                self._handled[name] = [row for row in rows if row[1] == name]
+        for name in missing:
+            self._handled.setdefault(name, [])
+        return {n: list(self._handled.get(n, [])) for n in wanted}
 
     # -- paths ------------------------------------------------------------
 

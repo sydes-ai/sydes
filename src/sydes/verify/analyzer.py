@@ -33,6 +33,7 @@ from sydes.core.graph import build_graph_from_inferred_flow
 from sydes.core.models import (
     ApiRouteContract,
     EndpointCandidate,
+    EvidenceRef,
     RepoRef,
     TargetSpec,
     TraceResult,
@@ -130,7 +131,7 @@ from sydes.verify.models import (
 from sydes.verify.boundary_reasoning import infer_boundaries
 from sydes.verify.mutation import run_mutation_verification
 from sydes.verify.obligations import compute_canonical_id, derive_obligations
-from sydes.ingest.file_roles import FILE_ROLE_TEST_USAGE_CANDIDATE
+from sydes.ingest.file_roles import is_test_path
 from sydes.verify.pr_semantic_analysis import generate_pr_semantic_analysis, reconcile_uncertainties
 from sydes.verify.repo_profile import get_or_build_repo_profile
 from sydes.verify.runtime import infer_runtime_dependencies
@@ -1240,6 +1241,9 @@ def _changed_symbols_for_impact(change: Any) -> list[dict[str, Any]]:
             "changed_line_ranges": hunks_by_file.get((item.repo, item.file), []),
         }
         for item in change.symbols
+        # changed test code is test evidence, never a production symbol that must reach an
+        # entrypoint (it would only inflate unresolved impact and trigger recovery)
+        if not is_test_path(item.file)
     ]
 
 
@@ -2140,6 +2144,7 @@ def analyze_change(
         changed_files={item.path for item in change.files},
         adjacent_files=candidate_files,
     )
+    _attach_rpc_identities(routes.routes, code_intelligence, primary.name, result)
     result.known_routes = routes.routes
     result.diagnostics.extend(
         note for note in routes.notes if "coverage" in note or "routes" in note.lower()
@@ -2876,6 +2881,36 @@ def _static_definition_resolver(symbol_index: dict[str, Any], repo: str):
     return resolve
 
 
+_RPC_ROUTE_PREFIX = "__grpc__"
+
+
+def _attach_rpc_identities(endpoints: list[Any], code_intelligence: Any, repo: str,
+                           result: ChangeVerificationResult) -> None:
+    """An RPC entrypoint discovered without its service/method gets them from the code
+    graph's HANDLES facts: the RPC route whose method name is the handler's -- only when
+    exactly one RPC route has that name (RPC dispatch is by method name within a service;
+    two services sharing a method name leave it unresolved, never guessed)."""
+    pending = [e for e in endpoints if e.kind == "grpc" and not e.path and e.handler]
+    facts = code_intelligence.facts(repo) if pending and hasattr(code_intelligence, "facts") else None
+    if facts is None:
+        return
+    routes = facts.handled_routes([e.handler.rsplit(".", 1)[-1] for e in pending])
+    attached = 0
+    for endpoint in pending:
+        rpc = [row for row in routes.get(endpoint.handler.rsplit(".", 1)[-1], [])
+               if str(row[0]).startswith(_RPC_ROUTE_PREFIX)]
+        identities = sorted({str(row[0])[len(_RPC_ROUTE_PREFIX):] for row in rpc})
+        if len(identities) != 1:
+            continue
+        endpoint.path = identities[0]
+        endpoint.evidence.append(EvidenceRef(
+            file=str(rpc[0][3] or ""), symbol=endpoint.handler, label="cbm_handles",
+            snippet=f"{rpc[0][2]} HANDLES {rpc[0][0]}",
+        ))
+        attached += 1
+    result.diagnostics.append(f"rpc_identities_from_cbm_handles={attached}/{len(pending)}")
+
+
 def _reconcile_change_analysis(result: ChangeVerificationResult, change: Any) -> None:
     """Later, stronger facts dominate the early semantic hypotheses shown to the user: a
     structural uncertainty (which route / caller reaches the change) that an established HTTP
@@ -2887,8 +2922,7 @@ def _reconcile_change_analysis(result: ChangeVerificationResult, change: Any) ->
             continue
         for symbol in impact.changed_symbols:
             established.setdefault(symbol.rsplit(".", 1)[-1], []).append(impact.label)
-    test_files = {f.path for f in change.files if f.role == FILE_ROLE_TEST_USAGE_CANDIDATE}
-    changed = [s.name for s in change.symbols if s.file not in test_files and is_program_source(s.file)]
+    changed = [s.name for s in change.symbols if not is_test_path(s.file) and is_program_source(s.file)]
     answered = reconcile_uncertainties(result.pr_semantic_analysis, established=established, changed_symbols=changed)
     if answered:
         result.diagnostics.append(f"change_analysis_uncertainties_answered_by_structure={answered}")
@@ -2914,7 +2948,8 @@ def _enrich_framework_boundaries(
     ]
     flows = [
         {"method": f.method, "path": f.path, "handler": f.handler,
-         "handler_file": (f.artifact_refs or {}).get("handler_file")}
+         "handler_file": (f.artifact_refs or {}).get("handler_file"),
+         "route_file": (f.artifact_refs or {}).get("route_file")}
         for f in result.affected_flows if f.entry_kind == "route" and f.handler and f.repo == repo
     ]
     facts = code_intelligence.facts(repo) if hasattr(code_intelligence, "facts") else None
