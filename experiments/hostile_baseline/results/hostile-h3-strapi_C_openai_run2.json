@@ -1,0 +1,231 @@
+{
+  "final_answer": "Change summary\n---------------\n\nThe change adds a new utility `getMediaAttributes` and updates the content\u2011manager\u2019s `document-metadata` service so that **non\u2011localized media fields** are treated specially when computing the `availableLocales` metadata:  \n- They are separated from other non\u2011localized scalar fields.  \n- They are automatically **populated** (including each media\u2019s `folder`) when loading sibling document versions used to compute `availableLocales`.\n\nThis affects how the Content Manager backend prepares metadata for admin HTTP responses, and thus what the admin UI can prefill when creating/editing localized entries.\n\nBelow I trace the concrete entrypoints and paths.\n\n---\n\nKey internal behavior change\n----------------------------\n\n### 1. New utility: `getMediaAttributes`\n\n*File:* `utils/src/content-types.ts`\n\n- New function:\n\n  ```ts\n  const isMediaAttribute = (attribute?: Attribute) => attribute?.type === 'media'; // existing\n  const getMediaAttributes = (schema: Model) => {\n    return _.reduce(\n      schema.attributes,\n      (acc, attr, attrName) => {\n        if (isMediaAttribute(attr)) acc.push(attrName);\n        return acc;\n      },\n      [] as string[]\n    );\n  };\n  export {\n    // ...\n    getComponentAttributes,\n    getMediaAttributes,\n    getScalarAttributes,\n    // ...\n  };\n  ```\n\n  Evidence: definition and export are in `utils/src/content-types.ts` lines around 120\u2013150 and 270\u2013290 in the tool output.\n\n- Previously only `getScalarAttributes`, `getComponentAttributes`, etc. existed; now `getMediaAttributes` is available and exported as part of `contentTypes`.\n\n- This utility is purely a helper: given a Strapi content type schema (`Model`), it returns the names of attributes whose type is `media`. That is then consumed by the content\u2011manager code below.\n\n### 2. `document-metadata.getMetadata` now handles media separately\n\n*File:* `content-manager/server/src/services/document-metadata.ts`\n\nThe core service is exported as a Strapi service factory:\n\n```ts\nexport default ({ strapi }: { strapi: Core.Strapi }) => ({\n  // ...\n  async getMetadata(uid: UID.ContentType, version: DocumentVersion, { availableLocales = true, availableStatus = true }: GetMetadataOptions = {}) {\n    const { populate = {}, fields = [] } = getPopulateForValidation(uid);\n    // ...\n  }\n  // ...\n});\n```\n\nThe change is inside `getMetadata`:\n\n1. It now imports `getMediaAttributes` as well as `getScalarAttributes`:\n\n   ```ts\n   import { async, contentTypes } from '@strapi/utils';\n   const { getScalarAttributes, getMediaAttributes } = contentTypes;\n   ```\n\n   Evidence: `document-metadata.ts` header in the tool output.\n\n2. It distinguishes scalar vs media among non\u2011localized attributes:\n\n   ```ts\n   // Include non-translatable scalar and media fields in availableLocales for i18n prefilling\n   let nonLocalizedFields: string[] = [];\n   let nonLocalizedMediaFields: string[] = [];\n   try {\n     const i18nPlugin = strapi.plugin('i18n');\n     if (i18nPlugin) {\n       const i18nService = i18nPlugin.service('content-types');\n       if (i18nService?.getNonLocalizedAttributes) {\n         const model = strapi.getModel(uid);\n         if (model?.attributes) {\n           const allNonLocalized = i18nService.getNonLocalizedAttributes(model);\n           // Get scalar and media attributes separately\n           const scalarAttrs = getScalarAttributes(model);\n           const mediaAttrs = getMediaAttributes(model);\n\n           // Separate scalar fields (can be in fields array) from media fields (need to be populated)\n           nonLocalizedFields = allNonLocalized.filter(\n             (field: string) => field in model.attributes && scalarAttrs.includes(field)\n           );\n           nonLocalizedMediaFields = allNonLocalized.filter(\n             (field: string) => field in model.attributes && mediaAttrs.includes(field)\n           );\n         }\n       }\n     }\n   } catch (error) {\n     // i18n plugin might not be enabled or might error, ignore silently\n   }\n   ```\n\n   Evidence: `document-metadata.ts` middle section, as shown in the tool read.\n\n   - Previously, only scalar attributes were considered for `nonLocalizedFields`, using `getScalarAttributes` and a similar filter.\n   - Now, media attributes that are non\u2011localized are captured in `nonLocalizedMediaFields`.\n\n3. It builds a `populate` fragment for those media fields:\n\n   ```ts\n   // Build populate object for non-localized media fields\n   const mediaPopulate = nonLocalizedMediaFields.reduce(\n     (acc, field) => {\n       acc[field] = {\n         populate: {\n           folder: true,\n         },\n       };\n       return acc;\n     },\n     {} as Record<string, { populate: { folder: boolean } }>\n   );\n   ```\n\n   Evidence: same file, immediately after the try/catch.\n\n4. It merges this into the query\u2019s `populate`:\n\n   ```ts\n   const params = {\n     populate: {\n       ...populate,\n       ...mediaPopulate,\n       // NOTE: creator fields are selected in this way to avoid exposing sensitive data\n       createdBy: { select: ['id', 'firstname', 'lastname', 'email'] },\n       updatedBy: { select: ['id', 'firstname', 'lastname', 'email'] },\n     },\n     fields: uniq([...AVAILABLE_LOCALES_FIELDS, ...fields, ...nonLocalizedFields]),\n     filters: {\n       documentId: version.documentId,\n     },\n   };\n   const dbParams = strapi.get('query-params').transform(uid, params);\n   const versions = await strapi.db.query(uid).findMany(dbParams);\n   ```\n\n   Evidence: `document-metadata.ts` bottom part of `getMetadata`.\n\nSo the concrete behavioral change:\n\n- When computing the sibling versions (`versions`) of a document to derive `availableLocales` and `availableStatus`, Strapi now *also populates any non\u2011localized media fields (and each media\u2019s `folder` relation)*, whereas before those media fields were not part of the `populate` plan at all.\n\n- Non\u2011localized scalar fields are still loaded via `fields` only; media fields now come via `populate`.\n\nNote: `fields` still *does not* include media field names (only `AVAILABLE_LOCALES_FIELDS`, existing `fields` from `getPopulateForValidation`, and `nonLocalizedFields` which are scalar only). That\u2019s intentional: media fields are loaded through `populate` not `fields`.\n\n---\n\nEntrypoints and paths to the changed behavior\n---------------------------------------------\n\nI\u2019ll trace how `getMetadata` and `getMediaAttributes` are reached from actual system entrypoints.\n\n### A. HTTP admin routes: Collection types\n\n**Admin API HTTP routes for collection types** are in `content-manager/server/src/controllers/collection-types.ts`, which is wired as Koa controllers for routes under `/content-manager/collection-types/:model` and related action routes.\n\nI inspected `collection-types.ts` (tool output) and saw that:\n\n- It imports helper `formatDocumentWithMetadata`:\n\n  ```ts\n  import { formatDocumentWithMetadata } from './utils/metadata';\n  ```\n\n- Many controller actions return document + meta via that helper, for example:\n\n  - `findOne`:\n\n    ```ts\n    const sanitizedDocument = await permissionChecker.sanitizeOutput(version);\n    ctx.body = await formatDocumentWithMetadata(permissionChecker, model, sanitizedDocument);\n    ```\n\n  - `create`:\n\n    ```ts\n    ctx.body = await formatDocumentWithMetadata(permissionChecker, model, sanitizedDocument, {\n      availableLocales: false,\n      availableStatus: false,\n    });\n    ```\n\n  - `update`, `publish`, `unpublish`, `discard`, etc. also call `formatDocumentWithMetadata` with various options.\n\n- `formatDocumentWithMetadata` is defined in `content-manager/server/src/controllers/utils/metadata.ts`:\n\n  ```ts\n  export const formatDocumentWithMetadata = async (\n    permissionChecker: any,\n    uid: UID.ContentType,\n    document: DocumentVersion,\n    opts: GetMetadataOptions = {}\n  ) => {\n    const documentMetadata = getService('document-metadata');\n\n    const serviceOutput = await documentMetadata.formatDocumentWithMetadata(uid, document, opts);\n\n    let {\n      meta: { availableLocales, availableStatus },\n    } = serviceOutput;\n\n    const metadataSanitizer = permissionChecker.sanitizeOutput;\n\n    availableLocales = await async.map(\n      availableLocales,\n      async (localeDocument: AvailableLocaleDocument) => metadataSanitizer(localeDocument)\n    );\n\n    availableStatus = await async.map(\n      availableStatus,\n      async (statusDocument: AvailableStatusDocument) => metadataSanitizer(statusDocument)\n    );\n\n    return {\n      ...serviceOutput,\n      meta: {\n        availableLocales,\n        availableStatus,\n      },\n    };\n  };\n  ```\n\n  Evidence: `controllers/utils/metadata.ts` content.\n\n- The service `document-metadata` is wired in `content-manager/server/src/services/index.ts`:\n\n  ```ts\n  import documentMetadata from './document-metadata';\n  export default {\n    // ...\n    'document-metadata': documentMetadata,\n    // ...\n  };\n  ```\n\n  Evidence: `services/index.ts` snippet.\n\n- And `getService` resolves this via `strapi.plugin('content-manager').service('document-metadata')` (I saw that pattern in `homepage.ts` and in `controllers/relations.ts`). The controllers use `getService` from `../utils`, which in this plugin maps to `strapi.plugin('content-manager').service(name)`.\n\n- Finally, `document-metadata.formatDocumentWithMetadata` calls the modified `getMetadata`:\n\n  ```ts\n  async formatDocumentWithMetadata(uid, document, opts = {}) {\n    if (!document) { /* ... */ }\n\n    const hasDraftAndPublish = contentTypes.hasDraftAndPublish(strapi.getModel(uid));\n\n    if (!hasDraftAndPublish) {\n      opts.availableStatus = false;\n    }\n\n    const meta = await this.getMetadata(uid, document, opts);\n    // ...\n    return {\n      data: { ...document, status: hasDraftAndPublish ? this.getStatus(document, meta.availableStatus as any) : undefined },\n      meta,\n    };\n  }\n  ```\n\n  Evidence: bottom of `document-metadata.ts`.\n\n**So the path for collection-type document read/update/publish endpoints is:**\n\n- HTTP request to admin API route, e.g.:\n\n  - `GET /content-manager/collection-types/:model/:id` \u2192 `collection-types.findOne` (route definition file isn\u2019t shown here, but this is Strapi\u2019s standard mapping for this controller; evidence: `documentApi.getDocument` in admin uses exactly that URL).\n\n  - `PUT /content-manager/collection-types/:model/:id` \u2192 `collection-types.update`.\n\n  - `POST /content-manager/collection-types/:model/actions/publish` or `.../:id/actions/publish` \u2192 `collection-types.publish`.\n\n- Controller uses `formatDocumentWithMetadata` (`controllers/utils/metadata.ts`) \u2192 calls plugin service `'document-metadata'` \u2192 runs `formatDocumentWithMetadata` \u2192 calls the changed `getMetadata`.\n\nThus any admin UI screen that loads a collection\u2011type document via the documented API calls will now see the changed behavior in `meta.availableLocales` (and any media data inside the sibling versions query used to compute it).\n\n**Admin frontend evidence:**\n\n`content-manager/admin/src/services/documents.ts` defines `getDocument` RTK query:\n\n```ts\ngetDocument: builder.query<\n  FindOne.Response,\n  Pick<FindOne.Params, 'model'> &\n    Partial<Pick<FindOne.Params, 'documentId'>> & {\n      collectionType: string;\n      params?: FindOne.Request['query'];\n    }\n>({\n  queryFn: async ({ collectionType, model, documentId, params }, _api, _extraOpts, baseQuery) => {\n    const res = await baseQuery({\n      url: `/content-manager/${collectionType}/${model}${documentId ? `/${documentId}` : ''}`,\n      method: 'GET',\n      config: { params },\n    });\n    // single-type 404 handling omitted\n    return res;\n  },\n});\n```\n\nEvidence: `admin/src/services/documents.ts` near the end.\n\nThe pages (e.g. `EditViewPage.tsx`) consume `getDocument` and use `meta` fields like `availableLocales` to render locale switchers and prefill forms.\n\nThus, from the admin user\u2019s perspective, **when viewing or editing an entry in a localized content type, the `availableLocales` metadata now has access to correctly populated non\u2011localized media fields (and their folders), for each locale\u2019s draft version.**\n\n### B. HTTP admin routes: Single types\n\nSingle types share the same `formatDocumentWithMetadata` helper and go through `document-metadata` as well.\n\n- Controller file: `content-manager/server/src/controllers/single-types.ts`. I inspected it; it imports `formatDocumentWithMetadata` and uses it in `find`, `createOrUpdate`, `publish`, `unpublish`, `discard` paths, same pattern as collection types:\n\n  ```ts\n  import { formatDocumentWithMetadata } from './utils/metadata';\n\n  // in find:\n  const sanitizedDocument = await permissionChecker.sanitizeOutput(version);\n  ctx.body = await formatDocumentWithMetadata(permissionChecker, model, sanitizedDocument);\n\n  // in case no version for this locale:\n  const { meta } = await formatDocumentWithMetadata(\n    permissionChecker,\n    model,\n    { documentId: document.documentId, locale, publishedAt: null },\n    { availableLocales: true, availableStatus: false }\n  );\n  ctx.body = { data: {}, meta };\n  ```\n\n  Evidence: `single-types.ts` contents.\n\nSo for admin routes like:\n\n- `GET /content-manager/single-types/:model`\n- `POST /content-manager/single-types/:model` (createOrUpdate)\n- `POST /content-manager/single-types/:model/actions/publish`\n- etc.\n\nthe same metadata path applies:\n\n`single-types controller \u2192 controllers/utils/metadata.formatDocumentWithMetadata \u2192 'document-metadata'.formatDocumentWithMetadata \u2192 getMetadata (changed) \u2192 uses getMediaAttributes`.\n\n### C. Relations controller\n\n`content-manager/server/src/controllers/relations.ts` uses `document-metadata` to compute relation statuses only:\n\n```ts\nconst addStatusToRelations = async (targetUid: UID.Schema, relations: RelationEntity[]) => {\n  if (!contentTypes.hasDraftAndPublish(strapi.getModel(targetUid))) {\n    return relations;\n  }\n\n  const documentMetadata = getService('document-metadata');\n  // ...\n  return relations.map((relation: RelationEntity) => {\n    const availableStatuses = availableStatus.filter(/* match documentId & locale */);\n    return {\n      ...relation,\n      status: documentMetadata.getStatus(relation, availableStatuses),\n    };\n  });\n};\n```\n\nEvidence: `relations.ts` excerpt in tool output.\n\nThis code *does not* call `getMetadata`; it only uses `documentMetadata.getStatus`, which is unchanged. So the new media handling in `getMetadata` does **not** affect relation APIs. I explicitly verified there is no call to `getMetadata` here.\n\n### D. Homepage \u201crecent documents\u201d service\n\n`content-manager/server/src/homepage/services/homepage.ts` uses `metadataService` directly:\n\n```ts\nconst metadataService = strapi.plugin('content-manager').service('document-metadata');\n\n// ...\nasync addStatusToDocuments(documents: RecentDocument[]): Promise<RecentDocument[]> {\n  return Promise.all(\n    documents.map(async (recentDocument) => {\n      const hasDraftAndPublish = contentTypes.hasDraftAndPublish(\n        strapi.contentType(recentDocument.contentTypeUid)\n      );\n      const { availableStatus } = await metadataService.getMetadata(\n        recentDocument.contentTypeUid,\n        recentDocument,\n        {\n          availableStatus: hasDraftAndPublish,\n          availableLocales: false,\n        }\n      );\n      const status: RecentDocument['status'] = metadataService.getStatus(\n        recentDocument,\n        availableStatus\n      );\n\n      return {\n        ...recentDocument,\n        status: hasDraftAndPublish ? status : undefined,\n      };\n    })\n  );\n}\n```\n\nEvidence: `homepage.ts` near `addStatusToDocuments`.\n\nNote: `availableLocales` is passed as `false` here, so `getMetadata` still executes and still constructs `mediaPopulate` and performs the `findMany` query with extra media populates. However, the caller ignores `availableLocales` and uses only `availableStatus`. The only behavioral change here is:\n\n- For each recent document for a D&P-enabled content type, the underlying DB query used to compute `availableStatus` now also populates any *non\u2011localized media fields* (and those media\u2019s `folder`) on the sibling versions. That should be semantically neutral in terms of returned `status`, but it does change query cost and could surface additional data to intercepting middleware/loggers.\n\nFrom the external API perspective, `GetRecentDocuments.Response['data']` still includes only the fields built in `formatDocuments` (documentId, locale, updatedAt, title, publishedAt, etc.), not any populated media. So the change is internal.\n\n### E. Where `getMediaAttributes` is used\n\nI searched for `getMediaAttributes` usages:\n\n- Declared and exported in `utils/src/content-types.ts`.  \n- Imported and used in `content-manager/server/src/services/document-metadata.ts`.  \n- No other references were found in `grep` results.\n\nSo **the only runtime use of `getMediaAttributes` is inside `document-metadata.getMetadata`**.\n\n---\n\nWhat `availableLocales` now includes / enables\n----------------------------------------------\n\n`availableLocales` is documented in shared contracts:\n\n- `content-manager/shared/contracts/collection-types.ts`:\n\n  ```ts\n  export interface AvailableLocaleDocument {\n    id: ID;\n    documentId: ID;\n    locale: string;\n    // plus AT_FIELDS, etc.\n  }\n  export interface DocumentMetadata {\n    availableLocales: AvailableLocaleDocument[];\n    availableStatus: AvailableStatusDocument[];\n  }\n  ```\n\n  Evidence: referenced by `DocumentMetadata` import in `document-metadata.ts` and by `controllers/utils/metadata.ts`.\n\n`document-metadata.getAvailableLocales`:\n\n- Loads sibling versions `versions` (the result of `findMany` with the `params` built in `getMetadata`).\n- Groups by locale, picks the draft version in each locale, and adds `status` via `this.getStatus`.\n- Returns an array of those draft versions.\n\nThese versions\u2019 shapes include:\n\n- Base fields selected via `fields`: `id`, `documentId`, `locale`, `updatedAt`, `createdAt`, `publishedAt`, plus any extra `fields` from `getPopulateForValidation` and `nonLocalizedFields` (scalar).\n- Relations loaded in `populate`: default `populate` from `getPopulateForValidation`, plus `mediaPopulate` for non\u2011localized media, plus `createdBy`/`updatedBy`.\n\nThus, for an admin client that receives `availableLocales` and later uses that information to prefill a form for creating a new locale version from an existing one, this change guarantees:\n\n- Non\u2011localized media fields will have their *media entity* fully available (at least IDs + `folder` relation, and whatever base populate includes), so the client or server logic can copy or display those media values.\n\nPreviously, only non\u2011localized scalar fields were guaranteed loaded; non\u2011localized media fields might not be present at all in `availableLocales` entries, depending on `getPopulateForValidation`.\n\n---\n\nTests\n-----\n\nI searched for tests mentioning `document-metadata` or `availableLocales`:\n\n- `grep \"document-metadata\" **/__tests__/**` \u2192 no matches.\n- `grep \"availableLocales\" **/*` returned references in:\n  - `content-manager/admin/src/services/documents.ts` (client defaults),\n  - server controllers `single-types.ts` and `collection-types.ts` (explicit `{ availableLocales: true/false }`),\n  - `document-metadata.ts` itself,\n  - `controllers/utils/metadata.ts`,\n  - shared contracts.\n\nI did **not** find any dedicated tests for `document-metadata.getMetadata` or for the new media behavior.\n\nThere *are* tests for `getDocumentLocaleAndStatus` in `content-manager/server/src/controllers/validation/__tests__/dimensions.test.ts`, but they relate only to locale/status validation, not to this change.\n\nSo as far as this repository snapshot goes, there appear to be **no automated tests directly asserting the inclusion/population of non\u2011localized media fields in `availableLocales`.**\n\n---\n\nWhat is *not* affected (as far as I can see)\n--------------------------------------------\n\n- Public content APIs (REST/GraphQL front\u2011end) are not wired through this `document-metadata` service. The changed code lives entirely in the admin `content-manager` plugin.\n\n- The relations controller\u2019s add\u2011status logic uses `document-metadata.getStatus` only, which is unchanged.\n\n- Permission checking and RBAC are unaffected; they use `permission-checker` and `sanitizedQuery`/`sanitizeOutput`, none of which were touched in this diff.\n\n- DB schema/migrations are unchanged; the change is strictly in query composition (`populate`).\n\n---\n\nUnknowns / Indeterminacies\n--------------------------\n\n- I did not inspect every Strapi plugin or any custom user code that might call `strapi.plugin('content-manager').service('document-metadata')` directly. I searched for obvious uses: `grep \"document-metadata\" **/*` and inspected all hits. They were:\n  - `content-manager/server/src/utils/index.ts`\n  - `content-manager/server/src/controllers/relations.ts`\n  - `content-manager/server/src/controllers/collection-types.ts`\n  - `content-manager/server/src/services/index.ts`\n  - `content-manager/server/src/homepage/services/homepage.ts`\n  - `content-manager/server/src/history/services/utils.ts`\n  - `content-manager/server/src/controllers/utils/metadata.ts`\n\n  I only opened `relations.ts`, `collection-types.ts`, `homepage.ts`, `utils/metadata.ts`, and `services/index.ts`. I did **not** open `history/services/utils.ts` or `server/src/utils/index.ts`. They might use `document-metadata` in additional ways (e.g., loading metadata for version history), which would then also pick up the new media-populate behavior. That\u2019s an unresolved area.\n\n- I did not inspect the admin UI components that consume `availableLocales` beyond confirming the presence of that field in API services. How exactly those media fields are used client\u2011side (e.g., prefilled relations) is not established from this analysis.\n\n- Runtime configuration (which content types have media/non\u2011localized attributes, what `getPopulateForValidation` returns) is not in this repo; so I can\u2019t enumerate exactly which fields will be affected in a given application. I can only state the structural rule: *non\u2011localized media attributes on a localized content type* are the ones impacted.\n\n---\n\nCoverage protocol\n-----------------\n\n- Entrypoints checked:  \n  - Checked: admin HTTP controllers for collection types (`content-manager/server/src/controllers/collection-types.ts`), single types (`content-manager/server/src/controllers/single-types.ts`), relations (`content-manager/server/src/controllers/relations.ts`), and homepage service (`content-manager/server/src/homepage/services/homepage.ts`), plus admin RTK API client (`content-manager/admin/src/services/documents.ts`).  \n  - Not checked: public REST/GraphQL APIs, other plugins\u2019 controllers, history/preview routes, any custom or userland entrypoints.\n\n- Async/queue registrations checked:  \n  - Checked: none explicitly; I only saw synchronous service calls (`metadataService.getMetadata`, etc.), no queues or cron jobs in the inspected files.  \n  - Not checked: any job/queue/cron/event-listener definitions elsewhere in the repo.\n\n- Persistence paths checked:  \n  - Checked: `document-metadata.getMetadata`\u2019s use of `strapi.db.query(uid).findMany(...)`; homepage service\u2019s use of `strapi.documents(...).findMany` followed by `metadataService.getMetadata`; relations controller\u2019s queries to `strapi.db` for available statuses.  \n  - Not checked: other database access paths across the app (entity manager, repositories, custom queries).\n\n- Auth/cross-cutting behavior checked:  \n  - Checked: high-level use of `permission-checker` and `sanitizeOutput` in `collection-types.ts`, `single-types.ts`, and `controllers/utils/metadata.ts`, to ensure metadata passes through sanitization; no changes here.  \n  - Not checked: broader authentication middleware, RBAC configuration, or plugin-level hooks.\n\n- Runtime/framework wiring checked:  \n  - Checked: `content-manager/server/src/services/index.ts` for service registration of `'document-metadata'`; `content-manager/server/src/routes/index.ts` (plugin routes aggregation).  \n  - Not checked: core Strapi plugin registration, global DI containers, or any external plugin wiring.\n\n- Tests checked:  \n  - Checked: search for `document-metadata` and `availableLocales` under `**/__tests__/**` (none found for `document-metadata`); `content-manager/server/src/controllers/validation/__tests__/dimensions.test.ts` (only tangential to this change).  \n  - Not checked: the rest of the test suite across other packages (e.g., admin tests, utils tests, database tests).\n\n- Unresolved areas:  \n  - Potential uses of `document-metadata` in `content-manager/server/src/history/services/utils.ts` and `server/src/utils/index.ts` not inspected.  \n  - Exact admin UI behavior that consumes non\u2011localized media within `availableLocales` not traced.  \n  - Any indirect effects through configuration-dependent `getPopulateForValidation` are not fully determined.",
+  "tool_calls": 31,
+  "transcript": [
+    {
+      "tool": "grep",
+      "args": {
+        "pattern": "document-metadata",
+        "path_glob": "**/*"
+      },
+      "result_preview": "content-manager/server/src/utils/index.ts:4:import DocumentMetadata from 'src/services/document-metadata';\ncontent-manager/server/src/utils/index.ts:8:'document-metadata': typeof DocumentMetadata;\ncontent-manager/server/src/controllers/relations.ts:61:const documentMetadata = getService('document-me"
+    },
+    {
+      "tool": "grep",
+      "args": {
+        "pattern": "getMediaAttributes",
+        "path_glob": "**/*"
+      },
+      "result_preview": "utils/src/content-types.ts:214:const getMediaAttributes = (schema: Model) => {\nutils/src/content-types.ts:284:getMediaAttributes,\ncontent-manager/server/src/services/document-metadata.ts:9:const { getScalarAttributes, getMediaAttributes } = contentTypes;\ncontent-manager/server/src/services/document-"
+    },
+    {
+      "tool": "grep",
+      "args": {
+        "pattern": "availableLocales",
+        "path_glob": "**/*"
+      },
+      "result_preview": "content-manager/admin/src/services/documents.ts:117:availableLocales: [],\ncontent-manager/admin/src/services/documents.ts:446:availableLocales: [],\ncontent-manager/server/src/controllers/single-types.ts:127:{ availableLocales: true, availableStatus: false }\ncontent-manager/server/src/controllers/col"
+    },
+    {
+      "tool": "grep",
+      "args": {
+        "pattern": "getDocument",
+        "path_glob": "**/*"
+      },
+      "result_preview": "database/src/entity-manager/regular-relations.ts:27:const getDocumentSiblingIdsQuery = (tableName: string, id: ID) => {\ndatabase/src/entity-manager/regular-relations.ts:87:.whereNotIn(joinColumn.name, getDocumentSiblingIdsQuery(joinColumn.referencedTable!, id))\ndatabase/src/entity-manager/regular-re"
+    },
+    {
+      "tool": "grep",
+      "args": {
+        "pattern": ".routes",
+        "path_glob": "**/content-manager/**"
+      },
+      "result_preview": "(no matches)"
+    },
+    {
+      "tool": "grep",
+      "args": {
+        "pattern": "register",
+        "path_glob": "**/content-manager/**"
+      },
+      "result_preview": "(no matches)"
+    },
+    {
+      "tool": "grep",
+      "args": {
+        "pattern": "i18n",
+        "path_glob": "**/content-manager/**"
+      },
+      "result_preview": "(no matches)"
+    },
+    {
+      "tool": "list_dir",
+      "args": {
+        "path": "."
+      },
+      "result_preview": "d admin\nd content-manager\nd content-releases\nd content-type-builder\nd core\nd data-transfer\nd database\nd email\nd openapi\nd permissions\nd review-workflows\nd strapi\nd types\nd upload\nd utils"
+    },
+    {
+      "tool": "list_dir",
+      "args": {
+        "path": "packages/core/content-manager/server/src"
+      },
+      "result_preview": "error: not a directory: packages/core/content-manager/server/src"
+    },
+    {
+      "tool": "list_dir",
+      "args": {
+        "path": "packages/core/utils/src"
+      },
+      "result_preview": "error: not a directory: packages/core/utils/src"
+    },
+    {
+      "tool": "read_file",
+      "args": {
+        "path": "content-manager/server/src/services/document-metadata.ts"
+      },
+      "result_preview": "import { groupBy, pick, uniq } from 'lodash/fp';\n\nimport { async, contentTypes } from '@strapi/utils';\nimport type { Core, UID, Modules } from '@strapi/types';\n\nimport type { DocumentMetadata } from '../../../shared/contracts/collection-types';\nimport { getPopulateForValidation } from './utils/popul"
+    },
+    {
+      "tool": "read_file",
+      "args": {
+        "path": "utils/src/content-types.ts"
+      },
+      "result_preview": "import _ from 'lodash';\nimport { has, getOr, union } from 'lodash/fp';\nimport type {\n  Model,\n  Kind,\n  Attribute,\n  RelationalAttribute,\n  ComponentAttribute,\n  DynamicZoneAttribute,\n  WithRequired,\n} from './types';\n\nconst SINGLE_TYPE = 'singleType';\nconst COLLECTION_TYPE = 'collectionType';\n\ncons"
+    },
+    {
+      "tool": "read_file",
+      "args": {
+        "path": "content-manager/server/src/controllers/collection-types.ts"
+      },
+      "result_preview": "import { isNil } from 'lodash/fp';\n\nimport { setCreatorFields, async, errors } from '@strapi/utils';\nimport type { Modules, UID } from '@strapi/types';\n\nimport { getService } from '../utils';\nimport { validateBulkActionInput } from './validation';\nimport { getProhibitedCloningFields, excludeNotCreat"
+    },
+    {
+      "tool": "read_file",
+      "args": {
+        "path": "content-manager/server/src/controllers/single-types.ts"
+      },
+      "result_preview": "import type { UID, Modules } from '@strapi/types';\nimport { setCreatorFields, async, errors } from '@strapi/utils';\n\nimport { getDocumentLocaleAndStatus } from './validation/dimensions';\nimport { getService } from '../utils';\nimport { formatDocumentWithMetadata } from './utils/metadata';\n\ntype Optio"
+    },
+    {
+      "tool": "read_file",
+      "args": {
+        "path": "content-manager/server/src/controllers/utils/metadata.ts"
+      },
+      "result_preview": "import type { UID } from '@strapi/types';\nimport { async } from '@strapi/utils';\n\nimport { getService } from '../../utils';\n\nimport { DocumentVersion, GetMetadataOptions } from '../../services/document-metadata';\n\nimport type {\n  AvailableLocaleDocument,\n  AvailableStatusDocument,\n} from '../../../."
+    },
+    {
+      "tool": "read_file",
+      "args": {
+        "path": "content-manager/server/src/services/index.ts"
+      },
+      "result_preview": "import components from './components';\nimport contentTypes from './content-types';\nimport dataMapper from './data-mapper';\nimport fieldSizes from './field-sizes';\nimport metrics from './metrics';\nimport permissionChecker from './permission-checker';\nimport permission from './permission';\nimport popu"
+    },
+    {
+      "tool": "read_file",
+      "args": {
+        "path": "content-manager/server/src/controllers/relations.ts"
+      },
+      "result_preview": "import { prop, uniq, uniqBy, concat, flow, isEmpty } from 'lodash/fp';\n\nimport { isOperatorOfType, contentTypes, relations, errors } from '@strapi/utils';\nimport type { Data, Modules, UID } from '@strapi/types';\n\nimport { getService } from '../utils';\nimport { validateFindAvailable, validateFindExis"
+    },
+    {
+      "tool": "read_file",
+      "args": {
+        "path": "content-manager/server/src/homepage/services/homepage.ts"
+      },
+      "result_preview": "/* eslint-disable func-names */\nimport type { Core, Modules, Schema } from '@strapi/types';\nimport { contentTypes } from '@strapi/utils';\n\nimport type {\n  GetCountDocuments,\n  GetRecentDocuments,\n  RecentDocument,\n} from '../../../../shared/contracts/homepage';\n\nconst createHomepageService = ({ stra"
+    },
+    {
+      "tool": "read_file",
+      "args": {
+        "path": "content-manager/server/src/controllers/single-types.ts"
+      },
+      "result_preview": "import type { UID, Modules } from '@strapi/types';\nimport { setCreatorFields, async, errors } from '@strapi/utils';\n\nimport { getDocumentLocaleAndStatus } from './validation/dimensions';\nimport { getService } from '../utils';\nimport { formatDocumentWithMetadata } from './utils/metadata';\n\ntype Optio"
+    },
+    {
+      "tool": "read_file",
+      "args": {
+        "path": "content-manager/admin/src/services/documents.ts"
+      },
+      "result_preview": "/**\n * Related to fetching the actual content of a collection type or single type.\n */\nimport { stringify } from 'qs';\n\nimport { SINGLE_TYPES } from '../constants/collections';\n\nimport { contentManagerApi } from './api';\n\nimport type {\n  Clone,\n  Create,\n  Delete,\n  Find,\n  FindOne,\n  BulkDelete,\n  "
+    },
+    {
+      "tool": "read_file",
+      "args": {
+        "path": "content-manager/server/src/controllers/single-types.ts"
+      },
+      "result_preview": "import type { UID, Modules } from '@strapi/types';\nimport { setCreatorFields, async, errors } from '@strapi/utils';\n\nimport { getDocumentLocaleAndStatus } from './validation/dimensions';\nimport { getService } from '../utils';\nimport { formatDocumentWithMetadata } from './utils/metadata';\n\ntype Optio"
+    },
+    {
+      "tool": "read_file",
+      "args": {
+        "path": "content-manager/server/src/controllers/validation/dimensions.ts"
+      },
+      "result_preview": "import { errors, yup, validateYupSchema, contentTypes } from '@strapi/utils';\nimport type { UID } from '@strapi/types';\n\ninterface Options {\n  allowMultipleLocales?: boolean;\n}\n\nconst singleLocaleSchema = yup.string().nullable();\n\nconst multipleLocaleSchema = yup.lazy((value) =>\n  Array.isArray(valu"
+    },
+    {
+      "tool": "read_file",
+      "args": {
+        "path": "content-manager/server/src/controllers/single-types.ts"
+      },
+      "result_preview": "import type { UID, Modules } from '@strapi/types';\nimport { setCreatorFields, async, errors } from '@strapi/utils';\n\nimport { getDocumentLocaleAndStatus } from './validation/dimensions';\nimport { getService } from '../utils';\nimport { formatDocumentWithMetadata } from './utils/metadata';\n\ntype Optio"
+    },
+    {
+      "tool": "read_file",
+      "args": {
+        "path": "content-manager/server/src/controllers/utils/metadata.ts"
+      },
+      "result_preview": "import type { UID } from '@strapi/types';\nimport { async } from '@strapi/utils';\n\nimport { getService } from '../../utils';\n\nimport { DocumentVersion, GetMetadataOptions } from '../../services/document-metadata';\n\nimport type {\n  AvailableLocaleDocument,\n  AvailableStatusDocument,\n} from '../../../."
+    },
+    {
+      "tool": "read_file",
+      "args": {
+        "path": "content-manager/server/src/controllers/single-types.ts"
+      },
+      "result_preview": "import type { UID, Modules } from '@strapi/types';\nimport { setCreatorFields, async, errors } from '@strapi/utils';\n\nimport { getDocumentLocaleAndStatus } from './validation/dimensions';\nimport { getService } from '../utils';\nimport { formatDocumentWithMetadata } from './utils/metadata';\n\ntype Optio"
+    },
+    {
+      "tool": "read_file",
+      "args": {
+        "path": "content-manager/server/src/routes/index.ts"
+      },
+      "result_preview": "import admin from './admin';\nimport history from '../history';\nimport preview from '../preview';\nimport homepage from '../homepage';\n\nexport default {\n  admin,\n  ...(history.routes ? history.routes : {}),\n  ...(preview.routes ? preview.routes : {}),\n  ...homepage.routes,\n};\n"
+    },
+    {
+      "tool": "read_file",
+      "args": {
+        "path": "content-manager/server/src/routes/admin-api.ts"
+      },
+      "result_preview": "error: not a file: content-manager/server/src/routes/admin-api.ts"
+    },
+    {
+      "tool": "read_file",
+      "args": {
+        "path": "content-manager/server/src/routes/index.ts"
+      },
+      "result_preview": "import admin from './admin';\nimport history from '../history';\nimport preview from '../preview';\nimport homepage from '../homepage';\n\nexport default {\n  admin,\n  ...(history.routes ? history.routes : {}),\n  ...(preview.routes ? preview.routes : {}),\n  ...homepage.routes,\n};\n"
+    },
+    {
+      "tool": "read_file",
+      "args": {
+        "path": "content-manager/server/src/routes/admin-api.ts"
+      },
+      "result_preview": "error: not a file: content-manager/server/src/routes/admin-api.ts"
+    },
+    {
+      "tool": "read_file",
+      "args": {
+        "path": "content-manager/server/src/routes/index.ts"
+      },
+      "result_preview": "import admin from './admin';\nimport history from '../history';\nimport preview from '../preview';\nimport homepage from '../homepage';\n\nexport default {\n  admin,\n  ...(history.routes ? history.routes : {}),\n  ...(preview.routes ? preview.routes : {}),\n  ...homepage.routes,\n};\n"
+    },
+    {
+      "tool": "grep",
+      "args": {
+        "pattern": "document-metadata",
+        "path_glob": "**/__tests__/**"
+      },
+      "result_preview": "(no matches)"
+    }
+  ]
+}

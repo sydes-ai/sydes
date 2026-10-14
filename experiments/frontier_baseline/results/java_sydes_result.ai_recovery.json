@@ -1,0 +1,26 @@
+{
+  "path_recovery": {
+    "status": "unresolved",
+    "paths": [],
+    "corrected_first_pass_claims": [],
+    "unresolved": []
+  },
+  "test_recovery": {
+    "status": "unresolved",
+    "tests": [
+      {
+        "file": "demo-rbac-security/src/test/java/com/xkcoding/rbac/security/util/JwtUtilTest.java",
+        "test": "parseJWT_currentTokenMatchesRedis_succeeds",
+        "covers": "exercise parseJWT with current token matching Redis",
+        "target": {
+          "symbol": "JwtUtil.parseJWT",
+          "file": "demo-rbac-security/src/main/java/com/xkcoding/rbac/security/util/JwtUtil.java",
+          "qualified_name": null
+        },
+        "evidence": [],
+        "status": "rejected",
+        "rejection_reason": "no evidence cited at all"
+      }
+    ]
+  }
+}

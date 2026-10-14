@@ -62,6 +62,7 @@ from sydes.verify.models import (
     SemanticInvestigationHint,
     SemanticKeySymbol,
     SemanticRisk,
+    TestAssessment,
     normalize_severity,
 )
 
@@ -74,13 +75,18 @@ MAX_BEHAVIOR_CHANGES = 6
 MAX_IMPORTANT_SYMBOLS = 8
 MAX_INVESTIGATION_HINTS = 6
 MAX_LIST_ITEMS = 6
+MAX_TEST_ASSESSMENTS = 20
 
 
-def _build_semantic_context(*, change: ChangeSet, diff_text: str) -> dict[str, Any]:
+def _build_semantic_context(
+    *, change: ChangeSet, diff_text: str, candidate_tests: list[dict[str, Any]] | None = None
+) -> dict[str, Any]:
     """The bounded context payload for the semantic pass: changed files,
-    changed symbols (possibly empty), and the diff itself. No source beyond
-    what the diff's own context lines already carry, no graph traversal."""
+    changed symbols (possibly empty), the diff itself, and the candidate
+    tests Sydes found around the change (`sydes.verify.related_tests`). No
+    source beyond the diff and those test bodies, no graph traversal."""
     return {
+        "candidate_tests": list(candidate_tests or []),
         "version": "v1",
         "base": change.base,
         "includes_working_tree": change.includes_working_tree,
@@ -126,9 +132,11 @@ def _bounded_prompt(context: dict[str, Any], preamble: str = "", model_spec: str
         limit=limit,
         full_diff=str(context.get("diff") or ""),
         trims=[
+            trim_list("candidate_tests", 12),
             trim_list("symbols", 20),
             trim_list("files", 20),
             trim_list("symbols", 10),
+            trim_list("candidate_tests", 6),
         ],
     )
     return prompt
@@ -148,6 +156,9 @@ _SEMANTIC_ANALYSIS_HEADER = (
     "4. What kinds of boundaries are plausibly relevant?\n"
     "5. What local/static risks or invariants should a reviewer consider?\n"
     "6. What remains uncertain from the diff/context alone?\n"
+    "7. For each test in `candidate_tests` (tests Sydes found that changed with this diff or "
+    "name a changed symbol): does it target the behavior this change introduces, and how "
+    "strongly do its assertions pin that behavior down?\n"
     "\n"
     "Ground rules:\n"
     "- Distinguish what the diff directly supports, from what is merely likely, from "
@@ -196,6 +207,15 @@ _SEMANTIC_ANALYSIS_HEADER = (
     "this fixed set: api, callable, async, external, unknown — nothing else, and it is a "
     "hint for later investigation, not a discovery.\n"
     "- Keep every list short — a handful of items, not an exhaustive catalogue.\n"
+    "- `test_assessments` (question 7): only for ids listed in `candidate_tests`, never a test "
+    "you invent. `targets`: `targets_change` when the test exercises behavior this diff "
+    "introduces or changes, `unrelated` when it does not, `unclear` when the supplied text "
+    "cannot tell. `assertion`: `strong` when its assertions would fail if the changed "
+    "behavior regressed, `weak` when they would still pass for a plausible wrong "
+    "implementation (e.g. checking that strings are present rather than how they combine, "
+    "only checking that no exception is raised, asserting on a mock's own return value), "
+    "`unclear` when the supplied text is not enough. Give a one-sentence `reason` grounded "
+    "in the test text. A test being present is not evidence that it asserts anything.\n"
     "\n"
     "Indeterminacy — read carefully, this is commonly under-used: being able to "
     "describe HOW a change would plausibly behave is not the same as knowing WHETHER it "
@@ -238,6 +258,8 @@ _SEMANTIC_ANALYSIS_HEADER = (
     '"local_risks":[{"description":"...","severity":"P0|P1|P2|P3",'
     '"citations":[{"file":"...","line":0,"quoted_text":"..."}]}],'
     '"uncertainties":["..."],'
+    '"test_assessments":[{"test":"<id from candidate_tests>","targets":"targets_change|unrelated|unclear",'
+    '"assertion":"strong|weak|unclear","reason":"..."}],'
     '"indeterminate":{"is_indeterminate":false,"reason":null,"detail":"..."}}'
 )
 
@@ -374,6 +396,23 @@ def _parse_investigation_hint(raw: Any) -> SemanticInvestigationHint | None:
     )
 
 
+_TEST_TARGETS = {"targets_change", "unrelated", "unclear"}
+_TEST_ASSERTIONS = {"strong", "weak", "unclear"}
+
+
+def _parse_test_assessment(raw: Any) -> TestAssessment | None:
+    if not isinstance(raw, dict) or not str(raw.get("test") or "").strip():
+        return None
+    targets = str(raw.get("targets") or "unclear").strip().lower()
+    assertion = str(raw.get("assertion") or "unclear").strip().lower()
+    return TestAssessment(
+        test=str(raw["test"]).strip()[:300],
+        targets=targets if targets in _TEST_TARGETS else "unclear",
+        assertion=assertion if assertion in _TEST_ASSERTIONS else "unclear",
+        reason=str(raw.get("reason") or "").strip()[:400],
+    )
+
+
 def _parse_indeterminate(raw: Any) -> tuple[bool, str | None, str]:
     """Parse the top-level `indeterminate` object.
 
@@ -444,6 +483,11 @@ def parse_semantic_analysis(raw: dict[str, Any]) -> ChangeSemanticAnalysis:
     is_indeterminate, indeterminate_reason, indeterminate_detail = _parse_indeterminate(
         raw.get("indeterminate")
     )
+    test_assessments = [
+        item for item in (
+            _parse_test_assessment(entry) for entry in raw.get("test_assessments", []) or []
+        ) if item is not None
+    ][:MAX_TEST_ASSESSMENTS]
 
     return ChangeSemanticAnalysis(
         change_summary=str(raw.get("change_summary") or "").strip()[:800],
@@ -453,6 +497,7 @@ def parse_semantic_analysis(raw: dict[str, Any]) -> ChangeSemanticAnalysis:
         likely_boundary_types=_filtered_boundary_types(raw.get("likely_boundary_types")),
         local_risks=local_risks,
         uncertainties=_as_str_list(raw.get("uncertainties"), cap=MAX_LIST_ITEMS),
+        test_assessments=test_assessments,
         # Always the safe default here -- the real, evidence-only value is
         # computed by `_apply_verification` once citations can be checked.
         verification_state=SEMANTIC_VERIFICATION_UNVERIFIED,
@@ -469,6 +514,7 @@ def generate_pr_semantic_analysis(
     model_spec: str | None = None,
     llm_client: LLMClient | None = None,
     checked_behavior_preamble: str = "",
+    candidate_tests: list[dict[str, Any]] | None = None,
 ) -> tuple[ChangeSemanticAnalysis | None, list[str]]:
     """Run the one bounded PR-level semantic-analysis LLM call.
 
@@ -497,7 +543,9 @@ def generate_pr_semantic_analysis(
     diff_text = read_unified_diff(
         repo_root=repo_root, base_rev=change.merge_base or change.base, max_chars=FULL_DIFF_CHARS
     )
-    context = _build_semantic_context(change=change, diff_text=diff_text)
+    context = _build_semantic_context(
+        change=change, diff_text=diff_text, candidate_tests=candidate_tests
+    )
     prompt = _bounded_prompt(context, checked_behavior_preamble, model_spec)
 
     try:
@@ -511,7 +559,17 @@ def generate_pr_semantic_analysis(
 
     analysis = parse_semantic_analysis(raw)
     analysis = _apply_verification(analysis, repo_root=repo_root, diff_text=diff_text)
-    return analysis, [f"pr_semantic_analysis_prompt_chars={len(prompt)}"]
+    # an assessment may only be about a test Sydes actually supplied
+    supplied = {str(item.get("id")) for item in candidate_tests or []}
+    kept = [a for a in analysis.test_assessments if a.test in supplied]
+    notes = [f"pr_semantic_analysis_prompt_chars={len(prompt)}"]
+    if len(kept) != len(analysis.test_assessments):
+        notes.append(
+            f"pr_semantic_analysis: dropped {len(analysis.test_assessments) - len(kept)} "
+            "test assessment(s) naming a test that was not supplied"
+        )
+    analysis.test_assessments = kept
+    return analysis, notes
 
 
 def _normalize(text: str) -> str:

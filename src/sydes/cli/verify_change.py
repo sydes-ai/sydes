@@ -480,6 +480,17 @@ def verify_change_command(
             runtime_environment=runtime_environment,
             unavailable_reason=live_run_failed,
         )
+        # tests runtime evidence observed running the changed code are linked
+        # test evidence, whether or not a route/flow connects them
+        from sydes.verify.related_tests import link_runtime_tests
+
+        behavior = result.behavioral
+        runtime_ids: list[str] = []
+        if behavior is not None and behavior.status == "available":
+            runtime_ids = [str(t) for t in behavior.tests_on_behavioral_path or []]
+            for function in (behavior.runtime_evidence or {}).get("functions", []) or []:
+                runtime_ids.extend(str(t) for t in function.get("tests", []) or [])
+        link_runtime_tests(result.test_evidence, sorted(set(runtime_ids)))
 
     if no_ai_recovery:
         _note_ai_recovery_disabled(result)

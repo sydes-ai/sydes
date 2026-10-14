@@ -1,0 +1,21 @@
+skip (exists): /Users/ksnaik/StudioProjects/sydes/experiments/hostile_baseline/results/hostile-h1-immich_B_openai_run1.json
+skip (exists): /Users/ksnaik/StudioProjects/sydes/experiments/hostile_baseline/results/hostile-h1-immich_B_openai_run2.json
+skip (exists): /Users/ksnaik/StudioProjects/sydes/experiments/hostile_baseline/results/hostile-h1-immich_C_openai_run1.json
+--- hostile-h1-immich variant C (frontier + Sydes facts) openai run 2 ---
+wrote /Users/ksnaik/StudioProjects/sydes/experiments/hostile_baseline/results/hostile-h1-immich_C_openai_run2.json (22 tool calls, 16988 chars)
+--- hostile-h2-strapi variant B (frontier alone) openai run 1 ---
+wrote /Users/ksnaik/StudioProjects/sydes/experiments/hostile_baseline/results/hostile-h2-strapi_B_openai_run1.json (12 tool calls, 18909 chars)
+--- hostile-h2-strapi variant B (frontier alone) openai run 2 ---
+wrote /Users/ksnaik/StudioProjects/sydes/experiments/hostile_baseline/results/hostile-h2-strapi_B_openai_run2.json (15 tool calls, 16706 chars)
+--- hostile-h2-strapi variant C (frontier + Sydes facts) openai run 1 ---
+wrote /Users/ksnaik/StudioProjects/sydes/experiments/hostile_baseline/results/hostile-h2-strapi_C_openai_run1.json (14 tool calls, 23693 chars)
+--- hostile-h2-strapi variant C (frontier + Sydes facts) openai run 2 ---
+wrote /Users/ksnaik/StudioProjects/sydes/experiments/hostile_baseline/results/hostile-h2-strapi_C_openai_run2.json (16 tool calls, 22828 chars)
+--- hostile-h3-strapi variant B (frontier alone) openai run 1 ---
+wrote /Users/ksnaik/StudioProjects/sydes/experiments/hostile_baseline/results/hostile-h3-strapi_B_openai_run1.json (17 tool calls, 22630 chars)
+--- hostile-h3-strapi variant B (frontier alone) openai run 2 ---
+wrote /Users/ksnaik/StudioProjects/sydes/experiments/hostile_baseline/results/hostile-h3-strapi_B_openai_run2.json (20 tool calls, 28842 chars)
+--- hostile-h3-strapi variant C (frontier + Sydes facts) openai run 1 ---
+wrote /Users/ksnaik/StudioProjects/sydes/experiments/hostile_baseline/results/hostile-h3-strapi_C_openai_run1.json (17 tool calls, 31247 chars)
+--- hostile-h3-strapi variant C (frontier + Sydes facts) openai run 2 ---
+wrote /Users/ksnaik/StudioProjects/sydes/experiments/hostile_baseline/results/hostile-h3-strapi_C_openai_run2.json (31 tool calls, 24808 chars)

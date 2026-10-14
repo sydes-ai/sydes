@@ -130,6 +130,9 @@ from sydes.verify.runtime import infer_runtime_dependencies
 from sydes.verify.source_files import load_repo_files
 from sydes.verify.symbol_attribution_span import language_for_attribution, symbol_attribution_span
 from sydes.verify.test_execution import ExecutionSettings, execute_mapped_tests, run_ci_suite
+from sydes.verify.consistency import consistency_candidates
+from sydes.verify.models import NO_TEST_MAPPED_REASON, ConsistencyQuestion
+from sydes.verify.related_tests import build_test_evidence, find_related_tests, prompt_candidates
 from sydes.verify.test_index import build_test_index
 from sydes.verify.test_mapping import case_changed_in_diff, map_tests_to_obligation
 
@@ -577,7 +580,7 @@ def resolve_obligation_status(
             f"{len(obligation.supporting_tests)} test(s) exercise this flow but none assert "
             "this behavior"
             if obligation.supporting_tests
-            else "No existing test asserts this behavior"
+            else NO_TEST_MAPPED_REASON
         )
         return
 
@@ -634,7 +637,7 @@ def resolve_obligation_status_from_executions(obligation: VerificationObligation
             f"{len(obligation.supporting_tests)} test(s) exercise this flow but none assert "
             "this behavior"
             if obligation.supporting_tests
-            else "No existing test asserts this behavior"
+            else NO_TEST_MAPPED_REASON
         )
         return
 
@@ -2035,21 +2038,47 @@ def analyze_change(
             f"changed function(s) executed by existing tests ({behavioral_context.runtime.test_scope})"
         )
 
+    # Tests around the change, found without depending on any route/flow
+    # (`sydes.verify.related_tests`): built once here so the semantic pass can
+    # assess them, and reused below for obligation mapping.
+    repo_files = load_repo_files(primary.name, primary_root)
+    test_index = build_test_index(repo_files)
+    related_tests = find_related_tests(test_index, change)
     if options.code_review:
         try:
+            review_diff = read_unified_diff(
+                repo_root=primary_root, base_rev=options.base, max_chars=4_000_000
+            )
+            questions, consistency_notes = consistency_candidates(
+                diff_text=review_diff, repo_files=repo_files, repo_root=primary_root,
+                base=change.merge_base or change.base,
+            )
+            result.diagnostics.extend(consistency_notes)
             code_context = build_code_review_context(
                 change=change,
-                diff_text=read_unified_diff(
-                    repo_root=primary_root, base_rev=options.base, max_chars=4_000_000
-                ),
+                diff_text=review_diff,
                 repo_root=primary_root,
+                consistency_questions=[q.as_context() for q in questions],
             )
+            answers: list[dict[str, Any]] = []
             findings, finding_notes = generate_code_findings(
                 context=code_context,
                 model_spec=options.model_spec,
                 llm_client=options.llm_client,
                 checked_behavior_preamble=options.checked_behavior_preamble,
+                consistency_answers=answers,
             )
+            by_id = {a["id"]: a for a in answers}
+            result.consistency_review = [
+                ConsistencyQuestion(
+                    id=q.id, kind=q.kind, question=q.question, changed_path=q.changed_path,
+                    analogous_paths=q.analogous, why_related=q.why_related,
+                    confidence=q.confidence,
+                    verdict=by_id.get(q.id, {}).get("verdict", "not_answered"),
+                    reason=by_id.get(q.id, {}).get("reason", ""),
+                )
+                for q in questions
+            ]
             result.code_findings = findings
             result.code_review_status = CODE_REVIEW_COMPLETED
             result.diagnostics.extend(finding_notes)
@@ -2074,6 +2103,7 @@ def analyze_change(
             change=change, repo_root=primary_root, model_spec=options.model_spec,
             llm_client=options.llm_client,
             checked_behavior_preamble=options.checked_behavior_preamble,
+            candidate_tests=prompt_candidates(test_index, related_tests),
         )
         result.pr_semantic_analysis = semantic_analysis
         result.diagnostics.extend(semantic_notes)
@@ -2295,8 +2325,6 @@ def analyze_change(
         item.qualified_name for item in change.symbols if item.qualified_name
     }
 
-    repo_files = load_repo_files(primary.name, primary_root)
-    test_index = build_test_index(repo_files)
     result.diagnostics.extend(f"{primary.name}: {note}" for note in test_index.notes)
 
     changed_test_cases = sorted(
@@ -2552,6 +2580,14 @@ def analyze_change(
     for flow in result.affected_flows:
         resolve_flow_status(flow)
     result.accepted_impacts = _build_accepted_impacts(impact_result, result.affected_flows)
+    result.test_evidence = build_test_evidence(
+        index=test_index,
+        related=related_tests,
+        flows=result.affected_flows,
+        assessments=(
+            result.pr_semantic_analysis.test_assessments if result.pr_semantic_analysis else None
+        ),
+    )
     result.summary = _compute_summary(result, changed_test_case_count=len(changed_test_cases))
     _trace.record_final_decision(
         run_id=trace_run_id,

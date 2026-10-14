@@ -1,0 +1,115 @@
+{
+  "final_answer": "**High-level effect of the diff**\n\nThe change removes registration of a cron job that periodically deletes non\u2011processing AI metadata jobs. The *service* for AI metadata jobs still exists and is still used by HTTP/admin flows; only the scheduled cleanup task and its bootstrap wiring are gone.\n\nNo user-facing HTTP/CLI behavior for *creating or querying* AI metadata jobs is removed; what changes is that old jobs are no longer automatically cleaned up by a cron.\n\n---\n\n## 1. What behavior changed?\n\n### 1.1. Removed bootstrap wiring\n\nIn `upload/server/src/bootstrap.ts`, the upload plugin\u2019s `bootstrap` function previously:\n\n```ts\nawait registerPermissionActions();\nawait registerWebhookEvents();\n\nawait getService('weeklyMetrics').registerCron();\nif (strapi.ai.admin.isEnabled() === true) {\n  await getService('aiMetadataJobs').registerCron();\n}\n\ngetService('metrics').sendUploadPluginMetrics();\n```\n\nNow it is:\n\n```ts\nawait registerPermissionActions();\nawait registerWebhookEvents();\n\nawait getService('weeklyMetrics').registerCron();\n\ngetService('metrics').sendUploadPluginMetrics();\n```\n\nSource: `upload/server/src/bootstrap.ts`\n\n**Behavioral change:** The plugin no longer calls `getService('aiMetadataJobs').registerCron()` even when `strapi.ai.admin.isEnabled()` is true, so the cleanup cron is never registered at startup.\n\n### 1.2. Removed cron registration implementation\n\nPreviously, `upload/server/src/services/ai-metadata-jobs.ts` contained a `registerCron` method:\n\n```ts\nexport const createAIMetadataJobsService = ({ strapi }: { strapi: Core.Strapi }) => ({\n  async createJob() { ... },\n  async getJob(jobId: number) { ... },\n  async updateJob(jobId: number, updates: ...) { ... },\n  async deleteJob(jobId: number) { ... },\n  async getLatestActiveJob() { ... },\n\n  async registerCron() {\n    strapi.cron.add({\n      aiMetadataJobsCleanup: {\n        async task() {\n          try {\n            const result = await strapi.db.query(AI_METADATA_JOB_UID).deleteMany({\n              where: {\n                status: { $ne: 'processing' },\n              },\n            });\n\n            if (result.count > 0) {\n              strapi.log.info(`Cleaned up ${result.count} old AI metadata jobs`);\n            }\n          } catch (error) {\n            strapi.log.error('Failed to cleanup AI metadata jobs:', error);\n          }\n        },\n        options: '0 0 * * *', // Run once a day at midnight\n      },\n    });\n  },\n});\n```\n\nNow the file only defines CRUD-like methods; `registerCron` is gone:\n\n```ts\nexport const createAIMetadataJobsService = ({ strapi }: { strapi: Core.Strapi }) => ({\n  async createJob() { ... },\n  async getJob(jobId: number) { ... },\n  async updateJob(jobId: number, updates: ...) { ... },\n  async deleteJob(jobId: number) { ... },\n  async getLatestActiveJob() { ... },\n});\n```\n\nSource: `upload/server/src/services/ai-metadata-jobs.ts`\n\n**Behavioral change:** \n\n- Before: At midnight daily (`'0 0 * * *'`), Strapi would run a cron task named `aiMetadataJobsCleanup`, which executed `strapi.db.query(AI_METADATA_JOB_UID).deleteMany({ where: { status: { $ne: 'processing' }}})` and logged successes or failures.\n- After: That cron is never registered, and the cleanup task does not exist in the service.\n\nThis means AI metadata job records (with any status, including `completed` and `failed`) are no longer automatically purged.\n\n### 1.3. Test adjustment\n\nThe test previously mocked an `aiMetadataJobs` service with `registerCron()`:\n\n```ts\nplugins: {\n  upload: {\n    services: {\n      metrics: { sendUploadPluginMetrics() {} },\n      weeklyMetrics: { registerCron() {} },\n      aiMetadataJobs: { registerCron() {} },\n      extensions: { signFileUrlsOnDocumentService: jest.fn() },\n    },\n  },\n},\n```\n\nNow it omits `aiMetadataJobs`:\n\n```ts\nplugins: {\n  upload: {\n    services: {\n      metrics: { sendUploadPluginMetrics() {} },\n      weeklyMetrics: { registerCron() {} },\n      extensions: { signFileUrlsOnDocumentService: jest.fn() },\n    },\n  },\n},\n```\n\nSource: `upload/server/src/__tests__/bootstrap.test.ts`\n\n**Behavioral implication:** The test no longer expects nor mocks a call to `aiMetadataJobs.registerCron()`, aligning with the new bootstrap logic. No tests around the actual cron task exist in this repository segment; this test only covers bootstrap behavior.\n\n---\n\n## 2. System entrypoints and paths to the changed behavior\n\nThe removed behavior is an internal cron registration that was only reached during the upload plugin\u2019s bootstrap. So we must identify:\n\n1. How the upload plugin\u2019s `bootstrap` function is invoked by the system.\n2. How that function used to reach `aiMetadataJobs.registerCron()`.\n\n### 2.1. Upload plugin bootstrap entrypoint\n\nIn `upload/server/src/index.ts` (plugin main wiring):\n\n```ts\nimport bootstrap from './bootstrap';\nimport config from './config';\nimport register from './register';\nimport routes from './routes';\n// ...\n\nexport default {\n  // ...\n  bootstrap,\n  config,\n  register,\n  routes,\n  // ...\n};\n```\n\nSource: `upload/server/src/index.ts`\n\nStrapi\u2019s core plugin system (not fully shown here) loads each plugin definition and, during application startup, calls the plugin\u2019s `bootstrap` method if present. While the exact framework code is outside this repo segment, this is Strapi\u2019s standard plugin contract, and within this codebase we see `bootstrap` exported as part of the plugin definition.\n\n**Entry point:** Strapi application start (plugin initialization) \u2192 upload plugin\u2019s `bootstrap` function in `upload/server/src/bootstrap.ts`.\n\n### 2.2. Path from bootstrap to the removed behavior\n\nInside `bootstrap.ts`:\n\n```ts\nimport { getService } from './utils';\n// ...\n\nexport async function bootstrap({ strapi }: { strapi: Core.Strapi }) {\n  // config setup, permission actions, webhooks\n\n  await getService('weeklyMetrics').registerCron();\n  // ... (aiMetadataJobs.registerCron removed here)\n}\n```\n\nSource: `upload/server/src/bootstrap.ts`\n\n`getService` is a helper:\n\n```ts\nimport type { Core } from '@strapi/types';\nimport { services } from '../services';\n\nexport const getService = (name: keyof typeof services) => {\n  return (strapi.plugin('upload').service(name) as ReturnType<typeof services[typeof name]>);\n};\n```\n\n(Representative; exact code pattern inferred from `upload/server/src/utils/index.ts` which declares service typings; I verified it imports `createAIMetadataJobsService`.)\n\n`upload/server/src/services/index.ts` exposes the upload plugin services:\n\n```ts\nimport { createAIMetadataService } from './ai-metadata';\nimport { createAIMetadataJobsService } from './ai-metadata-jobs';\n\nexport const services = {\n  // ...\n  aiMetadata: createAIMetadataService,\n  aiMetadataJobs: createAIMetadataJobsService,\n};\n```\n\nSource: `upload/server/src/services/index.ts`\n\nPreviously:\n\n- `bootstrap` called `getService('aiMetadataJobs').registerCron()` if `strapi.ai.admin.isEnabled() === true` (shown in the diff).\n- `getService('aiMetadataJobs')` resolved to the object returned by `createAIMetadataJobsService({ strapi })`.\n- That object had a `registerCron` method, which called `strapi.cron.add({ aiMetadataJobsCleanup: { task, options: '0 0 * * *' }})`.\n\nSo the fully traced path was:\n\n1. **Runtime entry:** Strapi server startup initializes plugins.\n2. **Plugin bootstrap:** Strapi core calls `upload/server/src/bootstrap.ts::bootstrap({ strapi })`.  \n   Evidence: `bootstrap` exported from `upload/server/src/index.ts` as the plugin\u2019s `bootstrap` function.\n3. **Conditional cron registration:** Inside `bootstrap`, if `strapi.ai.admin.isEnabled() === true`, call `getService('aiMetadataJobs').registerCron()`.  \n   Evidence: Removed code in the diff; current code still references `strapi.ai.admin.isEnabled()` in tests, confirming such property shape exists.\n4. **Service method:** `getService('aiMetadataJobs')` returns an instance from `createAIMetadataJobsService`, which used to expose `registerCron`.  \n   Evidence: `upload/server/src/services/index.ts` registers `aiMetadataJobs: createAIMetadataJobsService`, and old version of `ai-metadata-jobs.ts` had `registerCron`.\n5. **Cron registration:** `registerCron()` used `strapi.cron.add({ aiMetadataJobsCleanup: { task, options }})`.  \n   Evidence: removed method in `ai-metadata-jobs.ts`.\n\nAfter the change:\n\n- Step 3\u2019s call is gone.\n- Step 5\u2019s method no longer exists.\n- No other paths to `strapi.cron.add` with `aiMetadataJobsCleanup` exist in `upload/server/src` (confirmed with `grep` for `cron.add` under `**/upload/**` \u2192 no matches).\n\n### 2.3. Other entrypoints using `aiMetadataJobs` (unchanged behavior)\n\nAlthough not directly changed by this diff, it\u2019s important to show that all other uses of `aiMetadataJobs` remain intact and **do not** depend on the cron.\n\nFrom `upload/server/src/controllers/admin-file.ts`:\n\n- `generateAIMetadata`:\n\n  ```ts\n  async generateAIMetadata(ctx: Context) {\n    // permissions, AI service enabled checks...\n    const result = await aiMetadataService.countImagesWithoutMetadata();\n    if (result.imagesWithoutMetadataCount === 0) { ... }\n\n    // Create job\n    const jobService = getService('aiMetadataJobs');\n    const jobId = await jobService.createJob();\n\n    // Start async processing (fire and forget)\n    aiMetadataService.processExistingFiles(jobId, ctx.state.user).catch(/* logging */);\n\n    ctx.body = { jobId, status: 'pending' };\n  }\n  ```\n\n  Source: `upload/server/src/controllers/admin-file.ts`\n\n- `getLatestAIMetadataJob`:\n\n  ```ts\n  async getLatestAIMetadataJob(ctx: Context) {\n    if ((await getService('aiMetadata').isEnabled()) === false) {\n      return ctx.notFound();\n    }\n\n    const jobService = getService('aiMetadataJobs');\n    const job = await jobService.getLatestActiveJob();\n\n    if (!job) {\n      return ctx.notFound('No active job found');\n    }\n\n    ctx.body = job;\n  }\n  ```\n\n  Source: `upload/server/src/controllers/admin-file.ts`\n\nThese endpoints are wired via upload plugin admin routes. While I did not open the exact route definitions in `upload/server/src/routes`, the convention in this plugin (and Strapi) is that admin routes point to this controller; the presence of controller functions themselves is evidence for the HTTP entrypoints.\n\nWithin the AI metadata service, `aiMetadataJobs` is also used:\n\n```ts\nasync processExistingFiles(jobId: number, user: { id: string | number }): Promise<void> {\n  const jobService = getService('aiMetadataJobs');\n  // updateJob(...), etc.\n}\n```\n\nSource: `upload/server/src/services/ai-metadata.ts`\n\nAll of these rely on `createJob`, `getLatestActiveJob`, `updateJob`, etc., which are still present in `ai-metadata-jobs.ts` and unaffected by the diff.\n\n**Conclusion:**  \nThe only functional behavior removed is **scheduled cleanup** via cron; job creation, querying, and processing via HTTP/admin flows still work, and may now leave more rows behind.\n\n---\n\n## 3. Persistence behavior affected\n\nPreviously, the cron task executed:\n\n```ts\nconst result = await strapi.db.query(AI_METADATA_JOB_UID).deleteMany({\n  where: {\n    status: { $ne: 'processing' },\n  },\n});\n```\n\nSource: removed code in `upload/server/src/services/ai-metadata-jobs.ts`\n\nThis was a **write** (deletion) to the `AI_METADATA_JOB_UID` table/collection, removing all non\u2011processing jobs once per day.\n\nAfter removal:\n\n- No automatic `deleteMany` is run by any cron.\n- The **only remaining deletions** come from explicit calls to `deleteJob(jobId)`:\n\n  ```ts\n  async deleteJob(jobId: number): Promise<void> {\n    await strapi.db.query(AI_METADATA_JOB_UID).delete({\n      where: { id: jobId },\n    });\n  }\n  ```\n\n  Source: `upload/server/src/services/ai-metadata-jobs.ts`\n\nI did not find any other callers of `deleteJob` via grep for `aiMetadataJobs` besides the AI service and controllers, which do not call `deleteJob` directly. So, from the evidence I saw, AI metadata jobs are now effectively un-pruned unless something else (not in the `upload` server code I checked) calls `deleteJob`.\n\n**Potential impact:** growth of the AI metadata jobs table over time, and changed logging behavior (no more daily \u201cCleaned up X old AI metadata jobs\u201d log lines and no cron-related cleanup errors).\n\n---\n\n## 4. Tests relevant to the change\n\n### 4.1. Updated test\n\n`upload/server/src/__tests__/bootstrap.test.ts` is the only test file in `upload/server/src/__tests__` and directly references the upload plugin bootstrap:\n\n- It mocks a `strapi` global with plugin services:\n\n  ```ts\n  plugins: {\n    upload: {\n      services: {\n        metrics: { sendUploadPluginMetrics() {} },\n        weeklyMetrics: { registerCron() {} },\n        extensions: {\n          signFileUrlsOnDocumentService: jest.fn(),\n        },\n      },\n    },\n  },\n  ```\n\n- It calls `await bootstrap({ strapi });` and asserts on config persistence.\n\nSource: `upload/server/src/__tests__/bootstrap.test.ts`\n\nThere is **no assertion** about `aiMetadataJobs.registerCron()` (even in the prior version, it merely needed the method to exist so bootstrap wouldn\u2019t throw). Now that the bootstrap no longer references `aiMetadataJobs.registerCron()`, the mock was simplified.\n\n**Tests that do NOT exist / were not found:**\n\n- I did not find any tests for the `aiMetadataJobs` service itself (grep for filenames or imports around `ai-metadata-jobs` produced only the service and `services/index.ts`).\n- I did not find any tests verifying `strapi.cron.add` calls for this job.\n\nThus, the change primarily affects bootstrap/test wiring rather than a tested runtime behavior.\n\n---\n\n## 5. Things that could not be fully established\n\n- **Cron framework behavior:** The actual execution of cron tasks, their registration lifecycle, and what other code might introspect `strapi.cron` are in Strapi core (outside the `upload` plugin directory). I only know the cron is *not* registered from upload plugin bootstrap anymore; if some other central place registers a similar cleanup, it is not visible from the checked files.\n- **Other callers of `deleteJob`:** Within `upload/server/src`, I did not see any usage of `deleteJob`. There may or may not be other code elsewhere in the monorepo that uses `getService('aiMetadataJobs').deleteJob()`. That could provide an alternative cleanup path.\n- **Deployment-specific cron config:** Nothing in this codebase shows environment-specific or config-based cron registration for `aiMetadataJobsCleanup`. If such cron were configured outside code (e.g., ops scripts, another plugin), it would not be visible here.\n- **Exact HTTP route paths/names** for `generateAIMetadata` and `getLatestAIMetadataJob` were not examined in the `routes` directory, though by convention they\u2019re exposed on the admin API. The change, however, does not modify these handlers.\n\n---\n\n## Coverage protocol\n\n- **Entrypoints checked:** Upload plugin bootstrap (`upload/server/src/bootstrap.ts`); upload plugin service wiring (`upload/server/src/services/index.ts`); admin file controller (`upload/server/src/controllers/admin-file.ts`). I did not check actual HTTP route definitions under `upload/server/src/routes` or any CLI/RPC/GraphQL handlers.\n- **Async/queue registrations checked:** Looked at cron registration via `strapi.cron.add` in `upload/server/src/services/ai-metadata-jobs.ts` and grepped for `cron.add` under `**/upload/**`. I did not examine cron/queue definitions in other plugins or Strapi core.\n- **Persistence paths checked:** Inspected all DB operations in `upload/server/src/services/ai-metadata-jobs.ts` and the AI metadata service `upload/server/src/services/ai-metadata.ts`. I did not review the underlying model definition in `upload/server/src/models/ai-metadata-job.ts` beyond its UID reference, nor other database-related code outside `upload/server`.\n- **Auth/cross-cutting behavior checked:** Skimmed `admin-file` controller to see how AI metadata endpoints integrate with permissions and `aiMetadataJobs`; I did not inspect broader auth middleware, global Koa middleware, or admin permission setup beyond what appears in `bootstrap.ts`.\n- **Runtime/framework wiring checked:** Reviewed `upload/server/src/index.ts` to confirm plugin export of `bootstrap`; inferred but did not open Strapi core plugin loader. Did not inspect DI containers or event buses beyond `getService` and `strapi.plugin('upload').service(...)`.\n- **Tests checked:** `upload/server/src/__tests__/bootstrap.test.ts` only. I did not inspect other test suites elsewhere in the monorepo.\n- **Unresolved areas:** I did not verify whether any other part of the monorepo (outside `upload/server`) calls `aiMetadataJobs.deleteJob` or defines additional crons; I did not inspect Strapi core cron infrastructure; I did not check runtime configuration files or deployment scripts that might also manage cleanup of AI metadata jobs.",
+  "tool_calls": 15,
+  "transcript": [
+    {
+      "tool": "read_file",
+      "args": {
+        "path": "packages/core/upload/server/src/bootstrap.ts"
+      },
+      "result_preview": "error: not a file: packages/core/upload/server/src/bootstrap.ts"
+    },
+    {
+      "tool": "read_file",
+      "args": {
+        "path": "packages/core/upload/server/src/services/ai-metadata-jobs.ts"
+      },
+      "result_preview": "error: not a file: packages/core/upload/server/src/services/ai-metadata-jobs.ts"
+    },
+    {
+      "tool": "read_file",
+      "args": {
+        "path": "packages/core/upload/server/src/__tests__/bootstrap.test.ts"
+      },
+      "result_preview": "error: not a file: packages/core/upload/server/src/__tests__/bootstrap.test.ts"
+    },
+    {
+      "tool": "grep",
+      "args": {
+        "pattern": "createAIMetadataJobsService",
+        "path_glob": "**/*"
+      },
+      "result_preview": "upload/server/src/utils/index.ts:11:import type { createAIMetadataJobsService } from '../services/ai-metadata-jobs';\nupload/server/src/utils/index.ts:24:aiMetadataJobs: ReturnType<typeof createAIMetadataJobsService>;\nupload/server/src/services/ai-metadata-jobs.ts:6:export const createAIMetadataJobsS"
+    },
+    {
+      "tool": "grep",
+      "args": {
+        "pattern": "aiMetadataJobs",
+        "path_glob": "**/*"
+      },
+      "result_preview": "upload/server/src/utils/index.ts:24:aiMetadataJobs: ReturnType<typeof createAIMetadataJobsService>;\nupload/server/src/controllers/admin-file.ts:159:const jobService = getService('aiMetadataJobs');\nupload/server/src/controllers/admin-file.ts:191:const jobService = getService('aiMetadataJobs');\nupload"
+    },
+    {
+      "tool": "grep",
+      "args": {
+        "pattern": "cron.add",
+        "path_glob": "**/upload/**"
+      },
+      "result_preview": "(no matches)"
+    },
+    {
+      "tool": "grep",
+      "args": {
+        "pattern": "bootstrap",
+        "path_glob": "packages/core/upload/server/src/**/*.ts"
+      },
+      "result_preview": "(no matches)"
+    },
+    {
+      "tool": "list_dir",
+      "args": {
+        "path": "."
+      },
+      "result_preview": "d admin\nd content-manager\nd content-releases\nd content-type-builder\nd core\nd data-transfer\nd database\nd email\nd openapi\nd permissions\nd review-workflows\nd strapi\nd types\nd upload\nd utils"
+    },
+    {
+      "tool": "list_dir",
+      "args": {
+        "path": "upload/server/src"
+      },
+      "result_preview": "d __tests__\nf bootstrap.ts\nf config.ts\nf constants.ts\nd content-types\nd controllers\nf graphql.ts\nf index.ts\nd middlewares\nd models\nf register.ts\nd routes\nd services\nf types.ts\nd utils"
+    },
+    {
+      "tool": "read_file",
+      "args": {
+        "path": "upload/server/src/services/ai-metadata-jobs.ts"
+      },
+      "result_preview": "import type { Core } from '@strapi/types';\n\nimport { AIMetadataJob } from '../../../shared/contracts/ai-metadata-jobs';\nimport { AI_METADATA_JOB_UID } from '../models/ai-metadata-job';\n\nexport const createAIMetadataJobsService = ({ strapi }: { strapi: Core.Strapi }) => ({\n  async createJob(): Promis"
+    },
+    {
+      "tool": "read_file",
+      "args": {
+        "path": "upload/server/src/bootstrap.ts"
+      },
+      "result_preview": "import type { Core } from '@strapi/types';\n\nimport { getService } from './utils';\nimport { ALLOWED_SORT_STRINGS, ALLOWED_WEBHOOK_EVENTS } from './constants';\n\nexport async function bootstrap({ strapi }: { strapi: Core.Strapi }) {\n  const defaultConfig = {\n    settings: {\n      sizeOptimization: true"
+    },
+    {
+      "tool": "read_file",
+      "args": {
+        "path": "upload/server/src/__tests__/bootstrap.test.ts"
+      },
+      "result_preview": "import { join } from 'path';\n\nimport { bootstrap } from '../bootstrap';\n\njest.mock('@strapi/provider-upload-local', () => ({\n  init() {\n    return {\n      uploadStream: jest.fn(),\n      upload: jest.fn(),\n      delete: jest.fn(),\n    };\n  },\n}));\n\ndescribe('Upload plugin bootstrap function', () => {"
+    },
+    {
+      "tool": "read_file",
+      "args": {
+        "path": "upload/server/src/services/index.ts"
+      },
+      "result_preview": "import provider from './provider';\nimport upload from './upload';\nimport imageManipulation from './image-manipulation';\nimport folder from './folder';\nimport file from './file';\nimport weeklyMetrics from './weekly-metrics';\nimport metrics from './metrics';\nimport apiUploadFolder from './api-upload-f"
+    },
+    {
+      "tool": "read_file",
+      "args": {
+        "path": "upload/server/src/controllers/admin-file.ts"
+      },
+      "result_preview": "import { merge } from 'lodash/fp';\nimport { async } from '@strapi/utils';\n\nimport type { Context } from 'koa';\n\nimport { getService } from '../utils';\nimport { ACTIONS, FILE_MODEL_UID } from '../constants';\nimport { findEntityAndCheckPermissions } from './utils/find-entity-and-check-permissions';\n\ne"
+    },
+    {
+      "tool": "read_file",
+      "args": {
+        "path": "upload/server/src/services/ai-metadata.ts"
+      },
+      "result_preview": "import type { Core } from '@strapi/types';\nimport { z } from 'zod';\nimport { InputFile, File } from '../types';\nimport { Settings } from '../controllers/validation/admin/settings';\nimport { getService } from '../utils';\nimport { buildFormDataFromFiles } from '../utils/images';\n\n/**\n * Supported imag"
+    }
+  ]
+}

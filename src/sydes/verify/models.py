@@ -395,6 +395,92 @@ class UnattachedEvidence(BaseModel):
     provenance: str = "ai_recovery"
 
 
+#: `TestEvidence.status`, strongest first. Each is a claim Sydes can back with
+#: what it actually did; none of the weaker ones may be rendered as "no test".
+#: An obligation no test was mapped to. A statement about the mapping, never
+#: about whether a test asserting the behavior exists somewhere (that is what
+#: `TestEvidence` reports). Results before 0.3.4 said the stronger, unsupported
+#: "No existing test asserts this behavior"; `LEGACY_NO_TEST_REASON` keeps
+#: consumers reading those.
+NO_TEST_MAPPED_REASON = "No test was mapped to this behavior"
+LEGACY_NO_TEST_REASON = "No existing test asserts this behavior"
+
+TEST_EVIDENCE_LINKED = "linked"  # a test is mapped to a changed obligation, or ran the changed code
+TEST_EVIDENCE_RELATED = "related_unlinked"  # relevant tests found; linkage to the behavior not established
+TEST_EVIDENCE_NONE_IN_SCOPE = "none_in_scope"  # tests were searched; none relate to the change
+TEST_EVIDENCE_NOT_SEARCHED = "not_searched"  # no test files recognized / search did not run
+
+#: How a `RelatedTest` relates to the change.
+TEST_RELATION_CHANGED = "changed_in_diff"  # the test case itself is changed by this diff
+TEST_RELATION_REFERENCES = "references_changed_symbol"  # an unchanged test names a changed symbol
+
+
+class RelatedTest(BaseModel):
+    """A test Sydes found around the change, with the inspectable reason why.
+
+    `relation` is how it was found (it changed alongside the code, or it names
+    a changed symbol); `linked` is the stronger, separate claim that structural
+    mapping or runtime evidence connected it to the changed behavior. A related
+    test that is not linked is evidence that a test exists near the change --
+    never evidence that the behavior is, or is not, asserted."""
+
+    id: str
+    file: str
+    name: str
+    line: int | None = None
+    relation: str
+    #: Changed (non-test) symbols this test's body names.
+    references: list[str] = Field(default_factory=list)
+    #: "structural" (mapped to an obligation of an affected flow), "runtime"
+    #: (observed running the changed code), or "" (not linked).
+    linked: str = ""
+
+
+class TestAssessment(BaseModel):
+    """The semantic pass's read of one candidate test: whether it targets the
+    changed behavior, and how strongly its assertions pin it down. A model
+    judgment over the supplied test text -- a hypothesis, never verification."""
+
+    __test__ = False  # a model, not a pytest class
+
+    test: str
+    targets: str = "unclear"  # targets_change | unrelated | unclear
+    assertion: str = "unclear"  # strong | weak | unclear
+    reason: str = ""
+
+
+class TestEvidence(BaseModel):
+    """What Sydes established about tests for this change, independent of
+    whether any route/flow was resolved: a missing flow must not erase a test
+    that visibly changed alongside the implementation."""
+
+    __test__ = False  # a model, not a pytest class
+
+    status: str = TEST_EVIDENCE_NOT_SEARCHED
+    searched_test_files: int = 0
+    searched_test_cases: int = 0
+    tests: list[RelatedTest] = Field(default_factory=list)
+    assessments: list[TestAssessment] = Field(default_factory=list)
+    notes: list[str] = Field(default_factory=list)
+
+
+class ConsistencyQuestion(BaseModel):
+    """One cross-file consistency question put to code review
+    (`sydes.verify.consistency`), with the review's answer. The question and its
+    paths are deterministic; `verdict`/`reason` are the model's. A question is
+    never itself a finding."""
+
+    id: str
+    kind: str
+    question: str
+    changed_path: str
+    analogous_paths: list[dict[str, Any]] = Field(default_factory=list)
+    why_related: str = ""
+    confidence: str = ""
+    verdict: str = "not_answered"  # finding | consistent | intentional | cannot_tell | not_answered
+    reason: str = ""
+
+
 class MutationResult(BaseModel):
     """One targeted, reverted comparator-boundary mutation check (see
     `sydes.verify.mutation`) -- deliberately narrow: only a `>`/`>=`/`</`<=`
@@ -780,6 +866,9 @@ class ChangeSemanticAnalysis(BaseModel):
     #: `behavior_changes` only.
     local_risks: list[SemanticRisk] = Field(default_factory=list)
     uncertainties: list[str] = Field(default_factory=list)
+    #: The model's read of the candidate tests it was shown (`TestAssessment`):
+    #: only ids from the supplied candidate list are kept.
+    test_assessments: list[TestAssessment] = Field(default_factory=list)
     #: Deterministic, computed from citation verification across
     #: `behavior_changes` (never the model's own confidence) — one of
     #: `SEMANTIC_VERIFICATION_STATES`. See that constant's docstring for the
@@ -979,3 +1068,8 @@ class ChangeVerificationResult(BaseModel):
     #: silently disappear just because Sydes could not resolve an
     #: HTTP/system boundary for the behavior it covers.
     unattached_evidence: list[UnattachedEvidence] = Field(default_factory=list)
+    #: Tests around the change, found without depending on routes/flows --
+    #: see `TestEvidence`. `None` only for results produced before it existed.
+    test_evidence: TestEvidence | None = None
+    #: Cross-file consistency questions asked of code review, and its answers.
+    consistency_review: list[ConsistencyQuestion] = Field(default_factory=list)

@@ -165,6 +165,7 @@ def build_code_review_context(
     change: ChangeSet,
     diff_text: str,
     repo_root: Path | None = None,
+    consistency_questions: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """Deterministic-only context for the independent code-review branch.
 
@@ -229,11 +230,16 @@ def build_code_review_context(
                 entry["changed_region"] = region
         symbols.append(entry)
 
-    return {
+    context: dict[str, Any] = {
         "version": "v1",
         "change": {"base": change.base, "files": files, "symbols": symbols},
         "diff": diff_text,  # whole; `_bounded_prompt` selects by priority and hunk
     }
+    if consistency_questions:
+        # deterministic: questions + code found by repository structure
+        # (`sydes.verify.consistency`), never a conclusion of the other branch
+        context["consistency_questions"] = consistency_questions
+    return context
 
 
 def _drop_regions(keep: int) -> Any:
@@ -366,7 +372,8 @@ _CODE_FINDINGS_HEADER = (
     "concurrently\n"
     "- an authorization check is visibly deleted or bypassed in the supplied diff\n"
     "INVALID (reject these even if they sound plausible) — none of these may be reported, because "
-    "each depends on something the supplied evidence does not establish:\n"
+    "each depends on something the supplied evidence does not establish (code supplied under "
+    "`consistency_questions` IS supplied evidence — see below):\n"
     "- \"this may be unsafe\" / \"this could be risky\"\n"
     "- \"authorization may be insufficient elsewhere\"\n"
     "- \"this could introduce a race\" (with no concurrent execution shown in the supplied code)\n"
@@ -385,13 +392,31 @@ _CODE_FINDINGS_HEADER = (
     "above, not as a risk statement.\n"
     "- `evidence_snippet` must be copied verbatim from the supplied diff or changed region.\n"
     "- Do not invent files, symbols, or behavior not visible in the provided context.\n"
+    "CROSS-FILE CONSISTENCY — `consistency_questions` (when present) were derived "
+    "deterministically from the repository's structure, not from any conclusion: each names a "
+    "changed path, related paths (a parallel function calling the same helpers, the call sites "
+    "of a changed function, analogous neighbouring calls, unchanged readers of state the change "
+    "writes, or the same function before the change), why they are related, and their code under "
+    "`evidence`. That code is supplied evidence for the evidentiary standard. For EACH question, "
+    "decide from the supplied code whether the related path is inconsistent with the change in a "
+    "way that produces a concrete failure (a parallel path left without the new behavior, a "
+    "caller ignoring a result it needs, a call passing a different value than its role requires, "
+    "a reader seeing stale or mismatched state, a fallback that no longer runs). A difference "
+    "alone is not a defect: unchanged sibling code is often intentionally different, and a "
+    "question existing says nothing about its answer. Report a finding only when the supplied "
+    "code shows the failure, citing the changed line in this diff where the inconsistency is "
+    "introduced (the new call, the changed signature, the removed branch). Record your answer to "
+    "every question in `consistency_answers`.\n"
+    "\n"
     "Default to silence. Most changes contain no defect, and a security-sensitive change with no "
     "demonstrated broken control is one of the most common cases where silence is correct. "
     "Returning an empty list is the correct, expected answer, not a failure.\n"
     "Return strict JSON only:\n"
     '{"version":"v1","findings":[{"severity":"P0|P1|P2|P3","title":"...","file":"...","line":123,'
-    '"explanation":"...","impact":"...","suggested_fix":"...","evidence_snippet":"..."}]}\n'
-    'With nothing to report: {"version":"v1","findings":[]}'
+    '"explanation":"...","impact":"...","suggested_fix":"...","evidence_snippet":"..."}],'
+    '"consistency_answers":[{"id":"C1","verdict":"finding|consistent|intentional|cannot_tell",'
+    '"reason":"..."}]}\n'
+    'With nothing to report: {"version":"v1","findings":[],"consistency_answers":[]}'
 )
 
 _GAPS_HEADER = (
@@ -651,8 +676,12 @@ def generate_code_findings(
     model_spec: str | None = None,
     llm_client: LLMClient | None = None,
     checked_behavior_preamble: str = "",
+    consistency_answers: list[dict[str, Any]] | None = None,
 ) -> tuple[list[CodeFinding], list[str]]:
     """Run the code-findings LLM pass over the bounded change context.
+
+    `consistency_answers`, when given, receives the model's answer to each
+    `consistency_questions` entry (`id`, `verdict`, `reason`).
 
     `checked_behavior_preamble` (experimental, opt-in) is externally checked runtime
     evidence about the change, never a Sydes system-analysis conclusion: it is appended to
@@ -660,13 +689,25 @@ def generate_code_findings(
     client = llm_client or create_default_llm_client(
         model_spec=model_spec, temperature=None, stage="code_review",
     )
+    consistency_chars = len(json.dumps(context.get("consistency_questions") or []))
     prompt = _bounded_prompt(
         _CODE_FINDINGS_HEADER + checked_behavior_preamble, context,
-        extra_budget=len(checked_behavior_preamble), model_spec=model_spec,
+        extra_budget=len(checked_behavior_preamble) + consistency_chars, model_spec=model_spec,
     )
     raw = _run(client, prompt)
     findings, warnings = _validate_findings(raw, context)
     warnings.append(f"code_findings_prompt_chars={len(prompt)}")
+    if consistency_chars:
+        warnings.append(f"code_findings_consistency_chars={consistency_chars}")
+    if consistency_answers is not None:
+        asked = {q.get("id") for q in context.get("consistency_questions") or []}
+        for answer in raw.get("consistency_answers") or []:
+            if isinstance(answer, dict) and answer.get("id") in asked:
+                consistency_answers.append({
+                    "id": answer.get("id"),
+                    "verdict": str(answer.get("verdict") or "cannot_tell")[:20],
+                    "reason": str(answer.get("reason") or "")[:500],
+                })
     return findings, warnings
 
 

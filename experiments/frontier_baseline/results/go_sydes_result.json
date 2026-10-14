@@ -1,0 +1,275 @@
+{
+  "version": "v3",
+  "kind": "sydes_change_verification",
+  "generated_at": "2026-09-11T13:54:21.664776+00:00",
+  "change": {
+    "base": "master",
+    "head": "0bf0f6bac36cb1663090bb1178c0a96c92c0ac88",
+    "merge_base": "67ccf46a9bb3366ab95c1ebf07b8f02f93b3b563",
+    "repos": [
+      {
+        "name": "simplebank",
+        "root": "/Users/ksnaik/sample_repos/simplebank"
+      }
+    ],
+    "includes_working_tree": false,
+    "files": [
+      {
+        "repo": "simplebank",
+        "path": "worker/task_send_verify_email.go",
+        "old_path": null,
+        "change_type": "modified",
+        "role": "source_route_candidate",
+        "added_lines": 6,
+        "removed_lines": 0,
+        "hunks": [
+          {
+            "start_line": 52,
+            "end_line": 57
+          }
+        ],
+        "symbols": [
+          "simplebank:worker/task_send_verify_email.go:RedisTaskProcessor.ProcessTaskSendVerifyEmail"
+        ],
+        "binary": false
+      },
+      {
+        "repo": "simplebank",
+        "path": "worker/task_send_verify_email_test.go",
+        "old_path": null,
+        "change_type": "added",
+        "role": "test_usage_candidate",
+        "added_lines": 135,
+        "removed_lines": 0,
+        "hunks": [
+          {
+            "start_line": 1,
+            "end_line": 135
+          }
+        ],
+        "symbols": [
+          "simplebank:worker/task_send_verify_email_test.go:TestProcessTaskSendVerifyEmail",
+          "simplebank:worker/task_send_verify_email_test.go:newSendVerifyEmailTask",
+          "simplebank:worker/task_send_verify_email_test.go:newTestRedisTaskProcessor",
+          "simplebank:worker/task_send_verify_email_test.go:randomVerifyEmailUser",
+          "simplebank:worker/task_send_verify_email_test.go:mockEmailSender.SendEmail"
+        ],
+        "binary": false
+      }
+    ],
+    "symbols": [
+      {
+        "id": "simplebank:worker/task_send_verify_email.go:RedisTaskProcessor.ProcessTaskSendVerifyEmail",
+        "repo": "simplebank",
+        "file": "worker/task_send_verify_email.go",
+        "name": "ProcessTaskSendVerifyEmail",
+        "qualified_name": "RedisTaskProcessor.ProcessTaskSendVerifyEmail",
+        "cbm_qualified_name": "Users-ksnaik-sample_repos-simplebank.worker.ProcessTaskSendVerifyEmail",
+        "kind": "class_method",
+        "language": "go",
+        "start_line": 41,
+        "end_line": 85,
+        "change_type": "modified",
+        "changed_lines": 6,
+        "decorators": []
+      },
+      {
+        "id": "simplebank:worker/task_send_verify_email_test.go:mockEmailSender.SendEmail",
+        "repo": "simplebank",
+        "file": "worker/task_send_verify_email_test.go",
+        "name": "SendEmail",
+        "qualified_name": "mockEmailSender.SendEmail",
+        "cbm_qualified_name": "Users-ksnaik-sample_repos-simplebank.worker.SendEmail",
+        "kind": "class_method",
+        "language": "go",
+        "start_line": 25,
+        "end_line": 35,
+        "change_type": "added",
+        "changed_lines": 11,
+        "decorators": []
+      },
+      {
+        "id": "simplebank:worker/task_send_verify_email_test.go:newTestRedisTaskProcessor",
+        "repo": "simplebank",
+        "file": "worker/task_send_verify_email_test.go",
+        "name": "newTestRedisTaskProcessor",
+        "qualified_name": "newTestRedisTaskProcessor",
+        "cbm_qualified_name": "Users-ksnaik-sample_repos-simplebank.worker.newTestRedisTaskProcessor",
+        "kind": "function",
+        "language": "go",
+        "start_line": 43,
+        "end_line": 48,
+        "change_type": "added",
+        "changed_lines": 6,
+        "decorators": []
+      },
+      {
+        "id": "simplebank:worker/task_send_verify_email_test.go:randomVerifyEmailUser",
+        "repo": "simplebank",
+        "file": "worker/task_send_verify_email_test.go",
+        "name": "randomVerifyEmailUser",
+        "qualified_name": "randomVerifyEmailUser",
+        "cbm_qualified_name": "Users-ksnaik-sample_repos-simplebank.worker.randomVerifyEmailUser",
+        "kind": "function",
+        "language": "go",
+        "start_line": 50,
+        "end_line": 64,
+        "change_type": "added",
+        "changed_lines": 15,
+        "decorators": []
+      },
+      {
+        "id": "simplebank:worker/task_send_verify_email_test.go:newSendVerifyEmailTask",
+        "repo": "simplebank",
+        "file": "worker/task_send_verify_email_test.go",
+        "name": "newSendVerifyEmailTask",
+        "qualified_name": "newSendVerifyEmailTask",
+        "cbm_qualified_name": "Users-ksnaik-sample_repos-simplebank.worker.newSendVerifyEmailTask",
+        "kind": "function",
+        "language": "go",
+        "start_line": 66,
+        "end_line": 70,
+        "change_type": "added",
+        "changed_lines": 5,
+        "decorators": []
+      },
+      {
+        "id": "simplebank:worker/task_send_verify_email_test.go:TestProcessTaskSendVerifyEmail",
+        "repo": "simplebank",
+        "file": "worker/task_send_verify_email_test.go",
+        "name": "TestProcessTaskSendVerifyEmail",
+        "qualified_name": "TestProcessTaskSendVerifyEmail",
+        "cbm_qualified_name": "Users-ksnaik-sample_repos-simplebank.worker.TestProcessTaskSendVerifyEmail",
+        "kind": "function",
+        "language": "go",
+        "start_line": 72,
+        "end_line": 135,
+        "change_type": "added",
+        "changed_lines": 64,
+        "decorators": []
+      }
+    ],
+    "notes": []
+  },
+  "summary": {
+    "risk": "MEDIUM",
+    "verdict": "VERIFICATION INCOMPLETE",
+    "headline": "6 changed symbol(s); no route flow resolved to them.",
+    "counts": {
+      "changed_files": 2,
+      "changed_source_files": 1,
+      "changed_test_files": 1,
+      "changed_symbols": 6,
+      "affected_flows": 0,
+      "flows_partially_analyzed": 0,
+      "code_findings": 0,
+      "obligations": 0,
+      "obligations_introduced_by_change": 0,
+      "obligations_passed": 0,
+      "obligations_failed": 0,
+      "obligations_unverified": 0,
+      "obligations_unknown": 0,
+      "mapped_tests": 0,
+      "supporting_tests": 0,
+      "tests_executed": 0,
+      "verification_gaps": 0,
+      "runtime_dependencies": 2,
+      "cross_repo_impacts": 0,
+      "impacts_proven": 0,
+      "impacts_inferred": 0,
+      "impacts_not_modeled": 0,
+      "unresolved_changed_symbols": 6
+    },
+    "risk_reasons": [
+      "change could not be tied to any verifiable behavior"
+    ]
+  },
+  "code_review_status": "not_requested",
+  "code_findings": [],
+  "accepted_impacts": [],
+  "pr_semantic_analysis": null,
+  "affected_boundaries": [],
+  "affected_flows": [],
+  "unresolved_changed_symbols": 6,
+  "analysis_status": "partial",
+  "analysis_notes": [
+    "Route composition is unresolved in this repository; some routes may be missing.",
+    "Structural exploration was bounded for this change (max_depth reached with unexplored frontier); boundaries beyond the explored neighborhood are not established either way.",
+    "6 changed symbol(s) have no established impact path to any entrypoint (an AI-inferred candidate may still exist for one — see AFFECTED BEHAVIOR — but that is not the same as resolved impact coverage).",
+    "No discovered route declaration reaches the changed symbols."
+  ],
+  "test_executions": [],
+  "ci_suite": null,
+  "verification_gaps": [],
+  "runtime_dependencies": [
+    {
+      "id": "runtime:database:postgresql",
+      "name": "PostgreSQL",
+      "kind": "database",
+      "repo": "simplebank",
+      "required_for_flow_ids": [],
+      "detected_from": [
+        {
+          "file": ".github/workflows/test.yml",
+          "symbol": "postgres:14-alpine",
+          "label": "container_image",
+          "snippet": "image: postgres:14-alpine"
+        },
+        {
+          "file": "docker-compose.yaml",
+          "symbol": "postgres:14-alpine",
+          "label": "container_image",
+          "snippet": "image: postgres:14-alpine"
+        }
+      ],
+      "scope": "repository"
+    },
+    {
+      "id": "runtime:cache:redis",
+      "name": "Redis",
+      "kind": "cache",
+      "repo": "simplebank",
+      "required_for_flow_ids": [],
+      "detected_from": [
+        {
+          "file": "docker-compose.yaml",
+          "symbol": "redis:7-alpine",
+          "label": "container_image",
+          "snippet": "image: redis:7-alpine"
+        }
+      ],
+      "scope": "repository"
+    }
+  ],
+  "cross_repo_impacts": [],
+  "notes": [
+    "test_execution=skipped reason=--no-run-tests",
+    "AI recovery (experimental, provenance=ai_recovery, run-local, not merged into structural results): path recovery could not establish a source-backed path beyond the first pass; test recovery recovered no verified tests.",
+    "Saved change verification artifact: /Users/ksnaik/.sydes/workspaces/d92ce6263ff704f1/artifacts/20260911T135644Z-0ef79a80/change_verification.json"
+  ],
+  "diagnostics": [
+    "code_intelligence_backend=cbm transport=persistent_mcp_stdio cbm_server_version=0.10.8",
+    "cbm_session_start_ms=1566.2 cbm_calls=7 cbm_mean_call_ms=287.1",
+    "cbm_index_ms=1931.5 cbm_query_ms=83.9 sydes_route_semantics_ms=38.0 total_ms=3620.9",
+    "cbm_supplied=symbols,spans,imports,exports,call_edges,usage_edges,entrypoints  sydes_semantics=route_index,route_graph,repo_map",
+    "route_derived_entrypoints_added=7",
+    "cbm_gap: route composition is computed by Sydes, not CBM: CBM reports uncomposed route paths and models no persistence sinks",
+    "cbm_gap: simplebank: route composition is unresolved for some containers; route-derived entrypoint paths from this repo may be incomplete",
+    "cbm_gap: CALLS/USAGE edges deferred: they are fetched as a bounded neighborhood around the changed symbols instead of a repository-wide sweep",
+    "handler_symbol_index: exports=261, files_indexed=89, imports=136, symbols=318",
+    "reverse_reach_candidate_files=2",
+    "simplebank: deterministic_routes_found=7, deterministic_frameworks=express,express_mount_graph",
+    "simplebank: discovery_coverage=moderate score=0.7",
+    "simplebank: discovery_coverage_reasons=deterministic route extraction produced grounded routes; route graph composition produced mounted routes; some mount edges could not be resolved; route composition is unresolved: 2 of 2 route containers have no resolvable mount or declared prefix, so route paths may be incomplete",
+    "simplebank: route_graph_containers=4, route_graph_declarations=7, route_graph_mount_edges=3, route_graph_composed_routes=7, route_graph_unresolved_mounts=2",
+    "simplebank: deterministic_routes=7, llm_routes=0, merged_routes=7, rejected_routes=0, final_routes=7",
+    "simplebank: merged_llm_routes=0",
+    "graph_slice_seeds: changed=6 routes=0 dropped_auxiliary=0 total=6",
+    "graph_slice: used=True seeds=6 canonical_seeds=6 unresolved_seeds=0 unresolved_changed=0 unresolved_auxiliary=0 graph_calls=4 nodes=156 call_edges=105 usage_edges=157 truncated=True fell_back=False",
+    "impact_interpreter: affected_entrypoints=0, ambiguous_edges=0, boundary_budget_exhausted=False, boundary_emitted=0, boundary_expansions=7, boundary_frontier_considered=7, boundary_rejected_weak_evidence=0, call_edges=105, changed_symbols=6, evidence_confirmed=0, guide_actions={}, guide_budget_exhausted=False, guide_calls=0, guide_error_details=[], guide_errors=0, guide_latency_ms=0.0, guide_no_progress=0, guide_triggered=False, http_entrypoints=0, known_entrypoints=7, llm_candidates=0, llm_candidates_accepted=0, llm_candidates_corroborated=0, llm_candidates_missing_reason=0, llm_candidates_self_referential=0, llm_candidates_uncorroborated=0, llm_candidates_ungrounded=0, llm_candidates_whole_change_unanchored=0, llm_new_entrypoints=0, llm_no_candidate_turns=0, unresolved_after=0, unresolved_before=0, unresolved_symbols=6, usage_edges=157",
+    "simplebank: test_files_found=19",
+    "simplebank: test_cases_found=41",
+    "test_frameworks_detected=go_test",
+    "ci_suite=disabled"
+  ]
+}

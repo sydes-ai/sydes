@@ -43,6 +43,8 @@ from sydes.recovery.schema import (
     TestRecoveryResult,
 )
 from sydes.verify.models import (
+    LEGACY_NO_TEST_REASON,
+    NO_TEST_MAPPED_REASON,
     AcceptedImpact,
     AffectedFlow,
     ChangeVerificationResult,
@@ -61,7 +63,8 @@ from sydes.verify.models import (
 #: the rewrite below only ever touches an obligation that actually still
 #: says this, never a `failed`/`passed` one or one already carrying a more
 #: specific reason.
-_NO_TEST_REASON = "No existing test asserts this behavior"
+_NO_TEST_REASONS = {NO_TEST_MAPPED_REASON, LEGACY_NO_TEST_REASON}
+_NO_TEST_REASON = NO_TEST_MAPPED_REASON
 
 PROVENANCE_AI_RECOVERY = "ai_recovery"
 
@@ -486,7 +489,7 @@ def _reconcile_unattached_evidence_gap_reasons(result: ChangeVerificationResult)
         for obligation in flow.obligations:
             if obligation.status != VERIFICATION_UNVERIFIED or obligation.mapped_tests:
                 continue
-            if (obligation.reason or "").strip() != _NO_TEST_REASON:
+            if (obligation.reason or "").strip() not in _NO_TEST_REASONS:
                 continue
             symbol_hit = any((item.symbol, item.file) in symbol_scoped for item in obligation.evidence)
             if symbol_hit:

@@ -1,0 +1,467 @@
+{
+  "version": "v3",
+  "kind": "sydes_change_verification",
+  "generated_at": "2026-09-11T13:57:11.594584+00:00",
+  "change": {
+    "base": "master",
+    "head": "2549834871cf48fc88f01e34bdd1dd029a3114d5",
+    "merge_base": "dc5da86ac15d96fa5ae9bb05c02da95577ae54e3",
+    "repos": [
+      {
+        "name": "spring-boot-demo",
+        "root": "/Users/ksnaik/sample_repos/spring-boot-demo"
+      }
+    ],
+    "includes_working_tree": false,
+    "files": [
+      {
+        "repo": "spring-boot-demo",
+        "path": "demo-rbac-security/src/main/java/com/xkcoding/rbac/security/util/JwtUtil.java",
+        "old_path": null,
+        "change_type": "modified",
+        "role": "source_route_candidate",
+        "added_lines": 27,
+        "removed_lines": 2,
+        "hunks": [
+          {
+            "start_line": 38,
+            "end_line": 48
+          },
+          {
+            "start_line": 76,
+            "end_line": 84
+          },
+          {
+            "start_line": 86,
+            "end_line": 86
+          },
+          {
+            "start_line": 124,
+            "end_line": 129
+          }
+        ],
+        "symbols": [
+          "spring-boot-demo:demo-rbac-security/src/main/java/com/xkcoding/rbac/security/util/JwtUtil.java:JwtUtil.parseJWT"
+        ],
+        "binary": false
+      },
+      {
+        "repo": "spring-boot-demo",
+        "path": "demo-rbac-security/src/test/java/com/xkcoding/rbac/security/util/JwtUtilTest.java",
+        "old_path": null,
+        "change_type": "added",
+        "role": "test_usage_candidate",
+        "added_lines": 122,
+        "removed_lines": 0,
+        "hunks": [
+          {
+            "start_line": 1,
+            "end_line": 122
+          }
+        ],
+        "symbols": [
+          "spring-boot-demo:demo-rbac-security/src/test/java/com/xkcoding/rbac/security/util/JwtUtilTest.java:JwtUtilTest.buildJwt",
+          "spring-boot-demo:demo-rbac-security/src/test/java/com/xkcoding/rbac/security/util/JwtUtilTest.java:JwtUtilTest.parseJWT_currentTokenMatchesRedis_succeeds",
+          "spring-boot-demo:demo-rbac-security/src/test/java/com/xkcoding/rbac/security/util/JwtUtilTest.java:JwtUtilTest.parseJWT_previousTokenMatchesWithinGraceWindow_succeeds",
+          "spring-boot-demo:demo-rbac-security/src/test/java/com/xkcoding/rbac/security/util/JwtUtilTest.java:JwtUtilTest.parseJWT_tokenMatchesNeitherCurrentNorPrevious_throwsTokenOutOfCtrl",
+          "spring-boot-demo:demo-rbac-security/src/test/java/com/xkcoding/rbac/security/util/JwtUtilTest.java:JwtUtilTest.setUp"
+        ],
+        "binary": false
+      }
+    ],
+    "symbols": [
+      {
+        "id": "spring-boot-demo:demo-rbac-security/src/main/java/com/xkcoding/rbac/security/util/JwtUtil.java:JwtUtil.parseJWT",
+        "repo": "spring-boot-demo",
+        "file": "demo-rbac-security/src/main/java/com/xkcoding/rbac/security/util/JwtUtil.java",
+        "name": "parseJWT",
+        "qualified_name": "JwtUtil.parseJWT",
+        "cbm_qualified_name": "Users-ksnaik-sample_repos-spring-boot-demo.demo-rbac-security.src.main.java.com.xkcoding.rbac.security.util.JwtUtil.parseJWT",
+        "kind": "class_method",
+        "language": "java",
+        "start_line": 108,
+        "end_line": 148,
+        "change_type": "modified",
+        "changed_lines": 6,
+        "decorators": []
+      },
+      {
+        "id": "spring-boot-demo:demo-rbac-security/src/test/java/com/xkcoding/rbac/security/util/JwtUtilTest.java:JwtUtilTest.setUp",
+        "repo": "spring-boot-demo",
+        "file": "demo-rbac-security/src/test/java/com/xkcoding/rbac/security/util/JwtUtilTest.java",
+        "name": "setUp",
+        "qualified_name": "JwtUtilTest.setUp",
+        "cbm_qualified_name": "Users-ksnaik-sample_repos-spring-boot-demo.demo-rbac-security.src.test.java.com.xkcoding.rbac.security.util.JwtUtilTest.setUp",
+        "kind": "class_method",
+        "language": "java",
+        "start_line": 62,
+        "end_line": 67,
+        "change_type": "added",
+        "changed_lines": 6,
+        "decorators": []
+      },
+      {
+        "id": "spring-boot-demo:demo-rbac-security/src/test/java/com/xkcoding/rbac/security/util/JwtUtilTest.java:JwtUtilTest.buildJwt",
+        "repo": "spring-boot-demo",
+        "file": "demo-rbac-security/src/test/java/com/xkcoding/rbac/security/util/JwtUtilTest.java",
+        "name": "buildJwt",
+        "qualified_name": "JwtUtilTest.buildJwt",
+        "cbm_qualified_name": "Users-ksnaik-sample_repos-spring-boot-demo.demo-rbac-security.src.test.java.com.xkcoding.rbac.security.util.JwtUtilTest.buildJwt",
+        "kind": "class_method",
+        "language": "java",
+        "start_line": 73,
+        "end_line": 75,
+        "change_type": "added",
+        "changed_lines": 3,
+        "decorators": []
+      },
+      {
+        "id": "spring-boot-demo:demo-rbac-security/src/test/java/com/xkcoding/rbac/security/util/JwtUtilTest.java:JwtUtilTest.parseJWT_currentTokenMatchesRedis_succeeds",
+        "repo": "spring-boot-demo",
+        "file": "demo-rbac-security/src/test/java/com/xkcoding/rbac/security/util/JwtUtilTest.java",
+        "name": "parseJWT_currentTokenMatchesRedis_succeeds",
+        "qualified_name": "JwtUtilTest.parseJWT_currentTokenMatchesRedis_succeeds",
+        "cbm_qualified_name": "Users-ksnaik-sample_repos-spring-boot-demo.demo-rbac-security.src.test.java.com.xkcoding.rbac.security.util.JwtUtilTest.parseJWT_currentTokenMatchesRedis_succeeds",
+        "kind": "class_method",
+        "language": "java",
+        "start_line": 77,
+        "end_line": 87,
+        "change_type": "added",
+        "changed_lines": 11,
+        "decorators": []
+      },
+      {
+        "id": "spring-boot-demo:demo-rbac-security/src/test/java/com/xkcoding/rbac/security/util/JwtUtilTest.java:JwtUtilTest.parseJWT_previousTokenMatchesWithinGraceWindow_succeeds",
+        "repo": "spring-boot-demo",
+        "file": "demo-rbac-security/src/test/java/com/xkcoding/rbac/security/util/JwtUtilTest.java",
+        "name": "parseJWT_previousTokenMatchesWithinGraceWindow_succeeds",
+        "qualified_name": "JwtUtilTest.parseJWT_previousTokenMatchesWithinGraceWindow_succeeds",
+        "cbm_qualified_name": "Users-ksnaik-sample_repos-spring-boot-demo.demo-rbac-security.src.test.java.com.xkcoding.rbac.security.util.JwtUtilTest.parseJWT_previousTokenMatchesWithinGraceWindow_succeeds",
+        "kind": "class_method",
+        "language": "java",
+        "start_line": 89,
+        "end_line": 104,
+        "change_type": "added",
+        "changed_lines": 16,
+        "decorators": []
+      },
+      {
+        "id": "spring-boot-demo:demo-rbac-security/src/test/java/com/xkcoding/rbac/security/util/JwtUtilTest.java:JwtUtilTest.parseJWT_tokenMatchesNeitherCurrentNorPrevious_throwsTokenOutOfCtrl",
+        "repo": "spring-boot-demo",
+        "file": "demo-rbac-security/src/test/java/com/xkcoding/rbac/security/util/JwtUtilTest.java",
+        "name": "parseJWT_tokenMatchesNeitherCurrentNorPrevious_throwsTokenOutOfCtrl",
+        "qualified_name": "JwtUtilTest.parseJWT_tokenMatchesNeitherCurrentNorPrevious_throwsTokenOutOfCtrl",
+        "cbm_qualified_name": "Users-ksnaik-sample_repos-spring-boot-demo.demo-rbac-security.src.test.java.com.xkcoding.rbac.security.util.JwtUtilTest.parseJWT_tokenMatchesNeitherCurrentNorPrevious_throwsTokenOutOfCtrl",
+        "kind": "class_method",
+        "language": "java",
+        "start_line": 106,
+        "end_line": 121,
+        "change_type": "added",
+        "changed_lines": 16,
+        "decorators": []
+      }
+    ],
+    "notes": []
+  },
+  "summary": {
+    "risk": "MEDIUM",
+    "verdict": "VERIFICATION INCOMPLETE",
+    "headline": "6 changed symbol(s); no route flow resolved to them.",
+    "counts": {
+      "changed_files": 2,
+      "changed_source_files": 1,
+      "changed_test_files": 1,
+      "changed_symbols": 6,
+      "affected_flows": 0,
+      "flows_partially_analyzed": 0,
+      "code_findings": 0,
+      "obligations": 0,
+      "obligations_introduced_by_change": 0,
+      "obligations_passed": 0,
+      "obligations_failed": 0,
+      "obligations_unverified": 0,
+      "obligations_unknown": 0,
+      "mapped_tests": 0,
+      "supporting_tests": 0,
+      "tests_executed": 0,
+      "verification_gaps": 0,
+      "runtime_dependencies": 6,
+      "cross_repo_impacts": 0,
+      "impacts_proven": 1,
+      "impacts_inferred": 0,
+      "impacts_not_modeled": 1,
+      "unresolved_changed_symbols": 0
+    },
+    "risk_reasons": [
+      "change could not be tied to any verifiable behavior"
+    ]
+  },
+  "code_review_status": "not_requested",
+  "code_findings": [],
+  "accepted_impacts": [
+    {
+      "id": "impact:spring-boot-demo:Users-ksnaik-sample_repos-spring-boot-demo.demo-rbac-security.src.main.java.com.xkcoding.rbac.security.config.JwtAuthenticationFilter.doFilterInternal",
+      "label": "doFilterInternal",
+      "repo": "spring-boot-demo",
+      "kind": "decorated",
+      "status": "proven",
+      "changed_symbols": [
+        "parseJWT"
+      ],
+      "route_method": null,
+      "route_path": null,
+      "llm_confidence": null,
+      "llm_reason": null,
+      "llm_inference_type": null,
+      "llm_uncertainty": null,
+      "corroborated": null,
+      "behavior_label": "",
+      "verification_model_status": "unsupported_or_partial",
+      "provenance": "structural"
+    }
+  ],
+  "pr_semantic_analysis": null,
+  "affected_boundaries": [],
+  "affected_flows": [],
+  "unresolved_changed_symbols": 0,
+  "analysis_status": "partial",
+  "analysis_notes": [
+    "Route composition is unresolved in this repository; some routes may be missing.",
+    "Structural exploration was bounded for this change (max_depth reached with unexplored frontier); boundaries beyond the explored neighborhood are not established either way.",
+    "No discovered route declaration reaches the changed symbols."
+  ],
+  "test_executions": [],
+  "ci_suite": null,
+  "verification_gaps": [],
+  "runtime_dependencies": [
+    {
+      "id": "runtime:cache:redis",
+      "name": "Redis",
+      "kind": "cache",
+      "repo": "spring-boot-demo",
+      "required_for_flow_ids": [],
+      "detected_from": [
+        {
+          "file": "demo-cache-redis/src/main/java/com/xkcoding/cache/redis/config/RedisConfig.java",
+          "symbol": null,
+          "label": "client_import",
+          "snippet": "import org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration;"
+        },
+        {
+          "file": "demo-cache-redis/src/main/java/com/xkcoding/cache/redis/config/RedisConfig.java",
+          "symbol": null,
+          "label": "client_import",
+          "snippet": "import org.springframework.data.redis.cache.RedisCacheConfiguration;"
+        },
+        {
+          "file": "demo-cache-redis/src/main/java/com/xkcoding/cache/redis/config/RedisConfig.java",
+          "symbol": null,
+          "label": "client_import",
+          "snippet": "import org.springframework.data.redis.cache.RedisCacheManager;"
+        },
+        {
+          "file": "demo-cache-redis/src/main/java/com/xkcoding/cache/redis/config/RedisConfig.java",
+          "symbol": null,
+          "label": "client_import",
+          "snippet": "import org.springframework.data.redis.connection.RedisConnectionFactory;"
+        },
+        {
+          "file": "demo-cache-redis/src/main/java/com/xkcoding/cache/redis/config/RedisConfig.java",
+          "symbol": null,
+          "label": "client_import",
+          "snippet": "import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;"
+        },
+        {
+          "file": "demo-cache-redis/src/main/java/com/xkcoding/cache/redis/config/RedisConfig.java",
+          "symbol": null,
+          "label": "client_import",
+          "snippet": "import org.springframework.data.redis.core.RedisTemplate;"
+        }
+      ],
+      "scope": "affected_flow"
+    },
+    {
+      "id": "runtime:database:sql-database",
+      "name": "SQL database",
+      "kind": "database",
+      "repo": "spring-boot-demo",
+      "required_for_flow_ids": [],
+      "detected_from": [
+        {
+          "file": "demo-activiti/src/main/resources/application.yml",
+          "symbol": null,
+          "label": "application_config",
+          "snippet": "datasource:"
+        },
+        {
+          "file": "demo-dynamic-datasource/src/main/resources/application.yml",
+          "symbol": null,
+          "label": "application_config",
+          "snippet": "datasource:"
+        },
+        {
+          "file": "demo-flyway/src/main/resources/application.yml",
+          "symbol": null,
+          "label": "application_config",
+          "snippet": "datasource:"
+        },
+        {
+          "file": "demo-multi-datasource-jpa/src/main/resources/application.yml",
+          "symbol": null,
+          "label": "application_config",
+          "snippet": "datasource:"
+        },
+        {
+          "file": "demo-multi-datasource-mybatis/src/main/resources/application.yml",
+          "symbol": null,
+          "label": "application_config",
+          "snippet": "datasource:"
+        },
+        {
+          "file": "demo-oauth/oauth-authorization-server/src/main/resources/application.yml",
+          "symbol": null,
+          "label": "application_config",
+          "snippet": "datasource:"
+        }
+      ],
+      "scope": "repository"
+    },
+    {
+      "id": "runtime:queue:kafka",
+      "name": "Kafka",
+      "kind": "queue",
+      "repo": "spring-boot-demo",
+      "required_for_flow_ids": [],
+      "detected_from": [
+        {
+          "file": "demo-mq-kafka/src/main/resources/application.yml",
+          "symbol": null,
+          "label": "application_config",
+          "snippet": "bootstrap-servers: localhost:9092"
+        }
+      ],
+      "scope": "repository"
+    },
+    {
+      "id": "runtime:queue:rabbitmq",
+      "name": "RabbitMQ",
+      "kind": "queue",
+      "repo": "spring-boot-demo",
+      "required_for_flow_ids": [],
+      "detected_from": [
+        {
+          "file": "demo-mq-rabbitmq/src/main/resources/application.yml",
+          "symbol": null,
+          "label": "application_config",
+          "snippet": "rabbitmq:"
+        }
+      ],
+      "scope": "repository"
+    },
+    {
+      "id": "runtime:search:elasticsearch",
+      "name": "Elasticsearch",
+      "kind": "search",
+      "repo": "spring-boot-demo",
+      "required_for_flow_ids": [],
+      "detected_from": [
+        {
+          "file": "demo-elasticsearch-rest-high-level-client/src/main/java/com/xkcoding/elasticsearch/config/ElasticsearchAutoConfiguration.java",
+          "symbol": null,
+          "label": "client_import",
+          "snippet": "import org.elasticsearch.client.RestClient;"
+        },
+        {
+          "file": "demo-elasticsearch-rest-high-level-client/src/main/java/com/xkcoding/elasticsearch/config/ElasticsearchAutoConfiguration.java",
+          "symbol": null,
+          "label": "client_import",
+          "snippet": "import org.elasticsearch.client.RestClientBuilder;"
+        },
+        {
+          "file": "demo-elasticsearch-rest-high-level-client/src/main/java/com/xkcoding/elasticsearch/config/ElasticsearchAutoConfiguration.java",
+          "symbol": null,
+          "label": "client_import",
+          "snippet": "import org.elasticsearch.client.RestHighLevelClient;"
+        },
+        {
+          "file": "demo-elasticsearch-rest-high-level-client/src/main/java/com/xkcoding/elasticsearch/exception/ElasticsearchException.java",
+          "symbol": null,
+          "label": "client_import",
+          "snippet": "import com.xkcoding.elasticsearch.common.ResultCode;"
+        },
+        {
+          "file": "demo-elasticsearch-rest-high-level-client/src/main/java/com/xkcoding/elasticsearch/service/PersonService.java",
+          "symbol": null,
+          "label": "client_import",
+          "snippet": "import com.xkcoding.elasticsearch.model.Person;"
+        },
+        {
+          "file": "demo-elasticsearch-rest-high-level-client/src/main/java/com/xkcoding/elasticsearch/service/base/BaseElasticsearchService.java",
+          "symbol": null,
+          "label": "client_import",
+          "snippet": "import com.xkcoding.elasticsearch.config.ElasticsearchProperties;"
+        }
+      ],
+      "scope": "repository"
+    },
+    {
+      "id": "runtime:mail:mail/smtp-service",
+      "name": "Mail/SMTP service",
+      "kind": "mail",
+      "repo": "spring-boot-demo",
+      "required_for_flow_ids": [],
+      "detected_from": [
+        {
+          "file": "demo-email/src/main/resources/application.yml",
+          "symbol": null,
+          "label": "application_config",
+          "snippet": "mail:"
+        },
+        {
+          "file": "demo-email/src/main/resources/application.yml",
+          "symbol": null,
+          "label": "application_config",
+          "snippet": "mail.display.sendmail: spring-boot-demo"
+        },
+        {
+          "file": "demo-swagger-beauty/src/main/resources/application.yml",
+          "symbol": null,
+          "label": "application_config",
+          "snippet": "email: 237497819@qq.com"
+        }
+      ],
+      "scope": "repository"
+    }
+  ],
+  "cross_repo_impacts": [],
+  "notes": [
+    "test_execution=skipped reason=--no-run-tests",
+    "AI recovery (experimental, provenance=ai_recovery, run-local, not merged into structural results): path recovery could not establish a source-backed path beyond the first pass; test recovery recovered no verified tests.",
+    "Saved change verification artifact: /Users/ksnaik/.sydes/workspaces/af3bb32a5a83858c/artifacts/20260911T135838Z-3f52a40d/change_verification.json"
+  ],
+  "diagnostics": [
+    "code_intelligence_backend=cbm transport=persistent_mcp_stdio cbm_server_version=0.10.8",
+    "cbm_session_start_ms=1696.5 cbm_calls=8 cbm_mean_call_ms=339.4",
+    "cbm_index_ms=2555.4 cbm_query_ms=197.0 sydes_route_semantics_ms=543.8 total_ms=5001.3",
+    "cbm_supplied=symbols,spans,imports,exports,call_edges,usage_edges,entrypoints  sydes_semantics=route_index,route_graph,repo_map",
+    "route_derived_entrypoints_added=0",
+    "cbm_gap: route composition is computed by Sydes, not CBM: CBM reports uncomposed route paths and models no persistence sinks",
+    "cbm_gap: spring-boot-demo: route composition is unresolved for some containers; route-derived entrypoint paths from this repo may be incomplete",
+    "cbm_gap: CALLS/USAGE edges deferred: they are fetched as a bounded neighborhood around the changed symbols instead of a repository-wide sweep",
+    "handler_symbol_index: exports=1997, files_indexed=548, imports=686, symbols=2881",
+    "reverse_reach_candidate_files=2",
+    "spring-boot-demo: deterministic_routes_found=61, deterministic_frameworks=express_mount_graph,spring",
+    "spring-boot-demo: discovery_coverage=moderate score=0.7",
+    "spring-boot-demo: discovery_coverage_reasons=deterministic route extraction produced grounded routes; route graph composition produced mounted routes; some mount edges could not be resolved; route composition is unresolved: 19 of 38 route containers have no resolvable mount or declared prefix, so route paths may be incomplete",
+    "spring-boot-demo: route_graph_containers=39, route_graph_declarations=92, route_graph_mount_edges=1, route_graph_composed_routes=92, route_graph_unresolved_mounts=1",
+    "spring-boot-demo: deterministic_routes=61, llm_routes=0, merged_routes=61, rejected_routes=0, final_routes=61",
+    "spring-boot-demo: merged_llm_routes=0",
+    "graph_slice_seeds: changed=6 routes=0 dropped_auxiliary=0 total=6",
+    "graph_slice: used=True seeds=6 canonical_seeds=6 unresolved_seeds=0 unresolved_changed=0 unresolved_auxiliary=0 graph_calls=4 nodes=238 call_edges=54 usage_edges=239 truncated=True fell_back=False",
+    "impact_interpreter: affected_entrypoints=1, ambiguous_edges=0, boundary_budget_exhausted=False, boundary_emitted=0, boundary_expansions=9, boundary_frontier_considered=9, boundary_rejected_weak_evidence=0, call_edges=54, changed_symbols=6, evidence_confirmed=0, guide_actions={}, guide_budget_exhausted=False, guide_calls=0, guide_error_details=[], guide_errors=0, guide_latency_ms=0.0, guide_no_progress=0, guide_triggered=False, http_entrypoints=0, known_entrypoints=522, llm_candidates=0, llm_candidates_accepted=0, llm_candidates_corroborated=0, llm_candidates_missing_reason=0, llm_candidates_self_referential=0, llm_candidates_uncorroborated=0, llm_candidates_ungrounded=0, llm_candidates_whole_change_unanchored=0, llm_new_entrypoints=0, llm_no_candidate_turns=0, unresolved_after=0, unresolved_before=0, unresolved_symbols=0, usage_edges=239",
+    "spring-boot-demo: test_files_found=93",
+    "spring-boot-demo: test_cases_found=152",
+    "test_frameworks_detected=none",
+    "ci_suite=disabled"
+  ]
+}

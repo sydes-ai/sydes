@@ -1,0 +1,56 @@
+{
+  "path_recovery": {
+    "status": "unresolved",
+    "paths": [
+      {
+        "entrypoint": "TestProcessTaskSendVerifyEmail",
+        "target_node": "newSendVerifyEmailTask",
+        "status": "unresolved",
+        "nodes": [
+          {
+            "symbol": "TestProcessTaskSendVerifyEmail",
+            "file": "worker/task_send_verify_email_test.go",
+            "qualified_name": null
+          }
+        ],
+        "edges": [],
+        "unresolved_suffix": [
+          {
+            "from": {
+              "symbol": "TestProcessTaskSendVerifyEmail",
+              "file": "worker/task_send_verify_email_test.go",
+              "qualified_name": null
+            },
+            "to": {
+              "symbol": "newSendVerifyEmailTask",
+              "file": "worker/task_send_verify_email_test.go",
+              "qualified_name": null
+            },
+            "relationship": "no relationship found",
+            "rejection_reason": "no evidence is located in either entity's own declared file ('worker/task_send_verify_email_test.go' or 'worker/task_send_verify_email_test.go') -- possible wrong-file/wrong-module substitution"
+          }
+        ]
+      }
+    ],
+    "corrected_first_pass_claims": [],
+    "unresolved": []
+  },
+  "test_recovery": {
+    "status": "unresolved",
+    "tests": [
+      {
+        "file": "worker/task_send_verify_email_test.go",
+        "test": "TestProcessTaskSendVerifyEmail",
+        "covers": "Exercise the new Send Verify Email task processor",
+        "target": {
+          "symbol": "newSendVerifyEmailTask",
+          "file": "worker/task_send_verify_email_test.go",
+          "qualified_name": null
+        },
+        "evidence": [],
+        "status": "rejected",
+        "rejection_reason": "no evidence cited at all"
+      }
+    ]
+  }
+}

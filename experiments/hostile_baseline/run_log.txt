@@ -1,0 +1,7 @@
+--- hostile-h1-immich variant B (frontier alone) openai run 1 ---
+wrote /Users/ksnaik/StudioProjects/sydes/experiments/hostile_baseline/results/hostile-h1-immich_B_openai_run1.json (20 tool calls, 27014 chars)
+--- hostile-h1-immich variant B (frontier alone) openai run 2 ---
+wrote /Users/ksnaik/StudioProjects/sydes/experiments/hostile_baseline/results/hostile-h1-immich_B_openai_run2.json (24 tool calls, 21080 chars)
+--- hostile-h1-immich variant C (frontier + Sydes facts) openai run 1 ---
+wrote /Users/ksnaik/StudioProjects/sydes/experiments/hostile_baseline/results/hostile-h1-immich_C_openai_run1.json (31 tool calls, 24383 chars)
+--- hostile-h1-immich variant C (frontier + Sydes facts) openai run 2 ---

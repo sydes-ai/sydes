@@ -1,0 +1,170 @@
+{
+  "final_answer": "System entrypoints and behaviors affected by the change\n-------------------------------------------------------\n\n### 1. App bootstrap for the API worker\n\n**Entry point:** process start \u2192 `main.ts` \u2192 `Workers.bootstrap()` \u2192 `Workers.startWorker(ImmichWorker.Api)` spawns `workers/api.js` \u2192 Nest bootstraps `ApiModule` \u2192 `BaseModule.onModuleInit()`.  \n- `main.ts`\u2019s `Workers.bootstrap()` uses `ConfigRepository().getEnv().workers` and starts the `Api` worker among others. [src/main.ts, `Workers.bootstrap`, `startWorker`]  \n- `ApiModule` extends `BaseModule` and is created with `IWorker` = `ImmichWorker.Api`. [src/app.module.ts, ApiModule providers]  \n- `BaseModule.onModuleInit` calls `this.queueService.setServices(services)` and then `this.eventRepository.emit('AppBootstrap')`. [src/app.module.ts, `BaseModule.onModuleInit`]\n\n**Event dispatch:**  \n- `EventRepository.emit('AppBootstrap')` goes through `onEvent`, invoking all handlers registered for `AppBootstrap`. [src/repositories/event.repository.ts, `emit`, `onEvent`, `EventMap.AppBootstrap`]\n\n**Handler resolution:**  \n- `EventRepository.setup` has already discovered all `@OnEvent` handlers and filtered them by the current worker (`ImmichWorker.Api`). It uses the worker from `ConfigRepository.getWorker()`, and only keeps handlers whose `workers` list (or default `Object.values(ImmichWorker)`) includes that worker. [src/repositories/event.repository.ts, `setup`]\n\n**Changed behavior at this point:**  \n- `QueueService` has an `@OnEvent({ name: 'AppBootstrap', priority: BootstrapEventPriority.JobService }) onBootstrap()`. [src/services/queue.service.ts, `onBootstrap`]  \n- On API worker bootstrap, `onBootstrap` is invoked and now behaves as follows:\n\n  ```ts\n  @OnEvent({ name: 'AppBootstrap', priority: BootstrapEventPriority.JobService })\n  onBootstrap() {\n    this.jobRepository.setup(this.services);\n    if (this.worker === ImmichWorker.Microservices) {\n      this.jobRepository.startWorkers();\n    } else if (this.worker === ImmichWorker.Api) {\n      this.jobRepository.watchWorkers();\n    }\n  }\n  ```\n\n  Evidence:\n  - The worker identity is injected via `IWorker` in `BaseService` (through DI) and for `ApiModule` is set to `ImmichWorker.Api`. [src/app.module.ts, ApiModule providers; src/services/base.service.ts imports of `JobRepository`/`ConfigRepository` and use of `IWorker` via DI pattern]\n  - The new `else if` block calls `this.jobRepository.watchWorkers()` only when `this.worker === ImmichWorker.Api`. [src/services/queue.service.ts, `onBootstrap`]\n\n**Net effect from this entrypoint:**\n\nFor the **API worker only**, during `AppBootstrap`:\n\n- `JobRepository.setup` still runs as before (job handler discovery and validation). [src/repositories/job.repository.ts, `setup`]  \n- **New:** `JobRepository.watchWorkers()` is invoked on the API worker, starting periodic worker health checking (see behavior in section 3).\n\nNo change occurs for the Microservices or Maintenance workers at this handler; Microservices still calls `startWorkers()` and Maintenance does not execute this handler at all (since `EventRepository.setup` filters handlers by worker and `workers` for this event defaults to all workers, but Maintenance module does not include `QueueService` in its providers array). [src/app.module.ts, MaintenanceModule providers vs `common` including services]\n\n### 2. App shutdown for the API worker\n\n**Entry point:** worker shutdown \u2192 Nest `ApiModule` destruction \u2192 `BaseModule.onModuleDestroy()`.  \n- `BaseModule.onModuleDestroy` calls `this.eventRepository.emit('AppShutdown')`. [src/app.module.ts, `BaseModule.onModuleDestroy`]\n\n**Event dispatch:**  \n- `EventRepository.emit('AppShutdown')` triggers all registered `AppShutdown` handlers for the current worker (`ImmichWorker.Api`). [src/repositories/event.repository.ts, `EventMap.AppShutdown`, `onEvent`]\n\n**Changed behavior at this point:**\n\n`QueueService` now has a new shutdown hook:\n\n```ts\n@OnEvent({ name: 'AppShutdown' })\nonShutdown() {\n  this.jobRepository.teardown();\n}\n```\n\n[src/services/queue.service.ts]\n\nSo on API worker shutdown, the event system calls `QueueService.onShutdown`, which calls:\n\n```ts\nteardown() {\n  if (this.workerWatcher) {\n    clearInterval(this.workerWatcher);\n    this.workerWatcher = undefined;\n  }\n}\n```\n\n[src/repositories/job.repository.ts, `teardown`]\n\nPreviously, there was **no call** to `JobRepository.teardown()` on shutdown.\n\n**Net effect:**\n\n- For API worker shutdown: the periodic worker watchdog timer is cleaned up deterministically via `clearInterval`, avoiding a stray interval if anything is still in memory.\n- For the microservices worker: this specific `onShutdown` handler is not wired for the microservices process, because `QueueService` is not part of `MicroservicesModule` providers; only `BaseModule`\u2019s shutdown logic and any Microservices-specific services that have `@OnEvent({ name: 'AppShutdown', workers: [ImmichWorker.Microservices] })` run in that process. [src/app.module.ts, MicroservicesModule providers; src/services/transcoding.service.ts and metadata.service.ts AppShutdown handlers as examples]\n\n### 3. Periodic detection of missing Microservices worker from the API worker\n\nThis is the core new behavior.\n\n**API worker bootstrap path (from above):**\n\n- `AppBootstrap` \u2192 `QueueService.onBootstrap()` (API) \u2192 `JobRepository.watchWorkers()`. [src/services/queue.service.ts, `onBootstrap` and `ImmichWorker.Api` branch; src/repositories/job.repository.ts, `watchWorkers`]\n\n**Implementation of `watchWorkers` and `checkWorkers`:**\n\n```ts\nconst WORKER_WATCH_INTERVAL_MS = 30_000;\n\nprivate workerWatcher?: ReturnType<typeof setInterval>;\nprivate microservicesPresent = true;\n\nwatchWorkers() {\n  this.workerWatcher ??= setInterval(() => void this.checkWorkers(), WORKER_WATCH_INTERVAL_MS);\n}\n\nteardown() {\n  if (this.workerWatcher) {\n    clearInterval(this.workerWatcher);\n    this.workerWatcher = undefined;\n  }\n}\n\nprivate async checkWorkers() {\n  let present = false;\n  try {\n    const suffix = `:w:${ImmichWorker.Microservices}`;\n    const workers = await this.getQueue(QueueName.BackgroundTask).getWorkers();\n    present = workers.some((worker) => worker.rawname?.endsWith(suffix));\n  } catch {\n    return;\n  }\n\n  if (this.microservicesPresent !== present) {\n    if (present) {\n      this.logger.log('Microservices worker connected.');\n    } else {\n      this.logger.warn(\n        'No microservices worker is connected. Background jobs will not be processed until one is running.',\n      );\n    }\n  }\n  this.microservicesPresent = present;\n}\n```\n\n[src/repositories/job.repository.ts]\n\n**How `getQueue(QueueName.BackgroundTask)` works:**\n\n- `getQueue(queue: QueueName): Queue` uses `ModuleRef` plus `getQueueToken(queue)` from `@nestjs/bullmq` to retrieve the BullMQ `Queue` instance. [src/repositories/job.repository.ts, `getQueue`]  \n- These queues are registered in `app.module.ts` as `BullModule.registerQueue(...bull.queues)` using configuration from `ConfigRepository.getEnv()`. [src/app.module.ts, `bullImports`]\n\n**How `getWorkers()` identifies workers:**\n\n- The code assumes that `Queue.getWorkers()` returns objects with a `rawname` field and that the BullMQ worker names follow the pattern `<base-queue-name>:w:<worker-name>`. The suffix is explicitly constructed as `:w:${ImmichWorker.Microservices}`. [src/repositories/job.repository.ts, `checkWorkers`]\n\n**How the Microservices worker is named:**\n\n- In `startWorkers()` (running in the Microservices worker process), workers are created as:\n\n  ```ts\n  this.workers[queueName] = new Worker(\n    queueName,\n    (job) => this.eventRepository.emit('JobRun', queueName, job as JobItem),\n    { ...bull.config, concurrency: 1, name: ImmichWorker.Microservices },\n  );\n  ```\n\n  [src/repositories/job.repository.ts, `startWorkers`]\n\n- `ImmichWorker.Microservices` is `microservices`. [src/enum.ts, `ImmichWorker`]\n- This matches the suffix logic in `checkWorkers()` (`:w:microservices`), so the presence detection is consistent with how the workers are actually started.\n\n**Behavioral semantics:**\n\n- Every **30 seconds**, in the **API worker process only**, `checkWorkers()` is run.\n- It queries the `BackgroundTask` queue for its attached workers.\n- If **no worker** is found whose `rawname` ends with `:w:microservices`, `present` stays `false`.\n- When `microservicesPresent` changes from `true` \u2192 `false`, it logs a warning:\n\n  > \"No microservices worker is connected. Background jobs will not be processed until one is running.\"\n\n- When it changes from `false` \u2192 `true`, it logs an informational message:\n\n  > \"Microservices worker connected.\"\n\n- If the presence status is unchanged, no log is emitted (avoiding spam).  \n- If `getWorkers()` throws (e.g., Redis connection problem or queue misconfiguration), the error is silently swallowed and the method exits without changing `microservicesPresent` or logging anything. [src/repositories/job.repository.ts, `checkWorkers` try/catch]\n\n**Indirect impact on user-visible behavior:**\n\n- There is no direct HTTP route added or changed by this diff.\n- The effect is **operational visibility**: logs produced by the API worker will now warn when no Microservices worker is connected to the Bull queues, and announce when one connects, helping administrators understand why background jobs are not processing.\n- Actual background job processing logic (`queue`, `queueAll`, and the job handlers themselves) remains unchanged. Those still depend on a Microservices worker process being started through the `Workers` manager in `main.ts`. [src/repositories/job.repository.ts, `queueAll`, `startWorkers`; src/main.ts, `Workers.bootstrap`]\n\n### 4. Microservices worker naming\n\n`startWorkers()` was also modified to pass `name: ImmichWorker.Microservices` into the BullMQ `Worker` options. That is necessary to make the presence detection above meaningful.\n\n**Entry point for this behavior:**\n\n- On AppBootstrap in the **Microservices worker** process:\n  - `MicroservicesModule` extends `BaseModule` with `IWorker` bound to `ImmichWorker.Microservices`. [src/app.module.ts, MicroservicesModule providers]\n  - `BaseModule.onModuleInit` sets up telemetry, queue service, websocket auth, and emits `AppBootstrap`. [src/app.module.ts, `BaseModule.onModuleInit`]\n  - `EventRepository.setup` for this worker only keeps handlers whose `workers` include `ImmichWorker.Microservices`. [src/repositories/event.repository.ts, `setup`]\n  - `QueueService.onBootstrap` runs with `this.worker === ImmichWorker.Microservices` and calls:\n\n    ```ts\n    this.jobRepository.setup(this.services);\n    if (this.worker === ImmichWorker.Microservices) {\n      this.jobRepository.startWorkers();\n    }\n    ```\n\n    [src/services/queue.service.ts, `onBootstrap`]\n\n- `JobRepository.startWorkers()` constructs BullMQ `Worker` instances with `name: ImmichWorker.Microservices`:\n\n  ```ts\n  new Worker(queueName, handler, { ...bull.config, concurrency: 1, name: ImmichWorker.Microservices });\n  ```\n\n  [src/repositories/job.repository.ts, `startWorkers`]\n\n**Why this matters to the new behavior:**\n\n- BullMQ uses the `name` to form the internal worker key; `getWorkers()` surfaces that via `rawname`. The code relies on this to distinguish Microservices workers from any other possible workers on the same queues. [src/repositories/job.repository.ts, `checkWorkers` constructing suffix `:w:${ImmichWorker.Microservices}`]\n\n### 5. Test wiring\n\nThe diff modified only a mock, not a test behavior:\n\n```ts\nexport const newJobRepositoryMock = (): Mocked<RepositoryInterface<JobRepository>> => {\n  return {\n    setup: vitest.fn(),\n    startWorkers: vitest.fn(),\n    watchWorkers: vitest.fn(),\n    teardown: vitest.fn(),\n    // ...\n  };\n};\n```\n\n[test/repositories/job.repository.mock.ts]\n\nThis ensures existing tests that rely on `RepositoryInterface<JobRepository>` will not break when `QueueService` calls the new methods.\n\nI searched for tests referencing `QueueService` and `JobRepository`:\n\n- `src/services/queue.service.spec.ts` exists and imports `ImmichWorker` and `QueueService`. [grep result for `src/services/queue.service.spec.ts`]  \n- I did **not** open that spec file, so I **cannot** say whether there are explicit tests for:\n  - The new `watchWorkers` call when `worker === ImmichWorker.Api`.\n  - The `onShutdown` \u2192 `JobRepository.teardown()` behavior.\n  - The `checkWorkers` logging logic.\n\nAs of this analysis, I have no evidence of tests that assert the new behavior; I only see that the mocks compile.\n\nUncertain or indeterminate aspects\n----------------------------------\n\n- **Runtime BullMQ details:** The exact shape of `Queue.getWorkers()` and `worker.rawname` comes from BullMQ, not this repo. The code assumes a naming convention (`:w:${name}` suffix) that is plausible but not proven here. Whether that always matches in all deployment configurations (e.g., custom prefixes or redis keyspaces) cannot be confirmed from this repository alone.\n- **Presence of other worker types:** The system might be run with multiple Microservices workers or additional processes that also attach to the same queues. The detection logic only looks for a suffix match on `microservices`, not the process identity. Whether that is sufficient to declare \u201cbackground jobs will be processed\u201d depends on deployment; the repository alone can\u2019t show how many workers run in production.\n- **Operator visibility path:** How administrators see these warnings (e.g., via Docker logs, log shipping, UI, etc.) is outside this repo; only the log text and the call to `logger.warn`/`logger.log` are visible here. [src/repositories/job.repository.ts, `checkWorkers`; src/repositories/logging.repository.ts not inspected in detail]\n\nRelevant tests\n--------------\n\nEvidence of related tests:\n\n- `test/repositories/job.repository.mock.ts` updated to include `watchWorkers` and `teardown`, indicating tests somewhere rely on a `JobRepository` mock used with services like `QueueService`. [test/repositories/job.repository.mock.ts]\n- `src/services/queue.service.spec.ts` exists and likely exercises `QueueService` event-handling behavior, but I have **not inspected** it. [grep result]\n\nSo, **relevant test surfaces likely include**:\n\n- `src/services/queue.service.spec.ts` \u2013 for `QueueService`\u2019s event-driven behavior.\n- Any tests that pull in the `repositories` array or the `newJobRepositoryMock` helper.\n\nBut I **cannot confirm** any test that directly covers the new worker-watching logic or shutdown teardown.\n\nCoverage protocol\n-----------------\n\n- Entrypoints checked:  \n  - Checked: worker bootstrap and shutdown via `main.ts` \u2192 `Workers.bootstrap/startWorker` and `app.module.ts` `BaseModule.onModuleInit/onModuleDestroy`; event-driven entrypoints via `EventRepository.emit` and `@OnEvent` for `AppBootstrap` and `AppShutdown`.  \n  - Not checked: HTTP controllers/routes (`src/controllers`), CLI command handlers (`commands`), RPC/GraphQL or message handlers beyond the generic event system.\n\n- Async/queue registrations checked:  \n  - Checked: BullMQ worker and queue registration (`BullModule.registerQueue`), `JobRepository.startWorkers`, `JobRepository.checkWorkers` using `Queue.getWorkers`, `QueueService`\u2019s nightly cron scheduling (only to ensure no interaction with this change).  \n  - Not checked: Other cron jobs and background jobs in unrelated services (e.g., library, version, transcoding crons beyond the brief scan).\n\n- Persistence paths checked:  \n  - Checked: None directly related to this change (only glanced at `getQueue` using DI; no DB reads/writes tied to changed methods).  \n  - Not checked: All database repositories and schema interactions.\n\n- Auth/cross-cutting behavior checked:  \n  - Checked: Very briefly, `LoggingRepository` context and app name setting to understand where logs go; not in depth.  \n  - Not checked: Auth guards, interceptors, middleware, and permission checks (they do not appear to interact with this queue watcher).\n\n- Runtime/framework wiring checked:  \n  - Checked: Nest module wiring for `ApiModule`, `MicroservicesModule`, `MaintenanceModule`, `ImmichAdminModule`; `EventRepository.setup` event-dispatch system; DI of `IWorker` and its use in `QueueService`.  \n  - Not checked: Full `services` and `repositories` arrays, plugin registries, or any event bus beyond the central `EventRepository`.\n\n- Tests checked:  \n  - Checked in detail: `test/repositories/job.repository.mock.ts`.  \n  - Identified but not opened: `src/services/queue.service.spec.ts` and other `*.spec.ts` files referencing `ImmichWorker`/queues (OCR, job, smart-info, etc.).\n\n- Unresolved areas:  \n  - Whether BullMQ\u2019s `getWorkers()` and `rawname` semantics fully match the suffix detection used here.  \n  - Whether there are tests that explicitly assert the new logging/watcher behavior.  \n  - Any potential interaction between this periodic check and production Redis/queue configuration (prefixes, clustering, etc.), which depends on deployment environment rather than repository contents.",
+  "tool_calls": 22,
+  "transcript": [
+    {
+      "tool": "grep",
+      "args": {
+        "pattern": "class QueueService",
+        "path_glob": "server/src/**/*.ts"
+      },
+      "result_preview": "(no matches)"
+    },
+    {
+      "tool": "grep",
+      "args": {
+        "pattern": "JobRepository",
+        "path_glob": "server/src/**/*.ts"
+      },
+      "result_preview": "(no matches)"
+    },
+    {
+      "tool": "grep",
+      "args": {
+        "pattern": "ImmichWorker",
+        "path_glob": "server/src/**/*.ts"
+      },
+      "result_preview": "(no matches)"
+    },
+    {
+      "tool": "grep",
+      "args": {
+        "pattern": "OnEvent",
+        "path_glob": "server/src/**/*.ts"
+      },
+      "result_preview": "(no matches)"
+    },
+    {
+      "tool": "grep",
+      "args": {
+        "pattern": "AppShutdown",
+        "path_glob": "server/src/**/*.ts"
+      },
+      "result_preview": "(no matches)"
+    },
+    {
+      "tool": "list_dir",
+      "args": {
+        "path": "server/src"
+      },
+      "result_preview": "error: not a directory: server/src"
+    },
+    {
+      "tool": "list_dir",
+      "args": {
+        "path": "server/test"
+      },
+      "result_preview": "error: not a directory: server/test"
+    },
+    {
+      "tool": "list_dir",
+      "args": {
+        "path": "."
+      },
+      "result_preview": "f .gitignore\nf .npmignore\nf .prettierignore\nf .prettierrc\nf Dockerfile\nf Dockerfile.dev\nd bin\nf eslint.config.mjs\nf helmet.json\nf mise.toml\nf nest-cli.json\nf package.json\nd src\nd test\nf tsconfig.build.json\nf tsconfig.json"
+    },
+    {
+      "tool": "grep",
+      "args": {
+        "pattern": "class QueueService",
+        "path_glob": "src/**/*.ts"
+      },
+      "result_preview": "src/services/queue.service.ts:40:export class QueueService extends BaseService {"
+    },
+    {
+      "tool": "grep",
+      "args": {
+        "pattern": "JobRepository",
+        "path_glob": "src/**/*.ts"
+      },
+      "result_preview": "src/repositories/job.repository.ts:25:export class JobRepository {\nsrc/repositories/job.repository.ts:37:this.logger.setContext(JobRepository.name);\nsrc/repositories/asset-job.repository.ts:26:export class AssetJobRepository {\nsrc/repositories/index.ts:8:import { AssetJobRepository } from 'src/repos"
+    },
+    {
+      "tool": "grep",
+      "args": {
+        "pattern": "ImmichWorker",
+        "path_glob": "src/**/*.ts"
+      },
+      "result_preview": "src/decorators.ts:5:import { ApiCustomExtension, ApiTag, ImmichWorker, JobName, MetadataKey, QueueName } from 'src/enum';\nsrc/decorators.ts:146:workers?: ImmichWorker[];\nsrc/main.ts:8:import { DatabaseLock, ExitCode, ImmichWorker, LogLevel, SystemMetadataKey } from 'src/enum';\nsrc/main.ts:21:workers"
+    },
+    {
+      "tool": "grep",
+      "args": {
+        "pattern": "OnEvent",
+        "path_glob": "src/**/*.ts"
+      },
+      "result_preview": "src/decorators.ts:148:export const OnEvent = (config: EventConfig) => SetMetadata(MetadataKey.EventConfig, config);\nsrc/services/workflow-execution.service.ts:11:import { DummyValue, OnEvent, OnJob } from 'src/decorators';\nsrc/services/workflow-execution.service.ts:48:@OnEvent({ name: 'AppBootstrap'"
+    },
+    {
+      "tool": "grep",
+      "args": {
+        "pattern": "AppShutdown",
+        "path_glob": "src/**/*.ts"
+      },
+      "result_preview": "src/app.module.ts:99:await this.eventRepository.emit('AppShutdown');\nsrc/repositories/event.repository.ts:27:AppShutdown: [];\nsrc/services/queue.service.ts:88:@OnEvent({ name: 'AppShutdown' })\nsrc/services/transcoding.service.ts:49:@OnEvent({ name: 'AppShutdown', workers: [ImmichWorker.Microservices"
+    },
+    {
+      "tool": "list_dir",
+      "args": {
+        "path": "src"
+      },
+      "result_preview": "f app.common.ts\nf app.module.ts\nd bin\nd commands\nf config.ts\nf constants.ts\nd controllers\nd cores\nf database.ts\nf decorators.ts\nd dtos\nd emails\nf enum.ts\nf main.ts\nd maintenance\nd middleware\nd queries\nd repositories\nd schema\nd services\nf types.ts\nd utils\nf validation.spec.ts\nf validation.ts\nd worker"
+    },
+    {
+      "tool": "list_dir",
+      "args": {
+        "path": "test"
+      },
+      "result_preview": "d factories\nd fixtures\nf mappers.ts\nd medium\nf medium.factory.ts\nd repositories\nf small.factory.ts\nf utils.ts\nf vitest.config.medium.mjs\nf vitest.config.mjs"
+    },
+    {
+      "tool": "read_file",
+      "args": {
+        "path": "src/repositories/job.repository.ts"
+      },
+      "result_preview": "import { getQueueToken } from '@nestjs/bullmq';\nimport { Injectable } from '@nestjs/common';\nimport { ModuleRef, Reflector } from '@nestjs/core';\nimport { JobsOptions, Queue, Worker } from 'bullmq';\nimport { setTimeout } from 'node:timers/promises';\nimport { JobConfig } from 'src/decorators';\nimport"
+    },
+    {
+      "tool": "read_file",
+      "args": {
+        "path": "src/services/queue.service.ts"
+      },
+      "result_preview": "import { BadRequestException, Injectable } from '@nestjs/common';\nimport { SystemConfig } from 'src/config';\nimport { OnEvent } from 'src/decorators';\nimport { AuthDto } from 'src/dtos/auth.dto';\nimport {\n  mapQueueLegacy,\n  mapQueuesLegacy,\n  QueueResponseLegacyDto,\n  QueuesResponseLegacyDto,\n} fro"
+    },
+    {
+      "tool": "read_file",
+      "args": {
+        "path": "src/app.module.ts"
+      },
+      "result_preview": "import { BullModule } from '@nestjs/bullmq';\nimport { Inject, Module, OnModuleDestroy, OnModuleInit } from '@nestjs/common';\nimport { APP_FILTER, APP_GUARD, APP_INTERCEPTOR, APP_PIPE } from '@nestjs/core';\nimport { ScheduleModule, SchedulerRegistry } from '@nestjs/schedule';\nimport { ClsModule } fro"
+    },
+    {
+      "tool": "read_file",
+      "args": {
+        "path": "src/main.ts"
+      },
+      "result_preview": "import { Kysely, sql } from 'kysely';\nimport { CommandFactory } from 'nest-commander';\nimport { ChildProcess, fork } from 'node:child_process';\nimport { dirname, join } from 'node:path';\nimport { Worker } from 'node:worker_threads';\nimport { PostgresError } from 'postgres';\nimport { ImmichAdminModul"
+    },
+    {
+      "tool": "read_file",
+      "args": {
+        "path": "src/repositories/event.repository.ts"
+      },
+      "result_preview": "import { Injectable } from '@nestjs/common';\nimport { ModuleRef, Reflector } from '@nestjs/core';\nimport _ from 'lodash';\nimport { Socket } from 'socket.io';\nimport { SystemConfig } from 'src/config';\nimport { Asset } from 'src/database';\nimport { EventConfig } from 'src/decorators';\nimport { AuthDt"
+    },
+    {
+      "tool": "read_file",
+      "args": {
+        "path": "test/repositories/job.repository.mock.ts"
+      },
+      "result_preview": "import { JobRepository } from 'src/repositories/job.repository';\nimport { RepositoryInterface } from 'src/types';\nimport { Mocked, vitest } from 'vitest';\n\nexport const newJobRepositoryMock = (): Mocked<RepositoryInterface<JobRepository>> => {\n  return {\n    setup: vitest.fn(),\n    startWorkers: vit"
+    },
+    {
+      "tool": "read_file",
+      "args": {
+        "path": "src/enum.ts"
+      },
+      "result_preview": "import { WorkflowTrigger } from '@immich/plugin-sdk';\nimport z from 'zod';\n\nexport enum AuthType {\n  Password = 'password',\n  OAuth = 'oauth',\n}\n\nexport enum ImmichCookie {\n  AccessToken = 'immich_access_token',\n  MaintenanceToken = 'immich_maintenance_token',\n  AuthType = 'immich_auth_type',\n  IsAu"
+    }
+  ]
+}
