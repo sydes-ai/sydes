@@ -1,0 +1,22 @@
+{
+  "instance_id": "dbeaver__dbeaver@ed40132",
+  "reviewer": "sydes",
+  "boundary": "code_findings",
+  "status": "completed",
+  "duration_seconds": 532.8,
+  "review": {
+    "comments": [
+      {
+        "path": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/struct/DBSObjectFilter.java",
+        "start_line": 153,
+        "end_line": 153,
+        "content": "An already-compiled plugin that invokes DBSObjectFilter.matches(String)\u2014including an older build of the shown ERD plugin call path\u2014will fail with NoSuchMethodError if it is resolved against this chang\nDBSObjectFilter is public, and its package is exported by the bundle named \"DBeaver API\". A separate plugin, org.jkiss.dbeaver.erd.model, contains a one-String invocation. Before the change, that invocation compiled to matches(Ljava/lang/String;)Z. The diff removes that public signature and replaces it with a varargs declaration; at the JVM level String... is String[], so the remaining descriptor is matches([Ljava/lang/String;)Z. JVM method resolution uses the exact descriptor and does not adapt an already-compiled single-String invocation to a varargs array invocation. Thus an older compiled caller that is loaded with the changed model bundle fails at this call with NoSuchMethodError. This confirms the binary incompatibility conditionally for such already-compiled callers; it does not establish how many third-party binaries are deployed.\nImpact: Caused by the change: The changed declaration replaces a method whose JVM parameter descriptor is Ljava/lang/String; with one whose parameter descriptor is [Ljava/lang/String;. An existing binary call site continues requesting matches(Ljava/lang/String;)Z, while the changed class only supplies matches([Ljava/lang/String;)Z; exact JVM method resolution therefore fails with NoSuchMethodError rather than invoking the new method.",
+        "severity": "P2"
+      }
+    ],
+    "summary": {
+      "input_tokens": 67093,
+      "output_tokens": 9710
+    }
+  }
+}

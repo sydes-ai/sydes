@@ -1,0 +1,96 @@
+AI recovery (experimental): triggered (only inferred impact exists; no impact was structurally established with a complete path; 1 changed symbol(s) reach no entrypoint the first pass found)
+AI recovery (experimental): path=established test=unresolved turns=36 llm_calls=38 tokens=87857+4912 edge_retries_attempted=0 edge_retries_succeeded=0 graph_paths_proposed=0 graph_paths_established=0 graph_paths_established_unverified_boundary=0 explicit_relation_edges=2
+Wrote AI recovery result: /Users/ksnaik/StudioProjects/sydes/benchmarks/aacr/results/investigator-b9391e5-first11-r1-2026-10-26/sydes/cline__cline@cb4d5c9.ai_recovery.json
+SYDES VERIFICATION
+
+MEDIUM RISK · 5 AFFECTED BEHAVIORS
+
+Changed
+───────
+src/api/providers/deepseek.ts:23 — DeepSeekHandler.createMessage
+src/api/providers/openai.ts:14 — OpenAiHandler.constructor
+src/api/providers/openai.ts:37 — OpenAiHandler.createMessage
+
+CHANGE ANALYSIS (citations verified, indeterminate)
+───────────────────────────────────────────────────
+Cannot be established from this repository alone: depends on deployment/runtime configuration not in this repository.
+The mechanisms are explicit, but observable impact requires deployed provider settings whose base URL contains `deepseek` and/or selected model identifiers containing `deepseek-r1`; no actual configuration values are supplied.
+
+DeepSeek compatibility is broadened in two ways: OpenAI-provider configurations whose base URL mentions DeepSeek are directed to the standard OpenAI client before Azure detection, and both provider handlers now classify `deepseek-r1` model identifiers as DeepSeek reasoner models. The accompanying changeset describes this as an Azure DeepSeek fix.
+
+Likely behavioral changes
+  • When an OpenAI-provider base URL contains both `deepseek` and `azure.com`, client selection changes from `AzureOpenAI` to the standard `OpenAI` client because the DeepSeek condition now takes precedence over the Azure condition.
+  • Both the dedicated DeepSeek handler and the generic OpenAI handler now classify model identifiers containing `deepseek-r1` as reasoner models, placing those models on the same existing reasoner-specific processing path as `deepseek-reasoner`.
+
+Investigate
+  • Trace construction of `OpenAiHandler` and the sources of `openAiBaseUrl`, `openAiApiKey`, and model configuration to determine which provider configurations can enter the new client-selection branch.
+  • Inspect every use of `isDeepseekReasoner` below the shown diff to establish the exact message conversion, streaming, and response-normalization behavior newly applied to DeepSeek R1.
+  • Compare the OpenAI and AzureOpenAI SDK request shapes expected by Azure-hosted DeepSeek deployments, including endpoint paths, API versions, authentication, and streaming event formats.
+
+Uncertain
+  • The supplied context does not identify any HTTP route or endpoint that invokes either provider handler.
+  • The handler factory, constructor call sites, and other callers that can instantiate `OpenAiHandler` with an Azure DeepSeek URL are not shown.
+  • The actual remote services represented by qualifying `openAiBaseUrl` values cannot be identified from the diff.
+  • The context does not establish why Azure-hosted DeepSeek requires the standard `OpenAI` client or whether all matching Azure deployments accept that client's authentication, URL, API-version, and streaming behavior.
+  • It is unknown whether real configurations use base URLs containing `deepseek` or model identifiers containing `deepseek-r1`, so actual exercise of either new branch cannot be established.
+
+System impact
+─────────────
+No structural propagation path was established.
+
+?
+  → ?: registers DeepSeekHandler
+  → [framework lifecycle unresolved]
+  → candidate: DeepSeekHandler.createMessage
+
+?
+  → ?: registers OpenAiHandler
+  → [framework lifecycle unresolved]
+  → candidate: OpenAiHandler.createMessage
+
+Inferred impact
+───────────────
+INFERRED · 0.90
+message generation through an OpenAI provider using a DeepSeek-compatible base URL
+
+Why:
+When the configured OpenAI base URL contains "deepseek", the handler now constructs the standard OpenAI client with that custom base URL instead of following the Azure-shaped client path, so downstream message requests may use a different API shape and authentication setup.
+
+Static confirmation: unavailable
+
+INFERRED · 0.84
+message generation through DeepSeek-compatible endpoints
+
+Why:
+When the configured OpenAI base URL contains "deepseek", the handler now constructs the core OpenAI client with that base URL and API key, which can change whether subsequent createMessage requests use a DeepSeek-compatible API shape instead of the Azure-specific client path.
+
+Static confirmation: unavailable
+
+INFERRED · ?.??
+OpenAiHandler.constructor
+
+Why:
+VS Code webview message: newTask
+
+Static confirmation: unavailable
+
+CI
+──
+? the test suite could not run
+  No repository test command could be resolved
+
+What Sydes could not establish
+──────────────────────────────
+• 4 additional affected areas are not yet verification-modeled.
+• 1 changed symbol has unresolved impact paths.
+• 3 inferred impacts could not be structurally confirmed.
+• The repository test suite could not run (No repository test command could be resolved).
+
+Verdict
+───────
+VERIFICATION INCOMPLETE
+
+Wrote verification result: /Users/ksnaik/StudioProjects/sydes/benchmarks/aacr/results/investigator-b9391e5-first11-r1-2026-10-26/sydes/cline__cline@cb4d5c9.json
+
+--- stderr ---
+Preparing Sydes code intelligence...

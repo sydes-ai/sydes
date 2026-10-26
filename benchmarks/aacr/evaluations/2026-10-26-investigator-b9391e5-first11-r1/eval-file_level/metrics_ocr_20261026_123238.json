@@ -1,0 +1,650 @@
+{
+  "ex_info": {
+    "start_time": "2026-10-26T12:32:38.672400",
+    "results_dir": "/Users/ksnaik/StudioProjects/sydes/benchmarks/aacr/results/investigator-b9391e5-first11-r1-2026-10-26/eval-file_level",
+    "reviewer": "ocr",
+    "line_k": 1,
+    "limit": null,
+    "score_mode": "file_semantic",
+    "missing_instance_ids": [
+      "facebook__react@b045f18"
+    ]
+  },
+  "summary": {
+    "total_instances": 11,
+    "candidate_instances": 11,
+    "evaluated_instances": 10,
+    "missing_instances": 1,
+    "expected_notes": 56,
+    "generated_notes": 9,
+    "total_duration_seconds": 4974.8,
+    "avg_duration_seconds": 497.48,
+    "total_input_tokens": 1092096,
+    "total_output_tokens": 178792,
+    "total_tokens": 1270888,
+    "avg_input_tokens": 109210,
+    "avg_output_tokens": 17879,
+    "matched_generated_notes": 5,
+    "matched_file_semantic_notes": 5,
+    "file_semantic_match_rate": 0.556,
+    "file_semantic_recall_rate": 0.089,
+    "balanced_score": 0.153
+  },
+  "eval_res": [
+    {
+      "instance_id": "dbeaver__dbeaver@8224826",
+      "repo": "dbeaver/dbeaver",
+      "comments": [
+        {
+          "note": "Method `initializeContextState` parameters should be placed on separate lines to improve readability and adhere to style conventions.",
+          "path": "plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksDataSource.java",
+          "side": "right",
+          "from_line": 82,
+          "to_line": 82,
+          "file_semantic_match": false
+        },
+        {
+          "note": "Explicit casts to `DatabricksExecutionContext` in `initializeContextState` should be replaced with `getContextDefaults` to avoid unnecessary type casting and maintain type safety.",
+          "path": "plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksDataSource.java",
+          "side": "right",
+          "from_line": 91,
+          "to_line": 91,
+          "file_semantic_match": false
+        },
+        {
+          "note": "**BUG: Potential Null Return Not Handled**\n\nThe method `getDataSource().getCatalog(activeCatalogName)` can return `null` if the catalog with the given name doesn't exist. This null value would be returned directly without any handling, which could cause `NullPointerException` in calling code expecting a non-null catalog.\n\n**Suggested Fix:**\n```java\n@Nullable\n@Override\npublic GenericCatalog getDefaultCatalog() {\n    if (CommonUtils.isEmpty(activeCatalogName)) {\n        return super.getDefaultCatalog();\n    }\n    GenericCatalog catalog = getDataSource().getCatalog(activeCatalogName);\n    if (catalog == null) {\n        log.debug(\"Catalog '\" + activeCatalogName + \"' not found, falling back to super implementation\");\n        return super.getDefaultCatalog();\n    }\n    return catalog;\n}\n```",
+          "path": "plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksExecutionContext.java",
+          "side": "right",
+          "from_line": 55,
+          "to_line": 55,
+          "file_semantic_match": false
+        },
+        {
+          "note": "When a DBCException is caught, it's only logged but not re-thrown. This silently swallows the exception and makes the caller believe the operation succeeded. This could lead to inconsistent state where the super class catalog is set but activeCatalogName remains null. Consider re-throwing the exception after logging, or at minimum setting activeCatalogName to null to indicate the catalog was not properly set.",
+          "path": "plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksExecutionContext.java",
+          "side": "right",
+          "from_line": 68,
+          "to_line": 70,
+          "file_semantic_match": true
+        },
+        {
+          "note": "The code incorrectly modifies connection bootstrap settings during default catalog refresh. The block setting `bootstrap.setDefaultCatalogName(currentCatalog)` should be removed as bootstrap configurations must not be altered in runtime execution context methods.",
+          "path": "plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksExecutionContext.java",
+          "side": "right",
+          "from_line": 91,
+          "to_line": 91,
+          "file_semantic_match": false
+        }
+      ],
+      "generated_comments": [
+        {
+          "note": "On the changed initializeContextState path with a non-null initFrom and a default catalog, a Databricks catalog-selection failure reported by GenericExecutionContext as DBCException is suppressed, so\nGenericExecutionContext performs catalog selection through the driver or an active-database query and converts SQLException into DBCException. Its catalog state update occurs only after that operation succeeds. The new Databricks override calls this method but catches DBCException, logs it, and does not rethrow; its activeCatalogName assignment is also skipped on that exception. The changed initializeContextState caller neither verifies the selected catalog nor handles failure locally, so propagation would have aborted initialization, whereas the new suppression lets the method return normally.\nImpact: Caused by the change: The changed override intercepts the DBCException that GenericExecutionContext produces when catalog selection fails and replaces propagation with debug logging. Because execution jumps over activeCatalogName assignment and GenericExecutionContext's selectedEntityName assignment is after its failing operation, the requested catalog is not recorded as selected. The changed initializeContextState call therefore completes instead of aborting on that failure.",
+          "path": "plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksExecutionContext.java",
+          "from_line": 68,
+          "to_line": 68,
+          "matched_gt_indices": [
+            3
+          ],
+          "judge_reason": "1. No match — ref is about `getDefaultCatalog()` potentially returning null when a named catalog doesn’t exist; generated is about swallowing a `DBCException` during catalog selection/init.  \n2. Match — both highlight that `DBCException` is caught/logged but not rethrown, causing silent failure and inconsistent catalog/activeCatalogName state.  \n3. No match — ref concerns incorrectly mutating bootstrap configuration during refresh; generated concerns exception suppression during initialization. ",
+          "hit_new_gt": true
+        }
+      ]
+    },
+    {
+      "instance_id": "browser-use__browser-use@72f1585",
+      "repo": "browser-use/browser-use",
+      "comments": [
+        {
+          "note": "Hardcoded thinking_budget value of -1 overrides user-provided values, preventing users from controlling the thinking budget parameter as intended.",
+          "path": "browser_use/llm/google/chat.py",
+          "side": "right",
+          "from_line": 202,
+          "to_line": 202,
+          "file_semantic_match": true
+        },
+        {
+          "note": "**Critical Issue**: Removed retry logic without replacement\n\nThe manual retry loop was removed (lines with `for attempt in range(10):`), but the comment says \"Let Google client handle retries internally\". However:\n\n1. **No evidence the Google client has automatic retries** for all error types that were previously handled\n2. The old code had explicit retry logic for rate limits, server errors, and connection issues\n3. **Breaking change**: This could cause failures for users experiencing transient network issues or rate limits that would have previously been handled\n\n**Required verification**:\n- Does the Google Generative AI client (`google-genai`) actually retry on rate limits (429), server errors (500/502/503), and connection timeouts?\n- If not, this is a **regression** that will break existing functionality\n\n**Recommendation**: Either:\n1. Verify and document that the Google client handles these retries, OR\n2. Keep the retry logic but optimize the backoff strategy (which seems to be the actual performance issue)",
+          "path": "browser_use/llm/google/chat.py",
+          "side": "right",
+          "from_line": 376,
+          "to_line": 376,
+          "file_semantic_match": false
+        }
+      ],
+      "generated_comments": [
+        {
+          "note": "For ChatGoogle.ainvoke calls with any non-None thinking_budget, including an explicitly requested positive fixed budget, the method sends -1 instead of the configured value. The evidence does not esta\nThe public field accepts an integer or None, but ainvoke tests only for None and then hard-codes -1. The resulting config is passed directly to generate_content. Therefore, for an explicit positive value such as 100, the transmitted thinking_budget is deterministically -1 rather than 100. The changed line replaces the prior use of self.thinking_budget and introduces this behavior. No in-repository callers were found, and Google's meanings for 0 and -1 are absent, so the stronger disable-versus-dynamic semantic claim is not confirmed.\nImpact: Caused by the change: The change replaced {'thinking_budget': self.thinking_budget} with {'thinking_budget': -1}. Consequently, every non-None configured value takes the branch at line 201, is replaced by -1 at line 202, and is sent in the API config at line 220; an explicitly requested positive fixed budget is therefore not transmitted.",
+          "path": "browser_use/llm/google/chat.py",
+          "from_line": 203,
+          "to_line": 203,
+          "matched_gt_indices": [
+            0
+          ],
+          "judge_reason": "1. Match — both point out that hardcoding `thinking_budget` to `-1` overrides any user-provided/non-`None` value, preventing intended control.\n2. No match — this is about removal of retry logic and whether the client retries, unrelated to `thinking_budget` handling.\n\n[1]",
+          "hit_new_gt": true
+        }
+      ]
+    },
+    {
+      "instance_id": "facebook__react@be58f26",
+      "repo": "facebook/react",
+      "comments": [
+        {
+          "note": "The added condition requiring `existingStateHook.next !== null` may cause the memoized state to be ignored for form components with a single state hook.",
+          "path": "packages/react-reconciler/src/ReactFiberHooks.js",
+          "side": "right",
+          "from_line": 3264,
+          "to_line": 3264,
+          "file_semantic_match": false
+        }
+      ],
+      "generated_comments": []
+    },
+    {
+      "instance_id": "browser-use__browser-use@0b21e50",
+      "repo": "browser-use/browser-use",
+      "comments": [
+        {
+          "note": "Typo: \"use to when\" should be \"use when\".",
+          "path": "browser_use/browser/browser.py",
+          "side": "right",
+          "from_line": 82,
+          "to_line": 83,
+          "file_semantic_match": false
+        },
+        {
+          "note": "`self.config.chrome_remote_debugging_port` is typed as `int | None`. If it is `None`, `socket.connect_ex` will raise a `TypeError` because it expects an integer port. Suggest adding a check for `None` or ensuring it is a valid integer before using it here.",
+          "path": "browser_use/browser/browser.py",
+          "side": "right",
+          "from_line": 290,
+          "to_line": 292,
+          "file_semantic_match": false
+        }
+      ],
+      "generated_comments": [
+        {
+          "note": "When the initial httpx probe to localhost:9223 returns HTTP 200, the new test takes the reuse path and never invokes its subprocess mock, so its remote-debugging launch-argument assertion is not execu\nThe complete test body patches requests.get but does not patch httpx. The production method performs its initial probe with httpx; on status 200 it connects through the mocked DummyChromium and returns immediately. The test's only assertion about the subprocess arguments is inside dummy_create_subprocess_exec, which is invoked only on the later launch path. Thus a real service answering 200 on port 9223 bypasses that assertion while still producing the expected DummyBrowser for the test's result assertion.\nImpact: Caused by the change: The added test mocks requests.get, but the changed custom-port probe is issued through httpx.AsyncClient. Therefore the mock does not control the initial probe. If that probe receives 200, line 213 returns before the launch code at line 229 can call the test's dummy_create_subprocess_exec, leaving the launch-argument assertion at test line 190 unexecuted.",
+          "path": "tests/test_browser.py",
+          "from_line": 180,
+          "to_line": 180,
+          "matched_gt_indices": [],
+          "judge_reason": "",
+          "hit_new_gt": false
+        }
+      ]
+    },
+    {
+      "instance_id": "dbeaver__dbeaver@ed40132",
+      "repo": "dbeaver/dbeaver",
+      "comments": [
+        {
+          "note": "`DBSObjectFilter.matches` was changed to `matches(String... names)` and internally streams `names` and calls `matchesPattern(pattern, name)`. If `objectName` or `overloadedObject.getOverloadedName()` can be null, this may cause NPE inside regex `matcher(name)` or other pattern checks. Suggest filtering out null/empty names before calling `matches`, e.g. build an array/list of non-null names or fallback to `filter.matches(objectName)` only when overloaded name is non-null.\n\n```suggestion\n                if (childItem instanceof DBPOverloadedObject overloadedObject) {\n                    String overloadedName = overloadedObject.getOverloadedName();\n                    if (overloadedName != null) {\n                        isMatchingFilter = filter.matches(objectName, overloadedName);\n                    } else {\n                        isMatchingFilter = filter.matches(objectName);\n                    }\n                } else {\n                    isMatchingFilter = filter.matches(objectName);\n                }\n```",
+          "path": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/DBNDatabaseNode.java",
+          "side": "right",
+          "from_line": 729,
+          "to_line": 736,
+          "file_semantic_match": false
+        },
+        {
+          "note": "**Pattern Matching Enhancement**: Using pattern matching with `instanceof` (Java 16+) is great! However, verify that the DBeaver project's minimum Java version supports this syntax. If the project still supports Java 11-15, this will cause compilation errors.\n\nIf Java 16+ is not available, use the traditional approach:\n```java\nif (childItem instanceof DBPOverloadedObject) {\n    DBPOverloadedObject overloadedObject = (DBPOverloadedObject) childItem;\n    isMatchingFilter = filter.matches(objectName, overloadedObject.getOverloadedName());\n}\n```",
+          "path": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/DBNDatabaseNode.java",
+          "side": "right",
+          "from_line": 730,
+          "to_line": 730,
+          "file_semantic_match": false
+        },
+        {
+          "note": "The method `matches` was changed to accept multiple names via varargs but retains a name implying single-name matching; rename it to `matchesAny` to accurately reflect its behavior of matching any provided name.",
+          "path": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/struct/DBSObjectFilter.java",
+          "side": "right",
+          "from_line": 153,
+          "to_line": 153,
+          "file_semantic_match": false
+        },
+        {
+          "note": "Potential NullPointerException when `matches` is called with a null name. When varargs receives a null element (e.g., `getName()` returns null), `Arrays.stream(names)` creates a stream containing null, and `matchesPattern` will throw NPE when `((Pattern) pattern).matcher(name).matches()` is called with a null name. Consider adding null check in `atLeastOneNameMatchesPattern` or handle null names gracefully.\n\n```suggestion\n    private static boolean atLeastOneNameMatchesPattern(Object pattern, String[] names) {\n        return Arrays.stream(names)\n            .filter(Objects::nonNull)\n            .anyMatch(name -> matchesPattern(pattern, name));\n    }\n```",
+          "path": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/struct/DBSObjectFilter.java",
+          "side": "right",
+          "from_line": 194,
+          "to_line": 197,
+          "file_semantic_match": false
+        }
+      ],
+      "generated_comments": [
+        {
+          "note": "An already-compiled plugin that invokes DBSObjectFilter.matches(String)—including an older build of the shown ERD plugin call path—will fail with NoSuchMethodError if it is resolved against this chang\nDBSObjectFilter is public, and its package is exported by the bundle named \"DBeaver API\". A separate plugin, org.jkiss.dbeaver.erd.model, contains a one-String invocation. Before the change, that invocation compiled to matches(Ljava/lang/String;)Z. The diff removes that public signature and replaces it with a varargs declaration; at the JVM level String... is String[], so the remaining descriptor is matches([Ljava/lang/String;)Z. JVM method resolution uses the exact descriptor and does not adapt an already-compiled single-String invocation to a varargs array invocation. Thus an older compiled caller that is loaded with the changed model bundle fails at this call with NoSuchMethodError. This confirms the binary incompatibility conditionally for such already-compiled callers; it does not establish how many third-party binaries are deployed.\nImpact: Caused by the change: The changed declaration replaces a method whose JVM parameter descriptor is Ljava/lang/String; with one whose parameter descriptor is [Ljava/lang/String;. An existing binary call site continues requesting matches(Ljava/lang/String;)Z, while the changed class only supplies matches([Ljava/lang/String;)Z; exact JVM method resolution therefore fails with NoSuchMethodError rather than invoking the new method.",
+          "path": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/struct/DBSObjectFilter.java",
+          "from_line": 153,
+          "to_line": 153,
+          "matched_gt_indices": [],
+          "judge_reason": "1. No match — ref is about renaming `matches` to reflect varargs semantics; generated is about binary incompatibility/`NoSuchMethodError` due to signature change from `String` to `String[]`.\n2. No match — ref is about potential NPE when varargs contains null; generated is about JVM method descriptor mismatch and backward binary compatibility.\n\n[]",
+          "hit_new_gt": false
+        }
+      ]
+    },
+    {
+      "instance_id": "cline__cline@cb4d5c9",
+      "repo": "cline/cline",
+      "comments": [
+        {
+          "note": "The condition for Azure API shape detection was incorrectly modified to check the base URL for 'deepseek'; it should verify 'azure.com' in the base URL while excluding DeepSeek models via the model ID to prevent duplicated logic.",
+          "path": "src/api/providers/openai.ts",
+          "side": "right",
+          "from_line": 17,
+          "to_line": 17,
+          "file_semantic_match": false
+        },
+        {
+          "note": "**Duplicate code**: The condition `modelId.includes(\"deepseek-reasoner\") || modelId.includes(\"deepseek-r1\")` is duplicated across multiple provider files (openai.ts, deepseek.ts, qwen.ts, together.ts, requesty.ts). Consider extracting this into a shared utility function to improve maintainability.\n\nExample:\n```typescript\n// In a shared utils file\nexport const isDeepSeekReasonerModel = (modelId: string): boolean => {\n  return modelId.includes(\"deepseek-reasoner\") || modelId.includes(\"deepseek-r1\");\n};\n```",
+          "path": "src/api/providers/openai.ts",
+          "side": "right",
+          "from_line": 39,
+          "to_line": 39,
+          "file_semantic_match": false
+        },
+        {
+          "note": "Model checks using substring `includes` can create false positives (e.g., custom model names that contain these tokens). If model IDs are known, prefer exact match or a small set/regex anchored to expected patterns. Also consider normalizing case once (model IDs can sometimes be mixed-case).\n\n```suggestion\n\t\tconst normalizedModelId = modelId.toLowerCase()\n\t\tconst isDeepseekReasoner =\n\t\t\tnormalizedModelId === \"deepseek-reasoner\" || normalizedModelId === \"deepseek-r1\"\n```",
+          "path": "src/api/providers/openai.ts",
+          "side": "right",
+          "from_line": 39,
+          "to_line": 39,
+          "file_semantic_match": false
+        }
+      ],
+      "generated_comments": []
+    },
+    {
+      "instance_id": "dbeaver__dbeaver@bc3ac7b",
+      "repo": "dbeaver/dbeaver",
+      "comments": [
+        {
+          "note": "The InputStream obtained from `node.getAdapter(InputStream.class)` in the null resource handling path is not closed, causing a resource leak.",
+          "path": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java",
+          "side": "right",
+          "from_line": 293,
+          "to_line": 294,
+          "file_semantic_match": false
+        },
+        {
+          "note": "Spelling error in log message: 'doesn't not exists' contains a double negative. It should be 'doesn't exist'.\n\n```suggestion\n                    log.debug(\"Resource \" + resource + \" doesn't exist\");\n```",
+          "path": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java",
+          "side": "right",
+          "from_line": 304,
+          "to_line": 304,
+          "file_semantic_match": false
+        },
+        {
+          "note": "Poor parameter naming: The parameter name 'str' is not descriptive. Consider renaming it to 'fileName' to better reflect its purpose and improve code readability.",
+          "path": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java",
+          "side": "right",
+          "from_line": 363,
+          "to_line": 364,
+          "file_semantic_match": false
+        },
+        {
+          "note": "The conditional check for existing file before copying is redundant; use `StandardCopyOption.REPLACE_EXISTING` unconditionally as it safely handles both new and existing files.",
+          "path": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java",
+          "side": "right",
+          "from_line": 365,
+          "to_line": 369,
+          "file_semantic_match": false
+        },
+        {
+          "note": "Throwing `RuntimeException` on `CoreException` in the `InputStream` adapter handling violates `IAdaptable`'s contract. Replace with logging and returning `null` or delegating to the super implementation.",
+          "path": "plugins/org.jkiss.dbeaver.model.rcp/src/org/jkiss/dbeaver/model/navigator/DBNResource.java",
+          "side": "right",
+          "from_line": 428,
+          "to_line": 428,
+          "file_semantic_match": false
+        }
+      ],
+      "generated_comments": []
+    },
+    {
+      "instance_id": "immich-app__immich@d38f1f5",
+      "repo": "immich-app/immich",
+      "comments": [
+        {
+          "note": "`prod-down` is a good addition. Consider whether you also want parity with the `prod`/`prod-scale` targets regarding `-V` (remove named/anonymous volumes) or `--remove-orphans`. `docker compose down` already removes the project network and containers; adding `-v` is the flag for removing volumes (not `-V`). If the intent is to keep volumes in prod (safer), this is fine—otherwise consider adding `-v` explicitly to match expectations and document the behavior via the target name (e.g., `prod-down` vs `prod-down-clean`).",
+          "path": "Makefile",
+          "side": "right",
+          "from_line": 20,
+          "to_line": 21,
+          "file_semantic_match": false
+        },
+        {
+          "note": "Completely ignoring the service-worker directory bypasses all linting rules, which may hide potential code quality issues. The service-worker code already uses inline eslint-disable comments for specific incompatible rules. Consider using overrides to configure service-worker specific settings instead (e.g., adding webworker globals, disabling specific unicorn rules) while keeping TypeScript and async/await rules enabled for better code quality assurance.\n\n```suggestion\n    overrides: [\n      {\n        files: ['**/service-worker/**'],\n        languageOptions: {\n          globals: {\n            ...globals.serviceworker,\n          },\n        },\n        rules: {\n          'unicorn/prefer-add-event-listener': 'off',\n        },\n      },\n    ],\n```",
+          "path": "web/eslint.config.js",
+          "side": "right",
+          "from_line": 61,
+          "to_line": 61,
+          "file_semantic_match": false
+        },
+        {
+          "note": "This ignore will skip linting for any path segment named `service-worker` under `web/` (and potentially nested deps). Please confirm the folder name matches the actual layout (e.g. `web/src/service-worker/` vs `web/src/service_worker/`) and that skipping lint is intended. If the goal is only to ignore generated build artifacts, prefer a narrower glob (e.g. `src/service-worker/**` or a specific output dir) so source files remain linted.\n\n```suggestion\n    // If only web source SW should be ignored, narrow the pattern:\n    // ignores: ['src/service-worker/**'],\n    // If ignoring built artifacts, target the build output dir instead.\n    ignores: ['src/service-worker/**'],\n```",
+          "path": "web/eslint.config.js",
+          "side": "right",
+          "from_line": 61,
+          "to_line": 61,
+          "file_semantic_match": false
+        },
+        {
+          "note": "This component now imports `$lib/utils/sw-messaging`. That module instantiates `new BroadcastChannel('immich')` at top-level with no feature/environment guard. In contexts where `BroadcastChannel` is unavailable (older browsers, some embedded webviews, or non-window runtimes), importing this component can throw and break rendering. Consider lazy-creating the channel (inside functions) and guarding with `if (typeof BroadcastChannel === 'undefined') return;` (or a no-op fallback).",
+          "path": "web/src/lib/components/asset-viewer/photo-viewer.svelte",
+          "side": "right",
+          "from_line": 24,
+          "to_line": 24,
+          "file_semantic_match": false
+        },
+        {
+          "note": "`preloadImageUrl()` triggers `immichAsset(url)` in the SW, which fetches and caches the response, but it does not guarantee the browser image pipeline (decode cache) is warmed the same way as `new Image().src = ...`. This may reduce the perceived benefit of preloading in the viewer. Consider keeping the SW preload *and* also doing a lightweight `new Image().src = url` fallback (or make `preloadImageUrl` return whether SW is controlling and only replace when it’s effective).",
+          "path": "web/src/lib/components/asset-viewer/photo-viewer.svelte",
+          "side": "right",
+          "from_line": 75,
+          "to_line": 75,
+          "file_semantic_match": false
+        },
+        {
+          "note": "The `cancelImageUrl` call uses `imageLoaderUrl` which is a `$derived` reactive value. In Svelte 5, when the cleanup function from `onMount` runs during component unmount, reactive derived values may have already been disposed or return stale values. This could cause the wrong URL to be cancelled or an error if `imageLoaderUrl` is undefined.\n\nConsider capturing the URL in a local variable before the cleanup function is created, similar to how event listeners are handled. Alternatively, store the current loading URL in a regular variable that persists through unmount.\n\n```suggestion\n  onMount(() => {\n    if (loader?.complete) {\n      onload();\n    }\n    loader?.addEventListener('load', onload);\n    loader?.addEventListener('error', onerror);\n    const currentUrl = imageLoaderUrl;\n    return () => {\n      loader?.removeEventListener('load', onload);\n      loader?.removeEventListener('error', onerror);\n      cancelImageUrl(currentUrl);\n    };\n  });\n```",
+          "path": "web/src/lib/components/asset-viewer/photo-viewer.svelte",
+          "side": "right",
+          "from_line": 162,
+          "to_line": 173,
+          "file_semantic_match": false
+        },
+        {
+          "note": "Potential resource leak: If the `url` prop changes while the component is mounted, the previous URL's pending fetch request won't be cancelled. Only the final URL value will be cancelled when the component unmounts. Consider implementing an update mechanism to cancel the old URL when it changes, either by using a Svelte action with parameters and an update method, or by using a $effect to watch for URL changes.",
+          "path": "web/src/lib/components/assets/thumbnail/image-thumbnail.svelte",
+          "side": "right",
+          "from_line": 64,
+          "to_line": 72,
+          "file_semantic_match": false
+        },
+        {
+          "note": "`destroy` unconditionally calls `cancelImageUrl(url)`. Consider guarding against `url` being undefined/empty (initial render) and against calling cancel for data/blob URLs or already-loaded images if `cancelImageUrl` has side effects. A simple `if (url) cancelImageUrl(url)` (and optionally `if (!loaded)`) avoids unnecessary messaging during normal unmounts.\n\n```suggestion\n    return {\n      destroy: () => {\n        if (url /* && !loaded */) cancelImageUrl(url);\n      },\n    };\n```",
+          "path": "web/src/lib/components/assets/thumbnail/image-thumbnail.svelte",
+          "side": "right",
+          "from_line": 69,
+          "to_line": 71,
+          "file_semantic_match": false
+        },
+        {
+          "note": "The BroadcastChannel name 'immich' is hardcoded. This should be extracted as a named constant to avoid duplication and potential typos when used in other files (e.g., service-worker/index.ts). Consider defining it as `export const BROADCAST_CHANNEL_NAME = 'immich';` and importing it where needed.\n\n```suggestion\nexport const BROADCAST_CHANNEL_NAME = 'immich';\n\nconst broadcast = new BroadcastChannel(BROADCAST_CHANNEL_NAME);\n```",
+          "path": "web/src/lib/utils/sw-messaging.ts",
+          "side": "right",
+          "from_line": 1,
+          "to_line": 1,
+          "file_semantic_match": false
+        },
+        {
+          "note": "**SSR Compatibility Issue**: `BroadcastChannel` is a Web API and is not available in the Node.js environment. Initializing it at the top level will cause the application to crash during Server-Side Rendering (SSR) when this file is imported (e.g., by `photo-viewer.svelte`).\n\n**Suggestion**: Initialize the channel only in the browser environment and handle the case where it might be null.",
+          "path": "web/src/lib/utils/sw-messaging.ts",
+          "side": "right",
+          "from_line": 1,
+          "to_line": 8,
+          "file_semantic_match": false
+        },
+        {
+          "note": "The message data structure passed to postMessage lacks TypeScript type definitions. Define an interface or type for the message payload to ensure type safety and better IDE support. For example: `interface BroadcastMessage { type: 'cancel' | 'preload'; url: string; }`\n\n```suggestion\n  interface BroadcastMessage {\n    type: 'cancel' | 'preload';\n    url: string;\n  }\n  \n  export function cancelImageUrl(url: string) {\n    broadcast.postMessage({ type: 'cancel', url } as BroadcastMessage);\n  }\n```",
+          "path": "web/src/lib/utils/sw-messaging.ts",
+          "side": "right",
+          "from_line": 4,
+          "to_line": 4,
+          "file_semantic_match": false
+        },
+        {
+          "note": "The useCache variable is hardcoded as a constant. This makes it impossible to disable caching without modifying the code. Consider making this configurable or based on environment.",
+          "path": "web/src/service-worker/index.ts",
+          "side": "right",
+          "from_line": 7,
+          "to_line": 7,
+          "file_semantic_match": false
+        },
+        {
+          "note": "The comment \"// ignore POST requests etc\" in the fetch event handler is redundant and should be removed.",
+          "path": "web/src/service-worker/index.ts",
+          "side": "right",
+          "from_line": 25,
+          "to_line": 25,
+          "file_semantic_match": false
+        },
+        {
+          "note": "The URL path regex pattern '/^\\/api\\/assets\\/[a-f0-9-]+\\/(original|thumbnail)/' is hardcoded. According to the review checklist, business-related strings (especially URL paths) should not be hardcoded. Extract this as a named constant.",
+          "path": "web/src/service-worker/index.ts",
+          "side": "right",
+          "from_line": 30,
+          "to_line": 30,
+          "file_semantic_match": false
+        },
+        {
+          "note": "Error handling issue: The catch block swallows all errors without logging them. This makes debugging difficult. Consider logging the error before returning Response.error() to help diagnose issues in production.",
+          "path": "web/src/service-worker/index.ts",
+          "side": "right",
+          "from_line": 63,
+          "to_line": 64,
+          "file_semantic_match": false
+        },
+        {
+          "note": "Error handling issue: URL construction can throw an error if the urlstring is malformed. This could crash the service worker's message handler. Wrap the URL construction in a try-catch block to handle invalid URLs gracefully.",
+          "path": "web/src/service-worker/index.ts",
+          "side": "right",
+          "from_line": 72,
+          "to_line": 90,
+          "file_semantic_match": false
+        },
+        {
+          "note": "**Bug: event.origin is undefined on BroadcastChannel MessageEvent**\n\nThe BroadcastChannel MessageEvent does not have an `origin` property. Using `event.origin` here will result in `undefined`, causing the URL constructor to either fail or create an invalid URL.\n\nFor BroadcastChannel messages, you should use `self.location.origin` or construct the URL differently since messages are only received from the same origin.\n\n**Suggested fix:**\n```\nFix web/src/service-worker/index.ts:77: Replace event.origin with self.location.origin since BroadcastChannel messages are same-origin only\n```\n\nReplace both instances (lines 77 and 86):\n- `const url = new URL(urlstring, event.origin);`\n+ `const url = new URL(urlstring, self.location.origin);`",
+          "path": "web/src/service-worker/index.ts",
+          "side": "right",
+          "from_line": 77,
+          "to_line": 77,
+          "file_semantic_match": false
+        },
+        {
+          "note": "`preload` branch calls `immichAsset(url);` without awaiting/handling rejection. If it throws before entering the `try/finally` (e.g., `caches.open` failure), it will create an unhandled rejection. Consider `void immichAsset(url).catch(() => {/* swallow/log */});` to make intent explicit and avoid noisy logs.\n\n```suggestion\n  } else if (event.data.type === 'preload') {\n    const urlstring = event.data.url;\n    const url = new URL(urlstring, event.origin);\n    void immichAsset(url).catch(() => {\n      // optional: log to console for debugging\n    });\n  }\n};\n```",
+          "path": "web/src/service-worker/index.ts",
+          "side": "right",
+          "from_line": 85,
+          "to_line": 90,
+          "file_semantic_match": false
+        },
+        {
+          "note": "Duplicated URL parsing logic for 'cancel' and 'preload' events in broadcast channel handler; consolidate into single URL creation before conditional branches.",
+          "path": "web/src/service-worker/index.ts",
+          "side": "right",
+          "from_line": 86,
+          "to_line": 87,
+          "file_semantic_match": false
+        }
+      ],
+      "generated_comments": []
+    },
+    {
+      "instance_id": "gofr-dev__gofr@b9cdcbb",
+      "repo": "gofr-dev/gofr",
+      "comments": [
+        {
+          "note": "The `resTypes.Response` type has a `Headers` field and a `SetCustomHeaders()` method to apply custom HTTP response headers. However, this code doesn't call `v.SetCustomHeaders(r.w)`, which means any custom headers specified in the `Response` object will be ignored. You should add `v.SetCustomHeaders(r.w)` before setting the Content-Type header to ensure custom headers are properly applied.",
+          "path": "pkg/gofr/http/responder.go",
+          "side": "right",
+          "from_line": 31,
+          "to_line": 32,
+          "file_semantic_match": false
+        },
+        {
+          "note": "Potential inconsistency in metadata handling. When v.Metadata is nil, this will result in omitting the metadata field due to json:\"metadata,omitempty\" in the response struct. However, tests expect \"metadata\":null when metadata is not provided. Consider initializing Metadata appropriately to match expected behavior.",
+          "path": "pkg/gofr/http/responder.go",
+          "side": "right",
+          "from_line": 31,
+          "to_line": 32,
+          "file_semantic_match": true
+        }
+      ],
+      "generated_comments": [
+        {
+          "note": "On the newly added resTypes.Response responder path, a Response with unset Metadata is serialized with a top-level \"metadata\": null member, contrary to the updated documentation’s data-only shape for\nThe updated documentation says omitted metadata produces only the data member, while the added test explicitly expects \"metadata\":null for a Response whose Metadata field is unset. The code explains that result: Response.Metadata is a nil map, but the new responder branch assigns it to the internal interface-typed Metadata field. That interface then contains the typed nil map, so `omitempty` does not omit the interface field and JSON encodes the nil map as null.\nImpact: Caused by the change: This change adds the resTypes.Response branch and copies its nil map Metadata into an interface-valued envelope field. The resulting non-nil interface value is retained despite `omitempty`, while its contained nil map is encoded as JSON null, producing the documented-contract mismatch shown by the new test expectation.",
+          "path": "pkg/gofr/http/responder.go",
+          "from_line": 33,
+          "to_line": 33,
+          "matched_gt_indices": [
+            1
+          ],
+          "judge_reason": "1. No match — reference is about missing application of custom headers; generated is about metadata/null vs omitempty behavior.\n2. Match — both identify the metadata-handling inconsistency where nil metadata ends up as `\"metadata\": null` versus being omitted, conflicting with expectations/documentation.\n\n[2]",
+          "hit_new_gt": true
+        }
+      ]
+    },
+    {
+      "instance_id": "google-gemini__gemini-cli@0fa1bd7",
+      "repo": "google-gemini/gemini-cli",
+      "comments": [
+        {
+          "note": "Typo in parameter name: 'migratedInMemorScopes' should be 'migratedInMemoryScopes' for proper spelling.",
+          "path": "packages/cli/src/config/settings.ts",
+          "side": "right",
+          "from_line": 359,
+          "to_line": 359,
+          "file_semantic_match": false
+        },
+        {
+          "note": "Consider defining an explicit interface/type alias for `ReturnType<typeof trackEnvVarMappings>` to improve readability and maintainability. Using inferred return types in Map definitions can reduce clarity.",
+          "path": "packages/cli/src/config/settings.ts",
+          "side": "right",
+          "from_line": 362,
+          "to_line": 362,
+          "file_semantic_match": false
+        },
+        {
+          "note": "Potential env-var leakage: `updateSettingsFilePreservingFormat` only restores env-var references when the *current value* is a string (`envVarReference && typeof value === 'string'`). If an env var resolves to a non-string (number/boolean/object) and later the user updates other settings, `settingsToSave` may write the resolved non-string into file, losing the original `$VAR` and potentially leaking secrets.\n\nConsider restoring regardless of current value type (since you want to preserve the original reference), or at least handle primitive non-strings (number/boolean/null).",
+          "path": "packages/cli/src/config/settings.ts",
+          "side": "right",
+          "from_line": 715,
+          "to_line": 715,
+          "file_semantic_match": false
+        },
+        {
+          "note": "Missing validation for inputs. Should verify that filePath is a string and updates is an object before processing.",
+          "path": "packages/cli/src/utils/commentJson.ts",
+          "side": "right",
+          "from_line": 19,
+          "to_line": 23,
+          "file_semantic_match": false
+        },
+        {
+          "note": "Consider adding explicit type checking before casting to avoid potential runtime errors.",
+          "path": "packages/cli/src/utils/commentJson.ts",
+          "side": "right",
+          "from_line": 33,
+          "to_line": 33,
+          "file_semantic_match": false
+        },
+        {
+          "note": "Error handling strategy: When parsing fails, the function logs and returns without throwing. Callers might expect the operation to succeed. Consider throwing an error or providing a way to handle failures more explicitly.",
+          "path": "packages/cli/src/utils/commentJson.ts",
+          "side": "right",
+          "from_line": 34,
+          "to_line": 40,
+          "file_semantic_match": false
+        },
+        {
+          "note": "`stringify(restoredStructure, null, 2)` enforces 2-space indentation and may alter original formatting (tabs/4-spaces) even though the function claims to preserve formatting. If formatting preservation is required, consider detecting indentation from `originalContent` and passing that value, or use `comment-json` options (if available) to keep existing formatting.",
+          "path": "packages/cli/src/utils/commentJson.ts",
+          "side": "right",
+          "from_line": 47,
+          "to_line": 47,
+          "file_semantic_match": false
+        },
+        {
+          "note": "Missing error handling for file write operations. Should handle potential EACCES or ENOENT errors when writing files.",
+          "path": "packages/cli/src/utils/commentJson.ts",
+          "side": "right",
+          "from_line": 49,
+          "to_line": 49,
+          "file_semantic_match": false
+        },
+        {
+          "note": "Direct assignment modifies the original object. Consider creating a deep copy to prevent unintended side effects.",
+          "path": "packages/cli/src/utils/commentJson.ts",
+          "side": "right",
+          "from_line": 56,
+          "to_line": 56,
+          "file_semantic_match": false
+        },
+        {
+          "note": "Using `Object.entries` in `applyUpdates` introduces prototype pollution risk; replace with `Object.getOwnPropertyNames` to safely handle property iteration without requiring explicit dangerous property checks.",
+          "path": "packages/cli/src/utils/commentJson.ts",
+          "side": "right",
+          "from_line": 59,
+          "to_line": 59,
+          "file_semantic_match": false
+        },
+        {
+          "note": "The applyUpdates function does not handle nested array structures, causing entire arrays to be replaced instead of updating individual elements during merge operations.",
+          "path": "packages/cli/src/utils/commentJson.ts",
+          "side": "right",
+          "from_line": 63,
+          "to_line": 63,
+          "file_semantic_match": true
+        },
+        {
+          "note": "Path matching uses `mapping.path.join('.')`, which becomes ambiguous if a key itself contains a dot (e.g. `{ \"a.b\": {\"c\": 1} }`). If such keys are possible in settings, use a less ambiguous encoding (e.g. JSON Pointer `/a.b/c`, or join with a delimiter that is escaped) to avoid restoring the wrong env var reference.",
+          "path": "packages/cli/src/utils/commentJson.ts",
+          "side": "right",
+          "from_line": 93,
+          "to_line": 94,
+          "file_semantic_match": true
+        },
+        {
+          "note": "The env var pattern only matches simple variable names. Consider supporting more complex patterns like default values or nested references that might be used in configuration files.",
+          "path": "packages/cli/src/utils/commentJson.ts",
+          "side": "right",
+          "from_line": 152,
+          "to_line": 152,
+          "file_semantic_match": false
+        }
+      ],
+      "generated_comments": [
+        {
+          "note": "When removing an existing MCP server from an existing settings file whose `mcpServers` value is an object, the server remains in that file even though the remove command reports success.\nThe remove path represents deletion by executing `delete mcpServers[name]`, so the object passed to `setValue` omits the deleted server; no explicit deletion marker is encoded. The changed save path sends the resulting settings through `updateSettingsFilePreservingFormat`. That function parses the old file and recursively merges object-valued updates into the parsed object. Because `applyUpdates` iterates only over keys present in the update object, it never visits or deletes the omitted server key from the parsed on-disk `mcpServers` object. The retained structure is then stringified and written back, while the command unconditionally prints that the server was removed.\nImpact: Caused by the change: Before saving, the remove command omits the server key via `delete`. The changed format-preserving save implementation starts from the parsed old file and recursively merges the now-smaller `mcpServers` object. Since the deleted key is absent from `Object.entries(updates)`, it is untouched in `result = current` and is written back to disk. Thus this change causes the remove operation to preserve the deleted server on the existing-file path.",
+          "path": "packages/cli/src/utils/commentJson.ts",
+          "from_line": 58,
+          "to_line": 58,
+          "matched_gt_indices": [],
+          "judge_reason": "1. No match — ref is about validating `filePath`/`updates` types; generated is about deletions not being applied during merge.\n2. No match — ref is about type casting/type checks; generated is about merge logic preserving deleted keys.\n3. No match — ref concerns parse-failure error handling/throwing; generated concerns successful path producing incorrect output.\n4. No match — ref is about indentation/formatting preservation; generated is about semantic data deletion not being persisted.\n5. No ma",
+          "hit_new_gt": false
+        },
+        {
+          "note": "When an existing settings file contains an array element that is exactly `$VAR` or `${VAR}`, and the resolved settings array is passed through the new save path, the resolved value is serialized inste\n`resolveEnvVarsInObject` explicitly maps over arrays and recursively resolves each element. `trackEnvVarMappings` also recurses into arrays through their numeric keys, producing paths such as `args.0`. During saving, `applyUpdates` replaces an array with the resolved updates array. However, `restoreEnvVarsRecursive` only recurses when `!Array.isArray(value)`, so it never reaches `args.0`. The resulting structure is then stringified and written. E9 establishes that the changed `saveSettings` path invokes this updater with the tracked mappings. Thus, for this array path, the changed save implementation writes the resolved value.\nImpact: Caused by the change: The change routes settings saves through `updateSettingsFilePreservingFormat`. For an original array such as `[\"$TOKEN\"]`, resolution produces `[\"secret\"]` and tracking records the path ending in index `0`. The changed updater installs the resolved array, but its changed restoration routine refuses to descend into arrays, so the mapping for index `0` is never applied before stringify/write.",
+          "path": "packages/cli/src/utils/commentJson.ts",
+          "from_line": 118,
+          "to_line": 118,
+          "matched_gt_indices": [
+            10
+          ],
+          "judge_reason": "1. No match — discusses validating input types; generated comment is about env var restoration failing for array elements during save.\n2. No match — about type checking/casting; generated is about array recursion logic in restore/mapping.\n3. No match — about parse error handling behavior; generated is about incorrect serialization of resolved env vars in arrays.\n4. No match — about indentation/formatting preservation; generated is about preserving `$VAR` placeholders inside arrays.\n5. No match —",
+          "hit_new_gt": true
+        },
+        {
+          "note": "When an existing settings file contains an environment-variable reference that was mapped during load, calling LoadedSettings.setValue with a new string at that same path writes the original environme\nThe mappings are created from the original and resolved settings during load and retained on LoadedSettings. setValue changes the resolved in-memory settings but then retrieves the existing scope mapping and passes it unchanged to saveSettings. The preservation code applies the new settings, then replaces every string at a mapped path with mapping.originalValue; it never compares the string with mapping.resolvedValue. Thus, for an original \"$API_KEY\" resolved to \"old-secret\", setting that path to \"new-literal\" still satisfies typeof value === 'string' and is changed back to \"$API_KEY\" before the file is written. The supplied symbol search shows mapping creation and consumption but no invalidation or update when setValue replaces a mapped value.\nImpact: Caused by the change: This change introduces persistent per-scope environment mappings and makes setValue pass the old mapping to the new format-preserving save path. After applyUpdates places \"new-literal\" at the mapped path, restoreEnvVarReferences unconditionally substitutes \"$API_KEY\" for any string there, and that restored structure is written to disk. No check against the recorded resolvedValue or mapping removal occurs in setValue.",
+          "path": "packages/cli/src/utils/commentJson.ts",
+          "from_line": 113,
+          "to_line": 113,
+          "matched_gt_indices": [],
+          "judge_reason": "1. No match — about input validation; generated comment is about env-var mapping being wrongly restored on setValue/save.\n2. No match — about type checking/casting; generated is about stale env-var mappings overriding new values.\n3. No match — about parse-failure error strategy; generated is about save-time substitution logic.\n4. No match — about indentation/format preservation; generated is about env-var reference restoration semantics.\n5. No match — about write-file error handling; generated i",
+          "hit_new_gt": false
+        },
+        {
+          "note": "For supported MCP header paths, distinct paths containing dotted server/header names can collide. In particular, `['mcpServers','a','headers','b.headers.c']` and `['mcpServers','a.headers.b','headers'\nE23 shows MCP server names and header names are used directly as object keys without rejecting periods. E14 preserves those keys as distinct path-array elements while tracking environment references. E12 then converts every mapping path to a dot-joined string and stores it in a Map, so the two concrete supported paths collide and the later mapping overwrites the earlier one. E13 dot-joins each actual object path in the same way; therefore both header values retrieve the single surviving reference and are assigned it. If the original references differ, at least one header is restored incorrectly. This behavior is introduced by the newly added restoration code and is exercised by the changed save path.\nImpact: Caused by the change: The change adds restoration that serializes structured path arrays using `join('.')`. The two valid MCP paths identified above serialize identically, so `Map.set` discards one original reference. Recursive restoration performs the same lossy serialization and assigns the surviving reference at both actual paths. Because this restoration implementation is newly added by the change, the change directly introduces the wrong-setting modification.",
+          "path": "packages/cli/src/utils/commentJson.ts",
+          "from_line": 89,
+          "to_line": 89,
+          "matched_gt_indices": [
+            11
+          ],
+          "judge_reason": "1. No match — about validating `filePath`/`updates` types, not path-collision or dot-joining ambiguity.  \n2. No match — about type checking before casting, unrelated to lossy path serialization.  \n3. No match — about parse error handling behavior, not env-reference restoration correctness.  \n4. No match — about indentation/format preservation in stringify, not Map key collisions.  \n5. No match — about write error handling (EACCES/ENOENT), unrelated to path matching.  \n6. No match — about mutatin",
+          "hit_new_gt": true
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "path_recovery": {
+    "status": "unresolved",
+    "paths": [],
+    "corrected_first_pass_claims": [],
+    "unresolved": []
+  },
+  "test_recovery": {
+    "status": "unresolved",
+    "tests": [
+      {
+        "file": "tests/test_browser.py",
+        "test": "test_user_provided_browser_launch_on_custom_chrome_remote_debugging_port",
+        "covers": "Constructs BrowserConfig with a custom Chrome remote-debugging port and exercises Browser startup through get_playwright_browser, directly reaching the changed user-provided-browser setup behavior.",
+        "target": {
+          "symbol": "Browser._setup_user_provided_browser",
+          "file": "browser_use/browser/browser.py",
+          "qualified_name": null
+        },
+        "evidence": [],
+        "status": "rejected",
+        "rejection_reason": "no evidence cited at all"
+      }
+    ]
+  }
+}

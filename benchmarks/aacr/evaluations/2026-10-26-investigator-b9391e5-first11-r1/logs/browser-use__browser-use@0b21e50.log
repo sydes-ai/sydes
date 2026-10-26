@@ -1,0 +1,108 @@
+AI recovery (experimental): triggered (a structural boundary was found but no complete route/entrypoint flow reaches it; no relevant test was mapped even though this diff changed a test file (tests/test_browser.py); 2 changed symbol(s) reach no entrypoint the first pass found)
+AI recovery (experimental): path=unresolved test=unresolved turns=14 llm_calls=14 tokens=40292+1086 edge_retries_attempted=0 edge_retries_succeeded=0 graph_paths_proposed=0 graph_paths_established=0 graph_paths_established_unverified_boundary=0 explicit_relation_edges=0
+Wrote AI recovery result: /Users/ksnaik/StudioProjects/sydes/benchmarks/aacr/results/investigator-b9391e5-first11-r1-2026-10-26/sydes/browser-use__browser-use@0b21e50.ai_recovery.json
+SYDES VERIFICATION
+
+MEDIUM RISK · 5 AFFECTED BEHAVIORS
+
+Changed
+───────
+browser_use/agent/service.py:1201 — Agent._verify_llm_connection
+browser_use/browser/browser.py:189 — Browser._setup_user_provided_browser
+browser_use/browser/browser.py:265 — Browser._setup_builtin_browser
+browser_use/browser/chrome.py:99 — CHROME_ARGS
+examples/custom-functions/file_upload.py:69 — read_file
+
+CHANGE ANALYSIS (citations verified, indeterminate)
+───────────────────────────────────────────────────
+Cannot be established from this repository alone: depends on state only known at runtime (e.g. feature flags, request data).
+The custom-port mechanism is explicit, but its real observable effect depends on runtime configuration selecting a non-default value, which browser setup branch is entered, and the live state of that localhost port and Chrome process. The supplied repository slice does not show whether those conditions occur in an actual installation.
+
+Browser startup now supports a configurable Chrome remote-debugging port, defaulting to the existing Chrome debug-port constant. The selected port is used when probing for an existing browser, connecting over CDP, constructing launch arguments, and checking port occupancy. User-provided Chrome binaries are now launched through direct argv-based subprocess execution. The agent and file-upload edits appear non-semantic, while the new test targets custom-port startup.
+
+Likely behavioral changes
+  • Browser callers can select a Chrome remote-debugging port. For a user-provided browser binary, the browser setup probes and connects to that selected localhost port and supplies the same port when launching Chrome; built-in browser launch also constructs its debugging argument from the selected value rather than a fixed port.
+  • When starting a user-supplied Chrome executable, browser setup now invokes the configured binary directly and passes Chrome options as separate process arguments, rather than routing the launch through the previous subprocess-shell call shape.
+
+Investigate
+  • Trace all BrowserConfig construction, serialization, aliases, and wrappers to determine where custom or null debugging-port values can enter and whether validation is imposed elsewhere.
+  • Follow browser selection and lifecycle control to establish when the user-provided path versus built-in path runs, and how process ownership and cleanup behave when an existing browser is reused.
+  • Inspect Chrome and Playwright assumptions around debugging-port arguments, duplicate flags, occupied ports, readiness polling, and CDP connection behavior.
+
+Uncertain
+  • The supplied context does not show which production callers construct BrowserConfig with a custom or explicitly null chrome_remote_debugging_port, or which callers enter each browser setup branch.
+  • No HTTP endpoint is shown, so it cannot be established whether any route exposes this browser configuration or invokes the changed setup paths.
+  • Whether setup reuses an existing browser, launches a new process, or removes the built-in debugging argument depends on whether the selected localhost port is occupied and answers the Chrome version probe at runtime.
+  • The diff does not establish Chrome's precedence for multiple remote-debugging-port arguments or Playwright's behavior when the explicit debugging argument is removed because the configured port is occupied.
+  • The ownership and lifecycle boundary for a browser discovered on the configured localhost port is not shown, including whether it is always safe for this Browser instance to reuse it or later close related resources.
+
+System impact
+─────────────
+No structural propagation path was established.
+
+?
+  → ?: registers Agent
+  → [framework lifecycle unresolved]
+  → candidate: Agent.__init__
+
+Agent
+  → info('🌎 Restarting/reconnecting to browser...'): registers Browser
+  → [framework lifecycle unresolved]
+  → candidate: Browser._init
+
+Inferred boundaries
+───────────────────
+INFERRED · callable/public_callable · Public browser startup configuration
+    Library consumers cross the BrowserConfig callable surface to select the Chrome debugging port that the browser startup paths use for probing, connecting, and launching.
+    Evidence: BrowserConfig is a changed class in browser_use/browser/browser.py.; The established production call edge run_task_with_semaphore -> BrowserConfig in eval/service.py shows a consumer constructing this configuration.
+    Uncertain: No supplied production caller explicitly passes the new custom-port option, and the exact structural edge by which BrowserConfig stores and exposes that value to the setup methods is not shown.
+
+Inferred impact
+───────────────
+INFERRED · 0.74
+Automated browser startup and DevTools connection
+
+Why:
+Browser initialization may launch Chrome with different command-line options, potentially changing whether the automation service can establish its local remote-debugging connection and how the launched browser behaves.
+
+Static confirmation: unavailable
+
+INFERRED · 0.74
+Automated browser startup and runtime capabilities
+
+Why:
+The arguments supplied when launching Chrome can alter observable startup behavior and enabled browser capabilities, and the same PR changes built-in browser setup with an already-accepted impact on automated browser startup and DevTools connection.
+
+Static confirmation: unavailable
+
+Code review (advisory; excluded from the verdict)
+─────────────────────────────────────────────────
+[P3] When the initial httpx probe to localhost:9223 returns HTTP 200, the new test takes the reuse path and never invokes its subprocess mock, so its remote-debugging launch-argument assertion is not execu
+  tests/test_browser.py:180
+  Why: The complete test body patches requests.get but does not patch httpx. The production method performs its initial probe with httpx; on status 200 it connects through the mocked DummyChromium and returns immediately. The test's only assertion about the subprocess arguments is inside dummy_create_subprocess_exec, which is invoked only on the later launch path.…
+  Impact: Caused by the change: The added test mocks requests.get, but the changed custom-port probe is issued through httpx.AsyncClient. Therefore the mock does not control the initial probe. If that probe receives 200, line 213 returns before the launch code at line 229 can call the test's dummy_create_subprocess_exec, leaving the launch-argument assertion at test …
+
+CI
+──
+? the test suite could not run
+  test execution unavailable: no runnable target-project environment found (uv project with no synced `.venv`; Sydes does not create or install environments)
+
+What Sydes could not establish
+──────────────────────────────
+• 5 additional affected areas are not yet verification-modeled.
+• 2 changed symbols have unresolved impact paths.
+• 2 inferred impacts could not be structurally confirmed.
+• The repository test suite could not run (test execution unavailable: no runnable target-project environment found (uv project with no synced `.venv`; Sydes does not create or install environments)).
+
+Full verification requires
+──────────────────────────
+Azure Openai service · AWS services
+
+Verdict
+───────
+VERIFICATION INCOMPLETE
+
+Wrote verification result: /Users/ksnaik/StudioProjects/sydes/benchmarks/aacr/results/investigator-b9391e5-first11-r1-2026-10-26/sydes/browser-use__browser-use@0b21e50.json
+
+--- stderr ---
+Preparing Sydes code intelligence...

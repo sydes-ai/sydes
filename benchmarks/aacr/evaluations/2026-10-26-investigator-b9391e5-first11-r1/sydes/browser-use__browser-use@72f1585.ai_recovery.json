@@ -1,0 +1,88 @@
+{
+  "path_recovery": {
+    "status": "partial",
+    "paths": [
+      {
+        "entrypoint": "Public Agent.run API invocation",
+        "target_node": "ChatGoogle.ainvoke",
+        "status": "partial",
+        "root_boundary_status": "candidate_boundary",
+        "nodes": [
+          {
+            "symbol": "Agent.run",
+            "file": "browser_use/agent/service.py",
+            "qualified_name": "browser_use.agent.service.Agent.run"
+          },
+          {
+            "symbol": "Agent.step",
+            "file": "browser_use/agent/service.py",
+            "qualified_name": "browser_use.agent.service.Agent.step"
+          }
+        ],
+        "edges": [
+          {
+            "from": {
+              "symbol": "Agent.run",
+              "file": "browser_use/agent/service.py",
+              "qualified_name": "browser_use.agent.service.Agent.run"
+            },
+            "to": {
+              "symbol": "Agent.step",
+              "file": "browser_use/agent/service.py",
+              "qualified_name": "browser_use.agent.service.Agent.step"
+            },
+            "relationship": "run calls step directly (code graph CALLS edge)",
+            "evidence": [
+              {
+                "file": "browser_use/agent/service.py",
+                "line_start": 1481,
+                "line_end": 1481,
+                "fact": "run calls step at this line"
+              }
+            ],
+            "status": "established",
+            "provenance": "explicit_relation",
+            "rejection_reason": null,
+            "from_decomposition": false
+          }
+        ],
+        "unresolved_suffix": [
+          {
+            "from": {
+              "symbol": "Agent.step",
+              "file": "browser_use/agent/service.py",
+              "qualified_name": "browser_use.agent.service.Agent.step"
+            },
+            "to": {
+              "symbol": "Agent.get_next_action",
+              "file": "browser_use/agent/service.py",
+              "qualified_name": "browser_use.agent.service.Agent.get_next_action"
+            },
+            "relationship": "no relationship found",
+            "rejection_reason": "no evidence is located in either entity's own declared file ('browser_use/agent/service.py' or 'browser_use/agent/service.py') -- possible wrong-file/wrong-module substitution"
+          },
+          {
+            "from": {
+              "symbol": "Agent.get_next_action",
+              "file": "browser_use/agent/service.py",
+              "qualified_name": "browser_use.agent.service.Agent.get_next_action"
+            },
+            "to": {
+              "symbol": "ChatGoogle.ainvoke",
+              "file": "browser_use/llm/google/chat.py",
+              "qualified_name": "browser_use.llm.google.chat.ChatGoogle.ainvoke"
+            },
+            "relationship": "no relationship found",
+            "rejection_reason": "no evidence is located in either entity's own declared file ('browser_use/agent/service.py' or 'browser_use/llm/google/chat.py') -- possible wrong-file/wrong-module substitution"
+          }
+        ]
+      }
+    ],
+    "corrected_first_pass_claims": [],
+    "unresolved": []
+  },
+  "test_recovery": {
+    "status": "unresolved",
+    "tests": []
+  }
+}

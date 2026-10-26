@@ -1,0 +1,43 @@
+{
+  "instance_id": "google-gemini__gemini-cli@0fa1bd7",
+  "reviewer": "sydes",
+  "boundary": "code_findings",
+  "status": "completed",
+  "duration_seconds": 659.3,
+  "review": {
+    "comments": [
+      {
+        "path": "packages/cli/src/utils/commentJson.ts",
+        "start_line": 58,
+        "end_line": 58,
+        "content": "When removing an existing MCP server from an existing settings file whose `mcpServers` value is an object, the server remains in that file even though the remove command reports success.\nThe remove path represents deletion by executing `delete mcpServers[name]`, so the object passed to `setValue` omits the deleted server; no explicit deletion marker is encoded. The changed save path sends the resulting settings through `updateSettingsFilePreservingFormat`. That function parses the old file and recursively merges object-valued updates into the parsed object. Because `applyUpdates` iterates only over keys present in the update object, it never visits or deletes the omitted server key from the parsed on-disk `mcpServers` object. The retained structure is then stringified and written back, while the command unconditionally prints that the server was removed.\nImpact: Caused by the change: Before saving, the remove command omits the server key via `delete`. The changed format-preserving save implementation starts from the parsed old file and recursively merges the now-smaller `mcpServers` object. Since the deleted key is absent from `Object.entries(updates)`, it is untouched in `result = current` and is written back to disk. Thus this change causes the remove operation to preserve the deleted server on the existing-file path.",
+        "severity": "P1"
+      },
+      {
+        "path": "packages/cli/src/utils/commentJson.ts",
+        "start_line": 118,
+        "end_line": 118,
+        "content": "When an existing settings file contains an array element that is exactly `$VAR` or `${VAR}`, and the resolved settings array is passed through the new save path, the resolved value is serialized inste\n`resolveEnvVarsInObject` explicitly maps over arrays and recursively resolves each element. `trackEnvVarMappings` also recurses into arrays through their numeric keys, producing paths such as `args.0`. During saving, `applyUpdates` replaces an array with the resolved updates array. However, `restoreEnvVarsRecursive` only recurses when `!Array.isArray(value)`, so it never reaches `args.0`. The resulting structure is then stringified and written. E9 establishes that the changed `saveSettings` path invokes this updater with the tracked mappings. Thus, for this array path, the changed save implementation writes the resolved value.\nImpact: Caused by the change: The change routes settings saves through `updateSettingsFilePreservingFormat`. For an original array such as `[\"$TOKEN\"]`, resolution produces `[\"secret\"]` and tracking records the path ending in index `0`. The changed updater installs the resolved array, but its changed restoration routine refuses to descend into arrays, so the mapping for index `0` is never applied before stringify/write.",
+        "severity": "P1"
+      },
+      {
+        "path": "packages/cli/src/utils/commentJson.ts",
+        "start_line": 113,
+        "end_line": 113,
+        "content": "When an existing settings file contains an environment-variable reference that was mapped during load, calling LoadedSettings.setValue with a new string at that same path writes the original environme\nThe mappings are created from the original and resolved settings during load and retained on LoadedSettings. setValue changes the resolved in-memory settings but then retrieves the existing scope mapping and passes it unchanged to saveSettings. The preservation code applies the new settings, then replaces every string at a mapped path with mapping.originalValue; it never compares the string with mapping.resolvedValue. Thus, for an original \"$API_KEY\" resolved to \"old-secret\", setting that path to \"new-literal\" still satisfies typeof value === 'string' and is changed back to \"$API_KEY\" before the file is written. The supplied symbol search shows mapping creation and consumption but no invalidation or update when setValue replaces a mapped value.\nImpact: Caused by the change: This change introduces persistent per-scope environment mappings and makes setValue pass the old mapping to the new format-preserving save path. After applyUpdates places \"new-literal\" at the mapped path, restoreEnvVarReferences unconditionally substitutes \"$API_KEY\" for any string there, and that restored structure is written to disk. No check against the recorded resolvedValue or mapping removal occurs in setValue.",
+        "severity": "P2"
+      },
+      {
+        "path": "packages/cli/src/utils/commentJson.ts",
+        "start_line": 89,
+        "end_line": 89,
+        "content": "For supported MCP header paths, distinct paths containing dotted server/header names can collide. In particular, `['mcpServers','a','headers','b.headers.c']` and `['mcpServers','a.headers.b','headers'\nE23 shows MCP server names and header names are used directly as object keys without rejecting periods. E14 preserves those keys as distinct path-array elements while tracking environment references. E12 then converts every mapping path to a dot-joined string and stores it in a Map, so the two concrete supported paths collide and the later mapping overwrites the earlier one. E13 dot-joins each actual object path in the same way; therefore both header values retrieve the single surviving reference and are assigned it. If the original references differ, at least one header is restored incorrectly. This behavior is introduced by the newly added restoration code and is exercised by the changed save path.\nImpact: Caused by the change: The change adds restoration that serializes structured path arrays using `join('.')`. The two valid MCP paths identified above serialize identically, so `Map.set` discards one original reference. Recursive restoration performs the same lossy serialization and assigns the surviving reference at both actual paths. Because this restoration implementation is newly added by the change, the change directly introduces the wrong-setting modification.",
+        "severity": "P2"
+      }
+    ],
+    "summary": {
+      "input_tokens": 158708,
+      "output_tokens": 30394
+    }
+  }
+}

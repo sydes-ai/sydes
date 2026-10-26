@@ -1,0 +1,93 @@
+AI recovery (experimental): triggered (a structural boundary was found but no complete route/entrypoint flow reaches it; the first pass reported route composition as unresolved in this repository)
+AI recovery (experimental): path=unresolved test=unresolved turns=2 llm_calls=2 tokens=5144+79 edge_retries_attempted=0 edge_retries_succeeded=0 graph_paths_proposed=0 graph_paths_established=0 graph_paths_established_unverified_boundary=0 explicit_relation_edges=0
+Wrote AI recovery result: /Users/ksnaik/StudioProjects/sydes/benchmarks/aacr/results/investigator-b9391e5-first11-r1-2026-10-26/sydes/dbeaver__dbeaver@bc3ac7b.ai_recovery.json
+SYDES VERIFICATION
+
+MEDIUM RISK · 4 AFFECTED BEHAVIORS
+
+Changed
+───────
+plugins/org.jkiss.dbeaver.model.rcp/src/org/jkiss/dbeaver/model/navigator/DBNResource.java:414 — DBNResource.getAdapter
+plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java:251 — DBNPathBase.dropNodes
+plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java:363 — DBNPathBase.copyInputStream
+
+CHANGE ANALYSIS (citations verified, indeterminate)
+───────────────────────────────────────────────────
+Cannot be established from this repository alone: depends on state only known at runtime (e.g. feature flags, request data).
+The mechanism is explicit, but observable impact requires runtime nodes with particular adapter results and filesystem states: notably a null Path, an available InputStream, and destination collision or path-existence conditions. The supplied diff does not establish that those conditions occur in a real workflow.
+
+File-oriented navigator nodes can now expose workspace-file content as an InputStream, and path-based drop handling can copy nodes that have no local Path by streaming their content into the destination folder. The streamed-copy path derives the target name from the node display name and replaces an existing target. Path existence handling also now skips only paths known not to exist, rather than every path for which existence cannot be confirmed.
+
+Likely behavioral changes
+  • A DBNResource backed by an IFile can now be adapted to an InputStream. Callers requesting that adapter receive the file's contents; failure to open the contents is surfaced as a RuntimeException.
+  • Dropping a node that has no Path can now copy that node's InputStream content into the destination folder under its display name. If that destination already exists, it is replaced; if no InputStream adapter is available, no file is copied.
+  • For a non-null Path, drop processing now skips it only when the filesystem reports that it definitely does not exist. A path whose existence is indeterminate can therefore proceed to later copy/move handling instead of being skipped by this check.
+
+Investigate
+  • Trace callers of dropNodes and adapter requests to identify which navigator drag/drop, paste, import, or other callable flows can supply nodes without a Path but with an InputStream.
+  • Inspect target-name validation and filesystem-provider behavior around the streamed-copy helper, including absolute names, parent traversal, collisions, permissions, and existence checks with indeterminate results.
+  • Establish the ownership contract for InputStreams returned by node adapters and whether callers or adapters are responsible for closing them.
+
+Uncertain
+  • The supplied context does not identify which concrete callers invoke DBNPathBase.dropNodes or which user operations reach the new null-Path branch.
+  • It is not established whether real nodes presented to dropNodes can have a null Path while providing a non-null InputStream adapter, so the frequency or existence of the new streamed-copy behavior cannot be determined.
+  • The allowed format and trust level of getNodeDisplayName values are not shown, including whether absolute paths, separators, or parent traversal can occur.
+  • The ownership and closing contract for InputStreams returned by DBNNode adapters and IFile.getContents is not supplied.
+  • The concrete filesystem providers and storage locations represented by the source nodes and destination Path are not identified by this diff.
+
+System impact
+─────────────
+No structural propagation path was established.
+
+?
+  → ?: registers BookmarksHandlerImpl
+  → [framework lifecycle unresolved]
+  → candidate: BookmarksHandlerImpl.getAssociatedDataSources
+
+?
+  → ?: registers SQLScriptTaskConfigurationWizard
+  → [framework lifecycle unresolved]
+  → candidate: SQLScriptTaskConfigurationWizard.saveTaskState
+
+AddBookmarkDialog.createDialogArea
+  → setSelection(new StructuredSelection(targetNode)): registers DBNResource
+  → [framework lifecycle unresolved]
+  → candidate: DBNResource.getAdapter
+  · CBM: direct relation AddBookmarkDialog.createDialogArea -USAGE-> navigator.DBNResource; CALLS path none within 5 hops
+
+SQLScriptTaskPageSettings.loadSettings
+  → add(pathNode): registers DBNPathBase
+  → [framework lifecycle unresolved]
+  → candidate: DBNPathBase.dropNodes
+  · CBM: direct relation SQLScriptTaskPageSettings.loadSettings -USAGE-> fs.DBNPathBase; CALLS path none within 5 hops
+
+Inferred boundaries
+───────────────────
+INFERRED · callable/public_callable · Navigator resource content adaptation
+    A caller's adapter request crosses into the navigator resource adaptation surface, which can now return workspace-file content as an InputStream.
+    Evidence: The production source for DBNResource.getAdapter declares `public <T> T getAdapter(Class<T> adapter)` and contains an `adapter == InputStream.class && resource instanceof IFile file` branch.; The established production call edge `SQLScriptTaskPageSettings.saveSettings -> DBNResource.getAdapter` proves that another component calls this adaptation surface.
+    Uncertain: Only one concrete caller is supplied, and the ownership and closing contract for returned InputStreams is not established.
+
+INFERRED · callable/domain · Drop navigator nodes into a filesystem folder
+    A collection of navigator nodes crosses into the path-domain drop operation, which dispatches their content to filesystem copy or move handling.
+    Evidence: The production source declares `public void dropNodes(DBRProgressMonitor monitor, Collection<DBNNode> nodes) throws DBException` and derives the destination folder from the receiving DBNPathBase.; The established production edge `DBNPathBase.dropNodes -> DBNPathBase.copyInputStream` connects the domain entry operation to the changed streamed-copy implementation.
+    Uncertain: No concrete caller or user operation invoking dropNodes is supplied, and it is not established that runtime nodes actually combine a null Path with a non-null InputStream adapter.
+
+CI
+──
+? the test suite could not run
+  No repository test command could be resolved
+
+What Sydes could not establish
+──────────────────────────────
+• 4 additional affected areas are not yet verification-modeled.
+• The repository test suite could not run (No repository test command could be resolved).
+
+Verdict
+───────
+VERIFICATION INCOMPLETE
+
+Wrote verification result: /Users/ksnaik/StudioProjects/sydes/benchmarks/aacr/results/investigator-b9391e5-first11-r1-2026-10-26/sydes/dbeaver__dbeaver@bc3ac7b.json
+
+--- stderr ---
+Preparing Sydes code intelligence...

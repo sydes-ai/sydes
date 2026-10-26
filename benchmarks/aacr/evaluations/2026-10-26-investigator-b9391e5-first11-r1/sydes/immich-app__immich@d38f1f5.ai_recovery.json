@@ -1,0 +1,131 @@
+{
+  "path_recovery": {
+    "status": "established",
+    "paths": [
+      {
+        "entrypoint": "Service worker fetch event for /api/assets/:id/thumbnail or /api/assets/:id/original",
+        "target_node": "immichAsset",
+        "status": "established",
+        "root_boundary_status": "candidate_boundary",
+        "nodes": [
+          {
+            "symbol": "fetch event listener",
+            "file": "web/src/service-worker/index.ts",
+            "qualified_name": "ServiceWorkerGlobalScope.fetch"
+          },
+          {
+            "symbol": "immichAsset",
+            "file": "web/src/service-worker/index.ts",
+            "qualified_name": "immichAsset"
+          }
+        ],
+        "edges": [
+          {
+            "from": {
+              "symbol": "fetch event listener",
+              "file": "web/src/service-worker/index.ts",
+              "qualified_name": "ServiceWorkerGlobalScope.fetch"
+            },
+            "to": {
+              "symbol": "immichAsset",
+              "file": "web/src/service-worker/index.ts",
+              "qualified_name": "immichAsset"
+            },
+            "relationship": "The service worker fetch event listener routes matching GET requests for asset original or thumbnail API paths to immichAsset and uses its result as the event response.",
+            "evidence": [
+              {
+                "file": "web/src/service-worker/index.ts",
+                "line_start": 24,
+                "line_end": 33,
+                "fact": "The fetch listener checks for GET requests whose pathname matches /api/assets/:id/original or /thumbnail, then calls event.respondWith(immichAsset(url))."
+              },
+              {
+                "file": "web/src/service-worker/index.ts",
+                "line_start": 43,
+                "line_end": 43,
+                "fact": "This line declares the immichAsset function invoked by the fetch listener."
+              }
+            ],
+            "status": "established",
+            "provenance": "ai_recovery",
+            "rejection_reason": null,
+            "from_decomposition": false
+          }
+        ],
+        "unresolved_suffix": []
+      }
+    ],
+    "corrected_first_pass_claims": [],
+    "unresolved": []
+  },
+  "test_recovery": {
+    "status": "unresolved",
+    "tests": [
+      {
+        "file": "e2e/src/web/specs/photo-viewer.e2e-spec.ts",
+        "test": "loads original photo when zoomed",
+        "covers": "Navigates to the photo-viewer route and changes the requested image size by zooming, exercising PhotoViewer image loading and adjacent-image preload behavior.",
+        "target": {
+          "symbol": "preload",
+          "file": "web/src/lib/components/asset-viewer/photo-viewer.svelte",
+          "qualified_name": null
+        },
+        "evidence": [],
+        "status": "rejected",
+        "rejection_reason": "no evidence cited at all"
+      },
+      {
+        "file": "e2e/src/web/specs/photo-viewer.e2e-spec.ts",
+        "test": "loads fullsize image when zoomed and original is web-incompatible",
+        "covers": "Navigates to the photo-viewer route for a web-incompatible image and changes its target image size, exercising PhotoViewer loading and preload behavior.",
+        "target": {
+          "symbol": "preload",
+          "file": "web/src/lib/components/asset-viewer/photo-viewer.svelte",
+          "qualified_name": null
+        },
+        "evidence": [],
+        "status": "rejected",
+        "rejection_reason": "no evidence cited at all"
+      },
+      {
+        "file": "e2e/src/web/specs/photo-viewer.e2e-spec.ts",
+        "test": "reloads photo when checksum changes",
+        "covers": "Navigates to the photo-viewer route and verifies that its image URL is refreshed after replacement, directly exercising the changed PhotoViewer component.",
+        "target": {
+          "symbol": "preload",
+          "file": "web/src/lib/components/asset-viewer/photo-viewer.svelte",
+          "qualified_name": null
+        },
+        "evidence": [],
+        "status": "rejected",
+        "rejection_reason": "no evidence cited at all"
+      },
+      {
+        "file": "e2e/src/web/specs/photo-viewer.e2e-spec.ts",
+        "test": "photo viewer image-loading scenario near line 23",
+        "covers": "Exercises asset-image retrieval through the service worker while viewing a photo.",
+        "target": {
+          "symbol": "immichAsset",
+          "file": "web/src/service-worker/index.ts",
+          "qualified_name": null
+        },
+        "evidence": [],
+        "status": "rejected",
+        "rejection_reason": "no evidence cited at all"
+      },
+      {
+        "file": "e2e/src/web/specs/shared-link.e2e-spec.ts",
+        "test": "shared-link image-loading scenario near line 57",
+        "covers": "Exercises retrieval of an asset image from a shared link, plausibly passing through the service-worker asset fetch handler.",
+        "target": {
+          "symbol": "immichAsset",
+          "file": "web/src/service-worker/index.ts",
+          "qualified_name": null
+        },
+        "evidence": [],
+        "status": "rejected",
+        "rejection_reason": "no evidence cited at all"
+      }
+    ]
+  }
+}

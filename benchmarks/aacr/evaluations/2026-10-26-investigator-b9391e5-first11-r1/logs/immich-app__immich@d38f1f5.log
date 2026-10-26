@@ -1,0 +1,135 @@
+AI recovery (experimental): triggered (a structural boundary was found but no complete route/entrypoint flow reaches it; 14 changed symbol(s) reach no entrypoint the first pass found)
+AI recovery (experimental): path=established test=unresolved turns=23 llm_calls=25 tokens=54725+2448 edge_retries_attempted=0 edge_retries_succeeded=0 graph_paths_proposed=0 graph_paths_established=0 graph_paths_established_unverified_boundary=0 explicit_relation_edges=0
+Wrote AI recovery result: /Users/ksnaik/StudioProjects/sydes/benchmarks/aacr/results/investigator-b9391e5-first11-r1-2026-10-26/sydes/immich-app__immich@d38f1f5.ai_recovery.json
+SYDES VERIFICATION
+
+MEDIUM RISK · 8 AFFECTED BEHAVIORS
+
+Changed
+───────
+web/src/lib/utils/sw-messaging.ts:1 — broadcast
+web/src/service-worker/index.ts:7 — useCache
+web/src/service-worker/index.ts:8 — sw
+web/src/service-worker/index.ts:9 — pendingLoads
+web/src/service-worker/index.ts:12 — CACHE
++3 more relevant changed symbols — use --verbose
+
+CHANGE ANALYSIS (citations verified, indeterminate)
+───────────────────────────────────────────────────
+Cannot be established from this repository alone: depends on state only known at runtime (e.g. feature flags, request data).
+The mechanism is explicit, but actual user-visible impact requires a browser client controlled by the new worker and runtime matching asset requests, cache contents, preload activity, or component cleanup. Those conditions are not established by the supplied diff.
+
+The web client adds a service worker that intercepts asset image GETs, caches successful responses by URL and deployment version, accepts preload and cancellation messages, and removes older CacheStorage entries during activation. Photo viewing and thumbnail components now coordinate image work through that messaging channel. A production-stack shutdown Make target was also added, while some end-to-end UI assertions were removed.
+
+Likely behavioral changes
+  • For clients controlled by the new service worker, matching original and thumbnail asset GETs are served from a deployment-versioned browser cache when present; otherwise they are fetched and successful 200 responses are stored for later requests.
+  • Adjacent photo preloading now requests service-worker-managed loading through a broadcast message instead of directly creating an image load in the viewer.
+  • Destroying a photo loader or thumbnail now sends a cancellation request; if the worker has a pending load under the same normalized URL, its fetch is aborted.
+  • Operators can now stop the production Docker Compose stack and remove orphaned containers with the new prod-down Make target.
+
+Investigate
+  • Trace how the service-worker entry is built, registered, updated, and scoped, and confirm which matching asset API requests it actually controls.
+  • Determine whether asset responses are identity- or permission-dependent and whether cache entries remain safe across login, logout, account switching, sharing modes, and authorization changes.
+  • Trace all producers and consumers of the immich BroadcastChannel protocol and model multiple components requesting or cancelling the same URL concurrently.
+  • Review cache ownership across the origin and deployment lifecycle before allowing activation to remove non-current cache names.
+
+Uncertain
+  • The supplied context does not establish whether this SvelteKit service-worker file is automatically registered, what URL scope it receives, or when it begins controlling existing clients.
+  • The complete set of navigable web routes that instantiate the modified photo viewer or thumbnail component is not shown.
+  • Whether users observe cache hits, preloads, or cancellations depends on a controlling service worker, matching asset traffic, component destruction timing, and the current browser cache state.
+  • The diff does not establish whether asset response bytes or authorization vary between users, permission changes, shared-link contexts, or other server-side state for an otherwise identical URL.
+  • The supplied code does not establish all browser-specific BroadcastChannel and service-worker MessageEvent semantics relevant to message delivery and use of event.origin as the base for relative URLs.
+
+System impact
+─────────────
+No structural propagation path was established.
+
+?
+  → ?: registers AppDelegate
+  → [framework lifecycle unresolved]
+  → candidate: AppDelegate.AppDelegate
+
+?
+  → ?: registers AlbumsPage
+  → [framework lifecycle unresolved]
+  → candidate: AlbumsPage.build
+
+?
+  → ?: registers PhotosPage
+  → [framework lifecycle unresolved]
+  → candidate: PhotosPage.build
+
+?
+  → ?: registers AddToAlbumBottomSheet
+  → [framework lifecycle unresolved]
+  → candidate: AddToAlbumBottomSheet.build
+
+Inferred boundaries
+───────────────────
+INFERRED · async/event_handler · Service-worker interception of asset image requests
+    Browser-generated asset image fetch events cross into the service worker, which resolves them through deployment-versioned CacheStorage or a network fetch.
+    Evidence: The supplied behavior fact states that the service worker intercepts matching original and thumbnail asset GETs and caches successful 200 responses.; The established production call edge `index -> immichAsset` in `web/src/service-worker/index.ts` connects the worker entry surface to the asset-handling function.
+    Uncertain: The exact fetch-listener registration, service-worker URL scope, and point at which clients become controlled are not supplied.
+
+INFERRED · async/event_handler · Service-worker preload and cancellation messages
+    Preload and cancellation messages cross asynchronously from photo-viewing components through the broadcast channel into service-worker image-load handling.
+    Evidence: The supplied behavior facts state that adjacent-photo preloading sends a broadcast message and that component destruction sends a cancellation request which can abort a pending worker fetch.; The established production edge `preload -> preloadImageUrl` in `web/src/lib/components/asset-viewer/photo-viewer.svelte` identifies a concrete sender of preload messages.
+    Uncertain: The complete message-listener callback and all BroadcastChannel delivery semantics are not supplied, and additional callers or bypassing image-load paths may exist.
+
+INFERRED · async/event_handler · Service-worker activation cache cleanup
+    A service-worker activation lifecycle event crosses into cleanup logic that removes CacheStorage entries from older deployments.
+    Evidence: The supplied change facts state that older CacheStorage entries are removed during service-worker activation.; The established production call edge `index -> deleteOldCaches` in `web/src/service-worker/index.ts` connects the service-worker entry surface to the changed cleanup function.
+    Uncertain: The exact activation-listener registration and lifecycle waiting behavior are not shown in the supplied structural evidence.
+
+Inferred impact
+───────────────
+INFERRED · 0.83
+production container startup and shutdown workflow
+
+Why:
+Running the repository's production start or stop workflow may rebuild containers, recreate anonymous volumes, and remove orphaned services because the changed compose recipes use --build, -V, and --remove-orphans.
+
+Static confirmation: unavailable
+
+INFERRED · 0.76
+image loading while browsing photos and albums
+
+Why:
+Photo and album browsing may load images sooner or cancel unfinished image requests when elements are removed because preloading now feeds image asset URLs into the shared loader and mounted images cancel their URL on destruction.
+
+Static confirmation: unavailable
+
+INFERRED · 0.58
+cached asset delivery and stale-cache cleanup
+
+Why:
+Previously cached media may be served, invalidated, or announced to clients differently because the PR jointly changes cache identity, old-cache deletion, asset handling, and broadcast behavior.
+
+Static confirmation: unavailable
+
+… 1 more inferred impact — use --verbose for the full list.
+
+CI
+──
+? the test suite could not run
+  test execution unavailable: no runnable target-project environment found (uv project with no synced `.venv`; Sydes does not create or install environments)
+
+What Sydes could not establish
+──────────────────────────────
+• 7 additional affected areas are not yet verification-modeled.
+• 14 changed symbols have unresolved impact paths.
+• 4 inferred impacts could not be structurally confirmed.
+• The repository test suite could not run (test execution unavailable: no runnable target-project environment found (uv project with no synced `.venv`; Sydes does not create or install environments)).
+
+Full verification requires
+──────────────────────────
+PostgreSQL · SQL database (TypeORM) · Redis · Mail/SMTP service
+
+Verdict
+───────
+VERIFICATION INCOMPLETE
+
+Wrote verification result: /Users/ksnaik/StudioProjects/sydes/benchmarks/aacr/results/investigator-b9391e5-first11-r1-2026-10-26/sydes/immich-app__immich@d38f1f5.json
+
+--- stderr ---
+Preparing Sydes code intelligence...

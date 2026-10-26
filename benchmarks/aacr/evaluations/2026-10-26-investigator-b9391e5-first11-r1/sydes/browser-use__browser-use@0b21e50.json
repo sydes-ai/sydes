@@ -1,0 +1,1981 @@
+{
+  "version": "v3",
+  "kind": "sydes_change_verification",
+  "generated_at": "2026-10-26T15:01:57.347576+00:00",
+  "change": {
+    "base": "b50bb2216721b82d81e0fda8fb50a31266e09ce4",
+    "head": "0b21e50ca640581ecd46990475c8b223eaa05045",
+    "merge_base": "b50bb2216721b82d81e0fda8fb50a31266e09ce4",
+    "repos": [
+      {
+        "name": "app",
+        "root": "/Users/ksnaik/.cache/sydes-aacr/repos/browser-use__browser-use"
+      }
+    ],
+    "includes_working_tree": false,
+    "files": [
+      {
+        "repo": "app",
+        "path": "browser_use/agent/service.py",
+        "old_path": null,
+        "change_type": "modified",
+        "role": "source_route_candidate",
+        "added_lines": 1,
+        "removed_lines": 1,
+        "hunks": [
+          {
+            "start_line": 1225,
+            "end_line": 1225
+          }
+        ],
+        "symbols": [
+          "app:browser_use/agent/service.py:Agent._verify_llm_connection"
+        ],
+        "binary": false
+      },
+      {
+        "repo": "app",
+        "path": "browser_use/browser/browser.py",
+        "old_path": null,
+        "change_type": "modified",
+        "role": "source_route_candidate",
+        "added_lines": 34,
+        "removed_lines": 17,
+        "hunks": [
+          {
+            "start_line": 24,
+            "end_line": 25
+          },
+          {
+            "start_line": 82,
+            "end_line": 87
+          },
+          {
+            "start_line": 111,
+            "end_line": 111
+          },
+          {
+            "start_line": 201,
+            "end_line": 203
+          },
+          {
+            "start_line": 205,
+            "end_line": 207
+          },
+          {
+            "start_line": 210,
+            "end_line": 210
+          },
+          {
+            "start_line": 218,
+            "end_line": 218
+          },
+          {
+            "start_line": 220,
+            "end_line": 220
+          },
+          {
+            "start_line": 229,
+            "end_line": 234
+          },
+          {
+            "start_line": 236,
+            "end_line": 236
+          },
+          {
+            "start_line": 242,
+            "end_line": 244
+          },
+          {
+            "start_line": 255,
+            "end_line": 255
+          },
+          {
+            "start_line": 277,
+            "end_line": 277
+          },
+          {
+            "start_line": 288,
+            "end_line": 289
+          },
+          {
+            "start_line": 291,
+            "end_line": 292
+          }
+        ],
+        "symbols": [
+          "app:browser_use/browser/browser.py:Browser._setup_builtin_browser",
+          "app:browser_use/browser/browser.py:Browser._setup_user_provided_browser",
+          "app:browser_use/browser/browser.py:BrowserConfig"
+        ],
+        "binary": false
+      },
+      {
+        "repo": "app",
+        "path": "browser_use/browser/chrome.py",
+        "old_path": null,
+        "change_type": "modified",
+        "role": "source_route_candidate",
+        "added_lines": 2,
+        "removed_lines": 1,
+        "hunks": [
+          {
+            "start_line": 97,
+            "end_line": 98
+          },
+          {
+            "start_line": 132,
+            "end_line": 132
+          }
+        ],
+        "symbols": [
+          "app:browser_use/browser/chrome.py:CHROME_ARGS",
+          "app:browser_use/browser/chrome.py:CHROME_DEBUGGING_ARG"
+        ],
+        "binary": false
+      },
+      {
+        "repo": "app",
+        "path": "examples/custom-functions/file_upload.py",
+        "old_path": null,
+        "change_type": "modified",
+        "role": "source_route_candidate",
+        "added_lines": 1,
+        "removed_lines": 1,
+        "hunks": [
+          {
+            "start_line": 73,
+            "end_line": 73
+          }
+        ],
+        "symbols": [
+          "app:examples/custom-functions/file_upload.py:read_file"
+        ],
+        "binary": false
+      },
+      {
+        "repo": "app",
+        "path": "tests/test_browser.py",
+        "old_path": null,
+        "change_type": "modified",
+        "role": "test_usage_candidate",
+        "added_lines": 77,
+        "removed_lines": 0,
+        "hunks": [
+          {
+            "start_line": 4,
+            "end_line": 4
+          },
+          {
+            "start_line": 160,
+            "end_line": 235
+          }
+        ],
+        "symbols": [
+          "app:tests/test_browser.py:test_user_provided_browser_launch_on_custom_chrome_remote_debugging_port"
+        ],
+        "binary": false
+      }
+    ],
+    "symbols": [
+      {
+        "id": "app:browser_use/agent/service.py:Agent._verify_llm_connection",
+        "repo": "app",
+        "file": "browser_use/agent/service.py",
+        "name": "_verify_llm_connection",
+        "qualified_name": "Agent._verify_llm_connection",
+        "cbm_qualified_name": "Users-ksnaik-.cache-sydes-aacr-repos-browser-use__browser-use.browser_use.agent.service.Agent._verify_llm_connection",
+        "kind": "class_method",
+        "language": "python",
+        "start_line": 1201,
+        "end_line": 1250,
+        "change_type": "modified",
+        "changed_lines": 1,
+        "decorators": []
+      },
+      {
+        "id": "app:browser_use/browser/browser.py:BrowserConfig",
+        "repo": "app",
+        "file": "browser_use/browser/browser.py",
+        "name": "BrowserConfig",
+        "qualified_name": "BrowserConfig",
+        "cbm_qualified_name": "Users-ksnaik-.cache-sydes-aacr-repos-browser-use__browser-use.browser_use.browser.browser.BrowserConfig",
+        "kind": "class",
+        "language": "python",
+        "start_line": 58,
+        "end_line": 120,
+        "change_type": "modified",
+        "changed_lines": 7,
+        "decorators": []
+      },
+      {
+        "id": "app:browser_use/browser/browser.py:Browser._setup_user_provided_browser",
+        "repo": "app",
+        "file": "browser_use/browser/browser.py",
+        "name": "_setup_user_provided_browser",
+        "qualified_name": "Browser._setup_user_provided_browser",
+        "cbm_qualified_name": "Users-ksnaik-.cache-sydes-aacr-repos-browser-use__browser-use.browser_use.browser.browser.Browser._setup_user_provided_browser",
+        "kind": "class_method",
+        "language": "python",
+        "start_line": 189,
+        "end_line": 263,
+        "change_type": "modified",
+        "changed_lines": 20,
+        "decorators": []
+      },
+      {
+        "id": "app:browser_use/browser/browser.py:Browser._setup_builtin_browser",
+        "repo": "app",
+        "file": "browser_use/browser/browser.py",
+        "name": "_setup_builtin_browser",
+        "qualified_name": "Browser._setup_builtin_browser",
+        "cbm_qualified_name": "Users-ksnaik-.cache-sydes-aacr-repos-browser-use__browser-use.browser_use.browser.browser.Browser._setup_builtin_browser",
+        "kind": "class_method",
+        "language": "python",
+        "start_line": 265,
+        "end_line": 319,
+        "change_type": "modified",
+        "changed_lines": 5,
+        "decorators": []
+      },
+      {
+        "id": "app:browser_use/browser/chrome.py:CHROME_DEBUGGING_ARG",
+        "repo": "app",
+        "file": "browser_use/browser/chrome.py",
+        "name": "CHROME_DEBUGGING_ARG",
+        "qualified_name": "CHROME_DEBUGGING_ARG",
+        "cbm_qualified_name": "Users-ksnaik-.cache-sydes-aacr-repos-browser-use__browser-use.browser_use.browser.chrome.CHROME_DEBUGGING_ARG",
+        "kind": "variable",
+        "language": "python",
+        "start_line": 97,
+        "end_line": 97,
+        "change_type": "modified",
+        "changed_lines": 1,
+        "decorators": []
+      },
+      {
+        "id": "app:browser_use/browser/chrome.py:CHROME_ARGS",
+        "repo": "app",
+        "file": "browser_use/browser/chrome.py",
+        "name": "CHROME_ARGS",
+        "qualified_name": "CHROME_ARGS",
+        "cbm_qualified_name": "Users-ksnaik-.cache-sydes-aacr-repos-browser-use__browser-use.browser_use.browser.chrome.CHROME_ARGS",
+        "kind": "variable",
+        "language": "python",
+        "start_line": 99,
+        "end_line": 185,
+        "change_type": "modified",
+        "changed_lines": 1,
+        "decorators": []
+      },
+      {
+        "id": "app:examples/custom-functions/file_upload.py:read_file",
+        "repo": "app",
+        "file": "examples/custom-functions/file_upload.py",
+        "name": "read_file",
+        "qualified_name": "read_file",
+        "cbm_qualified_name": "Users-ksnaik-.cache-sydes-aacr-repos-browser-use__browser-use.examples.custom-functions.file_upload.read_file",
+        "kind": "function",
+        "language": "python",
+        "start_line": 69,
+        "end_line": 77,
+        "change_type": "modified",
+        "changed_lines": 1,
+        "decorators": []
+      },
+      {
+        "id": "app:tests/test_browser.py:test_user_provided_browser_launch_on_custom_chrome_remote_debugging_port",
+        "repo": "app",
+        "file": "tests/test_browser.py",
+        "name": "test_user_provided_browser_launch_on_custom_chrome_remote_debugging_port",
+        "qualified_name": "test_user_provided_browser_launch_on_custom_chrome_remote_debugging_port",
+        "cbm_qualified_name": "Users-ksnaik-.cache-sydes-aacr-repos-browser-use__browser-use.tests.test_browser.test_user_provided_browser_launch_on_custom_chrome_remote_debugging_port",
+        "kind": "function",
+        "language": "python",
+        "start_line": 161,
+        "end_line": 233,
+        "change_type": "modified",
+        "changed_lines": 74,
+        "decorators": []
+      }
+    ],
+    "notes": []
+  },
+  "summary": {
+    "risk": "MEDIUM",
+    "verdict": "VERIFICATION INCOMPLETE",
+    "headline": "8 changed symbol(s); no route flow resolved to them.",
+    "counts": {
+      "changed_files": 5,
+      "changed_source_files": 4,
+      "changed_test_files": 1,
+      "changed_symbols": 8,
+      "affected_flows": 0,
+      "flows_partially_analyzed": 0,
+      "code_findings": 1,
+      "obligations": 0,
+      "obligations_introduced_by_change": 0,
+      "obligations_passed": 0,
+      "obligations_failed": 0,
+      "obligations_unverified": 0,
+      "obligations_unknown": 0,
+      "mapped_tests": 0,
+      "supporting_tests": 0,
+      "tests_exercising_flows": 0,
+      "tests_supporting_behavior": 0,
+      "tests_verifying_behavior": 0,
+      "changed_test_cases": 2,
+      "tests_executed": 0,
+      "verification_gaps": 0,
+      "runtime_dependencies": 2,
+      "cross_repo_impacts": 0,
+      "impacts_proven": 3,
+      "impacts_inferred": 2,
+      "impacts_not_modeled": 5,
+      "unresolved_changed_symbols": 2
+    },
+    "risk_reasons": [
+      "change could not be tied to any verifiable behavior"
+    ]
+  },
+  "code_review_status": "completed",
+  "code_findings": [
+    {
+      "id": "investigator-H3",
+      "severity": "P3",
+      "title": "When the initial httpx probe to localhost:9223 returns HTTP 200, the new test takes the reuse path and never invokes its subprocess mock, so its remote-debugging launch-argument assertion is not execu",
+      "file": "tests/test_browser.py",
+      "line": 180,
+      "repo": null,
+      "explanation": "The complete test body patches requests.get but does not patch httpx. The production method performs its initial probe with httpx; on status 200 it connects through the mocked DummyChromium and returns immediately. The test's only assertion about the subprocess arguments is inside dummy_create_subprocess_exec, which is invoked only on the later launch path. Thus a real service answering 200 on port 9223 bypasses that assertion while still producing the expected DummyBrowser for the test's result assertion.",
+      "impact": "Caused by the change: The added test mocks requests.get, but the changed custom-port probe is issued through httpx.AsyncClient. Therefore the mock does not control the initial probe. If that probe receives 200, line 213 returns before the launch code at line 229 can call the test's dummy_create_subprocess_exec, leaving the launch-argument assertion at test line 190 unexecuted.",
+      "suggested_fix": null,
+      "source": "investigator",
+      "evidence": [
+        {
+          "file": "browser_use/browser/browser.py",
+          "symbol": null,
+          "label": "verified_quote:200",
+          "snippet": "async with httpx.AsyncClient() as client:"
+        },
+        {
+          "file": "browser_use/browser/browser.py",
+          "symbol": null,
+          "label": "verified_quote:204",
+          "snippet": "if response.status_code == 200:"
+        },
+        {
+          "file": "browser_use/browser/browser.py",
+          "symbol": null,
+          "label": "verified_quote:213",
+          "snippet": "return browser"
+        },
+        {
+          "file": "tests/test_browser.py",
+          "symbol": null,
+          "label": "verified_quote:180",
+          "snippet": "monkeypatch.setattr(requests, 'get', dummy_get)"
+        }
+      ]
+    }
+  ],
+  "accepted_impacts": [
+    {
+      "id": "impact:app:Users-ksnaik-.cache-sydes-aacr-repos-browser-use__browser-use.browser_use.agent.service.Agent.__init__",
+      "label": "Agent.__init__",
+      "repo": "app",
+      "kind": "decorated",
+      "status": "proven",
+      "changed_symbols": [
+        "_verify_llm_connection"
+      ],
+      "route_method": null,
+      "route_path": null,
+      "llm_confidence": null,
+      "llm_reason": null,
+      "llm_inference_type": null,
+      "llm_uncertainty": null,
+      "corroborated": null,
+      "behavior_label": "",
+      "verification_model_status": "unsupported_or_partial",
+      "provenance": "structural"
+    },
+    {
+      "id": "impact:app:Users-ksnaik-.cache-sydes-aacr-repos-browser-use__browser-use.browser_use.browser.browser.Browser._init",
+      "label": "Browser._init",
+      "repo": "app",
+      "kind": "decorated",
+      "status": "proven",
+      "changed_symbols": [
+        "_setup_builtin_browser",
+        "_setup_user_provided_browser"
+      ],
+      "route_method": null,
+      "route_path": null,
+      "llm_confidence": null,
+      "llm_reason": null,
+      "llm_inference_type": null,
+      "llm_uncertainty": null,
+      "corroborated": null,
+      "behavior_label": "",
+      "verification_model_status": "unsupported_or_partial",
+      "provenance": "structural"
+    },
+    {
+      "id": "impact:app:Users-ksnaik-.cache-sydes-aacr-repos-browser-use__browser-use.examples.custom-functions.file_upload.read_file",
+      "label": "read_file",
+      "repo": "app",
+      "kind": "decorated",
+      "status": "proven",
+      "changed_symbols": [
+        "read_file"
+      ],
+      "route_method": null,
+      "route_path": null,
+      "llm_confidence": null,
+      "llm_reason": null,
+      "llm_inference_type": null,
+      "llm_uncertainty": null,
+      "corroborated": null,
+      "behavior_label": "",
+      "verification_model_status": "unsupported_or_partial",
+      "provenance": "structural"
+    },
+    {
+      "id": "impact:app:Automated browser startup and DevTools connection",
+      "label": "Automated browser startup and DevTools connection",
+      "repo": "app",
+      "kind": "unknown",
+      "status": "inferred",
+      "changed_symbols": [
+        "(whole change)"
+      ],
+      "route_method": null,
+      "route_path": null,
+      "llm_confidence": 0.74,
+      "llm_reason": "Browser initialization may launch Chrome with different command-line options, potentially changing whether the automation service can establish its local remote-debugging connection and how the launched browser behaves.",
+      "llm_inference_type": "semantic_pr_wide_theme",
+      "llm_uncertainty": "The supplied context does not show the exact argument-list diff or the usage that assembles and executes the Chrome launch command.",
+      "corroborated": false,
+      "behavior_label": "Automated browser startup and DevTools connection",
+      "verification_model_status": "unsupported_or_partial",
+      "provenance": "structural"
+    },
+    {
+      "id": "impact:app:CHROME_ARGS",
+      "label": "Automated browser startup and runtime capabilities",
+      "repo": "app",
+      "kind": "unknown",
+      "status": "inferred",
+      "changed_symbols": [
+        "CHROME_ARGS"
+      ],
+      "route_method": null,
+      "route_path": null,
+      "llm_confidence": 0.74,
+      "llm_reason": "The arguments supplied when launching Chrome can alter observable startup behavior and enabled browser capabilities, and the same PR changes built-in browser setup with an already-accepted impact on automated browser startup and DevTools connection.",
+      "llm_inference_type": "semantic_indirect_dependency",
+      "llm_uncertainty": "The provided context does not show the exact argument diff or the code path that passes CHROME_ARGS to the Chrome process.",
+      "corroborated": false,
+      "behavior_label": "Automated browser startup and runtime capabilities",
+      "verification_model_status": "unsupported_or_partial",
+      "provenance": "structural"
+    }
+  ],
+  "pr_semantic_analysis": {
+    "origin": "llm_hypothesis",
+    "change_summary": "Browser startup now supports a configurable Chrome remote-debugging port, defaulting to the existing Chrome debug-port constant. The selected port is used when probing for an existing browser, connecting over CDP, constructing launch arguments, and checking port occupancy. User-provided Chrome binaries are now launched through direct argv-based subprocess execution. The agent and file-upload edits appear non-semantic, while the new test targets custom-port startup.",
+    "behavior_changes": [
+      {
+        "description": "Browser callers can select a Chrome remote-debugging port. For a user-provided browser binary, the browser setup probes and connects to that selected localhost port and supplies the same port when launching Chrome; built-in browser launch also constructs its debugging argument from the selected value rather than a fixed port.",
+        "changed_symbols": [
+          "BrowserConfig",
+          "Browser._setup_user_provided_browser",
+          "Browser._setup_builtin_browser",
+          "CHROME_DEBUGGING_ARG",
+          "CHROME_ARGS"
+        ],
+        "evidence": [
+          "The configuration model exposes chrome_remote_debugging_port with the prior debug-port constant as its default.",
+          "The user-provided-browser path interpolates the configured value into its version endpoint, CDP endpoint, and Chrome launch argument.",
+          "The built-in-browser path constructs and conditionally removes the debugging argument for the configured port."
+        ],
+        "confidence": 0.98,
+        "citations": [
+          {
+            "file": "browser_use/browser/browser.py",
+            "line": 111,
+            "quoted_text": "\tchrome_remote_debugging_port: int | None = CHROME_DEBUG_PORT"
+          },
+          {
+            "file": "browser_use/browser/browser.py",
+            "line": 202,
+            "quoted_text": "\t\t\t\t\tf'http://localhost:{self.config.chrome_remote_debugging_port}/json/version', timeout=2"
+          },
+          {
+            "file": "browser_use/browser/browser.py",
+            "line": 210,
+            "quoted_text": "\t\t\t\t\t\tendpoint_url=f'http://localhost:{self.config.chrome_remote_debugging_port}',"
+          },
+          {
+            "file": "browser_use/browser/browser.py",
+            "line": 220,
+            "quoted_text": "\t\t\t\tCHROME_DEBUGGING_ARG % {'chrome_remote_debugging_port': self.config.chrome_remote_debugging_port},"
+          },
+          {
+            "file": "browser_use/browser/browser.py",
+            "line": 277,
+            "quoted_text": "\t\t\tCHROME_DEBUGGING_ARG % {'chrome_remote_debugging_port': self.config.chrome_remote_debugging_port},"
+          },
+          {
+            "file": "browser_use/browser/chrome.py",
+            "line": 97,
+            "quoted_text": "CHROME_DEBUGGING_ARG = '--remote-debugging-port=%(chrome_remote_debugging_port)s'"
+          }
+        ],
+        "citations_verified": 6,
+        "citation_notes": [
+          "citation confirmed near browser_use/browser/browser.py:111",
+          "citation confirmed near browser_use/browser/browser.py:202",
+          "citation confirmed near browser_use/browser/browser.py:210",
+          "citation confirmed near browser_use/browser/browser.py:220",
+          "citation confirmed near browser_use/browser/browser.py:277",
+          "citation confirmed near browser_use/browser/chrome.py:97"
+        ]
+      },
+      {
+        "description": "When starting a user-supplied Chrome executable, browser setup now invokes the configured binary directly and passes Chrome options as separate process arguments, rather than routing the launch through the previous subprocess-shell call shape.",
+        "changed_symbols": [
+          "Browser._setup_user_provided_browser"
+        ],
+        "evidence": [
+          "The configured browser executable is passed as the executable argument and the assembled Chrome options are expanded as separate argv entries."
+        ],
+        "confidence": 0.96,
+        "citations": [
+          {
+            "file": "browser_use/browser/browser.py",
+            "line": 229,
+            "quoted_text": "\t\tchrome_sub_process = await asyncio.create_subprocess_exec("
+          },
+          {
+            "file": "browser_use/browser/browser.py",
+            "line": 230,
+            "quoted_text": "\t\t\tself.config.browser_binary_path,"
+          },
+          {
+            "file": "browser_use/browser/browser.py",
+            "line": 231,
+            "quoted_text": "\t\t\t*chrome_launch_args,"
+          }
+        ],
+        "citations_verified": 3,
+        "citation_notes": [
+          "citation confirmed near browser_use/browser/browser.py:229",
+          "citation confirmed near browser_use/browser/browser.py:230",
+          "citation confirmed near browser_use/browser/browser.py:231"
+        ]
+      }
+    ],
+    "important_symbols": [
+      {
+        "repo": "app",
+        "file": "browser_use/browser/browser.py",
+        "symbol": "BrowserConfig",
+        "reason": "Defines the new externally supplied port setting, its nullable type, and its default, so it controls compatibility and validation behavior for every setup path that consumes the configuration."
+      },
+      {
+        "repo": "app",
+        "file": "browser_use/browser/browser.py",
+        "symbol": "Browser._setup_user_provided_browser",
+        "reason": "Contains the main semantic change: existing-instance discovery, Chrome process launch, readiness polling, and CDP connection are all tied to the configured port."
+      },
+      {
+        "repo": "app",
+        "file": "browser_use/browser/browser.py",
+        "symbol": "Browser._setup_builtin_browser",
+        "reason": "Moves built-in browser debugging-argument construction and occupied-port handling from the fixed port to the configured port."
+      },
+      {
+        "repo": "app",
+        "file": "browser_use/browser/chrome.py",
+        "symbol": "CHROME_DEBUGGING_ARG",
+        "reason": "Centralizes formatting of the Chrome remote-debugging argument after that argument was removed from the otherwise static CHROME_ARGS collection."
+      },
+      {
+        "repo": "app",
+        "file": "tests/test_browser.py",
+        "symbol": "test_user_provided_browser_launch_on_custom_chrome_remote_debugging_port",
+        "reason": "Documents the intended custom-port contract for the launch argument and CDP endpoint, although structural analysis should verify how completely it exercises readiness probing."
+      }
+    ],
+    "investigation_hints": [
+      {
+        "description": "Trace all BrowserConfig construction, serialization, aliases, and wrappers to determine where custom or null debugging-port values can enter and whether validation is imposed elsewhere.",
+        "related_symbols": [
+          "BrowserConfig",
+          "Browser._setup_user_provided_browser",
+          "Browser._setup_builtin_browser"
+        ],
+        "concepts": [
+          "configuration propagation",
+          "public configuration compatibility",
+          "port validation",
+          "default preservation"
+        ],
+        "likely_boundary_types": [
+          "api",
+          "callable"
+        ]
+      },
+      {
+        "description": "Follow browser selection and lifecycle control to establish when the user-provided path versus built-in path runs, and how process ownership and cleanup behave when an existing browser is reused.",
+        "related_symbols": [
+          "Browser._setup_user_provided_browser",
+          "Browser._setup_builtin_browser"
+        ],
+        "concepts": [
+          "browser lifecycle",
+          "process ownership",
+          "existing-instance reuse",
+          "cleanup"
+        ],
+        "likely_boundary_types": [
+          "callable",
+          "async",
+          "external"
+        ]
+      },
+      {
+        "description": "Inspect Chrome and Playwright assumptions around debugging-port arguments, duplicate flags, occupied ports, readiness polling, and CDP connection behavior.",
+        "related_symbols": [
+          "CHROME_DEBUGGING_ARG",
+          "CHROME_ARGS",
+          "Browser._setup_user_provided_browser",
+          "Browser._setup_builtin_browser"
+        ],
+        "concepts": [
+          "Chrome command-line semantics",
+          "CDP readiness",
+          "port conflicts",
+          "argument precedence"
+        ],
+        "likely_boundary_types": [
+          "external",
+          "async"
+        ]
+      }
+    ],
+    "likely_boundary_types": [
+      "api",
+      "callable",
+      "async",
+      "external"
+    ],
+    "local_risks": [
+      {
+        "description": "The configuration explicitly accepts null for the debugging port, but setup interpolates that value into a localhost URL and passes it to the socket port check. A caller supplying null can therefore reach malformed endpoint construction or an invalid socket-port operation instead of receiving an early configuration-validation error.",
+        "severity": "P1",
+        "citations": [
+          {
+            "file": "browser_use/browser/browser.py",
+            "line": 111,
+            "quoted_text": "\tchrome_remote_debugging_port: int | None = CHROME_DEBUG_PORT"
+          },
+          {
+            "file": "browser_use/browser/browser.py",
+            "line": 202,
+            "quoted_text": "\t\t\t\t\tf'http://localhost:{self.config.chrome_remote_debugging_port}/json/version', timeout=2"
+          },
+          {
+            "file": "browser_use/browser/browser.py",
+            "line": 291,
+            "quoted_text": "\t\t\tif s.connect_ex(('localhost', self.config.chrome_remote_debugging_port)) == 0:"
+          }
+        ],
+        "citations_verified": 3,
+        "citation_notes": [
+          "citation confirmed near browser_use/browser/browser.py:111",
+          "citation confirmed near browser_use/browser/browser.py:202",
+          "citation confirmed near browser_use/browser/browser.py:291"
+        ]
+      },
+      {
+        "description": "The generated debugging-port flag and caller-provided extra arguments are deduplicated through an unordered set. If extra_browser_args contains a different remote-debugging-port flag, both values can survive with non-guaranteed ordering; depending on Chrome's duplicate-flag precedence, Chrome could listen on a different port from the one subsequently used for readiness and CDP connection.",
+        "severity": "P1",
+        "citations": [
+          {
+            "file": "browser_use/browser/browser.py",
+            "line": 219,
+            "quoted_text": "\t\t\t*{  # remove duplicates (usually preserves the order, but not guaranteed)"
+          },
+          {
+            "file": "browser_use/browser/browser.py",
+            "line": 220,
+            "quoted_text": "\t\t\t\tCHROME_DEBUGGING_ARG % {'chrome_remote_debugging_port': self.config.chrome_remote_debugging_port},"
+          },
+          {
+            "file": "browser_use/browser/browser.py",
+            "line": 226,
+            "quoted_text": "\t\t\t\t*self.config.extra_browser_args,"
+          },
+          {
+            "file": "browser_use/browser/browser.py",
+            "line": 255,
+            "quoted_text": "\t\t\t\tendpoint_url=f'http://localhost:{self.config.chrome_remote_debugging_port}',"
+          }
+        ],
+        "citations_verified": 4,
+        "citation_notes": [
+          "citation confirmed near browser_use/browser/browser.py:219",
+          "citation confirmed near browser_use/browser/browser.py:220",
+          "citation confirmed near browser_use/browser/browser.py:226",
+          "citation confirmed near browser_use/browser/browser.py:255"
+        ]
+      }
+    ],
+    "uncertainties": [
+      "The supplied context does not show which production callers construct BrowserConfig with a custom or explicitly null chrome_remote_debugging_port, or which callers enter each browser setup branch.",
+      "No HTTP endpoint is shown, so it cannot be established whether any route exposes this browser configuration or invokes the changed setup paths.",
+      "Whether setup reuses an existing browser, launches a new process, or removes the built-in debugging argument depends on whether the selected localhost port is occupied and answers the Chrome version probe at runtime.",
+      "The diff does not establish Chrome's precedence for multiple remote-debugging-port arguments or Playwright's behavior when the explicit debugging argument is removed because the configured port is occupied.",
+      "The ownership and lifecycle boundary for a browser discovered on the configured localhost port is not shown, including whether it is always safe for this Browser instance to reuse it or later close related resources."
+    ],
+    "uncertainty_items": [
+      {
+        "kind": "caller_reachability",
+        "text": "The supplied context does not show which production callers construct BrowserConfig with a custom or explicitly null chrome_remote_debugging_port, or which callers enter each browser setup branch.",
+        "symbols": [
+          "BrowserConfig",
+          "Browser._setup_user_provided_browser",
+          "Browser._setup_builtin_browser"
+        ],
+        "resolved_by": null,
+        "established_context": null,
+        "scoped_text": null
+      },
+      {
+        "kind": "route_identity",
+        "text": "No HTTP endpoint is shown, so it cannot be established whether any route exposes this browser configuration or invokes the changed setup paths.",
+        "symbols": [
+          "BrowserConfig",
+          "Browser._setup_user_provided_browser",
+          "Browser._setup_builtin_browser"
+        ],
+        "resolved_by": null,
+        "established_context": null,
+        "scoped_text": null
+      },
+      {
+        "kind": "runtime_condition",
+        "text": "Whether setup reuses an existing browser, launches a new process, or removes the built-in debugging argument depends on whether the selected localhost port is occupied and answers the Chrome version probe at runtime.",
+        "symbols": [
+          "Browser._setup_user_provided_browser",
+          "Browser._setup_builtin_browser"
+        ],
+        "resolved_by": null,
+        "established_context": null,
+        "scoped_text": null
+      },
+      {
+        "kind": "dependency_semantics",
+        "text": "The diff does not establish Chrome's precedence for multiple remote-debugging-port arguments or Playwright's behavior when the explicit debugging argument is removed because the configured port is occupied.",
+        "symbols": [
+          "CHROME_DEBUGGING_ARG",
+          "CHROME_ARGS",
+          "Browser._setup_builtin_browser",
+          "Browser._setup_user_provided_browser"
+        ],
+        "resolved_by": null,
+        "established_context": null,
+        "scoped_text": null
+      },
+      {
+        "kind": "boundary_identity",
+        "text": "The ownership and lifecycle boundary for a browser discovered on the configured localhost port is not shown, including whether it is always safe for this Browser instance to reuse it or later close related resources.",
+        "symbols": [
+          "Browser._setup_user_provided_browser"
+        ],
+        "resolved_by": null,
+        "established_context": null,
+        "scoped_text": null
+      }
+    ],
+    "verification_state": "verified",
+    "is_indeterminate": true,
+    "indeterminate_reason": "runtime_only_behavior",
+    "indeterminate_detail": "The custom-port mechanism is explicit, but its real observable effect depends on runtime configuration selecting a non-default value, which browser setup branch is entered, and the live state of that localhost port and Chrome process. The supplied repository slice does not show whether those conditions occur in an actual installation."
+  },
+  "affected_boundaries": [
+    {
+      "id": "boundary:inferred:callable:app:BrowserConfig:0",
+      "kind": "callable",
+      "subtype": "public_callable",
+      "repo": "app",
+      "file": "browser_use/browser/browser.py",
+      "symbol": "BrowserConfig",
+      "label": "Public browser startup configuration",
+      "changed_symbols": [
+        "BrowserConfig",
+        "Browser._setup_user_provided_browser",
+        "Browser._setup_builtin_browser",
+        "CHROME_DEBUGGING_ARG",
+        "CHROME_ARGS"
+      ],
+      "evidence": [
+        "BrowserConfig is a changed class in browser_use/browser/browser.py.",
+        "The established production call edge run_task_with_semaphore -> BrowserConfig in eval/service.py shows a consumer constructing this configuration.",
+        "Established example call edges real_browser -> BrowserConfig, stealth -> BrowserConfig, and using_cdp -> BrowserConfig show consumer-facing use of the same configuration surface.",
+        "The supplied behavior change states that browser callers can select a Chrome remote-debugging port and that Browser._setup_user_provided_browser and Browser._setup_builtin_browser use the selected value.",
+        "The _init source snippet identifies it as browser-session initialization and calls _setup_browser; established call edges then connect _setup_browser to both changed setup methods."
+      ],
+      "distance": 0,
+      "evidence_strength": "medium",
+      "status": "inferred",
+      "reason": "Library consumers cross the BrowserConfig callable surface to select the Chrome debugging port that the browser startup paths use for probing, connecting, and launching.",
+      "uncertainty": "No supplied production caller explicitly passes the new custom-port option, and the exact structural edge by which BrowserConfig stores and exposes that value to the setup methods is not shown.",
+      "llm_confidence": 0.84
+    }
+  ],
+  "composed_dispatch_edges": [],
+  "run_metrics": {
+    "llm_by_purpose": {
+      "pr_semantic_analysis": {
+        "calls": 1,
+        "errors": 0,
+        "input_tokens": 5632,
+        "output_tokens": 4579,
+        "reasoning_tokens": 2560,
+        "models": [
+          "gpt-5.6-sol"
+        ]
+      },
+      "route_discovery": {
+        "calls": 1,
+        "errors": 0,
+        "input_tokens": 9740,
+        "output_tokens": 48,
+        "reasoning_tokens": 0,
+        "models": [
+          "gpt-5.6-sol"
+        ]
+      },
+      "impact_guide": {
+        "calls": 7,
+        "errors": 0,
+        "input_tokens": 20480,
+        "output_tokens": 1586,
+        "reasoning_tokens": 941,
+        "models": [
+          "gpt-5.6-sol"
+        ]
+      },
+      "boundary_reasoning": {
+        "calls": 1,
+        "errors": 0,
+        "input_tokens": 3074,
+        "output_tokens": 1505,
+        "reasoning_tokens": 1198,
+        "models": [
+          "gpt-5.6-sol"
+        ]
+      },
+      "investigator": {
+        "calls": 16,
+        "errors": 0,
+        "input_tokens": 49378,
+        "output_tokens": 11286,
+        "reasoning_tokens": 8231,
+        "models": [
+          "gpt-5.6-sol"
+        ]
+      },
+      "ai_recovery": {
+        "calls": 14,
+        "errors": 0,
+        "input_tokens": 40292,
+        "output_tokens": 1086,
+        "reasoning_tokens": 350,
+        "models": [
+          "gpt-5.6-sol"
+        ]
+      }
+    },
+    "llm_totals": {
+      "calls": 40,
+      "errors": 0,
+      "input_tokens": 128596,
+      "output_tokens": 20090,
+      "reasoning_tokens": 13280
+    },
+    "cbm": {
+      "calls": 47,
+      "errors": 0,
+      "by_operation": {
+        "index_repository": 4,
+        "query_graph": 13,
+        "search_graph": 5,
+        "get_graph_schema": 1,
+        "search_code": 24
+      },
+      "enrichment_requests": 27
+    },
+    "wall_seconds": 398.1,
+    "tests": {
+      "environments": [
+        "owner=none interpreter=none reason=test execution unavailable: no runnable target-project environment found (uv project with no synced `.venv`; Sydes does not create or install environments)"
+      ],
+      "mapped_executions": 0,
+      "mapped_outcomes": {},
+      "ci_suite": {
+        "status": "unknown",
+        "blocker": "runner_missing",
+        "passed": null,
+        "failed": null
+      }
+    }
+  },
+  "framework_boundary_candidates": [
+    {
+      "category": "callback_registration",
+      "status": "unresolved",
+      "source_symbol": "?",
+      "via": "?",
+      "targets": [
+        "Agent.__init__"
+      ],
+      "message_type": null,
+      "facts": [
+        {
+          "provenance": "cbm_entrypoint",
+          "fact": "Agent.__init__ is a reached entrypoint with decorator metadata and no route",
+          "file": "browser_use/agent/service.py",
+          "line": null
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "5.run_agent calls Agent",
+          "file": "eval/claude-3.5.py",
+          "line": 17
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "6.run_agent calls Agent",
+          "file": "eval/claude-3.6.py",
+          "line": 17
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "7.run_agent calls Agent",
+          "file": "eval/claude-3.7.py",
+          "line": 17
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "deepseek-r1.run_agent calls Agent",
+          "file": "eval/deepseek-r1.py",
+          "line": 23
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "deepseek.run_agent calls Agent",
+          "file": "eval/deepseek.py",
+          "line": 23
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "5-flash.run_agent calls Agent",
+          "file": "eval/gemini-1.5-flash.py",
+          "line": 19
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "0-flash.run_agent calls Agent",
+          "file": "eval/gemini-2.0-flash.py",
+          "line": 19
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "5-preview.run_agent calls Agent",
+          "file": "eval/gemini-2.5-preview.py",
+          "line": 19
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "1.run_agent calls Agent",
+          "file": "eval/gpt-4.1.py",
+          "line": 15
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "gpt-4o-no-boundingbox.run_agent calls Agent",
+          "file": "eval/gpt-4o-no-boundingbox.py",
+          "line": 18
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "gpt-4o-no-vision.run_agent calls Agent",
+          "file": "eval/gpt-4o-no-vision.py",
+          "line": 15
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "gpt-4o-viewport-0.run_agent calls Agent",
+          "file": "eval/gpt-4o-viewport-0.py",
+          "line": 18
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "gpt-4o.run_agent calls Agent",
+          "file": "eval/gpt-4o.py",
+          "line": 15
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "grok.run_agent calls Agent",
+          "file": "eval/grok.py",
+          "line": 18
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "service.run_agent_with_tracing calls Agent",
+          "file": "eval/service.py",
+          "line": 547
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "real_browser.main calls Agent",
+          "file": "examples/browser/real_browser.py",
+          "line": 23
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "stealth.main calls Agent",
+          "file": "examples/browser/stealth.py",
+          "line": 36
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "using_cdp.main calls Agent",
+          "file": "examples/browser/using_cdp.py",
+          "line": 46
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "action_filters.main calls Agent",
+          "file": "examples/custom-functions/action_filters.py",
+          "line": 67
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "advanced_search.main calls Agent",
+          "file": "examples/custom-functions/advanced_search.py",
+          "line": 84
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "clipboard.main calls Agent",
+          "file": "examples/custom-functions/clipboard.py",
+          "line": 43
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "custom-functions.custom_hooks_before_after_step calls Agent",
+          "file": "examples/custom-functions/custom_hooks_before_after_step.py",
+          "line": 219
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "file_upload.main calls Agent",
+          "file": "examples/custom-functions/file_upload.py",
+          "line": 94
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "group_ungroup.main calls Agent",
+          "file": "examples/custom-functions/group_ungroup.py",
+          "line": 93
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "hover_element.main calls Agent",
+          "file": "examples/custom-functions/hover_element.py",
+          "line": 82
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "notification.main calls Agent",
+          "file": "examples/custom-functions/notification.py",
+          "line": 39
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "onepassword_2fa.main calls Agent",
+          "file": "examples/custom-functions/onepassword_2fa.py",
+          "line": 49
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "save_to_file_hugging_face.main calls Agent",
+          "file": "examples/custom-functions/save_to_file_hugging_face.py",
+          "line": 42
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "click_fallback_options.main calls Agent",
+          "file": "examples/features/click_fallback_options.py",
+          "line": 192
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "cross_origin_iframes.main calls Agent",
+          "file": "examples/features/cross_origin_iframes.py",
+          "line": 34
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "custom_output.main calls Agent",
+          "file": "examples/features/custom_output.py",
+          "line": 41
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "custom_system_prompt.main calls Agent",
+          "file": "examples/features/custom_system_prompt.py",
+          "line": 23
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "features.custom_user_agent calls Agent",
+          "file": "examples/features/custom_user_agent.py",
+          "line": 58
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "download_file.run_download calls Agent",
+          "file": "examples/features/download_file.py",
+          "line": 25
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "drag_drop.run_search calls Agent",
+          "file": "examples/features/drag_drop.py",
+          "line": 35
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "features.follow_up_tasks calls Agent",
+          "file": "examples/features/follow_up_tasks.py",
+          "line": 30
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "features.initial_actions calls Agent",
+          "file": "examples/features/initial_actions.py",
+          "line": 14
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "features.multi-tab_handling calls Agent",
+          "file": "examples/features/multi-tab_handling.py",
+          "line": 20
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "multiple_agents_same_browser.main calls Agent",
+          "file": "examples/features/multiple_agents_same_browser.py",
+          "line": 52
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "outsource_state.main calls Agent",
+          "file": "examples/features/outsource_state.py",
+          "line": 41
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "parallel_agents.main calls Agent",
+          "file": "examples/features/parallel_agents.py",
+          "line": 25
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "AgentController.__init__ calls Agent",
+          "file": "examples/features/pause_agent.py",
+          "line": 21
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "features.planner calls Agent",
+          "file": "examples/features/planner.py",
+          "line": 14
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "features.restrict_urls calls Agent",
+          "file": "examples/features/restrict_urls.py",
+          "line": 30
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "result_processing.main calls Agent",
+          "file": "examples/features/result_processing.py",
+          "line": 32
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "save_trace.main calls Agent",
+          "file": "examples/features/save_trace.py",
+          "line": 20
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "features.sensitive_data calls Agent",
+          "file": "examples/features/sensitive_data.py",
+          "line": 19
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "features.small_model_for_extraction calls Agent",
+          "file": "examples/features/small_model_for_extraction.py",
+          "line": 13
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "task_with_memory.main calls Agent",
+          "file": "examples/features/task_with_memory.py",
+          "line": 75
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "validate_output.main calls Agent",
+          "file": "examples/features/validate_output.py",
+          "line": 43
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "DiscordBot.run_agent calls Agent",
+          "file": "examples/integrations/discord/discord_api.py",
+          "line": 104
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "SlackBot.run_agent calls Agent",
+          "file": "examples/integrations/slack/slack_api.py",
+          "line": 81
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "_ollama.run_search calls Agent",
+          "file": "examples/models/_ollama.py",
+          "line": 18
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "models.azure_openai calls Agent",
+          "file": "examples/models/azure_openai.py",
+          "line": 38
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "models.bedrock_claude calls Agent",
+          "file": "examples/models/bedrock_claude.py",
+          "line": 55
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "claude-3.7-sonnet calls Agent",
+          "file": "examples/models/claude-3.7-sonnet.py",
+          "line": 23
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "deepseek-r1.run_search calls Agent",
+          "file": "examples/models/deepseek-r1.py",
+          "line": 19
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "deepseek.run_search calls Agent",
+          "file": "examples/models/deepseek.py",
+          "line": 19
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "gemini.run_search calls Agent",
+          "file": "examples/models/gemini.py",
+          "line": 29
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "models.gpt-4o calls Agent",
+          "file": "examples/models/gpt-4o.py",
+          "line": 19
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "grok.run_search calls Agent",
+          "file": "examples/models/grok.py",
+          "line": 19
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "novita.run_search calls Agent",
+          "file": "examples/models/novita.py",
+          "line": 25
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "qwen.run_search calls Agent",
+          "file": "examples/models/qwen.py",
+          "line": 9
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "examples.simple calls Agent",
+          "file": "examples/simple.py",
+          "line": 22
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "command_line.initialize_agent calls Agent",
+          "file": "examples/ui/command_line.py",
+          "line": 76
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "gradio_demo.run_browser_task calls Agent",
+          "file": "examples/ui/gradio_demo.py",
+          "line": 65
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "streamlit_demo.initialize_agent calls Agent",
+          "file": "examples/ui/streamlit_demo.py",
+          "line": 60
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "captcha.main calls Agent",
+          "file": "examples/use-cases/captcha.py",
+          "line": 31
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "check_appointment.main calls Agent",
+          "file": "examples/use-cases/check_appointment.py",
+          "line": 42
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "find_and_apply_to_jobs.main calls Agent",
+          "file": "examples/use-cases/find_and_apply_to_jobs.py",
+          "line": 153
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "find_influencer_profiles.main calls Agent",
+          "file": "examples/use-cases/find_influencer_profiles.py",
+          "line": 75
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "google_sheets.main calls Agent",
+          "file": "examples/use-cases/google_sheets.py",
+          "line": 179
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "online_coding_agent.main calls Agent",
+          "file": "examples/use-cases/online_coding_agent.py",
+          "line": 26
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "post-twitter.create_twitter_agent calls Agent",
+          "file": "examples/use-cases/post-twitter.py",
+          "line": 84
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "use-cases.scrolling_page calls Agent",
+          "file": "examples/use-cases/scrolling_page.py",
+          "line": 29
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "use-cases.shopping calls Agent",
+          "file": "examples/use-cases/shopping.py",
+          "line": 109
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "twitter_post_using_cookies.main calls Agent",
+          "file": "examples/use-cases/twitter_post_using_cookies.py",
+          "line": 32
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "web_voyager_agent.main calls Agent",
+          "file": "examples/use-cases/web_voyager_agent.py",
+          "line": 63
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "use-cases.wikipedia_banana_to_quantum calls Agent",
+          "file": "examples/use-cases/wikipedia_banana_to_quantum.py",
+          "line": 26
+        },
+        {
+          "provenance": "cbm_configures",
+          "fact": "CBM records no CONFIGURES relation for Agent (CBM emits CONFIGURES for configuration keys and environment access, not registrations)",
+          "file": null,
+          "line": null
+        },
+        {
+          "provenance": "cbm_decorator",
+          "fact": "ActionResult is decorated @dataclass (DECORATES)",
+          "file": "examples/ui/gradio_demo.py",
+          "line": null
+        },
+        {
+          "provenance": "cbm_decorator",
+          "fact": "AgentHistoryList is decorated @dataclass (DECORATES)",
+          "file": "examples/ui/gradio_demo.py",
+          "line": null
+        },
+        {
+          "provenance": "cbm_decorator",
+          "fact": "TwitterConfig is decorated @dataclass (DECORATES)",
+          "file": "examples/use-cases/post-twitter.py",
+          "line": null
+        }
+      ],
+      "checks": {},
+      "missing": [
+        "no repository code that hands Agent to the framework was found"
+      ],
+      "runtime_needed": null,
+      "resolved_by": null,
+      "queries": 27
+    },
+    {
+      "category": "callback_registration",
+      "status": "unresolved",
+      "source_symbol": "Agent",
+      "via": "info('🌎 Restarting/reconnecting to browser...')",
+      "targets": [
+        "Browser._init"
+      ],
+      "message_type": null,
+      "facts": [
+        {
+          "provenance": "cbm_entrypoint",
+          "fact": "Browser._init is a reached entrypoint with decorator metadata and no route",
+          "file": "browser_use/browser/browser.py",
+          "line": null
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "Agent.__init__ calls Browser",
+          "file": "browser_use/agent/service.py",
+          "line": 283
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "5.run_agent calls Browser",
+          "file": "eval/claude-3.5.py",
+          "line": 10
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "6.run_agent calls Browser",
+          "file": "eval/claude-3.6.py",
+          "line": 10
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "7.run_agent calls Browser",
+          "file": "eval/claude-3.7.py",
+          "line": 10
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "deepseek-r1.run_agent calls Browser",
+          "file": "eval/deepseek-r1.py",
+          "line": 17
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "deepseek.run_agent calls Browser",
+          "file": "eval/deepseek.py",
+          "line": 17
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "5-flash.run_agent calls Browser",
+          "file": "eval/gemini-1.5-flash.py",
+          "line": 17
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "0-flash.run_agent calls Browser",
+          "file": "eval/gemini-2.0-flash.py",
+          "line": 17
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "5-preview.run_agent calls Browser",
+          "file": "eval/gemini-2.5-preview.py",
+          "line": 17
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "1.run_agent calls Browser",
+          "file": "eval/gpt-4.1.py",
+          "line": 10
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "gpt-4o-no-boundingbox.run_agent calls Browser",
+          "file": "eval/gpt-4o-no-boundingbox.py",
+          "line": 12
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "gpt-4o-no-vision.run_agent calls Browser",
+          "file": "eval/gpt-4o-no-vision.py",
+          "line": 10
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "gpt-4o-viewport-0.run_agent calls Browser",
+          "file": "eval/gpt-4o-viewport-0.py",
+          "line": 12
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "gpt-4o.run_agent calls Browser",
+          "file": "eval/gpt-4o.py",
+          "line": 10
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "grok.run_agent calls Browser",
+          "file": "eval/grok.py",
+          "line": 17
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "service.run_agent_with_tracing calls Browser",
+          "file": "eval/service.py",
+          "line": 545
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "service.run_task_with_semaphore calls Browser",
+          "file": "eval/service.py",
+          "line": 802
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "browser.real_browser calls Browser",
+          "file": "examples/browser/real_browser.py",
+          "line": 14
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "browser.stealth calls Browser",
+          "file": "examples/browser/stealth.py",
+          "line": 12
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "browser.using_cdp calls Browser",
+          "file": "examples/browser/using_cdp.py",
+          "line": 33
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "action_filters.main calls Browser",
+          "file": "examples/custom-functions/action_filters.py",
+          "line": 63
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "custom-functions.clipboard calls Browser",
+          "file": "examples/custom-functions/clipboard.py",
+          "line": 16
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "custom-functions.file_upload calls Browser",
+          "file": "examples/custom-functions/file_upload.py",
+          "line": 22
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "custom-functions.group_ungroup calls Browser",
+          "file": "examples/custom-functions/group_ungroup.py",
+          "line": 51
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "custom-functions.hover_element calls Browser",
+          "file": "examples/custom-functions/hover_element.py",
+          "line": 25
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "features.cross_origin_iframes calls Browser",
+          "file": "examples/features/cross_origin_iframes.py",
+          "line": 25
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "features.custom_user_agent calls Browser",
+          "file": "examples/features/custom_user_agent.py",
+          "line": 50
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "features.download_file calls Browser",
+          "file": "examples/features/download_file.py",
+          "line": 17
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "features.follow_up_tasks calls Browser",
+          "file": "examples/features/follow_up_tasks.py",
+          "line": 16
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "multiple_agents_same_browser.main calls Browser",
+          "file": "examples/features/multiple_agents_same_browser.py",
+          "line": 17
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "outsource_state.main calls Browser",
+          "file": "examples/features/outsource_state.py",
+          "line": 30
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "features.parallel_agents calls Browser",
+          "file": "examples/features/parallel_agents.py",
+          "line": 13
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "features.restrict_urls calls Browser",
+          "file": "examples/features/restrict_urls.py",
+          "line": 21
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "features.result_processing calls Browser",
+          "file": "examples/features/result_processing.py",
+          "line": 16
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "save_trace.main calls Browser",
+          "file": "examples/features/save_trace.py",
+          "line": 17
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "task_with_memory.main calls Browser",
+          "file": "examples/features/task_with_memory.py",
+          "line": 73
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "DiscordBot.run_agent calls Browser",
+          "file": "examples/integrations/discord/discord_api.py",
+          "line": 103
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "SlackBot.run_agent calls Browser",
+          "file": "examples/integrations/slack/slack_api.py",
+          "line": 80
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "models.bedrock_claude calls Browser",
+          "file": "examples/models/bedrock_claude.py",
+          "line": 49
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "models.gemini calls Browser",
+          "file": "examples/models/gemini.py",
+          "line": 19
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "command_line.initialize_agent calls Browser",
+          "file": "examples/ui/command_line.py",
+          "line": 74
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "streamlit_demo.initialize_agent calls Browser",
+          "file": "examples/ui/streamlit_demo.py",
+          "line": 58
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "use-cases.find_and_apply_to_jobs calls Browser",
+          "file": "examples/use-cases/find_and_apply_to_jobs.py",
+          "line": 111
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "use-cases.google_sheets calls Browser",
+          "file": "examples/use-cases/google_sheets.py",
+          "line": 16
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "online_coding_agent.main calls Browser",
+          "file": "examples/use-cases/online_coding_agent.py",
+          "line": 21
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "post-twitter.create_twitter_agent calls Browser",
+          "file": "examples/use-cases/post-twitter.py",
+          "line": 71
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "use-cases.scrolling_page calls Browser",
+          "file": "examples/use-cases/scrolling_page.py",
+          "line": 33
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "use-cases.shopping calls Browser",
+          "file": "examples/use-cases/shopping.py",
+          "line": 107
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "use-cases.twitter_post_using_cookies calls Browser",
+          "file": "examples/use-cases/twitter_post_using_cookies.py",
+          "line": 22
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "use-cases.web_voyager_agent calls Browser",
+          "file": "examples/use-cases/web_voyager_agent.py",
+          "line": 37
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "use-cases.wikipedia_banana_to_quantum calls Browser",
+          "file": "examples/use-cases/wikipedia_banana_to_quantum.py",
+          "line": 18
+        },
+        {
+          "provenance": "cbm_configures",
+          "fact": "CBM records no CONFIGURES relation for Browser (CBM emits CONFIGURES for configuration keys and environment access, not registrations)",
+          "file": null,
+          "line": null
+        },
+        {
+          "provenance": "source_fallback",
+          "fact": "Agent passes Browser to logger.info('🌎 Restarting/reconnecting to browser...') (CBM source search unavailable)",
+          "file": "browser_use/agent/service.py",
+          "line": 1169
+        }
+      ],
+      "checks": {},
+      "missing": [
+        "the framework's invocation of Browser._init (lifecycle, not a call in the source)"
+      ],
+      "runtime_needed": "Browser._init invoked by the framework after Agent registers it",
+      "resolved_by": null,
+      "queries": 27
+    }
+  ],
+  "affected_flows": [],
+  "unresolved_changed_symbols": 2,
+  "unresolved_changed_symbol_names": [
+    "CHROME_ARGS",
+    "CHROME_DEBUGGING_ARG"
+  ],
+  "analysis_status": "partial",
+  "analysis_notes": [
+    "Structural exploration was bounded for this change (calls hop 2 filled a full page); boundaries beyond the explored neighborhood are not established either way.",
+    "2 changed symbol(s) have no established impact path to any entrypoint (an AI-inferred candidate may still exist for one — see AFFECTED BEHAVIOR — but that is not the same as resolved impact coverage).",
+    "No discovered route declaration reaches the changed symbols."
+  ],
+  "test_executions": [],
+  "ci_suite": {
+    "command": [],
+    "source": "",
+    "working_dir": ".",
+    "framework": "",
+    "status": "unknown",
+    "blocker": "runner_missing",
+    "reason": "test execution unavailable: no runnable target-project environment found (uv project with no synced `.venv`; Sydes does not create or install environments)",
+    "exit_code": null,
+    "duration_ms": null,
+    "tests_passed": null,
+    "tests_failed": null,
+    "summary_line": null,
+    "failed_test_ids": [],
+    "stdout_excerpt": null,
+    "stderr_excerpt": null,
+    "output_truncated": false,
+    "evidence": []
+  },
+  "verification_gaps": [],
+  "runtime_dependencies": [
+    {
+      "id": "runtime:http_service:azure-openai-service",
+      "name": "Azure Openai service",
+      "kind": "http_service",
+      "repo": "app",
+      "required_for_flow_ids": [],
+      "detected_from": [
+        {
+          "file": ".env.example",
+          "symbol": "AZURE_OPENAI_ENDPOINT",
+          "label": "env_var",
+          "snippet": "AZURE_OPENAI_ENDPOINT="
+        }
+      ],
+      "scope": "repository"
+    },
+    {
+      "id": "runtime:object_store:aws-services",
+      "name": "AWS services",
+      "kind": "object_store",
+      "repo": "app",
+      "required_for_flow_ids": [],
+      "detected_from": [
+        {
+          "file": "examples/models/bedrock_claude.py",
+          "symbol": null,
+          "label": "client_import",
+          "snippet": "import boto3"
+        }
+      ],
+      "scope": "repository"
+    }
+  ],
+  "cross_repo_impacts": [],
+  "notes": [
+    "test_execution=whole_suite_fallback reason=no_mapped_tests",
+    "AI recovery (experimental, provenance=ai_recovery, run-local, not merged into structural results): path recovery could not establish a source-backed path beyond the first pass; test recovery recovered no verified tests.",
+    "Saved change verification artifact: /Users/ksnaik/.sydes/workspaces/9008eb0adcb56148/artifacts/20261026T150835Z-db7860c5/change_verification.json"
+  ],
+  "diagnostics": [
+    "code_intelligence_effective_backend=cbm selected_by=default",
+    "code_intelligence_backend=cbm transport=persistent_mcp_stdio cbm_server_version=0.11.0 cbm_executable=/Users/ksnaik/.cache/uv/archive-v0/qjq2WVkR8Mwv6VtFhJ9Dm/bin/codebase-memory-mcp",
+    "cbm_session_start_ms=1335.9 cbm_calls=10 cbm_mean_call_ms=355.7",
+    "cbm_index_ms=3434.8 cbm_query_ms=125.6 sydes_route_semantics_ms=20.5 total_ms=4917.7",
+    "cbm_supplied=symbols,spans,imports,exports,call_edges,usage_edges,entrypoints  sydes_semantics=route_index,route_graph,repo_map",
+    "route_derived_entrypoints_added=0",
+    "cbm_gap: route composition is computed by Sydes, not CBM: CBM reports uncomposed route paths and models no persistence sinks",
+    "cbm_gap: CALLS/USAGE edges deferred: they are fetched as a bounded neighborhood around the changed symbols instead of a repository-wide sweep",
+    "app: cbm_index_mode retried fast->full (1 changed file(s) under an excluded directory; see trace for detail)",
+    "handler_symbol_index: exports=890, files_indexed=155, imports=526, symbols=1007",
+    "pr_semantic_analysis_prompt_chars=21453",
+    "reverse_reach_candidate_files=117",
+    "app: deterministic_routes_found=0, deterministic_frameworks=none",
+    "app: discovery_coverage=unknown score=0.2",
+    "app: discovery_coverage_reasons=insufficient route index/graph signals",
+    "app: route_graph_containers=0, route_graph_declarations=0, route_graph_mount_edges=0, route_graph_composed_routes=0, route_graph_unresolved_mounts=0",
+    "app: deterministic_routes=0, llm_routes=0, merged_routes=0, rejected_routes=0, final_routes=0",
+    "app: merged_llm_routes=0",
+    "graph_slice_seeds: changed=8 routes=0 dropped_auxiliary=0 total=8",
+    "graph_slice: used=True seeds=8 canonical_seeds=8 unresolved_seeds=0 unresolved_changed=0 unresolved_auxiliary=0 graph_calls=4 nodes=397 call_edges=510 usage_edges=201 truncated=True fell_back=False",
+    "impact_interpreter: affected_entrypoints=5, ambiguous_edges=0, boundary_budget_exhausted=False, boundary_emitted=0, boundary_expansions=40, boundary_frontier_considered=40, boundary_rejected_weak_evidence=0, call_edges=510, changed_symbols=7, evidence_confirmed=0, guide_actions={'infer_impact': 3, 'inspect_source_span': 1, 'stop_unresolved': 1, 'trace_usages': 1, 'inspect_nearby_entrypoints': 1}, guide_budget_exhausted=False, guide_calls=7, guide_error_details=[], guide_errors=0, guide_latency_ms=35955.83258289844, guide_no_progress=0, guide_triggered=True, http_entrypoints=0, known_entrypoints=228, llm_candidates=2, llm_candidates_accepted=2, llm_candidates_corroborated=0, llm_candidates_missing_reason=0, llm_candidates_self_referential=0, llm_candidates_uncorroborated=2, llm_candidates_ungrounded=0, llm_candidates_whole_change_unanchored=0, llm_new_entrypoints=2, llm_no_candidate_turns=1, unresolved_after=2, unresolved_before=2, unresolved_symbols=2, usage_edges=201",
+    "repo_profile: rebuilt (1 package(s), 0 framework(s))",
+    "boundary_reasoning: candidates=6 inferred=1",
+    "app: test_files_found=28",
+    "app: test_cases_found=74",
+    "changed_test_cases_found: ['tests/test_browser.py::test_user_provided_browser_launch', 'tests/test_browser.py::test_user_provided_browser_launch_on_custom_chrome_remote_debugging_port']",
+    "test_frameworks_detected=pytest",
+    "test_environment=pytest owner=none interpreter=none reason=test execution unavailable: no runnable target-project environment found (uv project with no synced `.venv`; Sydes does not create or install environments)",
+    "ci_suite=unresolved reason=test execution unavailable: no runnable target-project environment found (uv project with no synced `.venv`; Sydes does not create or install environments)",
+    "structural_enrichment: triggered=[callback_registration: 2 callback entrypoint(s); route_container_registration: 2 unresolved changed symbol(s)] cbm_requests=27 (relations:2,schema:1,search:24) cache_hits=(relations:1) errors=0 truncated=0 families=[CALLS,DECORATES,search_code] candidates=2 unresolved=2",
+    "structural_enrichment: source search budget (24) reached; `Agent` not looked up",
+    "structural_enrichment: source search budget (24) reached; `Agent` not looked up",
+    "structural_enrichment: source search budget (24) reached; `Agent` not looked up",
+    "structural_enrichment: source search budget (24) reached; `Agent` not looked up",
+    "structural_enrichment: source search budget (24) reached; `Agent` not looked up",
+    "structural_enrichment: source search budget (24) reached; `Agent` not looked up",
+    "structural_enrichment: source search budget (24) reached; `Agent` not looked up",
+    "structural_enrichment: source search budget (24) reached; `Agent` not looked up",
+    "structural_enrichment: source search budget (24) reached; `Agent` not looked up",
+    "structural_enrichment: source search budget (24) reached; `Agent` not looked up",
+    "structural_enrichment: source search budget (24) reached; `Agent` not looked up",
+    "structural_enrichment: source search budget (24) reached; `Agent` not looked up",
+    "structural_enrichment: source search budget (24) reached; `Agent` not looked up",
+    "structural_enrichment: source search budget (24) reached; `Agent` not looked up",
+    "structural_enrichment: source search budget (24) reached; `Agent` not looked up",
+    "structural_enrichment: source search budget (24) reached; `Agent` not looked up",
+    "structural_enrichment: source search budget (24) reached; `Agent` not looked up",
+    "structural_enrichment: source search budget (24) reached; `Agent` not looked up",
+    "structural_enrichment: source search budget (24) reached; `Agent` not looked up",
+    "structural_enrichment: source search budget (24) reached; `Agent` not looked up",
+    "structural_enrichment: source search budget (24) reached; `Agent` not looked up",
+    "structural_enrichment: source search budget (24) reached; `Agent` not looked up",
+    "structural_enrichment: source search budget (24) reached; `Agent` not looked up",
+    "structural_enrichment: source search budget (24) reached; `Agent` not looked up",
+    "structural_enrichment: source search budget (24) reached; `Agent` not looked up",
+    "structural_enrichment: source search budget (24) reached; `Agent` not looked up",
+    "structural_enrichment: source search budget (24) reached; `Agent` not looked up",
+    "structural_enrichment: source search budget (24) reached; `Agent` not looked up",
+    "structural_enrichment: source search budget (24) reached; `Agent` not looked up",
+    "structural_enrichment: source search budget (24) reached; `Agent` not looked up",
+    "structural_enrichment: source search budget (24) reached; `Agent` not looked up",
+    "structural_enrichment: source search budget (24) reached; `Agent` not looked up",
+    "structural_enrichment: source search budget (24) reached; `Agent` not looked up",
+    "structural_enrichment: source search budget (24) reached; `Agent` not looked up",
+    "structural_enrichment: source search budget (24) reached; `Agent` not looked up",
+    "structural_enrichment: source search budget (24) reached; `Agent` not looked up",
+    "structural_enrichment: source search budget (24) reached; `Agent` not looked up",
+    "structural_enrichment: source search budget (24) reached; `Agent` not looked up",
+    "structural_enrichment: source search budget (24) reached; `Agent` not looked up",
+    "structural_enrichment: source search budget (24) reached; `Agent` not looked up",
+    "structural_enrichment: source search budget (24) reached; `Agent` not looked up",
+    "structural_enrichment: source search budget (24) reached; `Agent` not looked up",
+    "structural_enrichment: source search budget (24) reached; `Agent` not looked up",
+    "structural_enrichment: source search budget (24) reached; `Agent` not looked up",
+    "structural_enrichment: source search budget (24) reached; `Agent` not looked up",
+    "structural_enrichment: source search budget (24) reached; `Agent` not looked up",
+    "structural_enrichment: source search budget (24) reached; `Agent` not looked up",
+    "structural_enrichment: source search budget (24) reached; `Agent` not looked up",
+    "structural_enrichment: source search budget (24) reached; `Agent` not looked up",
+    "structural_enrichment: source search budget (24) reached; `Agent` not looked up",
+    "structural_enrichment: source search budget (24) reached; `Agent` not looked up",
+    "structural_enrichment: source search budget (24) reached; `Agent` not looked up",
+    "structural_enrichment: source search budget (24) reached; `Agent` not looked up",
+    "structural_enrichment: source search budget (24) reached; `Agent` not looked up",
+    "structural_enrichment: source search budget (24) reached; `Agent` not looked up",
+    "structural_enrichment: source search budget (24) reached; `Browser` not looked up",
+    "code_review_context_added: browser_use/browser/utils/screen_resolution.py:get_window_adjustments -- _setup_builtin_browser calls get_window_adjustments at browser_use/browser/browser.py:274 (3 line(s) from a changed line)",
+    "code_review_context_added: browser_use/agent/views.py:ActionResult -- read_file constructs ActionResult at examples/custom-functions/file_upload.py:77 (4 line(s) from a changed line)",
+    "code_review_context_added: browser_use/browser/utils/screen_resolution.py:get_screen_resolution -- _setup_builtin_browser calls get_screen_resolution at browser_use/browser/browser.py:273 (4 line(s) from a changed line)",
+    "code_review_context_added: browser_use/agent/service.py:__init__ -- __init__ calls the changed _verify_llm_connection",
+    "code_review_context_added: browser_use/browser/browser.py:__init__ -- __init__ calls the changed BrowserConfig",
+    "code_review_context_added: eval/service.py:run_task_with_semaphore -- run_task_with_semaphore calls the changed BrowserConfig",
+    "code_review_context_related=6",
+    "code_review_questions=10",
+    "investigator: hypotheses=3 lookups=12/12 confirmed=1 refuted=0 unknown=2 findings=1 llm_calls=16 errors=0",
+    "investigation_artifact=/Users/ksnaik/StudioProjects/sydes/benchmarks/aacr/results/investigator-b9391e5-first11-r1-2026-10-26/sydes/browser-use__browser-use@0b21e50.investigation.json",
+    "run_metrics: wall_seconds=398.1 llm_calls=40 (ai_recovery:14,boundary_reasoning:1,impact_guide:7,investigator:16,pr_semantic_analysis:1,route_discovery:1) llm_errors=0 input_tokens=128596 output_tokens=20090 estimated_cost_usd=unavailable (set SYDES_LLM_PRICE_PER_MTOK) cbm_requests=47 cbm_enrichment_requests=27 test_executions=0 test_outcomes={}"
+  ],
+  "behavioral": null,
+  "known_routes": [],
+  "unattached_evidence": []
+}

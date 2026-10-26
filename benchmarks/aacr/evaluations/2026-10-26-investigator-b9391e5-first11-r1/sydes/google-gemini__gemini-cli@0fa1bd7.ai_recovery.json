@@ -1,0 +1,104 @@
+{
+  "path_recovery": {
+    "status": "established",
+    "paths": [
+      {
+        "entrypoint": "gemini CLI invocation",
+        "target_node": "loadSettings",
+        "status": "established",
+        "root_boundary_status": "candidate_boundary",
+        "nodes": [
+          {
+            "symbol": "main",
+            "file": "packages/cli/src/gemini.tsx",
+            "qualified_name": "packages.cli.src.gemini.main"
+          },
+          {
+            "symbol": "loadSettings",
+            "file": "packages/cli/src/config/settings.ts",
+            "qualified_name": "packages.cli.src.config.settings.loadSettings"
+          }
+        ],
+        "edges": [
+          {
+            "from": {
+              "symbol": "main",
+              "file": "packages/cli/src/gemini.tsx",
+              "qualified_name": "packages.cli.src.gemini.main"
+            },
+            "to": {
+              "symbol": "loadSettings",
+              "file": "packages/cli/src/config/settings.ts",
+              "qualified_name": "packages.cli.src.config.settings.loadSettings"
+            },
+            "relationship": "main calls loadSettings directly (code graph CALLS edge)",
+            "evidence": [
+              {
+                "file": "packages/cli/src/gemini.tsx",
+                "line_start": 205,
+                "line_end": 205,
+                "fact": "main calls loadSettings at this line"
+              }
+            ],
+            "status": "established",
+            "provenance": "explicit_relation",
+            "rejection_reason": null,
+            "from_decomposition": false
+          }
+        ],
+        "unresolved_suffix": []
+      }
+    ],
+    "corrected_first_pass_claims": [],
+    "unresolved": []
+  },
+  "test_recovery": {
+    "status": "established",
+    "tests": [
+      {
+        "file": "packages/cli/src/utils/commentJson.test.ts",
+        "test": "updateSettingsFilePreservingFormat test suite",
+        "covers": "The suite directly invokes updateSettingsFilePreservingFormat on temporary settings files and asserts that comments and existing structure are preserved, nested and new properties are safely updated, missing files are created, and resolved environment-variable values are restored to their original references.",
+        "target": {
+          "symbol": "updateSettingsFilePreservingFormat",
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "qualified_name": null
+        },
+        "evidence": [
+          {
+            "file": "packages/cli/src/utils/commentJson.test.ts",
+            "line_start": 46,
+            "line_end": 55,
+            "fact": "The test calls the imported updateSettingsFilePreservingFormat and asserts the model changes while comments and an unchanged nested property remain."
+          },
+          {
+            "file": "packages/cli/src/utils/commentJson.test.ts",
+            "line_start": 71,
+            "line_end": 95,
+            "fact": "The environment-variable test supplies a mapping to updateSettingsFilePreservingFormat and asserts that $API_KEY is restored while the resolved secret is absent."
+          },
+          {
+            "file": "packages/cli/src/utils/commentJson.test.ts",
+            "line_start": 108,
+            "line_end": 117,
+            "fact": "The nested-update test directly calls the target and asserts the nested theme update and preservation of showLineNumbers."
+          },
+          {
+            "file": "packages/cli/src/utils/commentJson.test.ts",
+            "line_start": 128,
+            "line_end": 135,
+            "fact": "The new-field test directly calls the target and asserts the new property is added without losing the existing comment."
+          },
+          {
+            "file": "packages/cli/src/utils/commentJson.test.ts",
+            "line_start": 138,
+            "line_end": 145,
+            "fact": "The missing-file test calls the target with a nonexistent path and asserts that it creates a file containing the requested setting."
+          }
+        ],
+        "status": "accepted",
+        "rejection_reason": null
+      }
+    ]
+  }
+}

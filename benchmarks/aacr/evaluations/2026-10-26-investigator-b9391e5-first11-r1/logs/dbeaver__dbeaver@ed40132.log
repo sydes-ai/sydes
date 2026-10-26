@@ -1,0 +1,115 @@
+AI recovery (experimental): triggered (a structural boundary was found but no complete route/entrypoint flow reaches it; the first pass reported route composition as unresolved in this repository; 1 changed symbol(s) reach no entrypoint the first pass found)
+AI recovery (experimental): path=unresolved test=unresolved turns=5 llm_calls=5 tokens=18852+289 edge_retries_attempted=0 edge_retries_succeeded=0 graph_paths_proposed=0 graph_paths_established=0 graph_paths_established_unverified_boundary=0 explicit_relation_edges=0
+Wrote AI recovery result: /Users/ksnaik/StudioProjects/sydes/benchmarks/aacr/results/investigator-b9391e5-first11-r1-2026-10-26/sydes/dbeaver__dbeaver@ed40132.ai_recovery.json
+SYDES VERIFICATION
+
+MEDIUM RISK · 7 AFFECTED BEHAVIORS
+
+Changed
+───────
+plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/struct/DBSObjectFilter.java:153 — DBSObjectFilter.matches
+plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/struct/DBSObjectFilter.java:194 — DBSObjectFilter.atLeastOneNameMatchesPattern
+
+CHANGE ANALYSIS (citations verified, indeterminate)
+───────────────────────────────────────────────────
+Cannot be established from this repository alone: depends on state only known at runtime (e.g. feature flags, request data).
+The mechanism is explicit, but a visible filtering difference occurs only when runtime tree data contains overloaded objects, a non-null filter is active, and the object's two names differ in how configured patterns match them. Those runtime values are not shown.
+
+Object filtering now supports multiple candidate names. Navigator tree loading supplies both the normal object name and overloaded name for overloaded database objects, allowing either name to satisfy an inclusion rule while a match on either name triggers an exclusion rule. The public filter method's Java signature also changes from a single String parameter to String varargs.
+
+Likely behavioral changes
+  • When a navigator child is an overloaded database object and a filter is active, its normal name and overloaded name are both considered. An inclusion pattern may match either name, while an exclusion pattern matching either name rejects the child. Non-overloaded children continue to be filtered using only their normal name.
+  • Callers of DBSObjectFilter.matches can now submit multiple candidate names in one call; each pattern is treated as matching when it matches at least one candidate name.
+
+Investigate
+  • Find all source and binary consumers of DBSObjectFilter.matches, especially consumers outside this plugin, and determine whether they are rebuilt together with this change.
+  • Trace how navigator filters are created and when loadTreeItems encounters DBPOverloadedObject instances, including the naming contracts implemented by those objects.
+  • Inspect implementations and contracts of DBPOverloadedObject.getOverloadedName and the complete matching implementation for null handling and naming formats.
+
+Uncertain
+  • The supplied context does not show every source caller of DBSObjectFilter.matches, so it is unknown whether other callers will supply multiple names or require adaptation.
+  • It is not established whether DBSObjectFilter.matches is a supported cross-plugin or third-party callable boundary whose binary compatibility must be maintained.
+  • The actual observable navigator change depends on an active filter and on loaded child data containing DBPOverloadedObject instances with names that produce different matching results.
+  • The nullability and formatting contract of DBPOverloadedObject.getOverloadedName is not supplied, so the practical null and normalization behavior cannot be established.
+  • The intended business rule for conflicts where inclusion matches one candidate name and exclusion matches another is not documented in the supplied context.
+
+System impact
+─────────────
+No structural propagation path was established.
+
+?
+  → ?: registers ERDContentProviderDefault
+  → [framework lifecycle unresolved]
+  → candidate: ERDContentProviderDefault.fillEntityFromObject
+
+?
+  → ?: registers DiagramCreator
+  → [framework lifecycle unresolved]
+  → candidate: DiagramCreator.run
+
+DatabricksMetaModel.loadSchemas
+  → add(new DatabricksSchema(dataSource, …): registers GenericCatalog
+  → [framework lifecycle unresolved]
+  → candidate: GenericCatalog.getSchemas
+  · CBM: direct relation DatabricksMetaModel.loadSchemas -USAGE-> model.GenericCatalog; CALLS path none within 5 hops
+
+DamengTableManager.addObjectRenameActions
+  → getQuotedIdentifier(dataSource, …): registers GenericDataSource
+  → [framework lifecycle unresolved]
+  → candidate: GenericDataSource.initialize
+  · CBM: direct relation DamengTableManager.addObjectRenameActions -USAGE-> model.GenericDataSource; CALLS path none within 5 hops
+
+?
+  → ?: registers PostgreStructureAssistant
+  → [framework lifecycle unresolved]
+  → candidate: PostgreStructureAssistant.findObjectsByMask
+
+?
+  → ?: registers GotoObjectDialog
+  → [framework lifecycle unresolved]
+  → candidate: GotoObjectDialog.fillContentProvider
+
+Inferred boundaries
+───────────────────
+INFERRED · callable/public_callable · Cross-component object-name filtering API
+    Callers in multiple components cross into the reusable DBSObjectFilter.matches callable whose Java signature and multi-name matching contract are changing.
+    Evidence: Changed production symbol DBSObjectFilter.matches changes from a single String parameter to String varargs.; Established call edge collectTables -> matches in plugins/org.jkiss.dbeaver.erd.model/src/org/jkiss/dbeaver/erd/model/DiagramObjectCollector.java:102.
+    Uncertain: The evidence establishes a cross-component callable surface, but does not establish whether it is a supported third-party API or whether additional callers require source or binary compatibility adaptations.
+
+Inferred impact
+───────────────
+INFERRED · 0.84
+Filtering overloaded database objects in tree-based selections
+
+Why:
+Tree-based consumers that apply an object filter may now include or exclude overloaded database objects using both their base object name and overloaded name, changing which routines are visible or selectable in filtered navigator, object-search, or diagram workflows.
+
+Static confirmation: unavailable
+
+Code review (advisory; excluded from the verdict)
+─────────────────────────────────────────────────
+[P2] An already-compiled plugin that invokes DBSObjectFilter.matches(String)—including an older build of the shown ERD plugin call path—will fail with NoSuchMethodError if it is resolved against this chang
+  plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/struct/DBSObjectFilter.java:153
+  Why: DBSObjectFilter is public, and its package is exported by the bundle named "DBeaver API". A separate plugin, org.jkiss.dbeaver.erd.model, contains a one-String invocation. Before the change, that invocation compiled to matches(Ljava/lang/String;)Z. The diff removes that public signature and replaces it with a varargs declaration; at the JVM level String... …
+  Impact: Caused by the change: The changed declaration replaces a method whose JVM parameter descriptor is Ljava/lang/String; with one whose parameter descriptor is [Ljava/lang/String;. An existing binary call site continues requesting matches(Ljava/lang/String;)Z, while the changed class only supplies matches([Ljava/lang/String;)Z; exact JVM method resolution there…
+
+CI
+──
+? the test suite could not run
+  No repository test command could be resolved
+
+What Sydes could not establish
+──────────────────────────────
+• 7 additional affected areas are not yet verification-modeled.
+• 1 changed symbol has unresolved impact paths.
+• An inferred impact could not be structurally confirmed.
+• The repository test suite could not run (No repository test command could be resolved).
+
+Verdict
+───────
+VERIFICATION INCOMPLETE
+
+Wrote verification result: /Users/ksnaik/StudioProjects/sydes/benchmarks/aacr/results/investigator-b9391e5-first11-r1-2026-10-26/sydes/dbeaver__dbeaver@ed40132.json
+
+--- stderr ---
+Preparing Sydes code intelligence...

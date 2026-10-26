@@ -1,0 +1,173 @@
+{
+  "path_recovery": {
+    "status": "established",
+    "paths": [
+      {
+        "entrypoint": "VS Code webview message: newTask",
+        "target_node": "OpenAiHandler.constructor",
+        "status": "established",
+        "root_boundary_status": "candidate_boundary",
+        "nodes": [
+          {
+            "symbol": "ClineProvider.setWebviewMessageListener (newTask message callback)",
+            "file": "src/core/webview/ClineProvider.ts",
+            "qualified_name": null
+          },
+          {
+            "symbol": "ClineProvider.initClineWithTask",
+            "file": "src/core/webview/ClineProvider.ts",
+            "qualified_name": "ClineProvider.initClineWithTask"
+          },
+          {
+            "symbol": "Cline.constructor",
+            "file": "src/core/Cline.ts",
+            "qualified_name": "Cline.constructor"
+          },
+          {
+            "symbol": "buildApiHandler",
+            "file": "src/api/index.ts",
+            "qualified_name": null
+          },
+          {
+            "symbol": "OpenAiHandler.constructor",
+            "file": "src/api/providers/openai.ts",
+            "qualified_name": "OpenAiHandler.constructor"
+          }
+        ],
+        "edges": [
+          {
+            "from": {
+              "symbol": "ClineProvider.setWebviewMessageListener (newTask message callback)",
+              "file": "src/core/webview/ClineProvider.ts",
+              "qualified_name": "ClineProvider.setWebviewMessageListener"
+            },
+            "to": {
+              "symbol": "ClineProvider.initClineWithTask",
+              "file": "src/core/webview/ClineProvider.ts",
+              "qualified_name": "ClineProvider.initClineWithTask"
+            },
+            "relationship": "The webview message listener handles a message whose type is \"newTask\" and directly awaits initClineWithTask with the message text and images.",
+            "evidence": [
+              {
+                "file": "src/core/webview/ClineProvider.ts",
+                "line_start": 417,
+                "line_end": 426,
+                "fact": "The newTask case in setWebviewMessageListener directly calls await this.initClineWithTask(message.text, message.images)."
+              },
+              {
+                "file": "src/core/webview/ClineProvider.ts",
+                "line_start": 259,
+                "line_end": 272,
+                "fact": "This declares initClineWithTask and shows it clears the prior task, reads state, and constructs the new Cline using the supplied task and images."
+              }
+            ],
+            "status": "established",
+            "provenance": "ai_recovery",
+            "rejection_reason": null,
+            "from_decomposition": false
+          },
+          {
+            "from": {
+              "symbol": "ClineProvider.initClineWithTask",
+              "file": "src/core/webview/ClineProvider.ts",
+              "qualified_name": "ClineProvider.initClineWithTask"
+            },
+            "to": {
+              "symbol": "Cline.constructor",
+              "file": "src/core/Cline.ts",
+              "qualified_name": "Cline.constructor"
+            },
+            "relationship": "ClineProvider.initClineWithTask directly instantiates Cline, invoking its constructor.",
+            "evidence": [
+              {
+                "file": "src/core/webview/ClineProvider.ts",
+                "line_start": 24,
+                "line_end": 24,
+                "fact": "Imports the Cline class from ../Cline, resolving it to src/core/Cline.ts."
+              },
+              {
+                "file": "src/core/webview/ClineProvider.ts",
+                "line_start": 259,
+                "line_end": 263,
+                "fact": "Declares initClineWithTask and directly assigns a new Cline instance to this.cline."
+              }
+            ],
+            "status": "established",
+            "provenance": "ai_recovery",
+            "rejection_reason": null,
+            "from_decomposition": false
+          },
+          {
+            "from": {
+              "symbol": "Cline.constructor",
+              "file": "src/core/Cline.ts",
+              "qualified_name": null
+            },
+            "to": {
+              "symbol": "buildApiHandler",
+              "file": "src/api/index.ts",
+              "qualified_name": null
+            },
+            "relationship": "constructor calls buildApiHandler directly (code graph CALLS edge)",
+            "evidence": [
+              {
+                "file": "src/core/Cline.ts",
+                "line_start": 132,
+                "line_end": 132,
+                "fact": "constructor calls buildApiHandler at this line"
+              }
+            ],
+            "status": "established",
+            "provenance": "explicit_relation",
+            "rejection_reason": null,
+            "from_decomposition": false
+          },
+          {
+            "from": {
+              "symbol": "buildApiHandler",
+              "file": "src/api/index.ts",
+              "qualified_name": "buildApiHandler"
+            },
+            "to": {
+              "symbol": "OpenAiHandler.constructor",
+              "file": "src/api/providers/openai.ts",
+              "qualified_name": "OpenAiHandler.constructor"
+            },
+            "relationship": "When configuration.apiProvider is \"openai\", buildApiHandler directly invokes OpenAiHandler's constructor with the remaining configuration options.",
+            "evidence": [
+              {
+                "file": "src/api/index.ts",
+                "line_start": 7,
+                "line_end": 7,
+                "fact": "Imports OpenAiHandler from the exact provider module ./providers/openai."
+              },
+              {
+                "file": "src/api/index.ts",
+                "line_start": 30,
+                "line_end": 42,
+                "fact": "buildApiHandler extracts apiProvider and returns new OpenAiHandler(options) in the \"openai\" switch branch."
+              },
+              {
+                "file": "src/api/providers/openai.ts",
+                "line_start": 10,
+                "line_end": 15,
+                "fact": "Declares OpenAiHandler and its constructor accepting the options passed by buildApiHandler."
+              }
+            ],
+            "status": "established",
+            "provenance": "ai_recovery",
+            "rejection_reason": null,
+            "from_decomposition": false
+          }
+        ],
+        "unresolved_suffix": []
+      }
+    ],
+    "corrected_first_pass_claims": [],
+    "unresolved": []
+  },
+  "test_recovery": {
+    "status": "unresolved",
+    "tests": []
+  }
+}

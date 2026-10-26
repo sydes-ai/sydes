@@ -1,0 +1,22 @@
+{
+  "run": "investigator-b9391e5-first11-r1-2026-10-26",
+  "cases_file": "benchmarks/aacr/baselines/2026-10-25-sydes-0.4.0-dev-laptop-first11/cases-completed.json",
+  "sydes": {
+    "package": "/Users/ksnaik/.cache/sydes-aacr/sydes-builds/b9391e5414a11d2a62dbc537de801822edbfaa0a",
+    "model": "openai:gpt-5.6-sol",
+    "args": [
+      "--llm-policy",
+      "auto",
+      "--impact-guide",
+      "auto",
+      "--code-review",
+      "--investigator"
+    ],
+    "timeout_minutes": 45,
+    "git_commit": "b9391e5414a11d2a62dbc537de801822edbfaa0a",
+    "git_ref": "b9391e5"
+  },
+  "aacr_commit": "ee9d7fef70ef31acea2ff7ae316ce0a9575fe4df",
+  "boundary": "code_findings",
+  "started_at": "2026-10-26T15:01:55Z"
+}

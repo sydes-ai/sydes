@@ -1,0 +1,4370 @@
+{
+  "version": "v3",
+  "kind": "sydes_change_verification",
+  "generated_at": "2026-10-26T16:01:40.340982+00:00",
+  "change": {
+    "base": "567a9ca6e318ed76523533cdfc47c6199f1e5ac6",
+    "head": "b9cdcbb2b9fc78499d15d51ffbb7c861592b0efe",
+    "merge_base": "567a9ca6e318ed76523533cdfc47c6199f1e5ac6",
+    "repos": [
+      {
+        "name": "app",
+        "root": "/Users/ksnaik/.cache/sydes-aacr/repos/gofr-dev__gofr"
+      }
+    ],
+    "includes_working_tree": false,
+    "files": [
+      {
+        "repo": "app",
+        "path": "docs/advanced-guide/setting-custom-response-headers/page.md",
+        "old_path": null,
+        "change_type": "modified",
+        "role": "docs_candidate",
+        "added_lines": 95,
+        "removed_lines": 33,
+        "hunks": [
+          {
+            "start_line": 1,
+            "end_line": 1
+          },
+          {
+            "start_line": 3,
+            "end_line": 3
+          },
+          {
+            "start_line": 5,
+            "end_line": 5
+          },
+          {
+            "start_line": 7,
+            "end_line": 10
+          },
+          {
+            "start_line": 12,
+            "end_line": 13
+          },
+          {
+            "start_line": 15,
+            "end_line": 41
+          },
+          {
+            "start_line": 47,
+            "end_line": 50
+          },
+          {
+            "start_line": 54,
+            "end_line": 54
+          },
+          {
+            "start_line": 56,
+            "end_line": 56
+          },
+          {
+            "start_line": 58,
+            "end_line": 58
+          },
+          {
+            "start_line": 62,
+            "end_line": 85
+          },
+          {
+            "start_line": 89,
+            "end_line": 116
+          }
+        ],
+        "symbols": [],
+        "binary": false
+      },
+      {
+        "repo": "app",
+        "path": "pkg/gofr/handler.go",
+        "old_path": null,
+        "change_type": "modified",
+        "role": "source_route_candidate",
+        "added_lines": 0,
+        "removed_lines": 2,
+        "hunks": [
+          {
+            "start_line": 101,
+            "end_line": 101
+          }
+        ],
+        "symbols": [
+          "app:pkg/gofr/handler.go:handler.ServeHTTP"
+        ],
+        "binary": false
+      },
+      {
+        "repo": "app",
+        "path": "pkg/gofr/http/responder.go",
+        "old_path": null,
+        "change_type": "modified",
+        "role": "source_route_candidate",
+        "added_lines": 5,
+        "removed_lines": 2,
+        "hunks": [
+          {
+            "start_line": 31,
+            "end_line": 32
+          },
+          {
+            "start_line": 96,
+            "end_line": 98
+          }
+        ],
+        "symbols": [
+          "app:pkg/gofr/http/responder.go:Responder.Respond"
+        ],
+        "binary": false
+      },
+      {
+        "repo": "app",
+        "path": "pkg/gofr/http/responder_test.go",
+        "old_path": null,
+        "change_type": "modified",
+        "role": "test_usage_candidate",
+        "added_lines": 60,
+        "removed_lines": 13,
+        "hunks": [
+          {
+            "start_line": 9,
+            "end_line": 10
+          },
+          {
+            "start_line": 12,
+            "end_line": 12
+          },
+          {
+            "start_line": 15,
+            "end_line": 15
+          },
+          {
+            "start_line": 17,
+            "end_line": 20
+          },
+          {
+            "start_line": 22,
+            "end_line": 60
+          },
+          {
+            "start_line": 64,
+            "end_line": 67
+          },
+          {
+            "start_line": 68,
+            "end_line": 68
+          },
+          {
+            "start_line": 70,
+            "end_line": 79
+          }
+        ],
+        "symbols": [
+          "app:pkg/gofr/http/responder_test.go:TestResponder"
+        ],
+        "binary": false
+      },
+      {
+        "repo": "app",
+        "path": "pkg/gofr/http/response/response.go",
+        "old_path": null,
+        "change_type": "modified",
+        "role": "source_route_candidate",
+        "added_lines": 3,
+        "removed_lines": 2,
+        "hunks": [
+          {
+            "start_line": 8,
+            "end_line": 10
+          }
+        ],
+        "symbols": [],
+        "binary": false
+      }
+    ],
+    "symbols": [
+      {
+        "id": "app:pkg/gofr/handler.go:handler.ServeHTTP",
+        "repo": "app",
+        "file": "pkg/gofr/handler.go",
+        "name": "ServeHTTP",
+        "qualified_name": "handler.ServeHTTP",
+        "cbm_qualified_name": "Users-ksnaik-.cache-sydes-aacr-repos-gofr-dev__gofr.pkg.gofr.ServeHTTP",
+        "kind": "class_method",
+        "language": "go",
+        "start_line": 55,
+        "end_line": 106,
+        "change_type": "modified",
+        "changed_lines": 1,
+        "decorators": []
+      },
+      {
+        "id": "app:pkg/gofr/http/responder.go:Responder.Respond",
+        "repo": "app",
+        "file": "pkg/gofr/http/responder.go",
+        "name": "Respond",
+        "qualified_name": "Responder.Respond",
+        "cbm_qualified_name": "Users-ksnaik-.cache-sydes-aacr-repos-gofr-dev__gofr.pkg.gofr.http.Respond",
+        "kind": "class_method",
+        "language": "go",
+        "start_line": 24,
+        "end_line": 54,
+        "change_type": "modified",
+        "changed_lines": 2,
+        "decorators": []
+      },
+      {
+        "id": "app:pkg/gofr/http/responder_test.go:TestResponder",
+        "repo": "app",
+        "file": "pkg/gofr/http/responder_test.go",
+        "name": "TestResponder",
+        "qualified_name": "TestResponder",
+        "cbm_qualified_name": "Users-ksnaik-.cache-sydes-aacr-repos-gofr-dev__gofr.pkg.gofr.http.TestResponder",
+        "kind": "function",
+        "language": "go",
+        "start_line": 15,
+        "end_line": 81,
+        "change_type": "modified",
+        "changed_lines": 59,
+        "decorators": []
+      }
+    ],
+    "notes": []
+  },
+  "summary": {
+    "risk": "MEDIUM",
+    "verdict": "VERIFICATION INCOMPLETE",
+    "headline": "0 obligation(s) across 1 flow(s): 0 passed, 0 failed, 0 unverified, 0 unknown",
+    "counts": {
+      "changed_files": 5,
+      "changed_source_files": 3,
+      "changed_test_files": 1,
+      "changed_symbols": 3,
+      "affected_flows": 1,
+      "flows_partially_analyzed": 0,
+      "code_findings": 1,
+      "obligations": 0,
+      "obligations_introduced_by_change": 0,
+      "obligations_passed": 0,
+      "obligations_failed": 0,
+      "obligations_unverified": 0,
+      "obligations_unknown": 0,
+      "mapped_tests": 4,
+      "supporting_tests": 0,
+      "tests_exercising_flows": 41,
+      "tests_supporting_behavior": 37,
+      "tests_verifying_behavior": 4,
+      "changed_test_cases": 1,
+      "tests_executed": 0,
+      "verification_gaps": 0,
+      "runtime_dependencies": 4,
+      "cross_repo_impacts": 0,
+      "impacts_proven": 0,
+      "impacts_inferred": 3,
+      "impacts_not_modeled": 2,
+      "unresolved_changed_symbols": 2
+    },
+    "risk_reasons": [
+      "change could not be tied to any verifiable behavior"
+    ]
+  },
+  "code_review_status": "completed",
+  "code_findings": [
+    {
+      "id": "investigator-H1",
+      "severity": "P2",
+      "title": "On the newly added resTypes.Response responder path, a Response with unset Metadata is serialized with a top-level \"metadata\": null member, contrary to the updated documentation’s data-only shape for ",
+      "file": "pkg/gofr/http/responder.go",
+      "line": 33,
+      "repo": null,
+      "explanation": "The updated documentation says omitted metadata produces only the data member, while the added test explicitly expects \"metadata\":null for a Response whose Metadata field is unset. The code explains that result: Response.Metadata is a nil map, but the new responder branch assigns it to the internal interface-typed Metadata field. That interface then contains the typed nil map, so `omitempty` does not omit the interface field and JSON encodes the nil map as null.",
+      "impact": "Caused by the change: This change adds the resTypes.Response branch and copies its nil map Metadata into an interface-valued envelope field. The resulting non-nil interface value is retained despite `omitempty`, while its contained nil map is encoded as JSON null, producing the documented-contract mismatch shown by the new test expectation.",
+      "suggested_fix": null,
+      "source": "investigator",
+      "evidence": [
+        {
+          "file": "docs/advanced-guide/setting-custom-response-headers/page.md",
+          "symbol": null,
+          "label": "verified_quote:30",
+          "snippet": "If metadata is omitted, the response defaults to:"
+        },
+        {
+          "file": "pkg/gofr/http/responder_test.go",
+          "symbol": null,
+          "label": "verified_quote:59",
+          "snippet": "expectedBody: []byte(`{\"metadata\":null,\"data\":\"Hello World from new Server\"}`),"
+        },
+        {
+          "file": "pkg/gofr/http/response/response.go",
+          "symbol": null,
+          "label": "verified_quote:9",
+          "snippet": "\tMetadata map[string]any    `json:\"metadata,omitempty\"`"
+        }
+      ]
+    }
+  ],
+  "accepted_impacts": [
+    {
+      "id": "flow:GET:/employee",
+      "label": "GET /employee",
+      "repo": "app",
+      "kind": "http_route",
+      "status": "inferred",
+      "changed_symbols": [
+        "ServeHTTP"
+      ],
+      "route_method": "GET",
+      "route_path": "/employee",
+      "llm_confidence": 0.58,
+      "llm_reason": "The surfaced path through systemMetricsHandler and GetHandler indicates that metrics requests are processed by ServeHTTP, so its changed response handling could alter metrics response headers or payload serialization.",
+      "llm_inference_type": "semantic_indirect_dependency",
+      "llm_uncertainty": "The available context does not show the metrics route, its returned result type, or whether it exercises the changed Response-specific branch.",
+      "corroborated": true,
+      "behavior_label": "system metrics HTTP responses",
+      "verification_model_status": "modeled",
+      "provenance": "structural"
+    },
+    {
+      "id": "impact:app:HTTP responses with custom headers or typed payloads",
+      "label": "HTTP responses with custom headers or typed payloads",
+      "repo": "app",
+      "kind": "unknown",
+      "status": "inferred",
+      "changed_symbols": [
+        "(whole change)"
+      ],
+      "route_method": null,
+      "route_path": null,
+      "llm_confidence": 0.74,
+      "llm_reason": "Existing API handlers returning Response, Raw, or File values may now emit different headers, status handling, body serialization, or metadata because ServeHTTP applies Response-specific custom headers while Respond selects output behavior by result type.",
+      "llm_inference_type": "semantic_pr_wide_theme",
+      "llm_uncertainty": "The supplied context does not identify which listed routes return these result types or show the exact before-and-after logic.",
+      "corroborated": false,
+      "behavior_label": "HTTP responses with custom headers or typed payloads",
+      "verification_model_status": "unsupported_or_partial",
+      "provenance": "structural"
+    },
+    {
+      "id": "impact:app:Respond",
+      "label": "HTTP file download responses",
+      "repo": "app",
+      "kind": "unknown",
+      "status": "inferred",
+      "changed_symbols": [
+        "Respond"
+      ],
+      "route_method": null,
+      "route_path": null,
+      "llm_confidence": 0.84,
+      "llm_reason": "HTTP requests returning a File payload may now produce different response content types, status codes, or body handling because Respond has a dedicated File branch that writes those fields directly.",
+      "llm_inference_type": "semantic_indirect_dependency",
+      "llm_uncertainty": "Only responder tests are visible as callers, so the specific production routes that return File payloads are unknown.",
+      "corroborated": false,
+      "behavior_label": "HTTP file download responses",
+      "verification_model_status": "unsupported_or_partial",
+      "provenance": "structural"
+    }
+  ],
+  "pr_semantic_analysis": {
+    "origin": "llm_hypothesis",
+    "change_summary": "HTTP handlers returning response.Response can now expose Metadata as a top-level JSON response member while retaining custom-header handling. A Response with nil metadata is currently serialized as \"metadata\": null, which conflicts with the updated documentation's claim that the field is omitted.",
+    "behavior_changes": [
+      {
+        "description": "When a handler result is a response.Response, the framework keeps the wrapper after applying its custom headers and passes its Data and Metadata into the HTTP response envelope. Callers can therefore observe metadata alongside the data payload.",
+        "changed_symbols": [
+          "handler.ServeHTTP",
+          "Responder.Respond",
+          "response.Response"
+        ],
+        "evidence": [
+          "ServeHTTP no longer replaces a response.Response result with only its Data.",
+          "Responder.Respond has dedicated handling that copies both Data and Metadata into the serialized response.",
+          "The public Response type now exposes a Metadata map."
+        ],
+        "confidence": 0.99,
+        "citations": [
+          {
+            "file": "pkg/gofr/handler.go",
+            "line": 100,
+            "quoted_text": "\tif resp, ok := result.(response.Response); ok {"
+          },
+          {
+            "file": "pkg/gofr/handler.go",
+            "line": 101,
+            "quoted_text": "\t\tresp.SetCustomHeaders(w)"
+          },
+          {
+            "file": "pkg/gofr/http/responder.go",
+            "line": 31,
+            "quoted_text": "\tcase resTypes.Response:"
+          },
+          {
+            "file": "pkg/gofr/http/responder.go",
+            "line": 32,
+            "quoted_text": "\t\tresp = response{Data: v.Data, Metadata: v.Metadata, Error: errorObj}"
+          },
+          {
+            "file": "pkg/gofr/http/response/response.go",
+            "line": 9,
+            "quoted_text": "\tMetadata map[string]any    `json:\"metadata,omitempty\"`"
+          }
+        ],
+        "citations_verified": 5,
+        "citation_notes": [
+          "citation confirmed near pkg/gofr/handler.go:100",
+          "citation confirmed near pkg/gofr/handler.go:101",
+          "citation confirmed near pkg/gofr/http/responder.go:31",
+          "citation confirmed near pkg/gofr/http/responder.go:32",
+          "citation confirmed near pkg/gofr/http/response/response.go:9"
+        ]
+      },
+      {
+        "description": "A response.Response with no metadata is serialized with an explicit top-level \"metadata\": null member rather than a data-only envelope, as codified by the updated responder test.",
+        "changed_symbols": [
+          "Responder.Respond",
+          "response.Response",
+          "TestResponder"
+        ],
+        "evidence": [
+          "The responder assigns the typed Metadata map to an interface-valued envelope field.",
+          "The new test explicitly expects metadata:null when Metadata is not populated."
+        ],
+        "confidence": 0.99,
+        "citations": [
+          {
+            "file": "pkg/gofr/http/responder.go",
+            "line": 32,
+            "quoted_text": "\t\tresp = response{Data: v.Data, Metadata: v.Metadata, Error: errorObj}"
+          },
+          {
+            "file": "pkg/gofr/http/responder.go",
+            "line": 96,
+            "quoted_text": "\tMetadata interface{} `json:\"metadata,omitempty\"`"
+          },
+          {
+            "file": "pkg/gofr/http/responder_test.go",
+            "line": 59,
+            "quoted_text": "\t\t\texpectedBody: []byte(`{\"metadata\":null,\"data\":\"Hello World from new Server\"}`),"
+          }
+        ],
+        "citations_verified": 3,
+        "citation_notes": [
+          "citation confirmed near pkg/gofr/http/responder.go:32",
+          "citation confirmed near pkg/gofr/http/responder.go:96",
+          "citation confirmed near pkg/gofr/http/responder_test.go:59"
+        ]
+      }
+    ],
+    "important_symbols": [
+      {
+        "repo": "app",
+        "file": "pkg/gofr/http/responder.go",
+        "symbol": "Responder.Respond",
+        "reason": "This is the serialization decision point that recognizes response.Response and constructs the observable data/metadata/error envelope."
+      },
+      {
+        "repo": "app",
+        "file": "pkg/gofr/handler.go",
+        "symbol": "handler.ServeHTTP",
+        "reason": "This controls whether the handler's Response wrapper survives beyond custom-header processing and reaches the responder."
+      },
+      {
+        "repo": "app",
+        "file": "pkg/gofr/http/response/response.go",
+        "symbol": "response.Response",
+        "reason": "This public return type now carries Metadata in addition to Data and custom headers, defining the handler-facing contract."
+      },
+      {
+        "repo": "app",
+        "file": "docs/advanced-guide/setting-custom-response-headers/page.md",
+        "symbol": "Custom Response Headers and Metadata documentation",
+        "reason": "This documents the intended external response shape, including an omission rule that does not match the new test."
+      }
+    ],
+    "investigation_hints": [
+      {
+        "description": "Find handlers and endpoint registrations that return response.Response, and determine which populate Metadata or rely on the previous data-only response shape.",
+        "related_symbols": [
+          "response.Response",
+          "handler.ServeHTTP"
+        ],
+        "concepts": [
+          "handler return types",
+          "response contracts",
+          "endpoint registration",
+          "backward compatibility"
+        ],
+        "likely_boundary_types": [
+          "api",
+          "callable"
+        ]
+      },
+      {
+        "description": "Trace all paths into Responder.Respond to establish whether Response values can bypass ServeHTTP or be processed by alternative responders or middleware.",
+        "related_symbols": [
+          "Responder.Respond",
+          "handler.ServeHTTP"
+        ],
+        "concepts": [
+          "HTTP rendering pipeline",
+          "middleware",
+          "custom responders",
+          "error handling"
+        ],
+        "likely_boundary_types": [
+          "api",
+          "callable"
+        ]
+      },
+      {
+        "description": "Inspect whether pointer forms, aliases, or wrappers around response.Response are used, because both new and existing recognition logic match the concrete value type.",
+        "related_symbols": [
+          "response.Response",
+          "Responder.Respond",
+          "handler.ServeHTTP"
+        ],
+        "concepts": [
+          "type switches",
+          "type assertions",
+          "pointer return values",
+          "response wrapping"
+        ],
+        "likely_boundary_types": [
+          "callable"
+        ]
+      }
+    ],
+    "likely_boundary_types": [
+      "api",
+      "callable"
+    ],
+    "local_risks": [
+      {
+        "description": "The implementation and test emit \"metadata\": null when metadata is unset, while the public documentation promises a data-only object when metadata is omitted. This creates an inconsistent API contract and may break clients or schema checks that expect the documented shape.",
+        "severity": "P1",
+        "citations": [
+          {
+            "file": "docs/advanced-guide/setting-custom-response-headers/page.md",
+            "line": 30,
+            "quoted_text": "If metadata is omitted, the response defaults to:"
+          },
+          {
+            "file": "pkg/gofr/http/responder.go",
+            "line": 96,
+            "quoted_text": "\tMetadata interface{} `json:\"metadata,omitempty\"`"
+          },
+          {
+            "file": "pkg/gofr/http/responder_test.go",
+            "line": 59,
+            "quoted_text": "\t\t\texpectedBody: []byte(`{\"metadata\":null,\"data\":\"Hello World from new Server\"}`),"
+          }
+        ],
+        "citations_verified": 3,
+        "citation_notes": [
+          "citation confirmed near docs/advanced-guide/setting-custom-response-headers/page.md:30",
+          "citation confirmed near pkg/gofr/http/responder.go:96",
+          "citation confirmed near pkg/gofr/http/responder_test.go:59"
+        ]
+      },
+      {
+        "description": "Special handling is limited to concrete response.Response values. A caller returning a pointer to that type would not match either the custom-header assertion or the responder type-switch case, plausibly producing a differently nested body and skipping custom headers.",
+        "severity": "P2",
+        "citations": [
+          {
+            "file": "pkg/gofr/handler.go",
+            "line": 100,
+            "quoted_text": "\tif resp, ok := result.(response.Response); ok {"
+          },
+          {
+            "file": "pkg/gofr/http/responder.go",
+            "line": 31,
+            "quoted_text": "\tcase resTypes.Response:"
+          }
+        ],
+        "citations_verified": 2,
+        "citation_notes": [
+          "citation confirmed near pkg/gofr/handler.go:100",
+          "citation confirmed near pkg/gofr/http/responder.go:31"
+        ]
+      }
+    ],
+    "uncertainties": [
+      "The supplied evidence does not identify which registered HTTP endpoints, if any, return response.Response and therefore expose the changed envelope.",
+      "It is not established whether every production call to Responder.Respond arrives through handler.ServeHTTP or whether other callers supply response.Response directly.",
+      "The diff does not show whether alternative transports, renderers, middleware, or custom response writers also consume response.Response and need equivalent metadata handling.",
+      "Whether users observe a populated metadata object, an explicit null, or no effect depends on which handler return values and Metadata contents occur at runtime."
+    ],
+    "uncertainty_items": [
+      {
+        "kind": "route_identity",
+        "text": "The supplied evidence does not identify which registered HTTP endpoints, if any, return response.Response and therefore expose the changed envelope.",
+        "symbols": [
+          "handler.ServeHTTP",
+          "response.Response"
+        ],
+        "resolved_by": null,
+        "established_context": null,
+        "scoped_text": null
+      },
+      {
+        "kind": "caller_reachability",
+        "text": "It is not established whether every production call to Responder.Respond arrives through handler.ServeHTTP or whether other callers supply response.Response directly.",
+        "symbols": [
+          "Responder.Respond",
+          "handler.ServeHTTP"
+        ],
+        "resolved_by": null,
+        "established_context": null,
+        "scoped_text": null
+      },
+      {
+        "kind": "boundary_identity",
+        "text": "The diff does not show whether alternative transports, renderers, middleware, or custom response writers also consume response.Response and need equivalent metadata handling.",
+        "symbols": [
+          "response.Response",
+          "Responder.Respond"
+        ],
+        "resolved_by": null,
+        "established_context": null,
+        "scoped_text": null
+      },
+      {
+        "kind": "runtime_condition",
+        "text": "Whether users observe a populated metadata object, an explicit null, or no effect depends on which handler return values and Metadata contents occur at runtime.",
+        "symbols": [
+          "response.Response",
+          "handler.ServeHTTP",
+          "Responder.Respond"
+        ],
+        "resolved_by": null,
+        "established_context": null,
+        "scoped_text": null
+      }
+    ],
+    "verification_state": "verified",
+    "is_indeterminate": true,
+    "indeterminate_reason": "runtime_only_behavior",
+    "indeterminate_detail": "The mechanism is clear, but the supplied context does not show whether any real request reaches a handler that returns response.Response, nor whether such responses carry populated or nil Metadata."
+  },
+  "affected_boundaries": [],
+  "composed_dispatch_edges": [],
+  "run_metrics": {
+    "llm_by_purpose": {
+      "pr_semantic_analysis": {
+        "calls": 1,
+        "errors": 0,
+        "input_tokens": 5116,
+        "output_tokens": 3920,
+        "reasoning_tokens": 2392,
+        "models": [
+          "gpt-5.6-sol"
+        ]
+      },
+      "route_discovery": {
+        "calls": 1,
+        "errors": 0,
+        "input_tokens": 4287,
+        "output_tokens": 336,
+        "reasoning_tokens": 282,
+        "models": [
+          "gpt-5.6-sol"
+        ]
+      },
+      "impact_guide": {
+        "calls": 6,
+        "errors": 0,
+        "input_tokens": 18386,
+        "output_tokens": 1776,
+        "reasoning_tokens": 1138,
+        "models": [
+          "gpt-5.6-sol"
+        ]
+      },
+      "boundary_reasoning": {
+        "calls": 1,
+        "errors": 0,
+        "input_tokens": 2597,
+        "output_tokens": 528,
+        "reasoning_tokens": 512,
+        "models": [
+          "gpt-5.6-sol"
+        ]
+      },
+      "flow_expansion": {
+        "calls": 1,
+        "errors": 0,
+        "input_tokens": 877,
+        "output_tokens": 329,
+        "reasoning_tokens": 0,
+        "models": [
+          "gpt-5.6-sol"
+        ]
+      },
+      "investigator": {
+        "calls": 11,
+        "errors": 0,
+        "input_tokens": 28115,
+        "output_tokens": 7840,
+        "reasoning_tokens": 5841,
+        "models": [
+          "gpt-5.6-sol"
+        ]
+      },
+      "ai_recovery": {
+        "calls": 16,
+        "errors": 0,
+        "input_tokens": 40829,
+        "output_tokens": 1859,
+        "reasoning_tokens": 199,
+        "models": [
+          "gpt-5.6-sol"
+        ]
+      }
+    },
+    "llm_totals": {
+      "calls": 37,
+      "errors": 0,
+      "input_tokens": 100207,
+      "output_tokens": 16588,
+      "reasoning_tokens": 10364
+    },
+    "cbm": {
+      "calls": 41,
+      "errors": 0,
+      "by_operation": {
+        "index_repository": 3,
+        "query_graph": 12,
+        "search_graph": 25,
+        "get_graph_schema": 1
+      },
+      "enrichment_requests": 3
+    },
+    "wall_seconds": 297.2,
+    "tests": {
+      "environments": [],
+      "mapped_executions": 0,
+      "mapped_outcomes": {},
+      "ci_suite": {
+        "status": "unknown",
+        "blocker": "collection_error",
+        "passed": null,
+        "failed": null
+      }
+    }
+  },
+  "framework_boundary_candidates": [
+    {
+      "category": "route_registration",
+      "status": "resolved",
+      "source_symbol": "GetHandler",
+      "via": "GET /employee",
+      "targets": [
+        "GetHandler"
+      ],
+      "message_type": null,
+      "facts": [
+        {
+          "provenance": "cbm_entrypoint",
+          "fact": "CBM route metadata: GET /employee",
+          "file": "examples/using-migrations/main.go",
+          "line": null
+        },
+        {
+          "provenance": "cbm_handles",
+          "fact": "CBM: GetHandler HANDLES GET /employee",
+          "file": "examples/using-migrations/main.go",
+          "line": null
+        },
+        {
+          "provenance": "source_fallback",
+          "fact": "GetHandler is registered on `a` with path '/employee' (Sydes route index; CBM has no declaration for it)",
+          "file": "examples/using-migrations/main.go",
+          "line": 24
+        }
+      ],
+      "checks": {},
+      "missing": [],
+      "runtime_needed": null,
+      "resolved_by": "route composition (literal path and prefixes)",
+      "queries": 3
+    }
+  ],
+  "affected_flows": [
+    {
+      "id": "flow:GET:/employee",
+      "entry_kind": "route",
+      "entry_label": "GET /employee",
+      "repo": "app",
+      "method": "GET",
+      "path": "/employee",
+      "handler": "GetHandler",
+      "artifact_refs": {
+        "route_file": "examples/using-migrations/main.go",
+        "handler_file": "examples/using-migrations/main.go",
+        "layered_trace_contract": "v1"
+      },
+      "changed_nodes": [
+        {
+          "repo": "app",
+          "file": "pkg/gofr/handler.go",
+          "symbol": "handler.ServeHTTP",
+          "line": 55
+        },
+        {
+          "repo": "app",
+          "file": "pkg/gofr/http/responder.go",
+          "symbol": "Responder.Respond",
+          "line": 24
+        },
+        {
+          "repo": "app",
+          "file": "pkg/gofr/http/responder_test.go",
+          "symbol": "TestResponder",
+          "line": 15
+        }
+      ],
+      "steps": [
+        {
+          "id": "step:endpoint:1",
+          "kind": "endpoint",
+          "name": "endpoint",
+          "detail": "GET /employee",
+          "repo": "app",
+          "file": "examples/using-migrations/main.go",
+          "symbol": "GetHandler",
+          "line_start": null,
+          "line_end": null,
+          "depth": 0,
+          "layer": "endpoint",
+          "evidence": [
+            {
+              "file": "examples/using-migrations/main.go",
+              "symbol": "GetHandler",
+              "label": "endpoint",
+              "snippet": "GET /employee"
+            }
+          ],
+          "confidence": 1.0,
+          "status": "grounded",
+          "metadata": {
+            "source": "layered_trace_contract"
+          }
+        },
+        {
+          "id": "step:handler:1",
+          "kind": "handler",
+          "name": "handler",
+          "detail": "GetHandler",
+          "repo": "app",
+          "file": "examples/using-migrations/main.go",
+          "symbol": "GetHandler",
+          "line_start": 40,
+          "line_end": null,
+          "depth": 1,
+          "layer": "handler",
+          "evidence": [
+            {
+              "file": "examples/using-migrations/main.go",
+              "symbol": "GetHandler",
+              "label": "handler",
+              "snippet": "GetHandler"
+            }
+          ],
+          "confidence": 0.95,
+          "status": "grounded",
+          "metadata": {
+            "source": "layered_trace_contract"
+          }
+        },
+        {
+          "id": "step:handler:1",
+          "kind": "response",
+          "name": "response",
+          "detail": "name := c.Param(\"name\") if name == \"\" { return nil, errors.New(\"name can't be empty\") } var emp Employee err := c.SQL.QueryRowContext(c, queryGetEmployee, name). Scan(&emp.ID, &emp.Name, &emp.Gende...",
+          "repo": "app",
+          "file": "examples/using-migrations/main.go",
+          "symbol": "GetHandler",
+          "line_start": 41,
+          "line_end": 54,
+          "depth": 1,
+          "layer": "handler",
+          "evidence": [
+            {
+              "file": "examples/using-migrations/main.go",
+              "symbol": "GetHandler",
+              "label": "statement",
+              "snippet": "name := c.Param(\"name\") if name == \"\" { return nil, errors.New(\"name can't be empty\") } var emp Employee err := c.SQL.QueryRowContext(c, queryGetEmployee, name). Scan(&emp.ID, &emp.Name, &emp.Gende..."
+            }
+          ],
+          "confidence": 0.9,
+          "status": "grounded",
+          "metadata": {
+            "source": "layered_trace_contract"
+          }
+        }
+      ],
+      "sinks": [],
+      "cross_repo_links": [],
+      "analysis_status": "complete",
+      "analysis_notes": [],
+      "obligations": [
+        {
+          "id": "flow:GET:/employee::obligation-1",
+          "flow_id": "flow:GET:/employee",
+          "kind": "route_contract",
+          "statement": "contract happy path",
+          "origin": "test_matrix",
+          "canonical_id": "42d524e03b688d0f",
+          "source_refs": [
+            "test_matrix:positive:get_employee_contract_happy_path",
+            "step:Read the name request parameter",
+            "step:Scan the matching employee row into an Employee object",
+            "step:Return the employee",
+            "sink:database:employee lookup"
+          ],
+          "introduced_by_change": false,
+          "required": false,
+          "mapped_tests": [],
+          "executions": [],
+          "supporting_tests": [
+            {
+              "id": "examples/using-migrations/main_test.go::TestExampleMigration",
+              "name": "TestExampleMigration",
+              "case_name": "TestExampleMigration",
+              "repo": "app",
+              "file": "examples/using-migrations/main_test.go",
+              "line": 13,
+              "suite": null,
+              "match_rule": "issues GET /employee; does not assert this obligation",
+              "evidence_tier": "C_declared",
+              "source_refs": [
+                "test_matrix:positive:get_employee_contract_happy_path",
+                "step:Read the name request parameter",
+                "step:Scan the matching employee row into an Employee object",
+                "step:Return the employee",
+                "sink:database:employee lookup"
+              ],
+              "changed_in_diff": false,
+              "evidence": [
+                {
+                  "file": "examples/using-migrations/main_test.go",
+                  "symbol": "TestExampleMigration",
+                  "label": "issues GET /employee; does not assert this obligation",
+                  "snippet": "/employee"
+                }
+              ]
+            },
+            {
+              "id": "pkg/gofr/cmd/responder_test.go::TestResponder_Respond",
+              "name": "TestResponder_Respond",
+              "case_name": "TestResponder_Respond",
+              "repo": "app",
+              "file": "pkg/gofr/cmd/responder_test.go",
+              "line": 12,
+              "suite": null,
+              "match_rule": "invokes GetHandler; does not assert this obligation",
+              "evidence_tier": "C_declared",
+              "source_refs": [
+                "test_matrix:positive:get_employee_contract_happy_path",
+                "step:Read the name request parameter",
+                "step:Scan the matching employee row into an Employee object",
+                "step:Return the employee",
+                "sink:database:employee lookup"
+              ],
+              "changed_in_diff": false,
+              "evidence": [
+                {
+                  "file": "pkg/gofr/cmd/responder_test.go",
+                  "symbol": "TestResponder_Respond",
+                  "label": "invokes GetHandler; does not assert this obligation",
+                  "snippet": "GetHandler"
+                }
+              ]
+            },
+            {
+              "id": "pkg/gofr/gofr_test.go::TestGofr_ServerRoutes",
+              "name": "TestGofr_ServerRoutes",
+              "case_name": "TestGofr_ServerRoutes",
+              "repo": "app",
+              "file": "pkg/gofr/gofr_test.go",
+              "line": 48,
+              "suite": null,
+              "match_rule": "invokes GetHandler; does not assert this obligation",
+              "evidence_tier": "C_declared",
+              "source_refs": [
+                "test_matrix:positive:get_employee_contract_happy_path",
+                "step:Read the name request parameter",
+                "step:Scan the matching employee row into an Employee object",
+                "step:Return the employee",
+                "sink:database:employee lookup"
+              ],
+              "changed_in_diff": false,
+              "evidence": [
+                {
+                  "file": "pkg/gofr/gofr_test.go",
+                  "symbol": "TestGofr_ServerRoutes",
+                  "label": "invokes GetHandler; does not assert this obligation",
+                  "snippet": "GetHandler"
+                }
+              ]
+            },
+            {
+              "id": "pkg/gofr/gofr_test.go::Test_UseMiddleware",
+              "name": "Test_UseMiddleware",
+              "case_name": "Test_UseMiddleware",
+              "repo": "app",
+              "file": "pkg/gofr/gofr_test.go",
+              "line": 589,
+              "suite": null,
+              "match_rule": "invokes GetHandler; does not assert this obligation",
+              "evidence_tier": "C_declared",
+              "source_refs": [
+                "test_matrix:positive:get_employee_contract_happy_path",
+                "step:Read the name request parameter",
+                "step:Scan the matching employee row into an Employee object",
+                "step:Return the employee",
+                "sink:database:employee lookup"
+              ],
+              "changed_in_diff": false,
+              "evidence": [
+                {
+                  "file": "pkg/gofr/gofr_test.go",
+                  "symbol": "Test_UseMiddleware",
+                  "label": "invokes GetHandler; does not assert this obligation",
+                  "snippet": "GetHandler"
+                }
+              ]
+            },
+            {
+              "id": "pkg/gofr/gofr_test.go::TestUseMiddlewareWithContainer",
+              "name": "TestUseMiddlewareWithContainer",
+              "case_name": "TestUseMiddlewareWithContainer",
+              "repo": "app",
+              "file": "pkg/gofr/gofr_test.go",
+              "line": 642,
+              "suite": null,
+              "match_rule": "invokes GetHandler; does not assert this obligation",
+              "evidence_tier": "C_declared",
+              "source_refs": [
+                "test_matrix:positive:get_employee_contract_happy_path",
+                "step:Read the name request parameter",
+                "step:Scan the matching employee row into an Employee object",
+                "step:Return the employee",
+                "sink:database:employee lookup"
+              ],
+              "changed_in_diff": false,
+              "evidence": [
+                {
+                  "file": "pkg/gofr/gofr_test.go",
+                  "symbol": "TestUseMiddlewareWithContainer",
+                  "label": "invokes GetHandler; does not assert this obligation",
+                  "snippet": "GetHandler"
+                }
+              ]
+            },
+            {
+              "id": "pkg/gofr/handler_test.go::TestHandler_ServeHTTP",
+              "name": "TestHandler_ServeHTTP",
+              "case_name": "TestHandler_ServeHTTP",
+              "repo": "app",
+              "file": "pkg/gofr/handler_test.go",
+              "line": 26,
+              "suite": null,
+              "match_rule": "invokes GetHandler; does not assert this obligation",
+              "evidence_tier": "C_declared",
+              "source_refs": [
+                "test_matrix:positive:get_employee_contract_happy_path",
+                "step:Read the name request parameter",
+                "step:Scan the matching employee row into an Employee object",
+                "step:Return the employee",
+                "sink:database:employee lookup"
+              ],
+              "changed_in_diff": false,
+              "evidence": [
+                {
+                  "file": "pkg/gofr/handler_test.go",
+                  "symbol": "TestHandler_ServeHTTP",
+                  "label": "invokes GetHandler; does not assert this obligation",
+                  "snippet": "GetHandler"
+                }
+              ]
+            },
+            {
+              "id": "pkg/gofr/handler_test.go::TestHandler_ServeHTTP_Timeout",
+              "name": "TestHandler_ServeHTTP_Timeout",
+              "case_name": "TestHandler_ServeHTTP_Timeout",
+              "repo": "app",
+              "file": "pkg/gofr/handler_test.go",
+              "line": 66,
+              "suite": null,
+              "match_rule": "invokes GetHandler; does not assert this obligation",
+              "evidence_tier": "C_declared",
+              "source_refs": [
+                "test_matrix:positive:get_employee_contract_happy_path",
+                "step:Read the name request parameter",
+                "step:Scan the matching employee row into an Employee object",
+                "step:Return the employee",
+                "sink:database:employee lookup"
+              ],
+              "changed_in_diff": false,
+              "evidence": [
+                {
+                  "file": "pkg/gofr/handler_test.go",
+                  "symbol": "TestHandler_ServeHTTP_Timeout",
+                  "label": "invokes GetHandler; does not assert this obligation",
+                  "snippet": "GetHandler"
+                }
+              ]
+            },
+            {
+              "id": "pkg/gofr/handler_test.go::TestHandler_ServeHTTP_Panic",
+              "name": "TestHandler_ServeHTTP_Panic",
+              "case_name": "TestHandler_ServeHTTP_Panic",
+              "repo": "app",
+              "file": "pkg/gofr/handler_test.go",
+              "line": 86,
+              "suite": null,
+              "match_rule": "invokes GetHandler; does not assert this obligation",
+              "evidence_tier": "C_declared",
+              "source_refs": [
+                "test_matrix:positive:get_employee_contract_happy_path",
+                "step:Read the name request parameter",
+                "step:Scan the matching employee row into an Employee object",
+                "step:Return the employee",
+                "sink:database:employee lookup"
+              ],
+              "changed_in_diff": false,
+              "evidence": [
+                {
+                  "file": "pkg/gofr/handler_test.go",
+                  "symbol": "TestHandler_ServeHTTP_Panic",
+                  "label": "invokes GetHandler; does not assert this obligation",
+                  "snippet": "GetHandler"
+                }
+              ]
+            },
+            {
+              "id": "pkg/gofr/handler_test.go::TestHandler_ServeHTTP_WithHeaders",
+              "name": "TestHandler_ServeHTTP_WithHeaders",
+              "case_name": "TestHandler_ServeHTTP_WithHeaders",
+              "repo": "app",
+              "file": "pkg/gofr/handler_test.go",
+              "line": 104,
+              "suite": null,
+              "match_rule": "invokes GetHandler; does not assert this obligation",
+              "evidence_tier": "C_declared",
+              "source_refs": [
+                "test_matrix:positive:get_employee_contract_happy_path",
+                "step:Read the name request parameter",
+                "step:Scan the matching employee row into an Employee object",
+                "step:Return the employee",
+                "sink:database:employee lookup"
+              ],
+              "changed_in_diff": false,
+              "evidence": [
+                {
+                  "file": "pkg/gofr/handler_test.go",
+                  "symbol": "TestHandler_ServeHTTP_WithHeaders",
+                  "label": "invokes GetHandler; does not assert this obligation",
+                  "snippet": "GetHandler"
+                }
+              ]
+            },
+            {
+              "id": "pkg/gofr/http/middleware/apikey_auth_test.go::Test_ApiKeyAuthMiddleware",
+              "name": "Test_ApiKeyAuthMiddleware",
+              "case_name": "Test_ApiKeyAuthMiddleware",
+              "repo": "app",
+              "file": "pkg/gofr/http/middleware/apikey_auth_test.go",
+              "line": 19,
+              "suite": null,
+              "match_rule": "invokes GetHandler; does not assert this obligation",
+              "evidence_tier": "C_declared",
+              "source_refs": [
+                "test_matrix:positive:get_employee_contract_happy_path",
+                "step:Read the name request parameter",
+                "step:Scan the matching employee row into an Employee object",
+                "step:Return the employee",
+                "sink:database:employee lookup"
+              ],
+              "changed_in_diff": false,
+              "evidence": [
+                {
+                  "file": "pkg/gofr/http/middleware/apikey_auth_test.go",
+                  "symbol": "Test_ApiKeyAuthMiddleware",
+                  "label": "invokes GetHandler; does not assert this obligation",
+                  "snippet": "GetHandler"
+                }
+              ]
+            },
+            {
+              "id": "pkg/gofr/http/middleware/apikey_auth_test.go::Test_ApiKeyAuthMiddleware_well_known",
+              "name": "Test_ApiKeyAuthMiddleware_well_known",
+              "case_name": "Test_ApiKeyAuthMiddleware_well_known",
+              "repo": "app",
+              "file": "pkg/gofr/http/middleware/apikey_auth_test.go",
+              "line": 73,
+              "suite": null,
+              "match_rule": "invokes GetHandler; does not assert this obligation",
+              "evidence_tier": "C_declared",
+              "source_refs": [
+                "test_matrix:positive:get_employee_contract_happy_path",
+                "step:Read the name request parameter",
+                "step:Scan the matching employee row into an Employee object",
+                "step:Return the employee",
+                "sink:database:employee lookup"
+              ],
+              "changed_in_diff": false,
+              "evidence": [
+                {
+                  "file": "pkg/gofr/http/middleware/apikey_auth_test.go",
+                  "symbol": "Test_ApiKeyAuthMiddleware_well_known",
+                  "label": "invokes GetHandler; does not assert this obligation",
+                  "snippet": "GetHandler"
+                }
+              ]
+            },
+            {
+              "id": "pkg/gofr/http/middleware/basic_auth_test.go::TestBasicAuthMiddleware",
+              "name": "TestBasicAuthMiddleware",
+              "case_name": "TestBasicAuthMiddleware",
+              "repo": "app",
+              "file": "pkg/gofr/http/middleware/basic_auth_test.go",
+              "line": 14,
+              "suite": null,
+              "match_rule": "invokes GetHandler; does not assert this obligation",
+              "evidence_tier": "C_declared",
+              "source_refs": [
+                "test_matrix:positive:get_employee_contract_happy_path",
+                "step:Read the name request parameter",
+                "step:Scan the matching employee row into an Employee object",
+                "step:Return the employee",
+                "sink:database:employee lookup"
+              ],
+              "changed_in_diff": false,
+              "evidence": [
+                {
+                  "file": "pkg/gofr/http/middleware/basic_auth_test.go",
+                  "symbol": "TestBasicAuthMiddleware",
+                  "label": "invokes GetHandler; does not assert this obligation",
+                  "snippet": "GetHandler"
+                }
+              ]
+            },
+            {
+              "id": "pkg/gofr/http/middleware/basic_auth_test.go::TestBasicAuthMiddleware_ValidationSuccess",
+              "name": "TestBasicAuthMiddleware_ValidationSuccess",
+              "case_name": "TestBasicAuthMiddleware_ValidationSuccess",
+              "repo": "app",
+              "file": "pkg/gofr/http/middleware/basic_auth_test.go",
+              "line": 112,
+              "suite": null,
+              "match_rule": "invokes GetHandler; does not assert this obligation",
+              "evidence_tier": "C_declared",
+              "source_refs": [
+                "test_matrix:positive:get_employee_contract_happy_path",
+                "step:Read the name request parameter",
+                "step:Scan the matching employee row into an Employee object",
+                "step:Return the employee",
+                "sink:database:employee lookup"
+              ],
+              "changed_in_diff": false,
+              "evidence": [
+                {
+                  "file": "pkg/gofr/http/middleware/basic_auth_test.go",
+                  "symbol": "TestBasicAuthMiddleware_ValidationSuccess",
+                  "label": "invokes GetHandler; does not assert this obligation",
+                  "snippet": "GetHandler"
+                }
+              ]
+            },
+            {
+              "id": "pkg/gofr/http/middleware/basic_auth_test.go::Test_BasicAuthMiddleware_well_known",
+              "name": "Test_BasicAuthMiddleware_well_known",
+              "case_name": "Test_BasicAuthMiddleware_well_known",
+              "repo": "app",
+              "file": "pkg/gofr/http/middleware/basic_auth_test.go",
+              "line": 168,
+              "suite": null,
+              "match_rule": "invokes GetHandler; does not assert this obligation",
+              "evidence_tier": "C_declared",
+              "source_refs": [
+                "test_matrix:positive:get_employee_contract_happy_path",
+                "step:Read the name request parameter",
+                "step:Scan the matching employee row into an Employee object",
+                "step:Return the employee",
+                "sink:database:employee lookup"
+              ],
+              "changed_in_diff": false,
+              "evidence": [
+                {
+                  "file": "pkg/gofr/http/middleware/basic_auth_test.go",
+                  "symbol": "Test_BasicAuthMiddleware_well_known",
+                  "label": "invokes GetHandler; does not assert this obligation",
+                  "snippet": "GetHandler"
+                }
+              ]
+            },
+            {
+              "id": "pkg/gofr/http/middleware/basic_auth_test.go::TestBasicAuthMiddleware_NoAuthHeader",
+              "name": "TestBasicAuthMiddleware_NoAuthHeader",
+              "case_name": "TestBasicAuthMiddleware_NoAuthHeader",
+              "repo": "app",
+              "file": "pkg/gofr/http/middleware/basic_auth_test.go",
+              "line": 299,
+              "suite": null,
+              "match_rule": "invokes GetHandler; does not assert this obligation",
+              "evidence_tier": "C_declared",
+              "source_refs": [
+                "test_matrix:positive:get_employee_contract_happy_path",
+                "step:Read the name request parameter",
+                "step:Scan the matching employee row into an Employee object",
+                "step:Return the employee",
+                "sink:database:employee lookup"
+              ],
+              "changed_in_diff": false,
+              "evidence": [
+                {
+                  "file": "pkg/gofr/http/middleware/basic_auth_test.go",
+                  "symbol": "TestBasicAuthMiddleware_NoAuthHeader",
+                  "label": "invokes GetHandler; does not assert this obligation",
+                  "snippet": "GetHandler"
+                }
+              ]
+            },
+            {
+              "id": "pkg/gofr/http/middleware/cors_test.go::Test_CORS",
+              "name": "Test_CORS",
+              "case_name": "Test_CORS",
+              "repo": "app",
+              "file": "pkg/gofr/http/middleware/cors_test.go",
+              "line": 24,
+              "suite": null,
+              "match_rule": "invokes GetHandler; does not assert this obligation",
+              "evidence_tier": "C_declared",
+              "source_refs": [
+                "test_matrix:positive:get_employee_contract_happy_path",
+                "step:Read the name request parameter",
+                "step:Scan the matching employee row into an Employee object",
+                "step:Return the employee",
+                "sink:database:employee lookup"
+              ],
+              "changed_in_diff": false,
+              "evidence": [
+                {
+                  "file": "pkg/gofr/http/middleware/cors_test.go",
+                  "symbol": "Test_CORS",
+                  "label": "invokes GetHandler; does not assert this obligation",
+                  "snippet": "GetHandler"
+                }
+              ]
+            },
+            {
+              "id": "pkg/gofr/http/middleware/logger_test.go::Test_LoggingMiddleware",
+              "name": "Test_LoggingMiddleware",
+              "case_name": "Test_LoggingMiddleware",
+              "repo": "app",
+              "file": "pkg/gofr/http/middleware/logger_test.go",
+              "line": 45,
+              "suite": null,
+              "match_rule": "invokes GetHandler; does not assert this obligation",
+              "evidence_tier": "C_declared",
+              "source_refs": [
+                "test_matrix:positive:get_employee_contract_happy_path",
+                "step:Read the name request parameter",
+                "step:Scan the matching employee row into an Employee object",
+                "step:Return the employee",
+                "sink:database:employee lookup"
+              ],
+              "changed_in_diff": false,
+              "evidence": [
+                {
+                  "file": "pkg/gofr/http/middleware/logger_test.go",
+                  "symbol": "Test_LoggingMiddleware",
+                  "label": "invokes GetHandler; does not assert this obligation",
+                  "snippet": "GetHandler"
+                }
+              ]
+            },
+            {
+              "id": "pkg/gofr/http/middleware/logger_test.go::Test_LoggingMiddlewareError",
+              "name": "Test_LoggingMiddlewareError",
+              "case_name": "Test_LoggingMiddlewareError",
+              "repo": "app",
+              "file": "pkg/gofr/http/middleware/logger_test.go",
+              "line": 59,
+              "suite": null,
+              "match_rule": "invokes GetHandler; does not assert this obligation",
+              "evidence_tier": "C_declared",
+              "source_refs": [
+                "test_matrix:positive:get_employee_contract_happy_path",
+                "step:Read the name request parameter",
+                "step:Scan the matching employee row into an Employee object",
+                "step:Return the employee",
+                "sink:database:employee lookup"
+              ],
+              "changed_in_diff": false,
+              "evidence": [
+                {
+                  "file": "pkg/gofr/http/middleware/logger_test.go",
+                  "symbol": "Test_LoggingMiddlewareError",
+                  "label": "invokes GetHandler; does not assert this obligation",
+                  "snippet": "GetHandler"
+                }
+              ]
+            },
+            {
+              "id": "pkg/gofr/http/middleware/logger_test.go::Test_LoggingMiddlewareStringPanicHandling",
+              "name": "Test_LoggingMiddlewareStringPanicHandling",
+              "case_name": "Test_LoggingMiddlewareStringPanicHandling",
+              "repo": "app",
+              "file": "pkg/gofr/http/middleware/logger_test.go",
+              "line": 85,
+              "suite": null,
+              "match_rule": "invokes GetHandler; does not assert this obligation",
+              "evidence_tier": "C_declared",
+              "source_refs": [
+                "test_matrix:positive:get_employee_contract_happy_path",
+                "step:Read the name request parameter",
+                "step:Scan the matching employee row into an Employee object",
+                "step:Return the employee",
+                "sink:database:employee lookup"
+              ],
+              "changed_in_diff": false,
+              "evidence": [
+                {
+                  "file": "pkg/gofr/http/middleware/logger_test.go",
+                  "symbol": "Test_LoggingMiddlewareStringPanicHandling",
+                  "label": "invokes GetHandler; does not assert this obligation",
+                  "snippet": "GetHandler"
+                }
+              ]
+            },
+            {
+              "id": "pkg/gofr/http/middleware/logger_test.go::Test_LoggingMiddlewareErrorPanicHandling",
+              "name": "Test_LoggingMiddlewareErrorPanicHandling",
+              "case_name": "Test_LoggingMiddlewareErrorPanicHandling",
+              "repo": "app",
+              "file": "pkg/gofr/http/middleware/logger_test.go",
+              "line": 104,
+              "suite": null,
+              "match_rule": "invokes GetHandler; does not assert this obligation",
+              "evidence_tier": "C_declared",
+              "source_refs": [
+                "test_matrix:positive:get_employee_contract_happy_path",
+                "step:Read the name request parameter",
+                "step:Scan the matching employee row into an Employee object",
+                "step:Return the employee",
+                "sink:database:employee lookup"
+              ],
+              "changed_in_diff": false,
+              "evidence": [
+                {
+                  "file": "pkg/gofr/http/middleware/logger_test.go",
+                  "symbol": "Test_LoggingMiddlewareErrorPanicHandling",
+                  "label": "invokes GetHandler; does not assert this obligation",
+                  "snippet": "GetHandler"
+                }
+              ]
+            },
+            {
+              "id": "pkg/gofr/http/middleware/logger_test.go::Test_LoggingMiddlewareUnknownPanicHandling",
+              "name": "Test_LoggingMiddlewareUnknownPanicHandling",
+              "case_name": "Test_LoggingMiddlewareUnknownPanicHandling",
+              "repo": "app",
+              "file": "pkg/gofr/http/middleware/logger_test.go",
+              "line": 123,
+              "suite": null,
+              "match_rule": "invokes GetHandler; does not assert this obligation",
+              "evidence_tier": "C_declared",
+              "source_refs": [
+                "test_matrix:positive:get_employee_contract_happy_path",
+                "step:Read the name request parameter",
+                "step:Scan the matching employee row into an Employee object",
+                "step:Return the employee",
+                "sink:database:employee lookup"
+              ],
+              "changed_in_diff": false,
+              "evidence": [
+                {
+                  "file": "pkg/gofr/http/middleware/logger_test.go",
+                  "symbol": "Test_LoggingMiddlewareUnknownPanicHandling",
+                  "label": "invokes GetHandler; does not assert this obligation",
+                  "snippet": "GetHandler"
+                }
+              ]
+            },
+            {
+              "id": "pkg/gofr/http/middleware/metrics_test.go::TestMetrics",
+              "name": "TestMetrics",
+              "case_name": "TestMetrics",
+              "repo": "app",
+              "file": "pkg/gofr/http/middleware/metrics_test.go",
+              "line": 34,
+              "suite": null,
+              "match_rule": "invokes GetHandler; does not assert this obligation",
+              "evidence_tier": "C_declared",
+              "source_refs": [
+                "test_matrix:positive:get_employee_contract_happy_path",
+                "step:Read the name request parameter",
+                "step:Scan the matching employee row into an Employee object",
+                "step:Return the employee",
+                "sink:database:employee lookup"
+              ],
+              "changed_in_diff": false,
+              "evidence": [
+                {
+                  "file": "pkg/gofr/http/middleware/metrics_test.go",
+                  "symbol": "TestMetrics",
+                  "label": "invokes GetHandler; does not assert this obligation",
+                  "snippet": "GetHandler"
+                }
+              ]
+            },
+            {
+              "id": "pkg/gofr/http/middleware/metrics_test.go::TestMetrics_StaticFile",
+              "name": "TestMetrics_StaticFile",
+              "case_name": "TestMetrics_StaticFile",
+              "repo": "app",
+              "file": "pkg/gofr/http/middleware/metrics_test.go",
+              "line": 59,
+              "suite": null,
+              "match_rule": "invokes GetHandler; does not assert this obligation",
+              "evidence_tier": "C_declared",
+              "source_refs": [
+                "test_matrix:positive:get_employee_contract_happy_path",
+                "step:Read the name request parameter",
+                "step:Scan the matching employee row into an Employee object",
+                "step:Return the employee",
+                "sink:database:employee lookup"
+              ],
+              "changed_in_diff": false,
+              "evidence": [
+                {
+                  "file": "pkg/gofr/http/middleware/metrics_test.go",
+                  "symbol": "TestMetrics_StaticFile",
+                  "label": "invokes GetHandler; does not assert this obligation",
+                  "snippet": "GetHandler"
+                }
+              ]
+            },
+            {
+              "id": "pkg/gofr/http/middleware/metrics_test.go::TestMetrics_StaticFileWithQueryParam",
+              "name": "TestMetrics_StaticFileWithQueryParam",
+              "case_name": "TestMetrics_StaticFileWithQueryParam",
+              "repo": "app",
+              "file": "pkg/gofr/http/middleware/metrics_test.go",
+              "line": 92,
+              "suite": null,
+              "match_rule": "invokes GetHandler; does not assert this obligation",
+              "evidence_tier": "C_declared",
+              "source_refs": [
+                "test_matrix:positive:get_employee_contract_happy_path",
+                "step:Read the name request parameter",
+                "step:Scan the matching employee row into an Employee object",
+                "step:Return the employee",
+                "sink:database:employee lookup"
+              ],
+              "changed_in_diff": false,
+              "evidence": [
+                {
+                  "file": "pkg/gofr/http/middleware/metrics_test.go",
+                  "symbol": "TestMetrics_StaticFileWithQueryParam",
+                  "label": "invokes GetHandler; does not assert this obligation",
+                  "snippet": "GetHandler"
+                }
+              ]
+            },
+            {
+              "id": "pkg/gofr/http/middleware/oauth_test.go::Test_OAuth_well_known",
+              "name": "Test_OAuth_well_known",
+              "case_name": "Test_OAuth_well_known",
+              "repo": "app",
+              "file": "pkg/gofr/http/middleware/oauth_test.go",
+              "line": 212,
+              "suite": null,
+              "match_rule": "invokes GetHandler; does not assert this obligation",
+              "evidence_tier": "C_declared",
+              "source_refs": [
+                "test_matrix:positive:get_employee_contract_happy_path",
+                "step:Read the name request parameter",
+                "step:Scan the matching employee row into an Employee object",
+                "step:Return the employee",
+                "sink:database:employee lookup"
+              ],
+              "changed_in_diff": false,
+              "evidence": [
+                {
+                  "file": "pkg/gofr/http/middleware/oauth_test.go",
+                  "symbol": "Test_OAuth_well_known",
+                  "label": "invokes GetHandler; does not assert this obligation",
+                  "snippet": "GetHandler"
+                }
+              ]
+            },
+            {
+              "id": "pkg/gofr/http/middleware/tracer_test.go::TestTrace",
+              "name": "TestTrace",
+              "case_name": "TestTrace",
+              "repo": "app",
+              "file": "pkg/gofr/http/middleware/tracer_test.go",
+              "line": 21,
+              "suite": null,
+              "match_rule": "invokes GetHandler; does not assert this obligation",
+              "evidence_tier": "C_declared",
+              "source_refs": [
+                "test_matrix:positive:get_employee_contract_happy_path",
+                "step:Read the name request parameter",
+                "step:Scan the matching employee row into an Employee object",
+                "step:Return the employee",
+                "sink:database:employee lookup"
+              ],
+              "changed_in_diff": false,
+              "evidence": [
+                {
+                  "file": "pkg/gofr/http/middleware/tracer_test.go",
+                  "symbol": "TestTrace",
+                  "label": "invokes GetHandler; does not assert this obligation",
+                  "snippet": "GetHandler"
+                }
+              ]
+            },
+            {
+              "id": "pkg/gofr/http/middleware/web_socket_test.go::TestWSConnectionCreate_Error",
+              "name": "TestWSConnectionCreate_Error",
+              "case_name": "TestWSConnectionCreate_Error",
+              "repo": "app",
+              "file": "pkg/gofr/http/middleware/web_socket_test.go",
+              "line": 33,
+              "suite": null,
+              "match_rule": "invokes GetHandler; does not assert this obligation",
+              "evidence_tier": "C_declared",
+              "source_refs": [
+                "test_matrix:positive:get_employee_contract_happy_path",
+                "step:Read the name request parameter",
+                "step:Scan the matching employee row into an Employee object",
+                "step:Return the employee",
+                "sink:database:employee lookup"
+              ],
+              "changed_in_diff": false,
+              "evidence": [
+                {
+                  "file": "pkg/gofr/http/middleware/web_socket_test.go",
+                  "symbol": "TestWSConnectionCreate_Error",
+                  "label": "invokes GetHandler; does not assert this obligation",
+                  "snippet": "GetHandler"
+                }
+              ]
+            },
+            {
+              "id": "pkg/gofr/http/middleware/web_socket_test.go::Test_WSConnectionCreate_Success",
+              "name": "Test_WSConnectionCreate_Success",
+              "case_name": "Test_WSConnectionCreate_Success",
+              "repo": "app",
+              "file": "pkg/gofr/http/middleware/web_socket_test.go",
+              "line": 58,
+              "suite": null,
+              "match_rule": "invokes GetHandler; does not assert this obligation",
+              "evidence_tier": "C_declared",
+              "source_refs": [
+                "test_matrix:positive:get_employee_contract_happy_path",
+                "step:Read the name request parameter",
+                "step:Scan the matching employee row into an Employee object",
+                "step:Return the employee",
+                "sink:database:employee lookup"
+              ],
+              "changed_in_diff": false,
+              "evidence": [
+                {
+                  "file": "pkg/gofr/http/middleware/web_socket_test.go",
+                  "symbol": "Test_WSConnectionCreate_Success",
+                  "label": "invokes GetHandler; does not assert this obligation",
+                  "snippet": "GetHandler"
+                }
+              ]
+            },
+            {
+              "id": "pkg/gofr/http/responder_test.go::TestResponder",
+              "name": "TestResponder",
+              "case_name": "TestResponder",
+              "repo": "app",
+              "file": "pkg/gofr/http/responder_test.go",
+              "line": 15,
+              "suite": null,
+              "match_rule": "invokes GetHandler; does not assert this obligation",
+              "evidence_tier": "C_declared",
+              "source_refs": [
+                "test_matrix:positive:get_employee_contract_happy_path",
+                "step:Read the name request parameter",
+                "step:Scan the matching employee row into an Employee object",
+                "step:Return the employee",
+                "sink:database:employee lookup"
+              ],
+              "changed_in_diff": true,
+              "evidence": [
+                {
+                  "file": "pkg/gofr/http/responder_test.go",
+                  "symbol": "TestResponder",
+                  "label": "invokes GetHandler; does not assert this obligation",
+                  "snippet": "GetHandler"
+                }
+              ]
+            },
+            {
+              "id": "pkg/gofr/http/responder_test.go::TestRespondWithApplicationJSON",
+              "name": "TestRespondWithApplicationJSON",
+              "case_name": "TestRespondWithApplicationJSON",
+              "repo": "app",
+              "file": "pkg/gofr/http/responder_test.go",
+              "line": 122,
+              "suite": null,
+              "match_rule": "invokes GetHandler; does not assert this obligation",
+              "evidence_tier": "C_declared",
+              "source_refs": [
+                "test_matrix:positive:get_employee_contract_happy_path",
+                "step:Read the name request parameter",
+                "step:Scan the matching employee row into an Employee object",
+                "step:Return the employee",
+                "sink:database:employee lookup"
+              ],
+              "changed_in_diff": false,
+              "evidence": [
+                {
+                  "file": "pkg/gofr/http/responder_test.go",
+                  "symbol": "TestRespondWithApplicationJSON",
+                  "label": "invokes GetHandler; does not assert this obligation",
+                  "snippet": "GetHandler"
+                }
+              ]
+            },
+            {
+              "id": "pkg/gofr/http/router_test.go::TestRouter",
+              "name": "TestRouter",
+              "case_name": "TestRouter",
+              "repo": "app",
+              "file": "pkg/gofr/http/router_test.go",
+              "line": 19,
+              "suite": null,
+              "match_rule": "invokes GetHandler; does not assert this obligation",
+              "evidence_tier": "C_declared",
+              "source_refs": [
+                "test_matrix:positive:get_employee_contract_happy_path",
+                "step:Read the name request parameter",
+                "step:Scan the matching employee row into an Employee object",
+                "step:Return the employee",
+                "sink:database:employee lookup"
+              ],
+              "changed_in_diff": false,
+              "evidence": [
+                {
+                  "file": "pkg/gofr/http/router_test.go",
+                  "symbol": "TestRouter",
+                  "label": "invokes GetHandler; does not assert this obligation",
+                  "snippet": "GetHandler"
+                }
+              ]
+            },
+            {
+              "id": "pkg/gofr/http/router_test.go::TestRouterWithMiddleware",
+              "name": "TestRouterWithMiddleware",
+              "case_name": "TestRouterWithMiddleware",
+              "repo": "app",
+              "file": "pkg/gofr/http/router_test.go",
+              "line": 44,
+              "suite": null,
+              "match_rule": "invokes GetHandler; does not assert this obligation",
+              "evidence_tier": "C_declared",
+              "source_refs": [
+                "test_matrix:positive:get_employee_contract_happy_path",
+                "step:Read the name request parameter",
+                "step:Scan the matching employee row into an Employee object",
+                "step:Return the employee",
+                "sink:database:employee lookup"
+              ],
+              "changed_in_diff": false,
+              "evidence": [
+                {
+                  "file": "pkg/gofr/http/router_test.go",
+                  "symbol": "TestRouterWithMiddleware",
+                  "label": "invokes GetHandler; does not assert this obligation",
+                  "snippet": "GetHandler"
+                }
+              ]
+            },
+            {
+              "id": "pkg/gofr/http/router_test.go::TestRouter_AddStaticFiles",
+              "name": "TestRouter_AddStaticFiles",
+              "case_name": "TestRouter_AddStaticFiles",
+              "repo": "app",
+              "file": "pkg/gofr/http/router_test.go",
+              "line": 79,
+              "suite": null,
+              "match_rule": "invokes GetHandler; does not assert this obligation",
+              "evidence_tier": "C_declared",
+              "source_refs": [
+                "test_matrix:positive:get_employee_contract_happy_path",
+                "step:Read the name request parameter",
+                "step:Scan the matching employee row into an Employee object",
+                "step:Return the employee",
+                "sink:database:employee lookup"
+              ],
+              "changed_in_diff": false,
+              "evidence": [
+                {
+                  "file": "pkg/gofr/http/router_test.go",
+                  "symbol": "TestRouter_AddStaticFiles",
+                  "label": "invokes GetHandler; does not assert this obligation",
+                  "snippet": "GetHandler"
+                }
+              ]
+            },
+            {
+              "id": "pkg/gofr/http_server_test.go::TestRegisterProfillingRoutes",
+              "name": "TestRegisterProfillingRoutes",
+              "case_name": "TestRegisterProfillingRoutes",
+              "repo": "app",
+              "file": "pkg/gofr/http_server_test.go",
+              "line": 64,
+              "suite": null,
+              "match_rule": "invokes GetHandler; does not assert this obligation",
+              "evidence_tier": "C_declared",
+              "source_refs": [
+                "test_matrix:positive:get_employee_contract_happy_path",
+                "step:Read the name request parameter",
+                "step:Scan the matching employee row into an Employee object",
+                "step:Return the employee",
+                "sink:database:employee lookup"
+              ],
+              "changed_in_diff": false,
+              "evidence": [
+                {
+                  "file": "pkg/gofr/http_server_test.go",
+                  "symbol": "TestRegisterProfillingRoutes",
+                  "label": "invokes GetHandler; does not assert this obligation",
+                  "snippet": "GetHandler"
+                }
+              ]
+            },
+            {
+              "id": "pkg/gofr/metrics/handler_test.go::Test_MetricsGetHandler_MetricsNotRegistered",
+              "name": "Test_MetricsGetHandler_MetricsNotRegistered",
+              "case_name": "Test_MetricsGetHandler_MetricsNotRegistered",
+              "repo": "app",
+              "file": "pkg/gofr/metrics/handler_test.go",
+              "line": 18,
+              "suite": null,
+              "match_rule": "invokes GetHandler; does not assert this obligation",
+              "evidence_tier": "C_declared",
+              "source_refs": [
+                "test_matrix:positive:get_employee_contract_happy_path",
+                "step:Read the name request parameter",
+                "step:Scan the matching employee row into an Employee object",
+                "step:Return the employee",
+                "sink:database:employee lookup"
+              ],
+              "changed_in_diff": false,
+              "evidence": [
+                {
+                  "file": "pkg/gofr/metrics/handler_test.go",
+                  "symbol": "Test_MetricsGetHandler_MetricsNotRegistered",
+                  "label": "invokes GetHandler; does not assert this obligation",
+                  "snippet": "GetHandler"
+                }
+              ]
+            },
+            {
+              "id": "pkg/gofr/metrics/handler_test.go::Test_MetricsGetHandler_SystemMetricsRegistered",
+              "name": "Test_MetricsGetHandler_SystemMetricsRegistered",
+              "case_name": "Test_MetricsGetHandler_SystemMetricsRegistered",
+              "repo": "app",
+              "file": "pkg/gofr/metrics/handler_test.go",
+              "line": 42,
+              "suite": null,
+              "match_rule": "invokes GetHandler; does not assert this obligation",
+              "evidence_tier": "C_declared",
+              "source_refs": [
+                "test_matrix:positive:get_employee_contract_happy_path",
+                "step:Read the name request parameter",
+                "step:Scan the matching employee row into an Employee object",
+                "step:Return the employee",
+                "sink:database:employee lookup"
+              ],
+              "changed_in_diff": false,
+              "evidence": [
+                {
+                  "file": "pkg/gofr/metrics/handler_test.go",
+                  "symbol": "Test_MetricsGetHandler_SystemMetricsRegistered",
+                  "label": "invokes GetHandler; does not assert this obligation",
+                  "snippet": "GetHandler"
+                }
+              ]
+            },
+            {
+              "id": "pkg/gofr/metrics/register_test.go::Test_NewMetricsManagerSuccess",
+              "name": "Test_NewMetricsManagerSuccess",
+              "case_name": "Test_NewMetricsManagerSuccess",
+              "repo": "app",
+              "file": "pkg/gofr/metrics/register_test.go",
+              "line": 17,
+              "suite": null,
+              "match_rule": "invokes GetHandler; does not assert this obligation",
+              "evidence_tier": "C_declared",
+              "source_refs": [
+                "test_matrix:positive:get_employee_contract_happy_path",
+                "step:Read the name request parameter",
+                "step:Scan the matching employee row into an Employee object",
+                "step:Return the employee",
+                "sink:database:employee lookup"
+              ],
+              "changed_in_diff": false,
+              "evidence": [
+                {
+                  "file": "pkg/gofr/metrics/register_test.go",
+                  "symbol": "Test_NewMetricsManagerSuccess",
+                  "label": "invokes GetHandler; does not assert this obligation",
+                  "snippet": "GetHandler"
+                }
+              ]
+            }
+          ],
+          "status": "unverified",
+          "reason": "37 test(s) exercise this flow but none assert this behavior",
+          "evidence": [
+            {
+              "file": "examples/using-migrations/main.go",
+              "symbol": "get_employee_contract_happy_path",
+              "label": "test_matrix_entry",
+              "snippet": "contract happy path"
+            }
+          ],
+          "mutation": null
+        },
+        {
+          "id": "flow:GET:/employee::obligation-3",
+          "flow_id": "flow:GET:/employee",
+          "kind": "route_contract",
+          "statement": "verifies GET /employee handles database read failures safely",
+          "origin": "test_matrix",
+          "canonical_id": "52abfe6982ee405b",
+          "source_refs": [
+            "test_matrix:error_handling:get_employee_database_read_failure_handled"
+          ],
+          "introduced_by_change": false,
+          "required": false,
+          "mapped_tests": [],
+          "executions": [],
+          "supporting_tests": [
+            {
+              "id": "examples/using-migrations/main_test.go::TestExampleMigration",
+              "name": "TestExampleMigration",
+              "case_name": "TestExampleMigration",
+              "repo": "app",
+              "file": "examples/using-migrations/main_test.go",
+              "line": 13,
+              "suite": null,
+              "match_rule": "issues GET /employee; does not assert this obligation",
+              "evidence_tier": "C_declared",
+              "source_refs": [
+                "test_matrix:error_handling:get_employee_database_read_failure_handled"
+              ],
+              "changed_in_diff": false,
+              "evidence": [
+                {
+                  "file": "examples/using-migrations/main_test.go",
+                  "symbol": "TestExampleMigration",
+                  "label": "issues GET /employee; does not assert this obligation",
+                  "snippet": "/employee"
+                }
+              ]
+            },
+            {
+              "id": "pkg/gofr/cmd/responder_test.go::TestResponder_Respond",
+              "name": "TestResponder_Respond",
+              "case_name": "TestResponder_Respond",
+              "repo": "app",
+              "file": "pkg/gofr/cmd/responder_test.go",
+              "line": 12,
+              "suite": null,
+              "match_rule": "invokes GetHandler; does not assert this obligation",
+              "evidence_tier": "C_declared",
+              "source_refs": [
+                "test_matrix:error_handling:get_employee_database_read_failure_handled"
+              ],
+              "changed_in_diff": false,
+              "evidence": [
+                {
+                  "file": "pkg/gofr/cmd/responder_test.go",
+                  "symbol": "TestResponder_Respond",
+                  "label": "invokes GetHandler; does not assert this obligation",
+                  "snippet": "GetHandler"
+                }
+              ]
+            },
+            {
+              "id": "pkg/gofr/gofr_test.go::TestGofr_ServerRoutes",
+              "name": "TestGofr_ServerRoutes",
+              "case_name": "TestGofr_ServerRoutes",
+              "repo": "app",
+              "file": "pkg/gofr/gofr_test.go",
+              "line": 48,
+              "suite": null,
+              "match_rule": "invokes GetHandler; does not assert this obligation",
+              "evidence_tier": "C_declared",
+              "source_refs": [
+                "test_matrix:error_handling:get_employee_database_read_failure_handled"
+              ],
+              "changed_in_diff": false,
+              "evidence": [
+                {
+                  "file": "pkg/gofr/gofr_test.go",
+                  "symbol": "TestGofr_ServerRoutes",
+                  "label": "invokes GetHandler; does not assert this obligation",
+                  "snippet": "GetHandler"
+                }
+              ]
+            },
+            {
+              "id": "pkg/gofr/gofr_test.go::Test_UseMiddleware",
+              "name": "Test_UseMiddleware",
+              "case_name": "Test_UseMiddleware",
+              "repo": "app",
+              "file": "pkg/gofr/gofr_test.go",
+              "line": 589,
+              "suite": null,
+              "match_rule": "invokes GetHandler; does not assert this obligation",
+              "evidence_tier": "C_declared",
+              "source_refs": [
+                "test_matrix:error_handling:get_employee_database_read_failure_handled"
+              ],
+              "changed_in_diff": false,
+              "evidence": [
+                {
+                  "file": "pkg/gofr/gofr_test.go",
+                  "symbol": "Test_UseMiddleware",
+                  "label": "invokes GetHandler; does not assert this obligation",
+                  "snippet": "GetHandler"
+                }
+              ]
+            },
+            {
+              "id": "pkg/gofr/gofr_test.go::TestUseMiddlewareWithContainer",
+              "name": "TestUseMiddlewareWithContainer",
+              "case_name": "TestUseMiddlewareWithContainer",
+              "repo": "app",
+              "file": "pkg/gofr/gofr_test.go",
+              "line": 642,
+              "suite": null,
+              "match_rule": "invokes GetHandler; does not assert this obligation",
+              "evidence_tier": "C_declared",
+              "source_refs": [
+                "test_matrix:error_handling:get_employee_database_read_failure_handled"
+              ],
+              "changed_in_diff": false,
+              "evidence": [
+                {
+                  "file": "pkg/gofr/gofr_test.go",
+                  "symbol": "TestUseMiddlewareWithContainer",
+                  "label": "invokes GetHandler; does not assert this obligation",
+                  "snippet": "GetHandler"
+                }
+              ]
+            },
+            {
+              "id": "pkg/gofr/handler_test.go::TestHandler_ServeHTTP",
+              "name": "TestHandler_ServeHTTP",
+              "case_name": "TestHandler_ServeHTTP",
+              "repo": "app",
+              "file": "pkg/gofr/handler_test.go",
+              "line": 26,
+              "suite": null,
+              "match_rule": "invokes GetHandler; does not assert this obligation",
+              "evidence_tier": "C_declared",
+              "source_refs": [
+                "test_matrix:error_handling:get_employee_database_read_failure_handled"
+              ],
+              "changed_in_diff": false,
+              "evidence": [
+                {
+                  "file": "pkg/gofr/handler_test.go",
+                  "symbol": "TestHandler_ServeHTTP",
+                  "label": "invokes GetHandler; does not assert this obligation",
+                  "snippet": "GetHandler"
+                }
+              ]
+            },
+            {
+              "id": "pkg/gofr/handler_test.go::TestHandler_ServeHTTP_Timeout",
+              "name": "TestHandler_ServeHTTP_Timeout",
+              "case_name": "TestHandler_ServeHTTP_Timeout",
+              "repo": "app",
+              "file": "pkg/gofr/handler_test.go",
+              "line": 66,
+              "suite": null,
+              "match_rule": "invokes GetHandler; does not assert this obligation",
+              "evidence_tier": "C_declared",
+              "source_refs": [
+                "test_matrix:error_handling:get_employee_database_read_failure_handled"
+              ],
+              "changed_in_diff": false,
+              "evidence": [
+                {
+                  "file": "pkg/gofr/handler_test.go",
+                  "symbol": "TestHandler_ServeHTTP_Timeout",
+                  "label": "invokes GetHandler; does not assert this obligation",
+                  "snippet": "GetHandler"
+                }
+              ]
+            },
+            {
+              "id": "pkg/gofr/handler_test.go::TestHandler_ServeHTTP_Panic",
+              "name": "TestHandler_ServeHTTP_Panic",
+              "case_name": "TestHandler_ServeHTTP_Panic",
+              "repo": "app",
+              "file": "pkg/gofr/handler_test.go",
+              "line": 86,
+              "suite": null,
+              "match_rule": "invokes GetHandler; does not assert this obligation",
+              "evidence_tier": "C_declared",
+              "source_refs": [
+                "test_matrix:error_handling:get_employee_database_read_failure_handled"
+              ],
+              "changed_in_diff": false,
+              "evidence": [
+                {
+                  "file": "pkg/gofr/handler_test.go",
+                  "symbol": "TestHandler_ServeHTTP_Panic",
+                  "label": "invokes GetHandler; does not assert this obligation",
+                  "snippet": "GetHandler"
+                }
+              ]
+            },
+            {
+              "id": "pkg/gofr/handler_test.go::TestHandler_ServeHTTP_WithHeaders",
+              "name": "TestHandler_ServeHTTP_WithHeaders",
+              "case_name": "TestHandler_ServeHTTP_WithHeaders",
+              "repo": "app",
+              "file": "pkg/gofr/handler_test.go",
+              "line": 104,
+              "suite": null,
+              "match_rule": "invokes GetHandler; does not assert this obligation",
+              "evidence_tier": "C_declared",
+              "source_refs": [
+                "test_matrix:error_handling:get_employee_database_read_failure_handled"
+              ],
+              "changed_in_diff": false,
+              "evidence": [
+                {
+                  "file": "pkg/gofr/handler_test.go",
+                  "symbol": "TestHandler_ServeHTTP_WithHeaders",
+                  "label": "invokes GetHandler; does not assert this obligation",
+                  "snippet": "GetHandler"
+                }
+              ]
+            },
+            {
+              "id": "pkg/gofr/http/middleware/apikey_auth_test.go::Test_ApiKeyAuthMiddleware",
+              "name": "Test_ApiKeyAuthMiddleware",
+              "case_name": "Test_ApiKeyAuthMiddleware",
+              "repo": "app",
+              "file": "pkg/gofr/http/middleware/apikey_auth_test.go",
+              "line": 19,
+              "suite": null,
+              "match_rule": "invokes GetHandler; does not assert this obligation",
+              "evidence_tier": "C_declared",
+              "source_refs": [
+                "test_matrix:error_handling:get_employee_database_read_failure_handled"
+              ],
+              "changed_in_diff": false,
+              "evidence": [
+                {
+                  "file": "pkg/gofr/http/middleware/apikey_auth_test.go",
+                  "symbol": "Test_ApiKeyAuthMiddleware",
+                  "label": "invokes GetHandler; does not assert this obligation",
+                  "snippet": "GetHandler"
+                }
+              ]
+            },
+            {
+              "id": "pkg/gofr/http/middleware/apikey_auth_test.go::Test_ApiKeyAuthMiddleware_well_known",
+              "name": "Test_ApiKeyAuthMiddleware_well_known",
+              "case_name": "Test_ApiKeyAuthMiddleware_well_known",
+              "repo": "app",
+              "file": "pkg/gofr/http/middleware/apikey_auth_test.go",
+              "line": 73,
+              "suite": null,
+              "match_rule": "invokes GetHandler; does not assert this obligation",
+              "evidence_tier": "C_declared",
+              "source_refs": [
+                "test_matrix:error_handling:get_employee_database_read_failure_handled"
+              ],
+              "changed_in_diff": false,
+              "evidence": [
+                {
+                  "file": "pkg/gofr/http/middleware/apikey_auth_test.go",
+                  "symbol": "Test_ApiKeyAuthMiddleware_well_known",
+                  "label": "invokes GetHandler; does not assert this obligation",
+                  "snippet": "GetHandler"
+                }
+              ]
+            },
+            {
+              "id": "pkg/gofr/http/middleware/basic_auth_test.go::TestBasicAuthMiddleware",
+              "name": "TestBasicAuthMiddleware",
+              "case_name": "TestBasicAuthMiddleware",
+              "repo": "app",
+              "file": "pkg/gofr/http/middleware/basic_auth_test.go",
+              "line": 14,
+              "suite": null,
+              "match_rule": "invokes GetHandler; does not assert this obligation",
+              "evidence_tier": "C_declared",
+              "source_refs": [
+                "test_matrix:error_handling:get_employee_database_read_failure_handled"
+              ],
+              "changed_in_diff": false,
+              "evidence": [
+                {
+                  "file": "pkg/gofr/http/middleware/basic_auth_test.go",
+                  "symbol": "TestBasicAuthMiddleware",
+                  "label": "invokes GetHandler; does not assert this obligation",
+                  "snippet": "GetHandler"
+                }
+              ]
+            },
+            {
+              "id": "pkg/gofr/http/middleware/basic_auth_test.go::TestBasicAuthMiddleware_ValidationSuccess",
+              "name": "TestBasicAuthMiddleware_ValidationSuccess",
+              "case_name": "TestBasicAuthMiddleware_ValidationSuccess",
+              "repo": "app",
+              "file": "pkg/gofr/http/middleware/basic_auth_test.go",
+              "line": 112,
+              "suite": null,
+              "match_rule": "invokes GetHandler; does not assert this obligation",
+              "evidence_tier": "C_declared",
+              "source_refs": [
+                "test_matrix:error_handling:get_employee_database_read_failure_handled"
+              ],
+              "changed_in_diff": false,
+              "evidence": [
+                {
+                  "file": "pkg/gofr/http/middleware/basic_auth_test.go",
+                  "symbol": "TestBasicAuthMiddleware_ValidationSuccess",
+                  "label": "invokes GetHandler; does not assert this obligation",
+                  "snippet": "GetHandler"
+                }
+              ]
+            },
+            {
+              "id": "pkg/gofr/http/middleware/basic_auth_test.go::Test_BasicAuthMiddleware_well_known",
+              "name": "Test_BasicAuthMiddleware_well_known",
+              "case_name": "Test_BasicAuthMiddleware_well_known",
+              "repo": "app",
+              "file": "pkg/gofr/http/middleware/basic_auth_test.go",
+              "line": 168,
+              "suite": null,
+              "match_rule": "invokes GetHandler; does not assert this obligation",
+              "evidence_tier": "C_declared",
+              "source_refs": [
+                "test_matrix:error_handling:get_employee_database_read_failure_handled"
+              ],
+              "changed_in_diff": false,
+              "evidence": [
+                {
+                  "file": "pkg/gofr/http/middleware/basic_auth_test.go",
+                  "symbol": "Test_BasicAuthMiddleware_well_known",
+                  "label": "invokes GetHandler; does not assert this obligation",
+                  "snippet": "GetHandler"
+                }
+              ]
+            },
+            {
+              "id": "pkg/gofr/http/middleware/basic_auth_test.go::TestBasicAuthMiddleware_NoAuthHeader",
+              "name": "TestBasicAuthMiddleware_NoAuthHeader",
+              "case_name": "TestBasicAuthMiddleware_NoAuthHeader",
+              "repo": "app",
+              "file": "pkg/gofr/http/middleware/basic_auth_test.go",
+              "line": 299,
+              "suite": null,
+              "match_rule": "invokes GetHandler; does not assert this obligation",
+              "evidence_tier": "C_declared",
+              "source_refs": [
+                "test_matrix:error_handling:get_employee_database_read_failure_handled"
+              ],
+              "changed_in_diff": false,
+              "evidence": [
+                {
+                  "file": "pkg/gofr/http/middleware/basic_auth_test.go",
+                  "symbol": "TestBasicAuthMiddleware_NoAuthHeader",
+                  "label": "invokes GetHandler; does not assert this obligation",
+                  "snippet": "GetHandler"
+                }
+              ]
+            },
+            {
+              "id": "pkg/gofr/http/middleware/cors_test.go::Test_CORS",
+              "name": "Test_CORS",
+              "case_name": "Test_CORS",
+              "repo": "app",
+              "file": "pkg/gofr/http/middleware/cors_test.go",
+              "line": 24,
+              "suite": null,
+              "match_rule": "invokes GetHandler; does not assert this obligation",
+              "evidence_tier": "C_declared",
+              "source_refs": [
+                "test_matrix:error_handling:get_employee_database_read_failure_handled"
+              ],
+              "changed_in_diff": false,
+              "evidence": [
+                {
+                  "file": "pkg/gofr/http/middleware/cors_test.go",
+                  "symbol": "Test_CORS",
+                  "label": "invokes GetHandler; does not assert this obligation",
+                  "snippet": "GetHandler"
+                }
+              ]
+            },
+            {
+              "id": "pkg/gofr/http/middleware/logger_test.go::Test_LoggingMiddleware",
+              "name": "Test_LoggingMiddleware",
+              "case_name": "Test_LoggingMiddleware",
+              "repo": "app",
+              "file": "pkg/gofr/http/middleware/logger_test.go",
+              "line": 45,
+              "suite": null,
+              "match_rule": "invokes GetHandler; does not assert this obligation",
+              "evidence_tier": "C_declared",
+              "source_refs": [
+                "test_matrix:error_handling:get_employee_database_read_failure_handled"
+              ],
+              "changed_in_diff": false,
+              "evidence": [
+                {
+                  "file": "pkg/gofr/http/middleware/logger_test.go",
+                  "symbol": "Test_LoggingMiddleware",
+                  "label": "invokes GetHandler; does not assert this obligation",
+                  "snippet": "GetHandler"
+                }
+              ]
+            },
+            {
+              "id": "pkg/gofr/http/middleware/logger_test.go::Test_LoggingMiddlewareError",
+              "name": "Test_LoggingMiddlewareError",
+              "case_name": "Test_LoggingMiddlewareError",
+              "repo": "app",
+              "file": "pkg/gofr/http/middleware/logger_test.go",
+              "line": 59,
+              "suite": null,
+              "match_rule": "invokes GetHandler; does not assert this obligation",
+              "evidence_tier": "C_declared",
+              "source_refs": [
+                "test_matrix:error_handling:get_employee_database_read_failure_handled"
+              ],
+              "changed_in_diff": false,
+              "evidence": [
+                {
+                  "file": "pkg/gofr/http/middleware/logger_test.go",
+                  "symbol": "Test_LoggingMiddlewareError",
+                  "label": "invokes GetHandler; does not assert this obligation",
+                  "snippet": "GetHandler"
+                }
+              ]
+            },
+            {
+              "id": "pkg/gofr/http/middleware/logger_test.go::Test_LoggingMiddlewareStringPanicHandling",
+              "name": "Test_LoggingMiddlewareStringPanicHandling",
+              "case_name": "Test_LoggingMiddlewareStringPanicHandling",
+              "repo": "app",
+              "file": "pkg/gofr/http/middleware/logger_test.go",
+              "line": 85,
+              "suite": null,
+              "match_rule": "invokes GetHandler; does not assert this obligation",
+              "evidence_tier": "C_declared",
+              "source_refs": [
+                "test_matrix:error_handling:get_employee_database_read_failure_handled"
+              ],
+              "changed_in_diff": false,
+              "evidence": [
+                {
+                  "file": "pkg/gofr/http/middleware/logger_test.go",
+                  "symbol": "Test_LoggingMiddlewareStringPanicHandling",
+                  "label": "invokes GetHandler; does not assert this obligation",
+                  "snippet": "GetHandler"
+                }
+              ]
+            },
+            {
+              "id": "pkg/gofr/http/middleware/logger_test.go::Test_LoggingMiddlewareErrorPanicHandling",
+              "name": "Test_LoggingMiddlewareErrorPanicHandling",
+              "case_name": "Test_LoggingMiddlewareErrorPanicHandling",
+              "repo": "app",
+              "file": "pkg/gofr/http/middleware/logger_test.go",
+              "line": 104,
+              "suite": null,
+              "match_rule": "invokes GetHandler; does not assert this obligation",
+              "evidence_tier": "C_declared",
+              "source_refs": [
+                "test_matrix:error_handling:get_employee_database_read_failure_handled"
+              ],
+              "changed_in_diff": false,
+              "evidence": [
+                {
+                  "file": "pkg/gofr/http/middleware/logger_test.go",
+                  "symbol": "Test_LoggingMiddlewareErrorPanicHandling",
+                  "label": "invokes GetHandler; does not assert this obligation",
+                  "snippet": "GetHandler"
+                }
+              ]
+            },
+            {
+              "id": "pkg/gofr/http/middleware/logger_test.go::Test_LoggingMiddlewareUnknownPanicHandling",
+              "name": "Test_LoggingMiddlewareUnknownPanicHandling",
+              "case_name": "Test_LoggingMiddlewareUnknownPanicHandling",
+              "repo": "app",
+              "file": "pkg/gofr/http/middleware/logger_test.go",
+              "line": 123,
+              "suite": null,
+              "match_rule": "invokes GetHandler; does not assert this obligation",
+              "evidence_tier": "C_declared",
+              "source_refs": [
+                "test_matrix:error_handling:get_employee_database_read_failure_handled"
+              ],
+              "changed_in_diff": false,
+              "evidence": [
+                {
+                  "file": "pkg/gofr/http/middleware/logger_test.go",
+                  "symbol": "Test_LoggingMiddlewareUnknownPanicHandling",
+                  "label": "invokes GetHandler; does not assert this obligation",
+                  "snippet": "GetHandler"
+                }
+              ]
+            },
+            {
+              "id": "pkg/gofr/http/middleware/metrics_test.go::TestMetrics",
+              "name": "TestMetrics",
+              "case_name": "TestMetrics",
+              "repo": "app",
+              "file": "pkg/gofr/http/middleware/metrics_test.go",
+              "line": 34,
+              "suite": null,
+              "match_rule": "invokes GetHandler; does not assert this obligation",
+              "evidence_tier": "C_declared",
+              "source_refs": [
+                "test_matrix:error_handling:get_employee_database_read_failure_handled"
+              ],
+              "changed_in_diff": false,
+              "evidence": [
+                {
+                  "file": "pkg/gofr/http/middleware/metrics_test.go",
+                  "symbol": "TestMetrics",
+                  "label": "invokes GetHandler; does not assert this obligation",
+                  "snippet": "GetHandler"
+                }
+              ]
+            },
+            {
+              "id": "pkg/gofr/http/middleware/metrics_test.go::TestMetrics_StaticFile",
+              "name": "TestMetrics_StaticFile",
+              "case_name": "TestMetrics_StaticFile",
+              "repo": "app",
+              "file": "pkg/gofr/http/middleware/metrics_test.go",
+              "line": 59,
+              "suite": null,
+              "match_rule": "invokes GetHandler; does not assert this obligation",
+              "evidence_tier": "C_declared",
+              "source_refs": [
+                "test_matrix:error_handling:get_employee_database_read_failure_handled"
+              ],
+              "changed_in_diff": false,
+              "evidence": [
+                {
+                  "file": "pkg/gofr/http/middleware/metrics_test.go",
+                  "symbol": "TestMetrics_StaticFile",
+                  "label": "invokes GetHandler; does not assert this obligation",
+                  "snippet": "GetHandler"
+                }
+              ]
+            },
+            {
+              "id": "pkg/gofr/http/middleware/metrics_test.go::TestMetrics_StaticFileWithQueryParam",
+              "name": "TestMetrics_StaticFileWithQueryParam",
+              "case_name": "TestMetrics_StaticFileWithQueryParam",
+              "repo": "app",
+              "file": "pkg/gofr/http/middleware/metrics_test.go",
+              "line": 92,
+              "suite": null,
+              "match_rule": "invokes GetHandler; does not assert this obligation",
+              "evidence_tier": "C_declared",
+              "source_refs": [
+                "test_matrix:error_handling:get_employee_database_read_failure_handled"
+              ],
+              "changed_in_diff": false,
+              "evidence": [
+                {
+                  "file": "pkg/gofr/http/middleware/metrics_test.go",
+                  "symbol": "TestMetrics_StaticFileWithQueryParam",
+                  "label": "invokes GetHandler; does not assert this obligation",
+                  "snippet": "GetHandler"
+                }
+              ]
+            },
+            {
+              "id": "pkg/gofr/http/middleware/oauth_test.go::Test_OAuth_well_known",
+              "name": "Test_OAuth_well_known",
+              "case_name": "Test_OAuth_well_known",
+              "repo": "app",
+              "file": "pkg/gofr/http/middleware/oauth_test.go",
+              "line": 212,
+              "suite": null,
+              "match_rule": "invokes GetHandler; does not assert this obligation",
+              "evidence_tier": "C_declared",
+              "source_refs": [
+                "test_matrix:error_handling:get_employee_database_read_failure_handled"
+              ],
+              "changed_in_diff": false,
+              "evidence": [
+                {
+                  "file": "pkg/gofr/http/middleware/oauth_test.go",
+                  "symbol": "Test_OAuth_well_known",
+                  "label": "invokes GetHandler; does not assert this obligation",
+                  "snippet": "GetHandler"
+                }
+              ]
+            },
+            {
+              "id": "pkg/gofr/http/middleware/tracer_test.go::TestTrace",
+              "name": "TestTrace",
+              "case_name": "TestTrace",
+              "repo": "app",
+              "file": "pkg/gofr/http/middleware/tracer_test.go",
+              "line": 21,
+              "suite": null,
+              "match_rule": "invokes GetHandler; does not assert this obligation",
+              "evidence_tier": "C_declared",
+              "source_refs": [
+                "test_matrix:error_handling:get_employee_database_read_failure_handled"
+              ],
+              "changed_in_diff": false,
+              "evidence": [
+                {
+                  "file": "pkg/gofr/http/middleware/tracer_test.go",
+                  "symbol": "TestTrace",
+                  "label": "invokes GetHandler; does not assert this obligation",
+                  "snippet": "GetHandler"
+                }
+              ]
+            },
+            {
+              "id": "pkg/gofr/http/middleware/web_socket_test.go::TestWSConnectionCreate_Error",
+              "name": "TestWSConnectionCreate_Error",
+              "case_name": "TestWSConnectionCreate_Error",
+              "repo": "app",
+              "file": "pkg/gofr/http/middleware/web_socket_test.go",
+              "line": 33,
+              "suite": null,
+              "match_rule": "invokes GetHandler; does not assert this obligation",
+              "evidence_tier": "C_declared",
+              "source_refs": [
+                "test_matrix:error_handling:get_employee_database_read_failure_handled"
+              ],
+              "changed_in_diff": false,
+              "evidence": [
+                {
+                  "file": "pkg/gofr/http/middleware/web_socket_test.go",
+                  "symbol": "TestWSConnectionCreate_Error",
+                  "label": "invokes GetHandler; does not assert this obligation",
+                  "snippet": "GetHandler"
+                }
+              ]
+            },
+            {
+              "id": "pkg/gofr/http/middleware/web_socket_test.go::Test_WSConnectionCreate_Success",
+              "name": "Test_WSConnectionCreate_Success",
+              "case_name": "Test_WSConnectionCreate_Success",
+              "repo": "app",
+              "file": "pkg/gofr/http/middleware/web_socket_test.go",
+              "line": 58,
+              "suite": null,
+              "match_rule": "invokes GetHandler; does not assert this obligation",
+              "evidence_tier": "C_declared",
+              "source_refs": [
+                "test_matrix:error_handling:get_employee_database_read_failure_handled"
+              ],
+              "changed_in_diff": false,
+              "evidence": [
+                {
+                  "file": "pkg/gofr/http/middleware/web_socket_test.go",
+                  "symbol": "Test_WSConnectionCreate_Success",
+                  "label": "invokes GetHandler; does not assert this obligation",
+                  "snippet": "GetHandler"
+                }
+              ]
+            },
+            {
+              "id": "pkg/gofr/http/responder_test.go::TestResponder",
+              "name": "TestResponder",
+              "case_name": "TestResponder",
+              "repo": "app",
+              "file": "pkg/gofr/http/responder_test.go",
+              "line": 15,
+              "suite": null,
+              "match_rule": "invokes GetHandler; does not assert this obligation",
+              "evidence_tier": "C_declared",
+              "source_refs": [
+                "test_matrix:error_handling:get_employee_database_read_failure_handled"
+              ],
+              "changed_in_diff": true,
+              "evidence": [
+                {
+                  "file": "pkg/gofr/http/responder_test.go",
+                  "symbol": "TestResponder",
+                  "label": "invokes GetHandler; does not assert this obligation",
+                  "snippet": "GetHandler"
+                }
+              ]
+            },
+            {
+              "id": "pkg/gofr/http/responder_test.go::TestRespondWithApplicationJSON",
+              "name": "TestRespondWithApplicationJSON",
+              "case_name": "TestRespondWithApplicationJSON",
+              "repo": "app",
+              "file": "pkg/gofr/http/responder_test.go",
+              "line": 122,
+              "suite": null,
+              "match_rule": "invokes GetHandler; does not assert this obligation",
+              "evidence_tier": "C_declared",
+              "source_refs": [
+                "test_matrix:error_handling:get_employee_database_read_failure_handled"
+              ],
+              "changed_in_diff": false,
+              "evidence": [
+                {
+                  "file": "pkg/gofr/http/responder_test.go",
+                  "symbol": "TestRespondWithApplicationJSON",
+                  "label": "invokes GetHandler; does not assert this obligation",
+                  "snippet": "GetHandler"
+                }
+              ]
+            },
+            {
+              "id": "pkg/gofr/http/router_test.go::TestRouter",
+              "name": "TestRouter",
+              "case_name": "TestRouter",
+              "repo": "app",
+              "file": "pkg/gofr/http/router_test.go",
+              "line": 19,
+              "suite": null,
+              "match_rule": "invokes GetHandler; does not assert this obligation",
+              "evidence_tier": "C_declared",
+              "source_refs": [
+                "test_matrix:error_handling:get_employee_database_read_failure_handled"
+              ],
+              "changed_in_diff": false,
+              "evidence": [
+                {
+                  "file": "pkg/gofr/http/router_test.go",
+                  "symbol": "TestRouter",
+                  "label": "invokes GetHandler; does not assert this obligation",
+                  "snippet": "GetHandler"
+                }
+              ]
+            },
+            {
+              "id": "pkg/gofr/http/router_test.go::TestRouterWithMiddleware",
+              "name": "TestRouterWithMiddleware",
+              "case_name": "TestRouterWithMiddleware",
+              "repo": "app",
+              "file": "pkg/gofr/http/router_test.go",
+              "line": 44,
+              "suite": null,
+              "match_rule": "invokes GetHandler; does not assert this obligation",
+              "evidence_tier": "C_declared",
+              "source_refs": [
+                "test_matrix:error_handling:get_employee_database_read_failure_handled"
+              ],
+              "changed_in_diff": false,
+              "evidence": [
+                {
+                  "file": "pkg/gofr/http/router_test.go",
+                  "symbol": "TestRouterWithMiddleware",
+                  "label": "invokes GetHandler; does not assert this obligation",
+                  "snippet": "GetHandler"
+                }
+              ]
+            },
+            {
+              "id": "pkg/gofr/http/router_test.go::TestRouter_AddStaticFiles",
+              "name": "TestRouter_AddStaticFiles",
+              "case_name": "TestRouter_AddStaticFiles",
+              "repo": "app",
+              "file": "pkg/gofr/http/router_test.go",
+              "line": 79,
+              "suite": null,
+              "match_rule": "invokes GetHandler; does not assert this obligation",
+              "evidence_tier": "C_declared",
+              "source_refs": [
+                "test_matrix:error_handling:get_employee_database_read_failure_handled"
+              ],
+              "changed_in_diff": false,
+              "evidence": [
+                {
+                  "file": "pkg/gofr/http/router_test.go",
+                  "symbol": "TestRouter_AddStaticFiles",
+                  "label": "invokes GetHandler; does not assert this obligation",
+                  "snippet": "GetHandler"
+                }
+              ]
+            },
+            {
+              "id": "pkg/gofr/http_server_test.go::TestRegisterProfillingRoutes",
+              "name": "TestRegisterProfillingRoutes",
+              "case_name": "TestRegisterProfillingRoutes",
+              "repo": "app",
+              "file": "pkg/gofr/http_server_test.go",
+              "line": 64,
+              "suite": null,
+              "match_rule": "invokes GetHandler; does not assert this obligation",
+              "evidence_tier": "C_declared",
+              "source_refs": [
+                "test_matrix:error_handling:get_employee_database_read_failure_handled"
+              ],
+              "changed_in_diff": false,
+              "evidence": [
+                {
+                  "file": "pkg/gofr/http_server_test.go",
+                  "symbol": "TestRegisterProfillingRoutes",
+                  "label": "invokes GetHandler; does not assert this obligation",
+                  "snippet": "GetHandler"
+                }
+              ]
+            },
+            {
+              "id": "pkg/gofr/metrics/handler_test.go::Test_MetricsGetHandler_MetricsNotRegistered",
+              "name": "Test_MetricsGetHandler_MetricsNotRegistered",
+              "case_name": "Test_MetricsGetHandler_MetricsNotRegistered",
+              "repo": "app",
+              "file": "pkg/gofr/metrics/handler_test.go",
+              "line": 18,
+              "suite": null,
+              "match_rule": "invokes GetHandler; does not assert this obligation",
+              "evidence_tier": "C_declared",
+              "source_refs": [
+                "test_matrix:error_handling:get_employee_database_read_failure_handled"
+              ],
+              "changed_in_diff": false,
+              "evidence": [
+                {
+                  "file": "pkg/gofr/metrics/handler_test.go",
+                  "symbol": "Test_MetricsGetHandler_MetricsNotRegistered",
+                  "label": "invokes GetHandler; does not assert this obligation",
+                  "snippet": "GetHandler"
+                }
+              ]
+            },
+            {
+              "id": "pkg/gofr/metrics/handler_test.go::Test_MetricsGetHandler_SystemMetricsRegistered",
+              "name": "Test_MetricsGetHandler_SystemMetricsRegistered",
+              "case_name": "Test_MetricsGetHandler_SystemMetricsRegistered",
+              "repo": "app",
+              "file": "pkg/gofr/metrics/handler_test.go",
+              "line": 42,
+              "suite": null,
+              "match_rule": "invokes GetHandler; does not assert this obligation",
+              "evidence_tier": "C_declared",
+              "source_refs": [
+                "test_matrix:error_handling:get_employee_database_read_failure_handled"
+              ],
+              "changed_in_diff": false,
+              "evidence": [
+                {
+                  "file": "pkg/gofr/metrics/handler_test.go",
+                  "symbol": "Test_MetricsGetHandler_SystemMetricsRegistered",
+                  "label": "invokes GetHandler; does not assert this obligation",
+                  "snippet": "GetHandler"
+                }
+              ]
+            },
+            {
+              "id": "pkg/gofr/metrics/register_test.go::Test_NewMetricsManagerSuccess",
+              "name": "Test_NewMetricsManagerSuccess",
+              "case_name": "Test_NewMetricsManagerSuccess",
+              "repo": "app",
+              "file": "pkg/gofr/metrics/register_test.go",
+              "line": 17,
+              "suite": null,
+              "match_rule": "invokes GetHandler; does not assert this obligation",
+              "evidence_tier": "C_declared",
+              "source_refs": [
+                "test_matrix:error_handling:get_employee_database_read_failure_handled"
+              ],
+              "changed_in_diff": false,
+              "evidence": [
+                {
+                  "file": "pkg/gofr/metrics/register_test.go",
+                  "symbol": "Test_NewMetricsManagerSuccess",
+                  "label": "invokes GetHandler; does not assert this obligation",
+                  "snippet": "GetHandler"
+                }
+              ]
+            }
+          ],
+          "status": "unverified",
+          "reason": "37 test(s) exercise this flow but none assert this behavior",
+          "evidence": [
+            {
+              "file": "examples/using-migrations/main.go",
+              "symbol": "get_employee_database_read_failure_handled",
+              "label": "test_matrix_entry",
+              "snippet": "verifies GET /employee handles database read failures safely"
+            }
+          ],
+          "mutation": null
+        },
+        {
+          "id": "flow:GET:/employee::obligation-2",
+          "flow_id": "flow:GET:/employee",
+          "kind": "route_contract",
+          "statement": "verifies GET /employee returns the expected entity/list response",
+          "origin": "test_matrix",
+          "canonical_id": "1c0ab4403a8f76f7",
+          "source_refs": [
+            "test_matrix:positive:get_employee_returns_entity_or_list"
+          ],
+          "introduced_by_change": false,
+          "required": false,
+          "mapped_tests": [],
+          "executions": [],
+          "supporting_tests": [
+            {
+              "id": "examples/using-migrations/main_test.go::TestExampleMigration",
+              "name": "TestExampleMigration",
+              "case_name": "TestExampleMigration",
+              "repo": "app",
+              "file": "examples/using-migrations/main_test.go",
+              "line": 13,
+              "suite": null,
+              "match_rule": "issues GET /employee; does not assert this obligation",
+              "evidence_tier": "C_declared",
+              "source_refs": [
+                "test_matrix:positive:get_employee_returns_entity_or_list"
+              ],
+              "changed_in_diff": false,
+              "evidence": [
+                {
+                  "file": "examples/using-migrations/main_test.go",
+                  "symbol": "TestExampleMigration",
+                  "label": "issues GET /employee; does not assert this obligation",
+                  "snippet": "/employee"
+                }
+              ]
+            },
+            {
+              "id": "pkg/gofr/cmd/responder_test.go::TestResponder_Respond",
+              "name": "TestResponder_Respond",
+              "case_name": "TestResponder_Respond",
+              "repo": "app",
+              "file": "pkg/gofr/cmd/responder_test.go",
+              "line": 12,
+              "suite": null,
+              "match_rule": "invokes GetHandler; does not assert this obligation",
+              "evidence_tier": "C_declared",
+              "source_refs": [
+                "test_matrix:positive:get_employee_returns_entity_or_list"
+              ],
+              "changed_in_diff": false,
+              "evidence": [
+                {
+                  "file": "pkg/gofr/cmd/responder_test.go",
+                  "symbol": "TestResponder_Respond",
+                  "label": "invokes GetHandler; does not assert this obligation",
+                  "snippet": "GetHandler"
+                }
+              ]
+            },
+            {
+              "id": "pkg/gofr/gofr_test.go::TestGofr_ServerRoutes",
+              "name": "TestGofr_ServerRoutes",
+              "case_name": "TestGofr_ServerRoutes",
+              "repo": "app",
+              "file": "pkg/gofr/gofr_test.go",
+              "line": 48,
+              "suite": null,
+              "match_rule": "invokes GetHandler; does not assert this obligation",
+              "evidence_tier": "C_declared",
+              "source_refs": [
+                "test_matrix:positive:get_employee_returns_entity_or_list"
+              ],
+              "changed_in_diff": false,
+              "evidence": [
+                {
+                  "file": "pkg/gofr/gofr_test.go",
+                  "symbol": "TestGofr_ServerRoutes",
+                  "label": "invokes GetHandler; does not assert this obligation",
+                  "snippet": "GetHandler"
+                }
+              ]
+            },
+            {
+              "id": "pkg/gofr/gofr_test.go::Test_UseMiddleware",
+              "name": "Test_UseMiddleware",
+              "case_name": "Test_UseMiddleware",
+              "repo": "app",
+              "file": "pkg/gofr/gofr_test.go",
+              "line": 589,
+              "suite": null,
+              "match_rule": "invokes GetHandler; does not assert this obligation",
+              "evidence_tier": "C_declared",
+              "source_refs": [
+                "test_matrix:positive:get_employee_returns_entity_or_list"
+              ],
+              "changed_in_diff": false,
+              "evidence": [
+                {
+                  "file": "pkg/gofr/gofr_test.go",
+                  "symbol": "Test_UseMiddleware",
+                  "label": "invokes GetHandler; does not assert this obligation",
+                  "snippet": "GetHandler"
+                }
+              ]
+            },
+            {
+              "id": "pkg/gofr/gofr_test.go::TestUseMiddlewareWithContainer",
+              "name": "TestUseMiddlewareWithContainer",
+              "case_name": "TestUseMiddlewareWithContainer",
+              "repo": "app",
+              "file": "pkg/gofr/gofr_test.go",
+              "line": 642,
+              "suite": null,
+              "match_rule": "invokes GetHandler; does not assert this obligation",
+              "evidence_tier": "C_declared",
+              "source_refs": [
+                "test_matrix:positive:get_employee_returns_entity_or_list"
+              ],
+              "changed_in_diff": false,
+              "evidence": [
+                {
+                  "file": "pkg/gofr/gofr_test.go",
+                  "symbol": "TestUseMiddlewareWithContainer",
+                  "label": "invokes GetHandler; does not assert this obligation",
+                  "snippet": "GetHandler"
+                }
+              ]
+            },
+            {
+              "id": "pkg/gofr/handler_test.go::TestHandler_ServeHTTP",
+              "name": "TestHandler_ServeHTTP",
+              "case_name": "TestHandler_ServeHTTP",
+              "repo": "app",
+              "file": "pkg/gofr/handler_test.go",
+              "line": 26,
+              "suite": null,
+              "match_rule": "invokes GetHandler; does not assert this obligation",
+              "evidence_tier": "C_declared",
+              "source_refs": [
+                "test_matrix:positive:get_employee_returns_entity_or_list"
+              ],
+              "changed_in_diff": false,
+              "evidence": [
+                {
+                  "file": "pkg/gofr/handler_test.go",
+                  "symbol": "TestHandler_ServeHTTP",
+                  "label": "invokes GetHandler; does not assert this obligation",
+                  "snippet": "GetHandler"
+                }
+              ]
+            },
+            {
+              "id": "pkg/gofr/handler_test.go::TestHandler_ServeHTTP_Timeout",
+              "name": "TestHandler_ServeHTTP_Timeout",
+              "case_name": "TestHandler_ServeHTTP_Timeout",
+              "repo": "app",
+              "file": "pkg/gofr/handler_test.go",
+              "line": 66,
+              "suite": null,
+              "match_rule": "invokes GetHandler; does not assert this obligation",
+              "evidence_tier": "C_declared",
+              "source_refs": [
+                "test_matrix:positive:get_employee_returns_entity_or_list"
+              ],
+              "changed_in_diff": false,
+              "evidence": [
+                {
+                  "file": "pkg/gofr/handler_test.go",
+                  "symbol": "TestHandler_ServeHTTP_Timeout",
+                  "label": "invokes GetHandler; does not assert this obligation",
+                  "snippet": "GetHandler"
+                }
+              ]
+            },
+            {
+              "id": "pkg/gofr/handler_test.go::TestHandler_ServeHTTP_Panic",
+              "name": "TestHandler_ServeHTTP_Panic",
+              "case_name": "TestHandler_ServeHTTP_Panic",
+              "repo": "app",
+              "file": "pkg/gofr/handler_test.go",
+              "line": 86,
+              "suite": null,
+              "match_rule": "invokes GetHandler; does not assert this obligation",
+              "evidence_tier": "C_declared",
+              "source_refs": [
+                "test_matrix:positive:get_employee_returns_entity_or_list"
+              ],
+              "changed_in_diff": false,
+              "evidence": [
+                {
+                  "file": "pkg/gofr/handler_test.go",
+                  "symbol": "TestHandler_ServeHTTP_Panic",
+                  "label": "invokes GetHandler; does not assert this obligation",
+                  "snippet": "GetHandler"
+                }
+              ]
+            },
+            {
+              "id": "pkg/gofr/handler_test.go::TestHandler_ServeHTTP_WithHeaders",
+              "name": "TestHandler_ServeHTTP_WithHeaders",
+              "case_name": "TestHandler_ServeHTTP_WithHeaders",
+              "repo": "app",
+              "file": "pkg/gofr/handler_test.go",
+              "line": 104,
+              "suite": null,
+              "match_rule": "invokes GetHandler; does not assert this obligation",
+              "evidence_tier": "C_declared",
+              "source_refs": [
+                "test_matrix:positive:get_employee_returns_entity_or_list"
+              ],
+              "changed_in_diff": false,
+              "evidence": [
+                {
+                  "file": "pkg/gofr/handler_test.go",
+                  "symbol": "TestHandler_ServeHTTP_WithHeaders",
+                  "label": "invokes GetHandler; does not assert this obligation",
+                  "snippet": "GetHandler"
+                }
+              ]
+            },
+            {
+              "id": "pkg/gofr/http/middleware/apikey_auth_test.go::Test_ApiKeyAuthMiddleware",
+              "name": "Test_ApiKeyAuthMiddleware",
+              "case_name": "Test_ApiKeyAuthMiddleware",
+              "repo": "app",
+              "file": "pkg/gofr/http/middleware/apikey_auth_test.go",
+              "line": 19,
+              "suite": null,
+              "match_rule": "invokes GetHandler; does not assert this obligation",
+              "evidence_tier": "C_declared",
+              "source_refs": [
+                "test_matrix:positive:get_employee_returns_entity_or_list"
+              ],
+              "changed_in_diff": false,
+              "evidence": [
+                {
+                  "file": "pkg/gofr/http/middleware/apikey_auth_test.go",
+                  "symbol": "Test_ApiKeyAuthMiddleware",
+                  "label": "invokes GetHandler; does not assert this obligation",
+                  "snippet": "GetHandler"
+                }
+              ]
+            },
+            {
+              "id": "pkg/gofr/http/middleware/apikey_auth_test.go::Test_ApiKeyAuthMiddleware_well_known",
+              "name": "Test_ApiKeyAuthMiddleware_well_known",
+              "case_name": "Test_ApiKeyAuthMiddleware_well_known",
+              "repo": "app",
+              "file": "pkg/gofr/http/middleware/apikey_auth_test.go",
+              "line": 73,
+              "suite": null,
+              "match_rule": "invokes GetHandler; does not assert this obligation",
+              "evidence_tier": "C_declared",
+              "source_refs": [
+                "test_matrix:positive:get_employee_returns_entity_or_list"
+              ],
+              "changed_in_diff": false,
+              "evidence": [
+                {
+                  "file": "pkg/gofr/http/middleware/apikey_auth_test.go",
+                  "symbol": "Test_ApiKeyAuthMiddleware_well_known",
+                  "label": "invokes GetHandler; does not assert this obligation",
+                  "snippet": "GetHandler"
+                }
+              ]
+            },
+            {
+              "id": "pkg/gofr/http/middleware/basic_auth_test.go::TestBasicAuthMiddleware",
+              "name": "TestBasicAuthMiddleware",
+              "case_name": "TestBasicAuthMiddleware",
+              "repo": "app",
+              "file": "pkg/gofr/http/middleware/basic_auth_test.go",
+              "line": 14,
+              "suite": null,
+              "match_rule": "invokes GetHandler; does not assert this obligation",
+              "evidence_tier": "C_declared",
+              "source_refs": [
+                "test_matrix:positive:get_employee_returns_entity_or_list"
+              ],
+              "changed_in_diff": false,
+              "evidence": [
+                {
+                  "file": "pkg/gofr/http/middleware/basic_auth_test.go",
+                  "symbol": "TestBasicAuthMiddleware",
+                  "label": "invokes GetHandler; does not assert this obligation",
+                  "snippet": "GetHandler"
+                }
+              ]
+            },
+            {
+              "id": "pkg/gofr/http/middleware/basic_auth_test.go::TestBasicAuthMiddleware_ValidationSuccess",
+              "name": "TestBasicAuthMiddleware_ValidationSuccess",
+              "case_name": "TestBasicAuthMiddleware_ValidationSuccess",
+              "repo": "app",
+              "file": "pkg/gofr/http/middleware/basic_auth_test.go",
+              "line": 112,
+              "suite": null,
+              "match_rule": "invokes GetHandler; does not assert this obligation",
+              "evidence_tier": "C_declared",
+              "source_refs": [
+                "test_matrix:positive:get_employee_returns_entity_or_list"
+              ],
+              "changed_in_diff": false,
+              "evidence": [
+                {
+                  "file": "pkg/gofr/http/middleware/basic_auth_test.go",
+                  "symbol": "TestBasicAuthMiddleware_ValidationSuccess",
+                  "label": "invokes GetHandler; does not assert this obligation",
+                  "snippet": "GetHandler"
+                }
+              ]
+            },
+            {
+              "id": "pkg/gofr/http/middleware/basic_auth_test.go::Test_BasicAuthMiddleware_well_known",
+              "name": "Test_BasicAuthMiddleware_well_known",
+              "case_name": "Test_BasicAuthMiddleware_well_known",
+              "repo": "app",
+              "file": "pkg/gofr/http/middleware/basic_auth_test.go",
+              "line": 168,
+              "suite": null,
+              "match_rule": "invokes GetHandler; does not assert this obligation",
+              "evidence_tier": "C_declared",
+              "source_refs": [
+                "test_matrix:positive:get_employee_returns_entity_or_list"
+              ],
+              "changed_in_diff": false,
+              "evidence": [
+                {
+                  "file": "pkg/gofr/http/middleware/basic_auth_test.go",
+                  "symbol": "Test_BasicAuthMiddleware_well_known",
+                  "label": "invokes GetHandler; does not assert this obligation",
+                  "snippet": "GetHandler"
+                }
+              ]
+            },
+            {
+              "id": "pkg/gofr/http/middleware/basic_auth_test.go::TestBasicAuthMiddleware_NoAuthHeader",
+              "name": "TestBasicAuthMiddleware_NoAuthHeader",
+              "case_name": "TestBasicAuthMiddleware_NoAuthHeader",
+              "repo": "app",
+              "file": "pkg/gofr/http/middleware/basic_auth_test.go",
+              "line": 299,
+              "suite": null,
+              "match_rule": "invokes GetHandler; does not assert this obligation",
+              "evidence_tier": "C_declared",
+              "source_refs": [
+                "test_matrix:positive:get_employee_returns_entity_or_list"
+              ],
+              "changed_in_diff": false,
+              "evidence": [
+                {
+                  "file": "pkg/gofr/http/middleware/basic_auth_test.go",
+                  "symbol": "TestBasicAuthMiddleware_NoAuthHeader",
+                  "label": "invokes GetHandler; does not assert this obligation",
+                  "snippet": "GetHandler"
+                }
+              ]
+            },
+            {
+              "id": "pkg/gofr/http/middleware/cors_test.go::Test_CORS",
+              "name": "Test_CORS",
+              "case_name": "Test_CORS",
+              "repo": "app",
+              "file": "pkg/gofr/http/middleware/cors_test.go",
+              "line": 24,
+              "suite": null,
+              "match_rule": "invokes GetHandler; does not assert this obligation",
+              "evidence_tier": "C_declared",
+              "source_refs": [
+                "test_matrix:positive:get_employee_returns_entity_or_list"
+              ],
+              "changed_in_diff": false,
+              "evidence": [
+                {
+                  "file": "pkg/gofr/http/middleware/cors_test.go",
+                  "symbol": "Test_CORS",
+                  "label": "invokes GetHandler; does not assert this obligation",
+                  "snippet": "GetHandler"
+                }
+              ]
+            },
+            {
+              "id": "pkg/gofr/http/middleware/logger_test.go::Test_LoggingMiddleware",
+              "name": "Test_LoggingMiddleware",
+              "case_name": "Test_LoggingMiddleware",
+              "repo": "app",
+              "file": "pkg/gofr/http/middleware/logger_test.go",
+              "line": 45,
+              "suite": null,
+              "match_rule": "invokes GetHandler; does not assert this obligation",
+              "evidence_tier": "C_declared",
+              "source_refs": [
+                "test_matrix:positive:get_employee_returns_entity_or_list"
+              ],
+              "changed_in_diff": false,
+              "evidence": [
+                {
+                  "file": "pkg/gofr/http/middleware/logger_test.go",
+                  "symbol": "Test_LoggingMiddleware",
+                  "label": "invokes GetHandler; does not assert this obligation",
+                  "snippet": "GetHandler"
+                }
+              ]
+            },
+            {
+              "id": "pkg/gofr/http/middleware/logger_test.go::Test_LoggingMiddlewareError",
+              "name": "Test_LoggingMiddlewareError",
+              "case_name": "Test_LoggingMiddlewareError",
+              "repo": "app",
+              "file": "pkg/gofr/http/middleware/logger_test.go",
+              "line": 59,
+              "suite": null,
+              "match_rule": "invokes GetHandler; does not assert this obligation",
+              "evidence_tier": "C_declared",
+              "source_refs": [
+                "test_matrix:positive:get_employee_returns_entity_or_list"
+              ],
+              "changed_in_diff": false,
+              "evidence": [
+                {
+                  "file": "pkg/gofr/http/middleware/logger_test.go",
+                  "symbol": "Test_LoggingMiddlewareError",
+                  "label": "invokes GetHandler; does not assert this obligation",
+                  "snippet": "GetHandler"
+                }
+              ]
+            },
+            {
+              "id": "pkg/gofr/http/middleware/logger_test.go::Test_LoggingMiddlewareStringPanicHandling",
+              "name": "Test_LoggingMiddlewareStringPanicHandling",
+              "case_name": "Test_LoggingMiddlewareStringPanicHandling",
+              "repo": "app",
+              "file": "pkg/gofr/http/middleware/logger_test.go",
+              "line": 85,
+              "suite": null,
+              "match_rule": "invokes GetHandler; does not assert this obligation",
+              "evidence_tier": "C_declared",
+              "source_refs": [
+                "test_matrix:positive:get_employee_returns_entity_or_list"
+              ],
+              "changed_in_diff": false,
+              "evidence": [
+                {
+                  "file": "pkg/gofr/http/middleware/logger_test.go",
+                  "symbol": "Test_LoggingMiddlewareStringPanicHandling",
+                  "label": "invokes GetHandler; does not assert this obligation",
+                  "snippet": "GetHandler"
+                }
+              ]
+            },
+            {
+              "id": "pkg/gofr/http/middleware/logger_test.go::Test_LoggingMiddlewareErrorPanicHandling",
+              "name": "Test_LoggingMiddlewareErrorPanicHandling",
+              "case_name": "Test_LoggingMiddlewareErrorPanicHandling",
+              "repo": "app",
+              "file": "pkg/gofr/http/middleware/logger_test.go",
+              "line": 104,
+              "suite": null,
+              "match_rule": "invokes GetHandler; does not assert this obligation",
+              "evidence_tier": "C_declared",
+              "source_refs": [
+                "test_matrix:positive:get_employee_returns_entity_or_list"
+              ],
+              "changed_in_diff": false,
+              "evidence": [
+                {
+                  "file": "pkg/gofr/http/middleware/logger_test.go",
+                  "symbol": "Test_LoggingMiddlewareErrorPanicHandling",
+                  "label": "invokes GetHandler; does not assert this obligation",
+                  "snippet": "GetHandler"
+                }
+              ]
+            },
+            {
+              "id": "pkg/gofr/http/middleware/logger_test.go::Test_LoggingMiddlewareUnknownPanicHandling",
+              "name": "Test_LoggingMiddlewareUnknownPanicHandling",
+              "case_name": "Test_LoggingMiddlewareUnknownPanicHandling",
+              "repo": "app",
+              "file": "pkg/gofr/http/middleware/logger_test.go",
+              "line": 123,
+              "suite": null,
+              "match_rule": "invokes GetHandler; does not assert this obligation",
+              "evidence_tier": "C_declared",
+              "source_refs": [
+                "test_matrix:positive:get_employee_returns_entity_or_list"
+              ],
+              "changed_in_diff": false,
+              "evidence": [
+                {
+                  "file": "pkg/gofr/http/middleware/logger_test.go",
+                  "symbol": "Test_LoggingMiddlewareUnknownPanicHandling",
+                  "label": "invokes GetHandler; does not assert this obligation",
+                  "snippet": "GetHandler"
+                }
+              ]
+            },
+            {
+              "id": "pkg/gofr/http/middleware/metrics_test.go::TestMetrics",
+              "name": "TestMetrics",
+              "case_name": "TestMetrics",
+              "repo": "app",
+              "file": "pkg/gofr/http/middleware/metrics_test.go",
+              "line": 34,
+              "suite": null,
+              "match_rule": "invokes GetHandler; does not assert this obligation",
+              "evidence_tier": "C_declared",
+              "source_refs": [
+                "test_matrix:positive:get_employee_returns_entity_or_list"
+              ],
+              "changed_in_diff": false,
+              "evidence": [
+                {
+                  "file": "pkg/gofr/http/middleware/metrics_test.go",
+                  "symbol": "TestMetrics",
+                  "label": "invokes GetHandler; does not assert this obligation",
+                  "snippet": "GetHandler"
+                }
+              ]
+            },
+            {
+              "id": "pkg/gofr/http/middleware/metrics_test.go::TestMetrics_StaticFile",
+              "name": "TestMetrics_StaticFile",
+              "case_name": "TestMetrics_StaticFile",
+              "repo": "app",
+              "file": "pkg/gofr/http/middleware/metrics_test.go",
+              "line": 59,
+              "suite": null,
+              "match_rule": "invokes GetHandler; does not assert this obligation",
+              "evidence_tier": "C_declared",
+              "source_refs": [
+                "test_matrix:positive:get_employee_returns_entity_or_list"
+              ],
+              "changed_in_diff": false,
+              "evidence": [
+                {
+                  "file": "pkg/gofr/http/middleware/metrics_test.go",
+                  "symbol": "TestMetrics_StaticFile",
+                  "label": "invokes GetHandler; does not assert this obligation",
+                  "snippet": "GetHandler"
+                }
+              ]
+            },
+            {
+              "id": "pkg/gofr/http/middleware/metrics_test.go::TestMetrics_StaticFileWithQueryParam",
+              "name": "TestMetrics_StaticFileWithQueryParam",
+              "case_name": "TestMetrics_StaticFileWithQueryParam",
+              "repo": "app",
+              "file": "pkg/gofr/http/middleware/metrics_test.go",
+              "line": 92,
+              "suite": null,
+              "match_rule": "invokes GetHandler; does not assert this obligation",
+              "evidence_tier": "C_declared",
+              "source_refs": [
+                "test_matrix:positive:get_employee_returns_entity_or_list"
+              ],
+              "changed_in_diff": false,
+              "evidence": [
+                {
+                  "file": "pkg/gofr/http/middleware/metrics_test.go",
+                  "symbol": "TestMetrics_StaticFileWithQueryParam",
+                  "label": "invokes GetHandler; does not assert this obligation",
+                  "snippet": "GetHandler"
+                }
+              ]
+            },
+            {
+              "id": "pkg/gofr/http/middleware/oauth_test.go::Test_OAuth_well_known",
+              "name": "Test_OAuth_well_known",
+              "case_name": "Test_OAuth_well_known",
+              "repo": "app",
+              "file": "pkg/gofr/http/middleware/oauth_test.go",
+              "line": 212,
+              "suite": null,
+              "match_rule": "invokes GetHandler; does not assert this obligation",
+              "evidence_tier": "C_declared",
+              "source_refs": [
+                "test_matrix:positive:get_employee_returns_entity_or_list"
+              ],
+              "changed_in_diff": false,
+              "evidence": [
+                {
+                  "file": "pkg/gofr/http/middleware/oauth_test.go",
+                  "symbol": "Test_OAuth_well_known",
+                  "label": "invokes GetHandler; does not assert this obligation",
+                  "snippet": "GetHandler"
+                }
+              ]
+            },
+            {
+              "id": "pkg/gofr/http/middleware/tracer_test.go::TestTrace",
+              "name": "TestTrace",
+              "case_name": "TestTrace",
+              "repo": "app",
+              "file": "pkg/gofr/http/middleware/tracer_test.go",
+              "line": 21,
+              "suite": null,
+              "match_rule": "invokes GetHandler; does not assert this obligation",
+              "evidence_tier": "C_declared",
+              "source_refs": [
+                "test_matrix:positive:get_employee_returns_entity_or_list"
+              ],
+              "changed_in_diff": false,
+              "evidence": [
+                {
+                  "file": "pkg/gofr/http/middleware/tracer_test.go",
+                  "symbol": "TestTrace",
+                  "label": "invokes GetHandler; does not assert this obligation",
+                  "snippet": "GetHandler"
+                }
+              ]
+            },
+            {
+              "id": "pkg/gofr/http/middleware/web_socket_test.go::TestWSConnectionCreate_Error",
+              "name": "TestWSConnectionCreate_Error",
+              "case_name": "TestWSConnectionCreate_Error",
+              "repo": "app",
+              "file": "pkg/gofr/http/middleware/web_socket_test.go",
+              "line": 33,
+              "suite": null,
+              "match_rule": "invokes GetHandler; does not assert this obligation",
+              "evidence_tier": "C_declared",
+              "source_refs": [
+                "test_matrix:positive:get_employee_returns_entity_or_list"
+              ],
+              "changed_in_diff": false,
+              "evidence": [
+                {
+                  "file": "pkg/gofr/http/middleware/web_socket_test.go",
+                  "symbol": "TestWSConnectionCreate_Error",
+                  "label": "invokes GetHandler; does not assert this obligation",
+                  "snippet": "GetHandler"
+                }
+              ]
+            },
+            {
+              "id": "pkg/gofr/http/middleware/web_socket_test.go::Test_WSConnectionCreate_Success",
+              "name": "Test_WSConnectionCreate_Success",
+              "case_name": "Test_WSConnectionCreate_Success",
+              "repo": "app",
+              "file": "pkg/gofr/http/middleware/web_socket_test.go",
+              "line": 58,
+              "suite": null,
+              "match_rule": "invokes GetHandler; does not assert this obligation",
+              "evidence_tier": "C_declared",
+              "source_refs": [
+                "test_matrix:positive:get_employee_returns_entity_or_list"
+              ],
+              "changed_in_diff": false,
+              "evidence": [
+                {
+                  "file": "pkg/gofr/http/middleware/web_socket_test.go",
+                  "symbol": "Test_WSConnectionCreate_Success",
+                  "label": "invokes GetHandler; does not assert this obligation",
+                  "snippet": "GetHandler"
+                }
+              ]
+            },
+            {
+              "id": "pkg/gofr/http/responder_test.go::TestResponder",
+              "name": "TestResponder",
+              "case_name": "TestResponder",
+              "repo": "app",
+              "file": "pkg/gofr/http/responder_test.go",
+              "line": 15,
+              "suite": null,
+              "match_rule": "invokes GetHandler; does not assert this obligation",
+              "evidence_tier": "C_declared",
+              "source_refs": [
+                "test_matrix:positive:get_employee_returns_entity_or_list"
+              ],
+              "changed_in_diff": true,
+              "evidence": [
+                {
+                  "file": "pkg/gofr/http/responder_test.go",
+                  "symbol": "TestResponder",
+                  "label": "invokes GetHandler; does not assert this obligation",
+                  "snippet": "GetHandler"
+                }
+              ]
+            },
+            {
+              "id": "pkg/gofr/http/responder_test.go::TestRespondWithApplicationJSON",
+              "name": "TestRespondWithApplicationJSON",
+              "case_name": "TestRespondWithApplicationJSON",
+              "repo": "app",
+              "file": "pkg/gofr/http/responder_test.go",
+              "line": 122,
+              "suite": null,
+              "match_rule": "invokes GetHandler; does not assert this obligation",
+              "evidence_tier": "C_declared",
+              "source_refs": [
+                "test_matrix:positive:get_employee_returns_entity_or_list"
+              ],
+              "changed_in_diff": false,
+              "evidence": [
+                {
+                  "file": "pkg/gofr/http/responder_test.go",
+                  "symbol": "TestRespondWithApplicationJSON",
+                  "label": "invokes GetHandler; does not assert this obligation",
+                  "snippet": "GetHandler"
+                }
+              ]
+            },
+            {
+              "id": "pkg/gofr/http/router_test.go::TestRouter",
+              "name": "TestRouter",
+              "case_name": "TestRouter",
+              "repo": "app",
+              "file": "pkg/gofr/http/router_test.go",
+              "line": 19,
+              "suite": null,
+              "match_rule": "invokes GetHandler; does not assert this obligation",
+              "evidence_tier": "C_declared",
+              "source_refs": [
+                "test_matrix:positive:get_employee_returns_entity_or_list"
+              ],
+              "changed_in_diff": false,
+              "evidence": [
+                {
+                  "file": "pkg/gofr/http/router_test.go",
+                  "symbol": "TestRouter",
+                  "label": "invokes GetHandler; does not assert this obligation",
+                  "snippet": "GetHandler"
+                }
+              ]
+            },
+            {
+              "id": "pkg/gofr/http/router_test.go::TestRouterWithMiddleware",
+              "name": "TestRouterWithMiddleware",
+              "case_name": "TestRouterWithMiddleware",
+              "repo": "app",
+              "file": "pkg/gofr/http/router_test.go",
+              "line": 44,
+              "suite": null,
+              "match_rule": "invokes GetHandler; does not assert this obligation",
+              "evidence_tier": "C_declared",
+              "source_refs": [
+                "test_matrix:positive:get_employee_returns_entity_or_list"
+              ],
+              "changed_in_diff": false,
+              "evidence": [
+                {
+                  "file": "pkg/gofr/http/router_test.go",
+                  "symbol": "TestRouterWithMiddleware",
+                  "label": "invokes GetHandler; does not assert this obligation",
+                  "snippet": "GetHandler"
+                }
+              ]
+            },
+            {
+              "id": "pkg/gofr/http/router_test.go::TestRouter_AddStaticFiles",
+              "name": "TestRouter_AddStaticFiles",
+              "case_name": "TestRouter_AddStaticFiles",
+              "repo": "app",
+              "file": "pkg/gofr/http/router_test.go",
+              "line": 79,
+              "suite": null,
+              "match_rule": "invokes GetHandler; does not assert this obligation",
+              "evidence_tier": "C_declared",
+              "source_refs": [
+                "test_matrix:positive:get_employee_returns_entity_or_list"
+              ],
+              "changed_in_diff": false,
+              "evidence": [
+                {
+                  "file": "pkg/gofr/http/router_test.go",
+                  "symbol": "TestRouter_AddStaticFiles",
+                  "label": "invokes GetHandler; does not assert this obligation",
+                  "snippet": "GetHandler"
+                }
+              ]
+            },
+            {
+              "id": "pkg/gofr/http_server_test.go::TestRegisterProfillingRoutes",
+              "name": "TestRegisterProfillingRoutes",
+              "case_name": "TestRegisterProfillingRoutes",
+              "repo": "app",
+              "file": "pkg/gofr/http_server_test.go",
+              "line": 64,
+              "suite": null,
+              "match_rule": "invokes GetHandler; does not assert this obligation",
+              "evidence_tier": "C_declared",
+              "source_refs": [
+                "test_matrix:positive:get_employee_returns_entity_or_list"
+              ],
+              "changed_in_diff": false,
+              "evidence": [
+                {
+                  "file": "pkg/gofr/http_server_test.go",
+                  "symbol": "TestRegisterProfillingRoutes",
+                  "label": "invokes GetHandler; does not assert this obligation",
+                  "snippet": "GetHandler"
+                }
+              ]
+            },
+            {
+              "id": "pkg/gofr/metrics/handler_test.go::Test_MetricsGetHandler_MetricsNotRegistered",
+              "name": "Test_MetricsGetHandler_MetricsNotRegistered",
+              "case_name": "Test_MetricsGetHandler_MetricsNotRegistered",
+              "repo": "app",
+              "file": "pkg/gofr/metrics/handler_test.go",
+              "line": 18,
+              "suite": null,
+              "match_rule": "invokes GetHandler; does not assert this obligation",
+              "evidence_tier": "C_declared",
+              "source_refs": [
+                "test_matrix:positive:get_employee_returns_entity_or_list"
+              ],
+              "changed_in_diff": false,
+              "evidence": [
+                {
+                  "file": "pkg/gofr/metrics/handler_test.go",
+                  "symbol": "Test_MetricsGetHandler_MetricsNotRegistered",
+                  "label": "invokes GetHandler; does not assert this obligation",
+                  "snippet": "GetHandler"
+                }
+              ]
+            },
+            {
+              "id": "pkg/gofr/metrics/handler_test.go::Test_MetricsGetHandler_SystemMetricsRegistered",
+              "name": "Test_MetricsGetHandler_SystemMetricsRegistered",
+              "case_name": "Test_MetricsGetHandler_SystemMetricsRegistered",
+              "repo": "app",
+              "file": "pkg/gofr/metrics/handler_test.go",
+              "line": 42,
+              "suite": null,
+              "match_rule": "invokes GetHandler; does not assert this obligation",
+              "evidence_tier": "C_declared",
+              "source_refs": [
+                "test_matrix:positive:get_employee_returns_entity_or_list"
+              ],
+              "changed_in_diff": false,
+              "evidence": [
+                {
+                  "file": "pkg/gofr/metrics/handler_test.go",
+                  "symbol": "Test_MetricsGetHandler_SystemMetricsRegistered",
+                  "label": "invokes GetHandler; does not assert this obligation",
+                  "snippet": "GetHandler"
+                }
+              ]
+            },
+            {
+              "id": "pkg/gofr/metrics/register_test.go::Test_NewMetricsManagerSuccess",
+              "name": "Test_NewMetricsManagerSuccess",
+              "case_name": "Test_NewMetricsManagerSuccess",
+              "repo": "app",
+              "file": "pkg/gofr/metrics/register_test.go",
+              "line": 17,
+              "suite": null,
+              "match_rule": "invokes GetHandler; does not assert this obligation",
+              "evidence_tier": "C_declared",
+              "source_refs": [
+                "test_matrix:positive:get_employee_returns_entity_or_list"
+              ],
+              "changed_in_diff": false,
+              "evidence": [
+                {
+                  "file": "pkg/gofr/metrics/register_test.go",
+                  "symbol": "Test_NewMetricsManagerSuccess",
+                  "label": "invokes GetHandler; does not assert this obligation",
+                  "snippet": "GetHandler"
+                }
+              ]
+            }
+          ],
+          "status": "unverified",
+          "reason": "37 test(s) exercise this flow but none assert this behavior",
+          "evidence": [
+            {
+              "file": "examples/using-migrations/main.go",
+              "symbol": "get_employee_returns_entity_or_list",
+              "label": "test_matrix_entry",
+              "snippet": "verifies GET /employee returns the expected entity/list response"
+            }
+          ],
+          "mutation": null
+        }
+      ],
+      "reason": "No verification obligation could be derived for this flow",
+      "status": "unverified",
+      "impact_status": "inferred",
+      "provenance": "structural"
+    }
+  ],
+  "unresolved_changed_symbols": 2,
+  "unresolved_changed_symbol_names": [
+    "Respond",
+    "ServeHTTP"
+  ],
+  "analysis_status": "partial",
+  "analysis_notes": [
+    "Changed source file `pkg/gofr/http/response/response.go` yielded no symbols: file could not be parsed into symbols. Downstream effects of this file are not established.",
+    "Route composition is unresolved in app; some routes may be missing.",
+    "Structural exploration was bounded for this change (usage hop 2 filled a full page); boundaries beyond the explored neighborhood are not established either way.",
+    "2 changed symbol(s) have no established impact path to any entrypoint (an AI-inferred candidate may still exist for one — see AFFECTED BEHAVIOR — but that is not the same as resolved impact coverage)."
+  ],
+  "test_executions": [],
+  "ci_suite": {
+    "command": [
+      "go",
+      "test"
+    ],
+    "source": "detected:go_test:.",
+    "working_dir": ".",
+    "framework": "go_test",
+    "status": "unknown",
+    "blocker": "collection_error",
+    "reason": "The runner exited with code 1 without a usable result",
+    "exit_code": 1,
+    "duration_ms": 40,
+    "tests_passed": null,
+    "tests_failed": null,
+    "summary_line": null,
+    "failed_test_ids": [],
+    "stdout_excerpt": "FAIL\t. [setup failed]",
+    "stderr_excerpt": "# .\nno Go files in /Users/ksnaik/.cache/sydes-aacr/repos/gofr-dev__gofr",
+    "output_truncated": false,
+    "evidence": [
+      {
+        "file": "detected:go_test:.",
+        "symbol": null,
+        "label": "ci_test_command",
+        "snippet": "go test"
+      }
+    ]
+  },
+  "verification_gaps": [],
+  "runtime_dependencies": [
+    {
+      "id": "runtime:database:mysql",
+      "name": "MySQL",
+      "kind": "database",
+      "repo": "app",
+      "required_for_flow_ids": [],
+      "detected_from": [
+        {
+          "file": ".github/workflows/go.yml",
+          "symbol": "mysql:8.2.0",
+          "label": "container_image",
+          "snippet": "image: mysql:8.2.0"
+        },
+        {
+          "file": "examples/http-server/docker/docker-compose.yaml",
+          "symbol": "mysql:8.0.30",
+          "label": "container_image",
+          "snippet": "image: mysql:8.0.30"
+        },
+        {
+          "file": "examples/http-server/configs/.env",
+          "symbol": "DB_HOST",
+          "label": "env_var",
+          "snippet": "DB_HOST=localhost"
+        },
+        {
+          "file": "examples/http-server/configs/.env",
+          "symbol": "DB_NAME",
+          "label": "env_var",
+          "snippet": "DB_NAME=test"
+        },
+        {
+          "file": "examples/http-server/configs/.env",
+          "symbol": "DB_PORT",
+          "label": "env_var",
+          "snippet": "DB_PORT=2001"
+        },
+        {
+          "file": "examples/using-add-rest-handlers/configs/.env",
+          "symbol": "DB_HOST",
+          "label": "env_var",
+          "snippet": "DB_HOST=localhost"
+        }
+      ],
+      "scope": "repository"
+    },
+    {
+      "id": "runtime:queue:kafka",
+      "name": "Kafka",
+      "kind": "queue",
+      "repo": "app",
+      "required_for_flow_ids": [],
+      "detected_from": [
+        {
+          "file": ".github/workflows/go.yml",
+          "symbol": "bitnami/kafka:3.4",
+          "label": "container_image",
+          "snippet": "image: bitnami/kafka:3.4"
+        }
+      ],
+      "scope": "repository"
+    },
+    {
+      "id": "runtime:http_service:tracer-service",
+      "name": "Tracer service",
+      "kind": "http_service",
+      "repo": "app",
+      "required_for_flow_ids": [],
+      "detected_from": [
+        {
+          "file": "examples/using-add-rest-handlers/configs/.env",
+          "symbol": "TRACER_URL",
+          "label": "env_var",
+          "snippet": "TRACER_URL=http://localhost:2005/api/v2/spans"
+        },
+        {
+          "file": "examples/using-cron-jobs/configs/.env",
+          "symbol": "TRACER_URL",
+          "label": "env_var",
+          "snippet": "TRACER_URL=http://localhost:2005/api/v2/spans"
+        },
+        {
+          "file": "examples/using-migrations/configs/.env",
+          "symbol": "TRACER_URL",
+          "label": "env_var",
+          "snippet": "TRACER_URL=http://localhost:2005/api/v2/spans"
+        }
+      ],
+      "scope": "repository"
+    },
+    {
+      "id": "runtime:cache:redis",
+      "name": "Redis",
+      "kind": "cache",
+      "repo": "app",
+      "required_for_flow_ids": [],
+      "detected_from": [
+        {
+          "file": ".github/workflows/go.yml",
+          "symbol": "redis:7.0.5",
+          "label": "container_image",
+          "snippet": "image: redis:7.0.5"
+        },
+        {
+          "file": "examples/http-server-using-redis/configs/.env",
+          "symbol": "REDIS_HOST",
+          "label": "env_var",
+          "snippet": "REDIS_HOST=localhost"
+        },
+        {
+          "file": "examples/http-server-using-redis/configs/.env",
+          "symbol": "REDIS_PORT",
+          "label": "env_var",
+          "snippet": "REDIS_PORT=2002"
+        },
+        {
+          "file": "examples/http-server/configs/.env",
+          "symbol": "REDIS_HOST",
+          "label": "env_var",
+          "snippet": "REDIS_HOST=localhost"
+        },
+        {
+          "file": "examples/http-server/configs/.env",
+          "symbol": "REDIS_PORT",
+          "label": "env_var",
+          "snippet": "REDIS_PORT=2002"
+        },
+        {
+          "file": "examples/http-server/docker/docker-compose.yaml",
+          "symbol": "redis:7.0.5",
+          "label": "container_image",
+          "snippet": "image: redis:7.0.5"
+        }
+      ],
+      "scope": "repository"
+    }
+  ],
+  "cross_repo_impacts": [],
+  "notes": [
+    "test_execution=whole_suite_fallback reason=no_mapped_tests",
+    "AI recovery (experimental, provenance=ai_recovery, run-local, merged into structural results): path recovery could not establish a source-backed path beyond the first pass; test recovery recovered 4 verified test(s).",
+    "Saved change verification artifact: /Users/ksnaik/.sydes/workspaces/cfacbaa62acc1325/artifacts/20261026T160637Z-a10082eb/change_verification.json"
+  ],
+  "diagnostics": [
+    "code_intelligence_effective_backend=cbm selected_by=default",
+    "code_intelligence_backend=cbm transport=persistent_mcp_stdio cbm_server_version=0.11.0 cbm_executable=/Users/ksnaik/.cache/uv/archive-v0/qjq2WVkR8Mwv6VtFhJ9Dm/bin/codebase-memory-mcp",
+    "cbm_session_start_ms=1352.5 cbm_calls=31 cbm_mean_call_ms=134.3",
+    "cbm_index_ms=3233.2 cbm_query_ms=956.2 sydes_route_semantics_ms=825.2 total_ms=6369.4",
+    "cbm_supplied=symbols,spans,imports,exports,call_edges,usage_edges,entrypoints  sydes_semantics=route_index,route_graph,repo_map",
+    "route_derived_entrypoints_added=16",
+    "cbm_gap: route composition is computed by Sydes, not CBM: CBM reports uncomposed route paths and models no persistence sinks",
+    "cbm_gap: app: route composition is unresolved for some containers; route-derived entrypoint paths from this repo may be incomplete",
+    "cbm_gap: CALLS/USAGE edges deferred: they are fetched as a bounded neighborhood around the changed symbols instead of a repository-wide sweep",
+    "app: cbm_index_mode retried fast->full (1 changed file(s) under an excluded directory; see trace for detail)",
+    "handler_symbol_index: exports=10707, files_indexed=429, imports=414, symbols=11360",
+    "pr_semantic_analysis_prompt_chars=19226",
+    "reverse_reach_candidate_files=8",
+    "app: deterministic_routes_found=16, deterministic_frameworks=express,express_mount_graph",
+    "app: discovery_coverage=moderate score=0.7",
+    "app: discovery_coverage_reasons=deterministic route extraction produced grounded routes; route graph composition produced mounted routes; some mount edges could not be resolved; route composition is unresolved: 7 of 7 route containers have no resolvable mount or declared prefix, so route paths may be incomplete",
+    "app: route_graph_containers=11, route_graph_declarations=16, route_graph_mount_edges=3, route_graph_composed_routes=16, route_graph_unresolved_mounts=3",
+    "app: deterministic_routes=16, llm_routes=0, merged_routes=16, rejected_routes=0, final_routes=16",
+    "app: merged_llm_routes=0",
+    "graph_slice_seeds: changed=3 routes=0 dropped_auxiliary=0 total=3",
+    "graph_slice: used=True seeds=3 canonical_seeds=3 unresolved_seeds=0 unresolved_changed=0 unresolved_auxiliary=0 graph_calls=4 nodes=400 call_edges=466 usage_edges=215 truncated=True fell_back=False",
+    "impact_interpreter: affected_entrypoints=3, ambiguous_edges=0, boundary_budget_exhausted=False, boundary_emitted=0, boundary_expansions=17, boundary_frontier_considered=17, boundary_rejected_weak_evidence=0, call_edges=466, changed_symbols=2, evidence_confirmed=0, guide_actions={'infer_impact': 3, 'inspect_symbol': 1, 'stop_unresolved': 2}, guide_budget_exhausted=False, guide_calls=6, guide_error_details=[], guide_errors=0, guide_latency_ms=34665.00916820951, guide_no_progress=0, guide_triggered=True, http_entrypoints=1, known_entrypoints=16, llm_candidates=3, llm_candidates_accepted=3, llm_candidates_corroborated=1, llm_candidates_missing_reason=0, llm_candidates_self_referential=0, llm_candidates_uncorroborated=2, llm_candidates_ungrounded=0, llm_candidates_whole_change_unanchored=0, llm_new_entrypoints=3, llm_no_candidate_turns=0, unresolved_after=2, unresolved_before=2, unresolved_symbols=2, usage_edges=215",
+    "repo_profile: reused persisted profile",
+    "boundary_reasoning: candidates=4 inferred=0",
+    "app: test_files_found=142",
+    "app: test_cases_found=821",
+    "changed_test_cases_found: ['pkg/gofr/http/responder_test.go::TestResponder']",
+    "test_frameworks_detected=go_test",
+    "ci_suite=unknown exit=1 source=detected:go_test:.",
+    "structural_enrichment: triggered=[route_registration: 1 route(s); route_container_registration: 2 unresolved changed symbol(s)] cbm_requests=3 (relations:2,schema:1) cache_hits=(none) errors=0 truncated=0 families=[CALLS,HANDLES,USAGE] candidates=1 unresolved=0",
+    "code_review_context_added: pkg/gofr/http/response/response.go:SetCustomHeaders -- ServeHTTP calls SetCustomHeaders at pkg/gofr/handler.go:101 (a changed line)",
+    "code_review_context_added: pkg/gofr/migration/interface.go:Set -- Respond calls Set at pkg/gofr/http/responder.go:34 (2 line(s) from a changed line)",
+    "code_review_context_added: pkg/gofr/responder.go:Respond -- ServeHTTP calls Respond at pkg/gofr/handler.go:105 (4 line(s) from a changed line)",
+    "code_review_context_added: pkg/gofr/datasource/opentsdb/interface.go:Write -- Respond calls Write at pkg/gofr/http/responder.go:37 (5 line(s) from a changed line)",
+    "code_review_context_added: pkg/gofr/http/responder.go:getStatusCode -- Respond calls getStatusCode at pkg/gofr/http/responder.go:25 (6 line(s) from a changed line)",
+    "code_review_context_added: pkg/gofr/metrics/handler.go:systemMetricsHandler -- systemMetricsHandler calls the changed ServeHTTP",
+    "code_review_context_related=6",
+    "code_review_questions=9",
+    "investigator: hypotheses=2 lookups=8/12 confirmed=1 refuted=0 unknown=1 findings=1 llm_calls=11 errors=0",
+    "investigation_artifact=/Users/ksnaik/StudioProjects/sydes/benchmarks/aacr/results/investigator-b9391e5-first11-r1-2026-10-26/sydes/gofr-dev__gofr@b9cdcbb.investigation.json",
+    "run_metrics: wall_seconds=297.2 llm_calls=37 (ai_recovery:16,boundary_reasoning:1,flow_expansion:1,impact_guide:6,investigator:11,pr_semantic_analysis:1,route_discovery:1) llm_errors=0 input_tokens=100207 output_tokens=16588 estimated_cost_usd=unavailable (set SYDES_LLM_PRICE_PER_MTOK) cbm_requests=41 cbm_enrichment_requests=3 test_executions=0 test_outcomes={}"
+  ],
+  "behavioral": null,
+  "known_routes": [
+    {
+      "method": "GET",
+      "path": "/employee",
+      "handler": "GetHandler",
+      "file": "examples/using-migrations/main.go",
+      "repo": "app",
+      "service": null,
+      "evidence": [
+        {
+          "file": "examples/using-migrations/main.go",
+          "symbol": "GetHandler",
+          "label": "route_declaration",
+          "snippet": "a.GET(\"/employee\", GetHandler)"
+        }
+      ],
+      "confidence": 1.0,
+      "status": "deterministic_composed",
+      "kind": "http",
+      "impact_status": null
+    },
+    {
+      "method": "GET",
+      "path": "/error",
+      "handler": "ErrorHandler",
+      "file": "examples/http-server/main.go",
+      "repo": "app",
+      "service": null,
+      "evidence": [
+        {
+          "file": "examples/http-server/main.go",
+          "symbol": "ErrorHandler",
+          "label": "route_declaration",
+          "snippet": "a.GET(\"/error\", ErrorHandler)"
+        }
+      ],
+      "confidence": 1.0,
+      "status": "deterministic_composed",
+      "kind": "http",
+      "impact_status": null
+    },
+    {
+      "method": "GET",
+      "path": "/fact",
+      "handler": "Handler",
+      "file": "examples/using-http-service/main.go",
+      "repo": "app",
+      "service": null,
+      "evidence": [
+        {
+          "file": "examples/using-http-service/main.go",
+          "symbol": "Handler",
+          "label": "route_declaration",
+          "snippet": "a.GET(\"/fact\", Handler)"
+        }
+      ],
+      "confidence": 1.0,
+      "status": "deterministic_composed",
+      "kind": "http",
+      "impact_status": null
+    },
+    {
+      "method": "GET",
+      "path": "/hello",
+      "handler": "HelloHandler",
+      "file": "examples/http-server/main.go",
+      "repo": "app",
+      "service": null,
+      "evidence": [
+        {
+          "file": "examples/http-server/main.go",
+          "symbol": "HelloHandler",
+          "label": "route_declaration",
+          "snippet": "a.GET(\"/hello\", HelloHandler)"
+        }
+      ],
+      "confidence": 1.0,
+      "status": "deterministic_composed",
+      "kind": "http",
+      "impact_status": null
+    },
+    {
+      "method": "GET",
+      "path": "/mysql",
+      "handler": "MysqlHandler",
+      "file": "examples/http-server/main.go",
+      "repo": "app",
+      "service": null,
+      "evidence": [
+        {
+          "file": "examples/http-server/main.go",
+          "symbol": "MysqlHandler",
+          "label": "route_declaration",
+          "snippet": "a.GET(\"/mysql\", MysqlHandler)"
+        }
+      ],
+      "confidence": 1.0,
+      "status": "deterministic_composed",
+      "kind": "http",
+      "impact_status": null
+    },
+    {
+      "method": "GET",
+      "path": "/redis",
+      "handler": "RedisHandler",
+      "file": "examples/http-server/main.go",
+      "repo": "app",
+      "service": null,
+      "evidence": [
+        {
+          "file": "examples/http-server/main.go",
+          "symbol": "RedisHandler",
+          "label": "route_declaration",
+          "snippet": "a.GET(\"/redis\", RedisHandler)"
+        }
+      ],
+      "confidence": 1.0,
+      "status": "deterministic_composed",
+      "kind": "http",
+      "impact_status": null
+    },
+    {
+      "method": "GET",
+      "path": "/redis-pipeline",
+      "handler": "RedisPipelineHandler",
+      "file": "examples/http-server-using-redis/main.go",
+      "repo": "app",
+      "service": null,
+      "evidence": [
+        {
+          "file": "examples/http-server-using-redis/main.go",
+          "symbol": "RedisPipelineHandler",
+          "label": "app.GET(\"/redis-pipeline\", RedisPipelineHandler)",
+          "snippet": "app.GET(\"/redis-pipeline\", RedisPipelineHandler)"
+        },
+        {
+          "file": "examples/http-server-using-redis/main.go",
+          "symbol": "RedisPipelineHandler",
+          "label": "route_declaration",
+          "snippet": "app.GET(\"/redis-pipeline\", RedisPipelineHandler)"
+        }
+      ],
+      "confidence": 1.0,
+      "status": "deterministic",
+      "kind": "http",
+      "impact_status": null
+    },
+    {
+      "method": "GET",
+      "path": "/redis/{key}",
+      "handler": "RedisGetHandler",
+      "file": "examples/http-server-using-redis/main.go",
+      "repo": "app",
+      "service": null,
+      "evidence": [
+        {
+          "file": "examples/http-server-using-redis/main.go",
+          "symbol": "RedisGetHandler",
+          "label": "app.GET(\"/redis/{key}\", RedisGetHandler)",
+          "snippet": "app.GET(\"/redis/{key}\", RedisGetHandler)"
+        },
+        {
+          "file": "examples/http-server-using-redis/main.go",
+          "symbol": "RedisGetHandler",
+          "label": "route_declaration",
+          "snippet": "app.GET(\"/redis/{key}\", RedisGetHandler)"
+        }
+      ],
+      "confidence": 1.0,
+      "status": "deterministic",
+      "kind": "http",
+      "impact_status": null
+    },
+    {
+      "method": "GET",
+      "path": "/trace",
+      "handler": "TraceHandler",
+      "file": "examples/http-server/main.go",
+      "repo": "app",
+      "service": null,
+      "evidence": [
+        {
+          "file": "examples/http-server/main.go",
+          "symbol": "TraceHandler",
+          "label": "route_declaration",
+          "snippet": "a.GET(\"/trace\", TraceHandler)"
+        }
+      ],
+      "confidence": 1.0,
+      "status": "deterministic_composed",
+      "kind": "http",
+      "impact_status": null
+    },
+    {
+      "method": "POST",
+      "path": "/employee",
+      "handler": "PostHandler",
+      "file": "examples/using-migrations/main.go",
+      "repo": "app",
+      "service": null,
+      "evidence": [
+        {
+          "file": "examples/using-migrations/main.go",
+          "symbol": "PostHandler",
+          "label": "route_declaration",
+          "snippet": "a.POST(\"/employee\", PostHandler)"
+        }
+      ],
+      "confidence": 1.0,
+      "status": "deterministic_composed",
+      "kind": "http",
+      "impact_status": null
+    },
+    {
+      "method": "POST",
+      "path": "/publish-order",
+      "handler": "order",
+      "file": "examples/using-publisher/main.go",
+      "repo": "app",
+      "service": null,
+      "evidence": [
+        {
+          "file": "examples/using-publisher/main.go",
+          "symbol": "order",
+          "label": "app.POST(\"/publish-order\", order)",
+          "snippet": "app.POST(\"/publish-order\", order)"
+        },
+        {
+          "file": "examples/using-publisher/main.go",
+          "symbol": "order",
+          "label": "route_declaration",
+          "snippet": "app.POST(\"/publish-order\", order)"
+        }
+      ],
+      "confidence": 1.0,
+      "status": "deterministic",
+      "kind": "http",
+      "impact_status": null
+    },
+    {
+      "method": "POST",
+      "path": "/publish-product",
+      "handler": "product",
+      "file": "examples/using-publisher/main.go",
+      "repo": "app",
+      "service": null,
+      "evidence": [
+        {
+          "file": "examples/using-publisher/main.go",
+          "symbol": "product",
+          "label": "app.POST(\"/publish-product\", product)",
+          "snippet": "app.POST(\"/publish-product\", product)"
+        },
+        {
+          "file": "examples/using-publisher/main.go",
+          "symbol": "product",
+          "label": "route_declaration",
+          "snippet": "app.POST(\"/publish-product\", product)"
+        }
+      ],
+      "confidence": 1.0,
+      "status": "deterministic",
+      "kind": "http",
+      "impact_status": null
+    },
+    {
+      "method": "POST",
+      "path": "/redis",
+      "handler": "RedisSetHandler",
+      "file": "examples/http-server-using-redis/main.go",
+      "repo": "app",
+      "service": null,
+      "evidence": [
+        {
+          "file": "examples/http-server-using-redis/main.go",
+          "symbol": "RedisSetHandler",
+          "label": "app.POST(\"/redis\", RedisSetHandler)",
+          "snippet": "app.POST(\"/redis\", RedisSetHandler)"
+        },
+        {
+          "file": "examples/http-server-using-redis/main.go",
+          "symbol": "RedisSetHandler",
+          "label": "route_declaration",
+          "snippet": "app.POST(\"/redis\", RedisSetHandler)"
+        }
+      ],
+      "confidence": 1.0,
+      "status": "deterministic",
+      "kind": "http",
+      "impact_status": null
+    },
+    {
+      "method": "POST",
+      "path": "/return",
+      "handler": "ReturnHandler",
+      "file": "examples/using-custom-metrics/main.go",
+      "repo": "app",
+      "service": null,
+      "evidence": [
+        {
+          "file": "examples/using-custom-metrics/main.go",
+          "symbol": "ReturnHandler",
+          "label": "route_declaration",
+          "snippet": "a.POST(\"/return\", ReturnHandler)"
+        }
+      ],
+      "confidence": 1.0,
+      "status": "deterministic_composed",
+      "kind": "http",
+      "impact_status": null
+    },
+    {
+      "method": "POST",
+      "path": "/transaction",
+      "handler": "TransactionHandler",
+      "file": "examples/using-custom-metrics/main.go",
+      "repo": "app",
+      "service": null,
+      "evidence": [
+        {
+          "file": "examples/using-custom-metrics/main.go",
+          "symbol": "TransactionHandler",
+          "label": "route_declaration",
+          "snippet": "a.POST(\"/transaction\", TransactionHandler)"
+        }
+      ],
+      "confidence": 1.0,
+      "status": "deterministic_composed",
+      "kind": "http",
+      "impact_status": null
+    },
+    {
+      "method": "POST",
+      "path": "/upload",
+      "handler": "UploadHandler",
+      "file": "examples/using-file-bind/main.go",
+      "repo": "app",
+      "service": null,
+      "evidence": [
+        {
+          "file": "examples/using-file-bind/main.go",
+          "symbol": "UploadHandler",
+          "label": "app.POST(\"/upload\", UploadHandler)",
+          "snippet": "app.POST(\"/upload\", UploadHandler)"
+        },
+        {
+          "file": "examples/using-file-bind/main.go",
+          "symbol": "UploadHandler",
+          "label": "route_declaration",
+          "snippet": "app.POST(\"/upload\", UploadHandler)"
+        }
+      ],
+      "confidence": 1.0,
+      "status": "deterministic",
+      "kind": "http",
+      "impact_status": null
+    }
+  ],
+  "unattached_evidence": [
+    {
+      "scope": "symbol",
+      "target_symbol": "Responder.Respond",
+      "target_file": "pkg/gofr/http/responder.go",
+      "mapped_tests": [
+        {
+          "id": "ai_recovery:pkg/gofr/http/responder_test.go:TestResponder",
+          "name": "TestResponder",
+          "case_name": "TestResponder",
+          "repo": null,
+          "file": "pkg/gofr/http/responder_test.go",
+          "line": null,
+          "suite": null,
+          "match_rule": "TestResponder constructs a responder using NewResponder, directly calls Responder.Respond for multiple response types, and asserts the resulting Content-Type header and serialized response body.",
+          "evidence_tier": "A_direct_invocation",
+          "source_refs": [
+            "ai_recovery:pkg/gofr/http/responder_test.go:TestResponder"
+          ],
+          "changed_in_diff": false,
+          "evidence": []
+        },
+        {
+          "id": "ai_recovery:pkg/gofr/http/responder_test.go:TestResponder/gofr response type with metadata",
+          "name": "TestResponder/gofr response type with metadata",
+          "case_name": "TestResponder/gofr response type with metadata",
+          "repo": null,
+          "file": "pkg/gofr/http/responder_test.go",
+          "line": null,
+          "suite": null,
+          "match_rule": "The named table case constructs a response.Response containing both Data and Metadata, passes it directly to Responder.Respond, and asserts the recorder's serialized JSON body contains both fields.",
+          "evidence_tier": "A_direct_invocation",
+          "source_refs": [
+            "ai_recovery:pkg/gofr/http/responder_test.go:TestResponder/gofr response type with metadata"
+          ],
+          "changed_in_diff": false,
+          "evidence": []
+        },
+        {
+          "id": "ai_recovery:pkg/gofr/http/responder_test.go:TestResponder/gofr response type without metadata",
+          "name": "TestResponder/gofr response type without metadata",
+          "case_name": "TestResponder/gofr response type without metadata",
+          "repo": null,
+          "file": "pkg/gofr/http/responder_test.go",
+          "line": null,
+          "suite": null,
+          "match_rule": "The named table-test case constructs a response.Response with Data set and Metadata omitted, passes it directly to Responder.Respond, and asserts that the serialized body contains a null metadata field and the expected data.",
+          "evidence_tier": "A_direct_invocation",
+          "source_refs": [
+            "ai_recovery:pkg/gofr/http/responder_test.go:TestResponder/gofr response type without metadata"
+          ],
+          "changed_in_diff": false,
+          "evidence": []
+        },
+        {
+          "id": "ai_recovery:pkg/gofr/http/responder_test.go:TestResponder/file response type",
+          "name": "TestResponder/file response type",
+          "case_name": "TestResponder/file response type",
+          "repo": null,
+          "file": "pkg/gofr/http/responder_test.go",
+          "line": null,
+          "suite": null,
+          "match_rule": "The \"file response type\" table case constructs response.File, passes it directly to Responder.Respond, and asserts that the recorder receives the file's ContentType and an empty body.",
+          "evidence_tier": "A_direct_invocation",
+          "source_refs": [
+            "ai_recovery:pkg/gofr/http/responder_test.go:TestResponder/file response type"
+          ],
+          "changed_in_diff": false,
+          "evidence": []
+        }
+      ],
+      "provenance": "ai_recovery"
+    }
+  ]
+}

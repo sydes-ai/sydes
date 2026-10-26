@@ -1,0 +1,1695 @@
+{
+  "version": "v3",
+  "kind": "sydes_change_verification",
+  "generated_at": "2026-10-26T15:49:39.340499+00:00",
+  "change": {
+    "base": "2980f27779cf37a9656b25418a3c5cfca989e244",
+    "head": "b045f18e378341876ee69e729fc855cab501c3cd",
+    "merge_base": "2980f27779cf37a9656b25418a3c5cfca989e244",
+    "repos": [
+      {
+        "name": "app",
+        "root": "/Users/ksnaik/.cache/sydes-aacr/repos/facebook__react"
+      }
+    ],
+    "includes_working_tree": false,
+    "files": [
+      {
+        "repo": "app",
+        "path": "packages/react-devtools-shared/src/backend/fiber/renderer.js",
+        "old_path": null,
+        "change_type": "modified",
+        "role": "source_route_candidate",
+        "added_lines": 9,
+        "removed_lines": 0,
+        "hunks": [
+          {
+            "start_line": 149,
+            "end_line": 149
+          },
+          {
+            "start_line": 389,
+            "end_line": 389
+          },
+          {
+            "start_line": 426,
+            "end_line": 426
+          },
+          {
+            "start_line": 463,
+            "end_line": 463
+          },
+          {
+            "start_line": 500,
+            "end_line": 500
+          },
+          {
+            "start_line": 537,
+            "end_line": 537
+          },
+          {
+            "start_line": 631,
+            "end_line": 632
+          },
+          {
+            "start_line": 1491,
+            "end_line": 1491
+          }
+        ],
+        "symbols": [
+          "app:packages/react-devtools-shared/src/backend/fiber/renderer.js:getDisplayNameForFiber",
+          "app:packages/react-devtools-shared/src/backend/fiber/renderer.js:getInternalReactConstants"
+        ],
+        "binary": false
+      },
+      {
+        "repo": "app",
+        "path": "packages/react-devtools-shared/src/backend/types.js",
+        "old_path": null,
+        "change_type": "modified",
+        "role": "source_route_candidate",
+        "added_lines": 1,
+        "removed_lines": 0,
+        "hunks": [
+          {
+            "start_line": 80,
+            "end_line": 80
+          }
+        ],
+        "symbols": [],
+        "binary": false
+      },
+      {
+        "repo": "app",
+        "path": "packages/react-reconciler/src/ReactFiber.js",
+        "old_path": null,
+        "change_type": "modified",
+        "role": "source_route_candidate",
+        "added_lines": 15,
+        "removed_lines": 0,
+        "hunks": [
+          {
+            "start_line": 75,
+            "end_line": 75
+          },
+          {
+            "start_line": 112,
+            "end_line": 112
+          },
+          {
+            "start_line": 600,
+            "end_line": 601
+          },
+          {
+            "start_line": 881,
+            "end_line": 891
+          }
+        ],
+        "symbols": [],
+        "binary": false
+      },
+      {
+        "repo": "app",
+        "path": "packages/react-reconciler/src/ReactFiberBeginWork.js",
+        "old_path": null,
+        "change_type": "modified",
+        "role": "source_route_candidate",
+        "added_lines": 44,
+        "removed_lines": 0,
+        "hunks": [
+          {
+            "start_line": 80,
+            "end_line": 80
+          },
+          {
+            "start_line": 871,
+            "end_line": 910
+          },
+          {
+            "start_line": 4068,
+            "end_line": 4070
+          }
+        ],
+        "symbols": [
+          "app:packages/react-reconciler/src/ReactFiberBeginWork.js:updateActivityComponent"
+        ],
+        "binary": false
+      },
+      {
+        "repo": "app",
+        "path": "packages/react-reconciler/src/ReactFiberCompleteWork.js",
+        "old_path": null,
+        "change_type": "modified",
+        "role": "source_route_candidate",
+        "added_lines": 2,
+        "removed_lines": 0,
+        "hunks": [
+          {
+            "start_line": 79,
+            "end_line": 79
+          },
+          {
+            "start_line": 963,
+            "end_line": 963
+          }
+        ],
+        "symbols": [
+          "app:packages/react-reconciler/src/ReactFiberCompleteWork.js:completeWork"
+        ],
+        "binary": false
+      },
+      {
+        "repo": "app",
+        "path": "packages/react-reconciler/src/ReactWorkTags.js",
+        "old_path": null,
+        "change_type": "modified",
+        "role": "source_route_candidate",
+        "added_lines": 3,
+        "removed_lines": 1,
+        "hunks": [
+          {
+            "start_line": 41,
+            "end_line": 42
+          },
+          {
+            "start_line": 73,
+            "end_line": 73
+          }
+        ],
+        "symbols": [
+          "app:packages/react-reconciler/src/ReactWorkTags.js:ActivityComponent"
+        ],
+        "binary": false
+      },
+      {
+        "repo": "app",
+        "path": "packages/react-reconciler/src/getComponentNameFromFiber.js",
+        "old_path": null,
+        "change_type": "modified",
+        "role": "source_route_candidate",
+        "added_lines": 3,
+        "removed_lines": 0,
+        "hunks": [
+          {
+            "start_line": 50,
+            "end_line": 50
+          },
+          {
+            "start_line": 89,
+            "end_line": 90
+          }
+        ],
+        "symbols": [
+          "app:packages/react-reconciler/src/getComponentNameFromFiber.js:getComponentNameFromFiber"
+        ],
+        "binary": false
+      },
+      {
+        "repo": "app",
+        "path": "packages/react-server/src/ReactFizzServer.js",
+        "old_path": null,
+        "change_type": "modified",
+        "role": "source_route_candidate",
+        "added_lines": 2,
+        "removed_lines": 0,
+        "hunks": [
+          {
+            "start_line": 157,
+            "end_line": 157
+          },
+          {
+            "start_line": 2265,
+            "end_line": 2265
+          }
+        ],
+        "symbols": [
+          "app:packages/react-server/src/ReactFizzServer.js:renderSuspenseBoundary"
+        ],
+        "binary": false
+      },
+      {
+        "repo": "app",
+        "path": "packages/react/src/ReactClient.js",
+        "old_path": null,
+        "change_type": "modified",
+        "role": "source_route_candidate",
+        "added_lines": 2,
+        "removed_lines": 2,
+        "hunks": [
+          {
+            "start_line": 18,
+            "end_line": 18
+          },
+          {
+            "start_line": 119,
+            "end_line": 119
+          }
+        ],
+        "symbols": [],
+        "binary": false
+      },
+      {
+        "repo": "app",
+        "path": "packages/shared/ReactSymbols.js",
+        "old_path": null,
+        "change_type": "modified",
+        "role": "source_route_candidate",
+        "added_lines": 1,
+        "removed_lines": 0,
+        "hunks": [
+          {
+            "start_line": 37,
+            "end_line": 37
+          }
+        ],
+        "symbols": [
+          "app:packages/shared/ReactSymbols.js:REACT_ACTIVITY_TYPE"
+        ],
+        "binary": false
+      },
+      {
+        "repo": "app",
+        "path": "packages/shared/isValidElementType.js",
+        "old_path": null,
+        "change_type": "modified",
+        "role": "source_route_candidate",
+        "added_lines": 2,
+        "removed_lines": 0,
+        "hunks": [
+          {
+            "start_line": 27,
+            "end_line": 27
+          },
+          {
+            "start_line": 54,
+            "end_line": 54
+          }
+        ],
+        "symbols": [
+          "app:packages/shared/isValidElementType.js:isValidElementType"
+        ],
+        "binary": false
+      }
+    ],
+    "symbols": [
+      {
+        "id": "app:packages/react-devtools-shared/src/backend/fiber/renderer.js:getInternalReactConstants",
+        "repo": "app",
+        "file": "packages/react-devtools-shared/src/backend/fiber/renderer.js",
+        "name": "getInternalReactConstants",
+        "qualified_name": "getInternalReactConstants",
+        "cbm_qualified_name": "Users-ksnaik-.cache-sydes-aacr-repos-facebook__react.packages.react-devtools-shared.src.backend.fiber.renderer.getInternalReactConstants",
+        "kind": "function",
+        "language": "javascript",
+        "start_line": 299,
+        "end_line": 759,
+        "change_type": "modified",
+        "changed_lines": 7,
+        "decorators": []
+      },
+      {
+        "id": "app:packages/react-devtools-shared/src/backend/fiber/renderer.js:getDisplayNameForFiber",
+        "repo": "app",
+        "file": "packages/react-devtools-shared/src/backend/fiber/renderer.js",
+        "name": "getDisplayNameForFiber",
+        "qualified_name": "getDisplayNameForFiber",
+        "cbm_qualified_name": "Users-ksnaik-.cache-sydes-aacr-repos-facebook__react.packages.react-devtools-shared.src.backend.fiber.renderer.getDisplayNameForFiber",
+        "kind": "function",
+        "language": "javascript",
+        "start_line": 599,
+        "end_line": 750,
+        "change_type": "modified",
+        "changed_lines": 2,
+        "decorators": []
+      },
+      {
+        "id": "app:packages/react-reconciler/src/ReactFiberBeginWork.js:updateActivityComponent",
+        "repo": "app",
+        "file": "packages/react-reconciler/src/ReactFiberBeginWork.js",
+        "name": "updateActivityComponent",
+        "qualified_name": "updateActivityComponent",
+        "cbm_qualified_name": "Users-ksnaik-.cache-sydes-aacr-repos-facebook__react.packages.react-reconciler.src.ReactFiberBeginWork.updateActivityComponent",
+        "kind": "function",
+        "language": "javascript",
+        "start_line": 871,
+        "end_line": 909,
+        "change_type": "modified",
+        "changed_lines": 39,
+        "decorators": []
+      },
+      {
+        "id": "app:packages/react-reconciler/src/ReactFiberCompleteWork.js:completeWork",
+        "repo": "app",
+        "file": "packages/react-reconciler/src/ReactFiberCompleteWork.js",
+        "name": "completeWork",
+        "qualified_name": "completeWork",
+        "cbm_qualified_name": "Users-ksnaik-.cache-sydes-aacr-repos-facebook__react.packages.react-reconciler.src.ReactFiberCompleteWork.completeWork",
+        "kind": "function",
+        "language": "javascript",
+        "start_line": 945,
+        "end_line": 1876,
+        "change_type": "modified",
+        "changed_lines": 1,
+        "decorators": []
+      },
+      {
+        "id": "app:packages/react-reconciler/src/ReactWorkTags.js:ActivityComponent",
+        "repo": "app",
+        "file": "packages/react-reconciler/src/ReactWorkTags.js",
+        "name": "ActivityComponent",
+        "qualified_name": "ActivityComponent",
+        "cbm_qualified_name": "Users-ksnaik-.cache-sydes-aacr-repos-facebook__react.packages.react-reconciler.src.ReactWorkTags.ActivityComponent",
+        "kind": "variable",
+        "language": "javascript",
+        "start_line": 73,
+        "end_line": 73,
+        "change_type": "modified",
+        "changed_lines": 1,
+        "decorators": []
+      },
+      {
+        "id": "app:packages/react-reconciler/src/getComponentNameFromFiber.js:getComponentNameFromFiber",
+        "repo": "app",
+        "file": "packages/react-reconciler/src/getComponentNameFromFiber.js",
+        "name": "getComponentNameFromFiber",
+        "qualified_name": "getComponentNameFromFiber",
+        "cbm_qualified_name": "Users-ksnaik-.cache-sydes-aacr-repos-facebook__react.packages.react-reconciler.src.getComponentNameFromFiber.getComponentNameFromFiber",
+        "kind": "function",
+        "language": "javascript",
+        "start_line": 86,
+        "end_line": 194,
+        "change_type": "modified",
+        "changed_lines": 2,
+        "decorators": []
+      },
+      {
+        "id": "app:packages/react-server/src/ReactFizzServer.js:renderSuspenseBoundary",
+        "repo": "app",
+        "file": "packages/react-server/src/ReactFizzServer.js",
+        "name": "renderSuspenseBoundary",
+        "qualified_name": "renderSuspenseBoundary",
+        "cbm_qualified_name": "Users-ksnaik-.cache-sydes-aacr-repos-facebook__react.packages.react-server.src.ReactFizzServer.renderSuspenseBoundary",
+        "kind": "function",
+        "language": "javascript",
+        "start_line": 1121,
+        "end_line": 3288,
+        "change_type": "modified",
+        "changed_lines": 1,
+        "decorators": []
+      },
+      {
+        "id": "app:packages/shared/ReactSymbols.js:REACT_ACTIVITY_TYPE",
+        "repo": "app",
+        "file": "packages/shared/ReactSymbols.js",
+        "name": "REACT_ACTIVITY_TYPE",
+        "qualified_name": "REACT_ACTIVITY_TYPE",
+        "cbm_qualified_name": "Users-ksnaik-.cache-sydes-aacr-repos-facebook__react.packages.shared.ReactSymbols.REACT_ACTIVITY_TYPE",
+        "kind": "variable",
+        "language": "javascript",
+        "start_line": 37,
+        "end_line": 37,
+        "change_type": "modified",
+        "changed_lines": 1,
+        "decorators": []
+      },
+      {
+        "id": "app:packages/shared/isValidElementType.js:isValidElementType",
+        "repo": "app",
+        "file": "packages/shared/isValidElementType.js",
+        "name": "isValidElementType",
+        "qualified_name": "isValidElementType",
+        "cbm_qualified_name": "Users-ksnaik-.cache-sydes-aacr-repos-facebook__react.packages.shared.isValidElementType.isValidElementType",
+        "kind": "function",
+        "language": "javascript",
+        "start_line": 41,
+        "end_line": 83,
+        "change_type": "modified",
+        "changed_lines": 1,
+        "decorators": []
+      }
+    ],
+    "notes": []
+  },
+  "summary": {
+    "risk": "MEDIUM",
+    "verdict": "VERIFICATION INCOMPLETE",
+    "headline": "9 changed symbol(s); no route flow resolved to them.",
+    "counts": {
+      "changed_files": 11,
+      "changed_source_files": 11,
+      "changed_test_files": 0,
+      "changed_symbols": 9,
+      "affected_flows": 0,
+      "flows_partially_analyzed": 0,
+      "code_findings": 0,
+      "obligations": 0,
+      "obligations_introduced_by_change": 0,
+      "obligations_passed": 0,
+      "obligations_failed": 0,
+      "obligations_unverified": 0,
+      "obligations_unknown": 0,
+      "mapped_tests": 0,
+      "supporting_tests": 0,
+      "tests_exercising_flows": 0,
+      "tests_supporting_behavior": 0,
+      "tests_verifying_behavior": 0,
+      "changed_test_cases": 0,
+      "tests_executed": 0,
+      "verification_gaps": 0,
+      "runtime_dependencies": 1,
+      "cross_repo_impacts": 0,
+      "impacts_proven": 0,
+      "impacts_inferred": 3,
+      "impacts_not_modeled": 3,
+      "unresolved_changed_symbols": 9
+    },
+    "risk_reasons": [
+      "change could not be tied to any verifiable behavior"
+    ]
+  },
+  "code_review_status": "completed",
+  "code_findings": [],
+  "accepted_impacts": [
+    {
+      "id": "impact:app:Activity nodes in React developer tools",
+      "label": "Activity nodes in React developer tools",
+      "repo": "app",
+      "kind": "unknown",
+      "status": "inferred",
+      "changed_symbols": [
+        "(whole change)"
+      ],
+      "route_method": null,
+      "route_path": null,
+      "llm_confidence": 0.88,
+      "llm_reason": "Fiber tag constants and component-name resolution now include Activity, so developer tooling can identify these fibers as Activity nodes instead of treating them as unknown or unnamed components.",
+      "llm_inference_type": "semantic_pr_wide_theme",
+      "llm_uncertainty": "No direct DevTools caller or rendered component-tree output was supplied.",
+      "corroborated": false,
+      "behavior_label": "Activity nodes in React developer tools",
+      "verification_model_status": "unsupported_or_partial",
+      "provenance": "structural"
+    },
+    {
+      "id": "impact:app:renderSuspenseBoundary",
+      "label": "server-rendered Suspense boundaries containing Activity components",
+      "repo": "app",
+      "kind": "unknown",
+      "status": "inferred",
+      "changed_symbols": [
+        "renderSuspenseBoundary"
+      ],
+      "route_method": null,
+      "route_path": null,
+      "llm_confidence": 0.58,
+      "llm_reason": "Suspense boundary rendering may now differ when its subtree includes the newly handled Activity element type, affecting whether that UI content is emitted or deferred during server rendering.",
+      "llm_inference_type": "semantic_indirect_dependency",
+      "llm_uncertainty": "The available source preview shows Activity dispatch near this rendering path but does not expose the exact changes inside renderSuspenseBoundary or a concrete public caller.",
+      "corroborated": false,
+      "behavior_label": "server-rendered Suspense boundaries containing Activity components",
+      "verification_model_status": "unsupported_or_partial",
+      "provenance": "structural"
+    },
+    {
+      "id": "impact:app:rendering UI wrapped in an experimental Activity component",
+      "label": "rendering UI wrapped in an experimental Activity component",
+      "repo": "app",
+      "kind": "unknown",
+      "status": "inferred",
+      "changed_symbols": [
+        "(whole change)"
+      ],
+      "route_method": null,
+      "route_path": null,
+      "llm_confidence": 0.91,
+      "llm_reason": "React element validation and reconciler paths now recognize and process Activity fibers, so applications using Activity can observe different child rendering or visibility as its mode changes.",
+      "llm_inference_type": "semantic_pr_wide_theme",
+      "llm_uncertainty": "The supplied context does not show the public Activity API or the exact user-visible semantics of each mode.",
+      "corroborated": false,
+      "behavior_label": "rendering UI wrapped in an experimental Activity component",
+      "verification_model_status": "unsupported_or_partial",
+      "provenance": "structural"
+    }
+  ],
+  "pr_semantic_analysis": {
+    "origin": "llm_hypothesis",
+    "change_summary": "The experimental `unstable_Activity` API now has its own React element symbol and reconciler work tag instead of being an alias for Offscreen. Client reconciliation represents Activity as a distinct outer fiber backed by an Offscreen child, server rendering sends it through the existing Offscreen renderer, and DevTools/component naming now exposes it as `Activity`.",
+    "behavior_changes": [
+      {
+        "description": "Consumers of `unstable_Activity` now receive the dedicated `react.activity` element type rather than the Offscreen type. The new type is accepted as a valid React element type, so Activity has a distinct observable identity while remaining renderable.",
+        "changed_symbols": [
+          "unstable_Activity",
+          "REACT_ACTIVITY_TYPE",
+          "isValidElementType"
+        ],
+        "evidence": [
+          "ReactClient exports REACT_ACTIVITY_TYPE as unstable_Activity.",
+          "ReactSymbols assigns Activity its own globally registered symbol.",
+          "Element-type validation explicitly accepts the Activity symbol."
+        ],
+        "confidence": 0.99,
+        "citations": [
+          {
+            "file": "packages/react/src/ReactClient.js",
+            "line": 119,
+            "quoted_text": "  REACT_ACTIVITY_TYPE as unstable_Activity,"
+          },
+          {
+            "file": "packages/shared/ReactSymbols.js",
+            "line": 37,
+            "quoted_text": "export const REACT_ACTIVITY_TYPE: symbol = Symbol.for('react.activity');"
+          },
+          {
+            "file": "packages/shared/isValidElementType.js",
+            "line": 54,
+            "quoted_text": "    type === REACT_ACTIVITY_TYPE ||"
+          }
+        ],
+        "citations_verified": 3,
+        "citation_notes": [
+          "citation confirmed near packages/react/src/ReactClient.js:119",
+          "citation confirmed near packages/shared/ReactSymbols.js:37",
+          "citation confirmed near packages/shared/isValidElementType.js:54"
+        ]
+      },
+      {
+        "description": "On the client, an Activity element is represented by a dedicated Activity fiber whose `mode`, children, and ref are forwarded to an Offscreen child. Updates continue through that child rather than treating Activity itself as an Offscreen fiber.",
+        "changed_symbols": [
+          "createFiberFromTypeAndProps",
+          "createFiberFromActivity",
+          "updateActivityComponent",
+          "ActivityComponent"
+        ],
+        "evidence": [
+          "The element-type switch creates an Activity fiber for REACT_ACTIVITY_TYPE.",
+          "Activity reconciliation constructs Offscreen props from Activity mode and children.",
+          "The Activity fiber has a distinct numeric work tag."
+        ],
+        "confidence": 0.97,
+        "citations": [
+          {
+            "file": "packages/react-reconciler/src/ReactFiber.js",
+            "line": 600,
+            "quoted_text": "      case REACT_ACTIVITY_TYPE:"
+          },
+          {
+            "file": "packages/react-reconciler/src/ReactFiber.js",
+            "line": 601,
+            "quoted_text": "        return createFiberFromActivity(pendingProps, mode, lanes, key);"
+          },
+          {
+            "file": "packages/react-reconciler/src/ReactFiberBeginWork.js",
+            "line": 881,
+            "quoted_text": "    mode: nextMode,"
+          },
+          {
+            "file": "packages/react-reconciler/src/ReactFiberBeginWork.js",
+            "line": 882,
+            "quoted_text": "    children: nextChildren,"
+          },
+          {
+            "file": "packages/react-reconciler/src/ReactWorkTags.js",
+            "line": 73,
+            "quoted_text": "export const ActivityComponent = 31;"
+          }
+        ],
+        "citations_verified": 5,
+        "citation_notes": [
+          "citation confirmed near packages/react-reconciler/src/ReactFiber.js:600",
+          "citation confirmed near packages/react-reconciler/src/ReactFiber.js:601",
+          "citation confirmed near packages/react-reconciler/src/ReactFiberBeginWork.js:881",
+          "citation confirmed near packages/react-reconciler/src/ReactFiberBeginWork.js:882",
+          "citation confirmed near packages/react-reconciler/src/ReactWorkTags.js:73"
+        ]
+      },
+      {
+        "description": "Server rendering recognizes the new Activity type and renders it through the same Offscreen path used for Offscreen elements.",
+        "changed_symbols": [
+          "REACT_ACTIVITY_TYPE",
+          "renderElement"
+        ],
+        "evidence": [
+          "The server element dispatch groups REACT_ACTIVITY_TYPE with REACT_OFFSCREEN_TYPE and invokes renderOffscreen."
+        ],
+        "confidence": 0.99,
+        "citations": [
+          {
+            "file": "packages/react-server/src/ReactFizzServer.js",
+            "line": 2262,
+            "quoted_text": "    case REACT_ACTIVITY_TYPE:"
+          },
+          {
+            "file": "packages/react-server/src/ReactFizzServer.js",
+            "line": 2264,
+            "quoted_text": "      renderOffscreen(request, task, keyPath, props);"
+          }
+        ],
+        "citations_verified": 2,
+        "citation_notes": [
+          "citation confirmed near packages/react-server/src/ReactFizzServer.js:2262",
+          "citation confirmed near packages/react-server/src/ReactFizzServer.js:2264"
+        ]
+      },
+      {
+        "description": "Developer tooling and component-stack naming can now identify the dedicated fiber as `Activity`, and DevTools treats that fiber as a non-user-code wrapper when deciding whether it should be inspected as an element.",
+        "changed_symbols": [
+          "getInternalReactConstants",
+          "getDisplayNameForFiber",
+          "getComponentNameFromFiber",
+          "ActivityComponent"
+        ],
+        "evidence": [
+          "Both reconciler naming and DevTools display naming return Activity for the new work tag.",
+          "DevTools includes Activity among wrapper/host-like tags in its element filtering logic."
+        ],
+        "confidence": 0.96,
+        "citations": [
+          {
+            "file": "packages/react-devtools-shared/src/backend/fiber/renderer.js",
+            "line": 631,
+            "quoted_text": "      case ActivityComponent:"
+          },
+          {
+            "file": "packages/react-devtools-shared/src/backend/fiber/renderer.js",
+            "line": 632,
+            "quoted_text": "        return 'Activity';"
+          },
+          {
+            "file": "packages/react-reconciler/src/getComponentNameFromFiber.js",
+            "line": 89,
+            "quoted_text": "      return 'Activity';"
+          },
+          {
+            "file": "packages/react-devtools-shared/src/backend/fiber/renderer.js",
+            "line": 1491,
+            "quoted_text": "      case ActivityComponent:"
+          }
+        ],
+        "citations_verified": 4,
+        "citation_notes": [
+          "citation confirmed near packages/react-devtools-shared/src/backend/fiber/renderer.js:631",
+          "citation confirmed near packages/react-devtools-shared/src/backend/fiber/renderer.js:632",
+          "citation confirmed near packages/react-reconciler/src/getComponentNameFromFiber.js:89",
+          "citation confirmed near packages/react-devtools-shared/src/backend/fiber/renderer.js:1491"
+        ]
+      }
+    ],
+    "important_symbols": [
+      {
+        "repo": "app",
+        "file": "packages/react/src/ReactClient.js",
+        "symbol": "unstable_Activity",
+        "reason": "This is the consumer-facing export whose identity changes from the Offscreen symbol to the new Activity symbol."
+      },
+      {
+        "repo": "app",
+        "file": "packages/shared/ReactSymbols.js",
+        "symbol": "REACT_ACTIVITY_TYPE",
+        "reason": "This establishes Activity as a distinct element type shared by validation, client reconciliation, server rendering, and the public export."
+      },
+      {
+        "repo": "app",
+        "file": "packages/reconciler/src/ReactFiber.js",
+        "symbol": "createFiberFromActivity",
+        "reason": "This defines the dedicated client-side fiber representation and separates Activity from a direct Offscreen fiber."
+      },
+      {
+        "repo": "app",
+        "file": "packages/react-reconciler/src/ReactFiberBeginWork.js",
+        "symbol": "updateActivityComponent",
+        "reason": "This controls Activity mount/update behavior, including forwarding mode, children, and ref to the internal Offscreen child."
+      },
+      {
+        "repo": "app",
+        "file": "packages/react-server/src/ReactFizzServer.js",
+        "symbol": "renderElement",
+        "reason": "This is the server dispatch point that gives the new element type Offscreen rendering semantics."
+      },
+      {
+        "repo": "app",
+        "file": "packages/react-devtools-shared/src/backend/fiber/renderer.js",
+        "symbol": "getInternalReactConstants",
+        "reason": "DevTools must map the renderer's new numeric work tag consistently across supported React versions."
+      }
+    ],
+    "investigation_hints": [
+      {
+        "description": "Trace the public experimental export into JSX/element creation and all reconcilers to verify that every renderer accepting React element types recognizes `react.activity`.",
+        "related_symbols": [
+          "unstable_Activity",
+          "REACT_ACTIVITY_TYPE",
+          "isValidElementType",
+          "createFiberFromTypeAndProps"
+        ],
+        "concepts": [
+          "public experimental API identity",
+          "element-type dispatch",
+          "custom renderer compatibility"
+        ],
+        "likely_boundary_types": [
+          "callable"
+        ]
+      },
+      {
+        "description": "Compare Activity's intended mode, visibility, scheduling, state-preservation, ref, and effect semantics with the Offscreen implementation it wraps.",
+        "related_symbols": [
+          "updateActivityComponent",
+          "createFiberFromActivity",
+          "completeWork"
+        ],
+        "concepts": [
+          "hidden-tree lifecycle",
+          "lane scheduling",
+          "ref ownership",
+          "effect handling"
+        ],
+        "likely_boundary_types": [
+          "callable",
+          "async"
+        ]
+      },
+      {
+        "description": "Verify parity between the client fiber structure and server/Fizz behavior, including hydration expectations for Activity content in each supported mode.",
+        "related_symbols": [
+          "updateActivityComponent",
+          "renderElement",
+          "REACT_ACTIVITY_TYPE"
+        ],
+        "concepts": [
+          "server rendering",
+          "hydration",
+          "streaming",
+          "markup parity"
+        ],
+        "likely_boundary_types": [
+          "async"
+        ]
+      },
+      {
+        "description": "Check work-tag/version negotiation and tree serialization between renderers and DevTools now that numeric tag 31 is assigned to Activity.",
+        "related_symbols": [
+          "ActivityComponent",
+          "getInternalReactConstants",
+          "getDisplayNameForFiber"
+        ],
+        "concepts": [
+          "DevTools protocol compatibility",
+          "renderer version mapping",
+          "fiber tree filtering"
+        ],
+        "likely_boundary_types": [
+          "external"
+        ]
+      }
+    ],
+    "likely_boundary_types": [
+      "callable",
+      "async",
+      "external"
+    ],
+    "local_risks": [
+      {
+        "description": "The experimental export now has a different symbol identity from Offscreen. Consumers that persisted, compared, switched on, or manually constructed the previous Offscreen-backed Activity type may no longer recognize it, even though rendering support for the new symbol has been added.",
+        "severity": "P2",
+        "citations": [
+          {
+            "file": "packages/react/src/ReactClient.js",
+            "line": 119,
+            "quoted_text": "  REACT_ACTIVITY_TYPE as unstable_Activity,"
+          },
+          {
+            "file": "packages/shared/ReactSymbols.js",
+            "line": 37,
+            "quoted_text": "export const REACT_ACTIVITY_TYPE: symbol = Symbol.for('react.activity');"
+          },
+          {
+            "file": "packages/shared/ReactSymbols.js",
+            "line": 36,
+            "quoted_text": "export const REACT_OFFSCREEN_TYPE: symbol = Symbol.for('react.offscreen');"
+          }
+        ],
+        "citations_verified": 3,
+        "citation_notes": [
+          "citation confirmed near packages/react/src/ReactClient.js:119",
+          "citation confirmed near packages/shared/ReactSymbols.js:37",
+          "citation confirmed near packages/shared/ReactSymbols.js:36"
+        ]
+      },
+      {
+        "description": "The numeric work-tag assignment is duplicated across the reconciler and DevTools' version-specific mapping. Those values and the version threshold must remain synchronized or DevTools can classify or filter fibers incorrectly for affected renderer versions.",
+        "severity": "P2",
+        "citations": [
+          {
+            "file": "packages/react-reconciler/src/ReactWorkTags.js",
+            "line": 73,
+            "quoted_text": "export const ActivityComponent = 31;"
+          },
+          {
+            "file": "packages/react-devtools-shared/src/backend/fiber/renderer.js",
+            "line": 389,
+            "quoted_text": "      ActivityComponent: 31,"
+          },
+          {
+            "file": "packages/react-devtools-shared/src/backend/fiber/renderer.js",
+            "line": 426,
+            "quoted_text": "      ActivityComponent: -1, // Doesn't exist yet"
+          }
+        ],
+        "citations_verified": 3,
+        "citation_notes": [
+          "citation confirmed near packages/react-reconciler/src/ReactWorkTags.js:73",
+          "citation confirmed near packages/react-devtools-shared/src/backend/fiber/renderer.js:389",
+          "citation confirmed near packages/react-devtools-shared/src/backend/fiber/renderer.js:426"
+        ]
+      },
+      {
+        "description": "Client reconciliation introduces an extra Activity wrapper around an Offscreen child, while server rendering directly reuses the Offscreen rendering path. Hydration and tree-identity assumptions should be checked where code depends on wrapper structure, refs, or component-stack ownership.",
+        "severity": "P2",
+        "citations": [
+          {
+            "file": "packages/react-reconciler/src/ReactFiberBeginWork.js",
+            "line": 893,
+            "quoted_text": "    workInProgress.child = primaryChildFragment;"
+          },
+          {
+            "file": "packages/react-server/src/ReactFizzServer.js",
+            "line": 2262,
+            "quoted_text": "    case REACT_ACTIVITY_TYPE:"
+          },
+          {
+            "file": "packages/react-server/src/ReactFizzServer.js",
+            "line": 2264,
+            "quoted_text": "      renderOffscreen(request, task, keyPath, props);"
+          }
+        ],
+        "citations_verified": 3,
+        "citation_notes": [
+          "citation confirmed near packages/react-reconciler/src/ReactFiberBeginWork.js:893",
+          "citation confirmed near packages/react-server/src/ReactFizzServer.js:2262",
+          "citation confirmed near packages/react-server/src/ReactFizzServer.js:2264"
+        ]
+      }
+    ],
+    "uncertainties": [
+      "The supplied context does not show which first-party or downstream consumers import or render `unstable_Activity`, so the practical reach of the changed symbol identity and fiber representation is unknown.",
+      "Which Activity modes and child trees occur in real applications is not shown; therefore the visibility, scheduling, and state-preservation behavior actually exercised cannot be established here.",
+      "The implementation of the Offscreen helpers is not supplied, so the precise semantics inherited by Activity for each mode, including effects and state retention, cannot be verified from this diff.",
+      "The exact renderer versions covered by the DevTools branch that maps work tag 31 to Activity are not visible in the shown hunk, so compatibility with released or mixed renderer/DevTools versions needs investigation.",
+      "The hydration contract of Fizz's `renderOffscreen` relative to the new client-side Activity-plus-Offscreen fiber structure is not present in the supplied context."
+    ],
+    "uncertainty_items": [
+      {
+        "kind": "caller_reachability",
+        "text": "The supplied context does not show which first-party or downstream consumers import or render `unstable_Activity`, so the practical reach of the changed symbol identity and fiber representation is unknown.",
+        "symbols": [
+          "unstable_Activity",
+          "REACT_ACTIVITY_TYPE"
+        ],
+        "resolved_by": null,
+        "established_context": null,
+        "scoped_text": null
+      },
+      {
+        "kind": "runtime_condition",
+        "text": "Which Activity modes and child trees occur in real applications is not shown; therefore the visibility, scheduling, and state-preservation behavior actually exercised cannot be established here.",
+        "symbols": [
+          "updateActivityComponent"
+        ],
+        "resolved_by": null,
+        "established_context": null,
+        "scoped_text": null
+      },
+      {
+        "kind": "dependency_semantics",
+        "text": "The implementation of the Offscreen helpers is not supplied, so the precise semantics inherited by Activity for each mode, including effects and state retention, cannot be verified from this diff.",
+        "symbols": [
+          "updateActivityComponent",
+          "createFiberFromActivity"
+        ],
+        "resolved_by": null,
+        "established_context": null,
+        "scoped_text": null
+      },
+      {
+        "kind": "boundary_identity",
+        "text": "The exact renderer versions covered by the DevTools branch that maps work tag 31 to Activity are not visible in the shown hunk, so compatibility with released or mixed renderer/DevTools versions needs investigation.",
+        "symbols": [
+          "getInternalReactConstants",
+          "ActivityComponent"
+        ],
+        "resolved_by": null,
+        "established_context": null,
+        "scoped_text": null
+      },
+      {
+        "kind": "dependency_semantics",
+        "text": "The hydration contract of Fizz's `renderOffscreen` relative to the new client-side Activity-plus-Offscreen fiber structure is not present in the supplied context.",
+        "symbols": [
+          "renderElement",
+          "updateActivityComponent"
+        ],
+        "resolved_by": null,
+        "established_context": null,
+        "scoped_text": null
+      }
+    ],
+    "verification_state": "verified",
+    "is_indeterminate": true,
+    "indeterminate_reason": "runtime_only_behavior",
+    "indeterminate_detail": "The repository diff establishes the new public type identity and the client, server, and DevTools mechanisms. Whether a real user observes rendering or lifecycle differences depends on applications actually using the experimental export and on the Activity modes and trees supplied at runtime."
+  },
+  "affected_boundaries": [
+    {
+      "id": "boundary:callable:app:Users-ksnaik-.cache-sydes-aacr-repos-facebook__react.packages.react-reconciler.src.ReactFiberCompleteWork.completeWork:packages/react-reconciler/src/ReactFiberCompleteWork.js",
+      "kind": "callable",
+      "subtype": "public_callable",
+      "repo": "app",
+      "file": "packages/react-reconciler/src/ReactFiberCompleteWork.js",
+      "symbol": "completeWork",
+      "label": "Users-ksnaik-.cache-sydes-aacr-repos-facebook__react.packages.react-reconciler.src.ReactFiberCompleteWork.completeWork",
+      "changed_symbols": [
+        "completeWork"
+      ],
+      "evidence": [],
+      "distance": 0,
+      "evidence_strength": "strong",
+      "status": "proven",
+      "reason": null,
+      "uncertainty": null,
+      "llm_confidence": null
+    }
+  ],
+  "composed_dispatch_edges": [],
+  "run_metrics": {
+    "llm_by_purpose": {
+      "pr_semantic_analysis": {
+        "calls": 1,
+        "errors": 0,
+        "input_tokens": 6081,
+        "output_tokens": 4390,
+        "reasoning_tokens": 2048,
+        "models": [
+          "gpt-5.6-sol"
+        ]
+      },
+      "route_discovery": {
+        "calls": 1,
+        "errors": 0,
+        "input_tokens": 9804,
+        "output_tokens": 38,
+        "reasoning_tokens": 0,
+        "models": [
+          "gpt-5.6-sol"
+        ]
+      },
+      "impact_guide": {
+        "calls": 8,
+        "errors": 0,
+        "input_tokens": 23394,
+        "output_tokens": 1925,
+        "reasoning_tokens": 1034,
+        "models": [
+          "gpt-5.6-sol"
+        ]
+      },
+      "boundary_reasoning": {
+        "calls": 1,
+        "errors": 0,
+        "input_tokens": 3448,
+        "output_tokens": 252,
+        "reasoning_tokens": 236,
+        "models": [
+          "gpt-5.6-sol"
+        ]
+      },
+      "investigator": {
+        "calls": 1,
+        "errors": 1,
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "reasoning_tokens": 0,
+        "models": [
+          "gpt-5.6-sol"
+        ]
+      },
+      "ai_recovery": {
+        "calls": 16,
+        "errors": 0,
+        "input_tokens": 23349,
+        "output_tokens": 1728,
+        "reasoning_tokens": 519,
+        "models": [
+          "gpt-5.6-sol"
+        ]
+      }
+    },
+    "llm_totals": {
+      "calls": 28,
+      "errors": 1,
+      "input_tokens": 66076,
+      "output_tokens": 8333,
+      "reasoning_tokens": 3837
+    },
+    "cbm": {
+      "calls": 36,
+      "errors": 1,
+      "by_operation": {
+        "index_repository": 2,
+        "query_graph": 20,
+        "search_graph": 12,
+        "get_graph_schema": 1,
+        "trace_path": 1
+      },
+      "enrichment_requests": 4
+    },
+    "wall_seconds": 444.4,
+    "tests": {
+      "environments": [],
+      "mapped_executions": 0,
+      "mapped_outcomes": {},
+      "ci_suite": {
+        "status": "unknown",
+        "blocker": "runner_missing",
+        "passed": null,
+        "failed": null
+      }
+    }
+  },
+  "framework_boundary_candidates": [],
+  "affected_flows": [],
+  "unresolved_changed_symbols": 9,
+  "unresolved_changed_symbol_names": [
+    "ActivityComponent",
+    "REACT_ACTIVITY_TYPE",
+    "completeWork",
+    "getComponentNameFromFiber",
+    "getDisplayNameForFiber",
+    "getInternalReactConstants",
+    "isValidElementType",
+    "renderSuspenseBoundary",
+    "updateActivityComponent"
+  ],
+  "analysis_status": "partial",
+  "analysis_notes": [
+    "Changed source file `packages/react-devtools-shared/src/backend/types.js` yielded no symbols: file could not be parsed into symbols. Downstream effects of this file are not established.",
+    "Changed source file `packages/react-reconciler/src/ReactFiber.js` yielded no symbols: file could not be parsed into symbols. Downstream effects of this file are not established.",
+    "Changed source file `packages/react/src/ReactClient.js` yielded no symbols: file could not be parsed into symbols. Downstream effects of this file are not established.",
+    "Route composition is unresolved in app; some routes may be missing.",
+    "Structural exploration was bounded for this change (calls hop 2 filled a full page); boundaries beyond the explored neighborhood are not established either way.",
+    "9 changed symbol(s) have no established impact path to any entrypoint (an AI-inferred candidate may still exist for one — see AFFECTED BEHAVIOR — but that is not the same as resolved impact coverage).",
+    "No discovered route declaration reaches the changed symbols."
+  ],
+  "test_executions": [],
+  "ci_suite": {
+    "command": [],
+    "source": "",
+    "working_dir": ".",
+    "framework": "",
+    "status": "unknown",
+    "blocker": "runner_missing",
+    "reason": "`jest` is declared in package.json but not installed in node_modules",
+    "exit_code": null,
+    "duration_ms": null,
+    "tests_passed": null,
+    "tests_failed": null,
+    "summary_line": null,
+    "failed_test_ids": [],
+    "stdout_excerpt": null,
+    "stderr_excerpt": null,
+    "output_truncated": false,
+    "evidence": []
+  },
+  "verification_gaps": [],
+  "runtime_dependencies": [
+    {
+      "id": "runtime:cache:redis",
+      "name": "Redis",
+      "kind": "cache",
+      "repo": "app",
+      "required_for_flow_ids": [],
+      "detected_from": [
+        {
+          "file": "compiler/apps/playground/components/Editor/EditorImpl.tsx",
+          "symbol": null,
+          "label": "client_import",
+          "snippet": "import {useStore, useStoreDispatch} from '../StoreContext';"
+        },
+        {
+          "file": "compiler/apps/playground/components/Editor/Input.tsx",
+          "symbol": null,
+          "label": "client_import",
+          "snippet": "import {useStore, useStoreDispatch} from '../StoreContext';"
+        },
+        {
+          "file": "compiler/apps/playground/components/Header.tsx",
+          "symbol": null,
+          "label": "client_import",
+          "snippet": "import {useStoreDispatch} from './StoreContext';"
+        }
+      ],
+      "scope": "repository"
+    }
+  ],
+  "cross_repo_impacts": [],
+  "notes": [
+    "test_execution=whole_suite_fallback reason=no_mapped_tests",
+    "AI recovery (experimental, provenance=ai_recovery, run-local, not merged into structural results): path recovery found a partial, edge-verified prefix but could not prove the full path to the changed behavior; test recovery recovered no verified tests.",
+    "Saved change verification artifact: /Users/ksnaik/.sydes/workspaces/a89a343269b1635c/artifacts/20261026T155703Z-c73710be/change_verification.json"
+  ],
+  "diagnostics": [
+    "code_intelligence_effective_backend=cbm selected_by=default",
+    "code_intelligence_backend=cbm transport=persistent_mcp_stdio cbm_server_version=0.11.0 cbm_executable=/Users/ksnaik/.cache/uv/archive-v0/qjq2WVkR8Mwv6VtFhJ9Dm/bin/codebase-memory-mcp",
+    "cbm_session_start_ms=1380.3 cbm_calls=20 cbm_mean_call_ms=237.8",
+    "cbm_index_ms=3187.3 cbm_query_ms=1590.5 sydes_route_semantics_ms=2090.5 total_ms=8253.2",
+    "cbm_supplied=symbols,spans,imports,exports,call_edges,usage_edges,entrypoints  sydes_semantics=route_index,route_graph,repo_map",
+    "route_derived_entrypoints_added=2",
+    "cbm_gap: route composition is computed by Sydes, not CBM: CBM reports uncomposed route paths and models no persistence sinks",
+    "cbm_gap: app: route composition is unresolved for some containers; route-derived entrypoint paths from this repo may be incomplete",
+    "cbm_gap: CALLS/USAGE edges deferred: they are fetched as a bounded neighborhood around the changed symbols instead of a repository-wide sweep",
+    "handler_symbol_index: exports=7791, files_indexed=1275, imports=8036, symbols=7858",
+    "pr_semantic_analysis_prompt_chars=23911",
+    "reverse_reach_candidate_files=591",
+    "app: deterministic_routes_found=24, deterministic_frameworks=express_mount_graph",
+    "app: discovery_coverage=moderate score=0.7",
+    "app: discovery_coverage_reasons=deterministic route extraction produced grounded routes; route graph composition produced mounted routes; some mount edges could not be resolved; route composition is unresolved: 8 of 9 route containers have no resolvable mount or declared prefix, so route paths may be incomplete",
+    "app: route_graph_containers=19, route_graph_declarations=26, route_graph_mount_edges=11, route_graph_composed_routes=26, route_graph_unresolved_mounts=11",
+    "app: deterministic_routes=24, llm_routes=0, merged_routes=24, rejected_routes=0, final_routes=24",
+    "app: merged_llm_routes=0",
+    "graph_slice_seeds: changed=9 routes=0 dropped_auxiliary=0 total=9",
+    "graph_slice: used=True seeds=9 canonical_seeds=9 unresolved_seeds=0 unresolved_changed=0 unresolved_auxiliary=0 graph_calls=4 nodes=401 call_edges=284 usage_edges=243 truncated=True fell_back=False",
+    "impact_interpreter: affected_entrypoints=3, ambiguous_edges=0, boundary_budget_exhausted=False, boundary_emitted=1, boundary_expansions=41, boundary_frontier_considered=41, boundary_rejected_weak_evidence=0, call_edges=284, changed_symbols=9, evidence_confirmed=1, guide_actions={'infer_impact': 4, 'inspect_symbol': 3, 'trace_callers': 1}, guide_budget_exhausted=True, guide_calls=8, guide_error_details=[], guide_errors=0, guide_latency_ms=38372.46562517248, guide_no_progress=0, guide_triggered=True, http_entrypoints=0, known_entrypoints=2, llm_candidates=4, llm_candidates_accepted=3, llm_candidates_corroborated=0, llm_candidates_missing_reason=0, llm_candidates_self_referential=0, llm_candidates_uncorroborated=4, llm_candidates_ungrounded=1, llm_candidates_whole_change_unanchored=0, llm_new_entrypoints=3, llm_no_candidate_turns=1, unresolved_after=9, unresolved_before=9, unresolved_symbols=9, usage_edges=243",
+    "repo_profile: rebuilt (103 package(s), 3 framework(s))",
+    "boundary_reasoning: candidates=12 inferred=0",
+    "app: test_files_found=2053",
+    "app: test_cases_found=7128",
+    "test_frameworks_detected=jest,mocha",
+    "ci_suite=unresolved reason=`jest` is declared in package.json but not installed in node_modules",
+    "structural_enrichment: triggered=[route_container_registration: 9 unresolved changed symbol(s)] cbm_requests=4 (relations:3,schema:1) cache_hits=(relations:1) errors=0 truncated=0 families=[CALLS,USAGE] candidates=0 unresolved=0",
+    "code_review_context_added: packages/react-reconciler/src/ReactFiberBeginWork.js:mountWorkInProgressOffscreenFiber -- updateActivityComponent calls mountWorkInProgressOffscreenFiber at packages/react-reconciler/src/ReactFiberBeginWork.js:886 (a changed line)",
+    "code_review_context_added: packages/react-reconciler/src/ReactFiberBeginWork.js:updateWorkInProgressOffscreenFiber -- updateActivityComponent calls updateWorkInProgressOffscreenFiber at packages/react-reconciler/src/ReactFiberBeginWork.js:899 (a changed line)",
+    "code_review_context_added: packages/react-devtools-shared/src/backend/fiber/renderer.js:debugTree -- debugTree calls the changed getDisplayNameForFiber",
+    "code_review_context_added: packages/react-devtools-shared/src/backend/fiber/renderer.js:getPathFrame -- getPathFrame calls the changed getDisplayNameForFiber",
+    "code_review_context_added: packages/react-reconciler/src/ReactChildFiber.js:warnOnFunctionType -- warnOnFunctionType calls the changed getComponentNameFromFiber",
+    "code_review_context_related=5",
+    "code_review_questions=10",
+    "investigator: hypotheses=0 lookups=0/12 confirmed=0 refuted=0 unknown=0 findings=0 llm_calls=0 errors=1",
+    "investigation_artifact=/Users/ksnaik/StudioProjects/sydes/benchmarks/aacr/results/investigator-b9391e5-first11-r1-2026-10-26/sydes/facebook__react@b045f18.investigation.json",
+    "run_metrics: wall_seconds=444.4 llm_calls=28 (ai_recovery:16,boundary_reasoning:1,impact_guide:8,investigator:1,pr_semantic_analysis:1,route_discovery:1) llm_errors=1 input_tokens=66076 output_tokens=8333 estimated_cost_usd=unavailable (set SYDES_LLM_PRICE_PER_MTOK) cbm_requests=36 cbm_enrichment_requests=4 test_executions=0 test_outcomes={}"
+  ],
+  "behavioral": null,
+  "known_routes": [
+    {
+      "method": "ALL",
+      "path": "/",
+      "handler": null,
+      "file": "fixtures/flight-esm/server/global.js",
+      "repo": "app",
+      "service": null,
+      "evidence": [
+        {
+          "file": "fixtures/flight-esm/server/global.js",
+          "symbol": null,
+          "label": "route_declaration",
+          "snippet": "app.all('/', async function (req, res, next) { // Proxy the request to the regional server. const proxiedHeaders = { 'X-Forwarded-Host': req.hostname, 'X-Forwarded-For': req.ips, 'X-Forwarded-Port': 3000, 'X-Forwarded-Proto': req.protocol, }; // Proxy other headers as desired."
+        }
+      ],
+      "confidence": 1.0,
+      "status": "deterministic_composed",
+      "kind": "http",
+      "impact_status": null
+    },
+    {
+      "method": "ALL",
+      "path": "/",
+      "handler": "renderApp",
+      "file": "fixtures/flight/server/global.js",
+      "repo": "app",
+      "service": null,
+      "evidence": [
+        {
+          "file": "fixtures/flight/server/global.js",
+          "symbol": "renderApp",
+          "label": "route_declaration",
+          "snippet": "app.all('/', renderApp);"
+        }
+      ],
+      "confidence": 1.0,
+      "status": "deterministic_composed",
+      "kind": "http",
+      "impact_status": null
+    },
+    {
+      "method": "ALL",
+      "path": "/prerender",
+      "handler": "renderApp",
+      "file": "fixtures/flight/server/global.js",
+      "repo": "app",
+      "service": null,
+      "evidence": [
+        {
+          "file": "fixtures/flight/server/global.js",
+          "symbol": "renderApp",
+          "label": "route_declaration",
+          "snippet": "app.all('/prerender', renderApp);"
+        }
+      ],
+      "confidence": 1.0,
+      "status": "deterministic_composed",
+      "kind": "http",
+      "impact_status": null
+    },
+    {
+      "method": "GET",
+      "path": "/",
+      "handler": null,
+      "file": "fixtures/fizz/server/server.js",
+      "repo": "app",
+      "service": null,
+      "evidence": [
+        {
+          "file": "fixtures/fizz/server/server.js",
+          "symbol": null,
+          "label": "route_declaration",
+          "snippet": "app.get( '/', handleErrors(async function (req, res) { await waitForWebpack(); renderToStream(req.url, res); }) );"
+        }
+      ],
+      "confidence": 1.0,
+      "status": "deterministic_composed",
+      "kind": "http",
+      "impact_status": null
+    },
+    {
+      "method": "GET",
+      "path": "/",
+      "handler": null,
+      "file": "fixtures/flight-esm/server/region.js",
+      "repo": "app",
+      "service": null,
+      "evidence": [
+        {
+          "file": "fixtures/flight-esm/server/region.js",
+          "symbol": null,
+          "label": "route_declaration",
+          "snippet": "app.get('/', async function (req, res) { await renderApp(res, null); });"
+        }
+      ],
+      "confidence": 1.0,
+      "status": "deterministic_composed",
+      "kind": "http",
+      "impact_status": null
+    },
+    {
+      "method": "GET",
+      "path": "/",
+      "handler": null,
+      "file": "fixtures/flight-parcel/src/server.tsx",
+      "repo": "app",
+      "service": null,
+      "evidence": [
+        {
+          "file": "fixtures/flight-parcel/src/server.tsx",
+          "symbol": null,
+          "label": "route_declaration",
+          "snippet": "app.get('/', async (req, res) => { await render(req, res, <Todos />); });"
+        }
+      ],
+      "confidence": 1.0,
+      "status": "deterministic_composed",
+      "kind": "http",
+      "impact_status": null
+    },
+    {
+      "method": "GET",
+      "path": "/",
+      "handler": null,
+      "file": "fixtures/flight/server/region.js",
+      "repo": "app",
+      "service": null,
+      "evidence": [
+        {
+          "file": "fixtures/flight/server/region.js",
+          "symbol": null,
+          "label": "route_declaration",
+          "snippet": "app.get('/', async function (req, res) { if ('prerender' in req.query) { await prerenderApp(res, null, null); } else { await renderApp(res, null, null); } });"
+        }
+      ],
+      "confidence": 1.0,
+      "status": "deterministic_composed",
+      "kind": "http",
+      "impact_status": null
+    },
+    {
+      "method": "GET",
+      "path": "/",
+      "handler": null,
+      "file": "fixtures/ssr/server/index.js",
+      "repo": "app",
+      "service": null,
+      "evidence": [
+        {
+          "file": "fixtures/ssr/server/index.js",
+          "symbol": null,
+          "label": "route_declaration",
+          "snippet": "app.get('/', function (req, res) { // In development mode we clear the module cache between each request to // get automatic hot reloading. for (var key in require.cache) { delete require.cache[key]; } const render = require('./render').default; render(req.url, res); });"
+        },
+        {
+          "file": "fixtures/ssr/server/index.js",
+          "symbol": null,
+          "label": "route_declaration",
+          "snippet": "app.get('/', function (req, res) { render(req.url, res); });"
+        }
+      ],
+      "confidence": 1.0,
+      "status": "deterministic_composed",
+      "kind": "http",
+      "impact_status": null
+    },
+    {
+      "method": "GET",
+      "path": "/",
+      "handler": null,
+      "file": "fixtures/ssr2/server/server.js",
+      "repo": "app",
+      "service": null,
+      "evidence": [
+        {
+          "file": "fixtures/ssr2/server/server.js",
+          "symbol": null,
+          "label": "route_declaration",
+          "snippet": "app.get( '/', handleErrors(async function (req, res) { await waitForWebpack(); render(req.url, res); }) );"
+        }
+      ],
+      "confidence": 1.0,
+      "status": "deterministic_composed",
+      "kind": "http",
+      "impact_status": null
+    },
+    {
+      "method": "GET",
+      "path": "/",
+      "handler": null,
+      "file": "fixtures/view-transition/server/index.js",
+      "repo": "app",
+      "service": null,
+      "evidence": [
+        {
+          "file": "fixtures/view-transition/server/index.js",
+          "symbol": null,
+          "label": "route_declaration",
+          "snippet": "app.get('/', function (req, res) { // In development mode we clear the module cache between each request to // get automatic hot reloading. for (var key in require.cache) { delete require.cache[key]; } const render = require('./render').default; render(req.url, res); });"
+        },
+        {
+          "file": "fixtures/view-transition/server/index.js",
+          "symbol": null,
+          "label": "route_declaration",
+          "snippet": "app.get('/', function (req, res) { render(req.url, res); });"
+        }
+      ],
+      "confidence": 1.0,
+      "status": "deterministic_composed",
+      "kind": "http",
+      "impact_status": null
+    },
+    {
+      "method": "GET",
+      "path": "/buffer",
+      "handler": null,
+      "file": "fixtures/fizz/server/server.js",
+      "repo": "app",
+      "service": null,
+      "evidence": [
+        {
+          "file": "fixtures/fizz/server/server.js",
+          "symbol": null,
+          "label": "route_declaration",
+          "snippet": "app.get( '/buffer', handleErrors(async function (req, res) { await waitForWebpack(); renderToBuffer(req.url, res); }) );"
+        }
+      ],
+      "confidence": 1.0,
+      "status": "deterministic_composed",
+      "kind": "http",
+      "impact_status": null
+    },
+    {
+      "method": "GET",
+      "path": "/source-maps",
+      "handler": null,
+      "file": "fixtures/flight-esm/server/global.js",
+      "repo": "app",
+      "service": null,
+      "evidence": [
+        {
+          "file": "fixtures/flight-esm/server/global.js",
+          "symbol": null,
+          "label": "route_declaration",
+          "snippet": "app.get('/source-maps', async function (req, res, next) { // Proxy the request to the regional server. const proxiedHeaders = { 'X-Forwarded-Host': req.hostname, 'X-Forwarded-For': req.ips, 'X-Forwarded-Port': 3000, 'X-Forwarded-Proto': req.protocol, };"
+        }
+      ],
+      "confidence": 1.0,
+      "status": "deterministic_composed",
+      "kind": "http",
+      "impact_status": null
+    },
+    {
+      "method": "GET",
+      "path": "/source-maps",
+      "handler": null,
+      "file": "fixtures/flight-esm/server/region.js",
+      "repo": "app",
+      "service": null,
+      "evidence": [
+        {
+          "file": "fixtures/flight-esm/server/region.js",
+          "symbol": null,
+          "label": "route_declaration",
+          "snippet": "app.get('/source-maps', async function (req, res, next) { try { res.set('Content-type', 'application/json'); let requestedFilePath = req.query.name; let isCompiledOutput = false; if (requestedFilePath.startsWith('file://')) { // We assume that if it was prefixed with file:// it's referring to the..."
+        }
+      ],
+      "confidence": 1.0,
+      "status": "deterministic_composed",
+      "kind": "http",
+      "impact_status": null
+    },
+    {
+      "method": "GET",
+      "path": "/source-maps",
+      "handler": null,
+      "file": "fixtures/flight/server/global.js",
+      "repo": "app",
+      "service": null,
+      "evidence": [
+        {
+          "file": "fixtures/flight/server/global.js",
+          "symbol": null,
+          "label": "route_declaration",
+          "snippet": "app.get('/source-maps', async function (req, res, next) { // Proxy the request to the regional server. const proxiedHeaders = { 'X-Forwarded-Host': req.hostname, 'X-Forwarded-For': req.ips, 'X-Forwarded-Port': 3000, 'X-Forwarded-Proto': req.protocol, };"
+        }
+      ],
+      "confidence": 1.0,
+      "status": "deterministic_composed",
+      "kind": "http",
+      "impact_status": null
+    },
+    {
+      "method": "GET",
+      "path": "/source-maps",
+      "handler": null,
+      "file": "fixtures/flight/server/region.js",
+      "repo": "app",
+      "service": null,
+      "evidence": [
+        {
+          "file": "fixtures/flight/server/region.js",
+          "symbol": null,
+          "label": "route_declaration",
+          "snippet": "app.get('/source-maps', async function (req, res, next) { try { res.set('Content-type', 'application/json'); let requestedFilePath = req.query.name; let isCompiledOutput = false; if (requestedFilePath.startsWith('file://')) { // We assume that if it was prefixed with file:// it's referring to the..."
+        }
+      ],
+      "confidence": 1.0,
+      "status": "deterministic_composed",
+      "kind": "http",
+      "impact_status": null
+    },
+    {
+      "method": "GET",
+      "path": "/stream",
+      "handler": null,
+      "file": "fixtures/fizz/server/server.js",
+      "repo": "app",
+      "service": null,
+      "evidence": [
+        {
+          "file": "fixtures/fizz/server/server.js",
+          "symbol": null,
+          "label": "route_declaration",
+          "snippet": "app.get( '/stream', handleErrors(async function (req, res) { await waitForWebpack(); renderToStream(req.url, res); }) );"
+        }
+      ],
+      "confidence": 1.0,
+      "status": "deterministic_composed",
+      "kind": "http",
+      "impact_status": null
+    },
+    {
+      "method": "GET",
+      "path": "/string",
+      "handler": null,
+      "file": "fixtures/fizz/server/server.js",
+      "repo": "app",
+      "service": null,
+      "evidence": [
+        {
+          "file": "fixtures/fizz/server/server.js",
+          "symbol": null,
+          "label": "route_declaration",
+          "snippet": "app.get( '/string', handleErrors(async function (req, res) { await waitForWebpack(); renderToString(req.url, res); }) );"
+        }
+      ],
+      "confidence": 1.0,
+      "status": "deterministic_composed",
+      "kind": "http",
+      "impact_status": null
+    },
+    {
+      "method": "GET",
+      "path": "/todos",
+      "handler": null,
+      "file": "fixtures/flight-esm/server/region.js",
+      "repo": "app",
+      "service": null,
+      "evidence": [
+        {
+          "file": "fixtures/flight-esm/server/region.js",
+          "symbol": null,
+          "label": "route_declaration",
+          "snippet": "app.get('/todos', function (req, res) { res.json([ { id: 1, text: 'Shave yaks', }, { id: 2, text: 'Eat kale',"
+        }
+      ],
+      "confidence": 1.0,
+      "status": "deterministic_composed",
+      "kind": "http",
+      "impact_status": null
+    },
+    {
+      "method": "GET",
+      "path": "/todos",
+      "handler": null,
+      "file": "fixtures/flight/server/region.js",
+      "repo": "app",
+      "service": null,
+      "evidence": [
+        {
+          "file": "fixtures/flight/server/region.js",
+          "symbol": null,
+          "label": "route_declaration",
+          "snippet": "app.get('/todos', function (req, res) { res.json([ { id: 1, text: 'Shave yaks', }, { id: 2, text: 'Eat kale',"
+        }
+      ],
+      "confidence": 1.0,
+      "status": "deterministic_composed",
+      "kind": "http",
+      "impact_status": null
+    },
+    {
+      "method": "GET",
+      "path": "/todos/{id}",
+      "handler": null,
+      "file": "fixtures/flight-parcel/src/server.tsx",
+      "repo": "app",
+      "service": null,
+      "evidence": [
+        {
+          "file": "fixtures/flight-parcel/src/server.tsx",
+          "symbol": null,
+          "label": "route_declaration",
+          "snippet": "app.get('/todos/:id', async (req, res) => { await render(req, res, <Todos id={Number(req.params.id)} />); });"
+        }
+      ],
+      "confidence": 1.0,
+      "status": "deterministic_composed",
+      "kind": "http",
+      "impact_status": null
+    },
+    {
+      "method": "POST",
+      "path": "/",
+      "handler": null,
+      "file": "fixtures/flight-esm/server/region.js",
+      "repo": "app",
+      "service": null,
+      "evidence": [
+        {
+          "file": "fixtures/flight-esm/server/region.js",
+          "symbol": null,
+          "label": "route_declaration",
+          "snippet": "app.post('/', bodyParser.text(), async function (req, res) { const { renderToPipeableStream, decodeReply, decodeReplyFromBusboy, decodeAction, } = await import('react-server-dom-esm/server'); const serverReference = req.get('rsc-action'); if (serverReference) {"
+        }
+      ],
+      "confidence": 1.0,
+      "status": "deterministic_composed",
+      "kind": "http",
+      "impact_status": null
+    },
+    {
+      "method": "POST",
+      "path": "/",
+      "handler": null,
+      "file": "fixtures/flight-parcel/src/server.tsx",
+      "repo": "app",
+      "service": null,
+      "evidence": [
+        {
+          "file": "fixtures/flight-parcel/src/server.tsx",
+          "symbol": null,
+          "label": "route_declaration",
+          "snippet": "app.post('/', async (req, res) => { await handleAction(req, res, <Todos />); });"
+        }
+      ],
+      "confidence": 1.0,
+      "status": "deterministic_composed",
+      "kind": "http",
+      "impact_status": null
+    },
+    {
+      "method": "POST",
+      "path": "/",
+      "handler": null,
+      "file": "fixtures/flight/server/region.js",
+      "repo": "app",
+      "service": null,
+      "evidence": [
+        {
+          "file": "fixtures/flight/server/region.js",
+          "symbol": null,
+          "label": "route_declaration",
+          "snippet": "app.post('/', bodyParser.text(), async function (req, res) { const {decodeReply, decodeReplyFromBusboy, decodeAction, decodeFormState} = await import('react-server-dom-webpack/server'); const serverReference = req.get('rsc-action'); if (serverReference) { // This is the client-side case const [fi..."
+        }
+      ],
+      "confidence": 1.0,
+      "status": "deterministic_composed",
+      "kind": "http",
+      "impact_status": null
+    },
+    {
+      "method": "POST",
+      "path": "/todos/{id}",
+      "handler": "render",
+      "file": "fixtures/flight-parcel/src/server.tsx",
+      "repo": "app",
+      "service": null,
+      "evidence": [
+        {
+          "file": "fixtures/flight-parcel/src/server.tsx",
+          "symbol": "render",
+          "label": "route_declaration",
+          "snippet": "app.post('/todos/:id', async (req, res) => { await handleAction(req, res, <Todos id={Number(req.params.id)} />); });"
+        }
+      ],
+      "confidence": 1.0,
+      "status": "deterministic_composed",
+      "kind": "http",
+      "impact_status": null
+    }
+  ],
+  "unattached_evidence": []
+}

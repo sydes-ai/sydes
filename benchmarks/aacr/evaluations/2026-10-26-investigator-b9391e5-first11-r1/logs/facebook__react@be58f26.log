@@ -1,0 +1,59 @@
+AI recovery (experimental): triggered (no relevant test was mapped even though this diff changed a test file (packages/react-dom/src/__tests__/ReactDOMForm-test.js))
+AI recovery (experimental): path=unresolved test=unresolved turns=16 llm_calls=16 tokens=26520+1096 edge_retries_attempted=0 edge_retries_succeeded=0 graph_paths_proposed=0 graph_paths_established=0 graph_paths_established_unverified_boundary=0 explicit_relation_edges=0
+Wrote AI recovery result: /Users/ksnaik/StudioProjects/sydes/benchmarks/aacr/results/investigator-b9391e5-first11-r1-2026-10-26/sydes/facebook__react@be58f26.ai_recovery.json
+SYDES VERIFICATION
+
+MEDIUM RISK
+
+Changed
+───────
+packages/react-dom/src/__tests__/ReactDOMForm-test.js
+packages/react-reconciler/src/ReactFiberHooks.js
+
+CHANGE ANALYSIS (citations verified, indeterminate)
+───────────────────────────────────────────────────
+Cannot be established from this repository alone: depends on state only known at runtime (e.g. feature flags, request data).
+The mechanism is clear, but observable impact requires a second form submission to occur while the first asynchronous action is still pending and while the form fiber has the relevant intermediate hook shape. The diff does not establish whether that timing and state occur in any particular real application.
+
+The reconciler now considers a form already upgraded to stateful only when its existing hook has a successor hook. The accompanying regression test exercises two closely spaced submissions while the first action is still pending and expects both actions to run without an exception. The test is currently committed as a focused `it.only` test.
+
+Likely behavioral changes
+  • When the same form is submitted twice in rapid succession while its asynchronous action is still pending, the intended behavior is now for both submissions to invoke the action without throwing. Internally, a form with only one existing hook is no longer treated as fully upgraded to stateful form handling.
+
+Investigate
+  • Trace all callers of the form-state upgrade helper and determine which host-transition paths can present a form fiber with exactly one hook.
+  • Check whether the two-hook shape is a stable invariant across initial submission, overlapping submission, retries, interruption, hydration, and alternate renderers.
+  • Follow the public form-action path from DOM submission through React DOM into the reconciler, including browser `requestSubmit()` behavior and action completion scheduling.
+
+Uncertain
+  • The supplied context does not show every caller of `ensureFormComponentIsStateful`, so it is unknown which form-action, hydration, retry, or renderer paths can reach the changed condition.
+  • It is not established whether this reconciler behavior applies only to React DOM forms or is shared by other host renderers that call the same transition code.
+  • The diff does not establish how often a real form fiber has exactly one hook when another submission begins, or whether real submission timing reaches that intermediate state.
+  • The supplied context does not show the test-runner configuration, so the exact CI treatment of `it.only` and whether focused tests are rejected cannot be established.
+  • The remainder of `ensureFormComponentIsStateful` is not shown, so the exact initialization performed after the changed guard and the full consequences of re-entering that path cannot be established.
+
+System impact
+─────────────
+No structural propagation path was established.
+
+CI
+──
+? the test suite could not run
+  `jest` is declared in package.json but not installed in node_modules
+
+What Sydes could not establish
+──────────────────────────────
+• The repository test suite could not run (`jest` is declared in package.json but not installed in node_modules).
+
+Full verification requires
+──────────────────────────
+Redis
+
+Verdict
+───────
+VERIFICATION INCOMPLETE
+
+Wrote verification result: /Users/ksnaik/StudioProjects/sydes/benchmarks/aacr/results/investigator-b9391e5-first11-r1-2026-10-26/sydes/facebook__react@be58f26.json
+
+--- stderr ---
+Preparing Sydes code intelligence...

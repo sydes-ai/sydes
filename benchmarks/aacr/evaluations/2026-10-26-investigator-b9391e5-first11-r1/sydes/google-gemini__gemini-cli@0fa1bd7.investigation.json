@@ -1,0 +1,1278 @@
+{
+  "version": "sydes-investigation/1",
+  "packet": [
+    {
+      "id": "E1",
+      "kind": "diff",
+      "ref": "package-lock.json",
+      "chars": 2500
+    },
+    {
+      "id": "E2",
+      "kind": "diff",
+      "ref": "packages/cli/package.json",
+      "chars": 403
+    },
+    {
+      "id": "E3",
+      "kind": "diff",
+      "ref": "packages/cli/src/config/settings.ts",
+      "chars": 2500
+    },
+    {
+      "id": "E4",
+      "kind": "diff",
+      "ref": "packages/cli/src/utils/commentJson.test.ts",
+      "chars": 2500
+    },
+    {
+      "id": "E5",
+      "kind": "diff",
+      "ref": "packages/cli/src/utils/commentJson.ts",
+      "chars": 2500
+    },
+    {
+      "id": "E6",
+      "kind": "changed_symbol",
+      "ref": "packages/cli/src/config/settings.ts:353-373",
+      "chars": 514
+    },
+    {
+      "id": "E7",
+      "kind": "changed_symbol",
+      "ref": "packages/cli/src/config/settings.ts:417-423",
+      "chars": 346
+    },
+    {
+      "id": "E8",
+      "kind": "changed_symbol",
+      "ref": "packages/cli/src/config/settings.ts:523-717",
+      "chars": 1619
+    },
+    {
+      "id": "E9",
+      "kind": "changed_symbol",
+      "ref": "packages/cli/src/config/settings.ts:719-746",
+      "chars": 620
+    },
+    {
+      "id": "E10",
+      "kind": "changed_symbol",
+      "ref": "packages/cli/src/utils/commentJson.ts:19-50",
+      "chars": 897
+    },
+    {
+      "id": "E11",
+      "kind": "changed_symbol",
+      "ref": "packages/cli/src/utils/commentJson.ts:52-81",
+      "chars": 661
+    },
+    {
+      "id": "E12",
+      "kind": "changed_symbol",
+      "ref": "packages/cli/src/utils/commentJson.ts:83-99",
+      "chars": 440
+    },
+    {
+      "id": "E13",
+      "kind": "changed_symbol",
+      "ref": "packages/cli/src/utils/commentJson.ts:101-125",
+      "chars": 656
+    },
+    {
+      "id": "E14",
+      "kind": "changed_symbol",
+      "ref": "packages/cli/src/utils/commentJson.ts:130-173",
+      "chars": 1002
+    },
+    {
+      "id": "E15",
+      "kind": "structural",
+      "ref": "packages/cli/src/config/settings.ts:392-400",
+      "chars": 340
+    },
+    {
+      "id": "E16",
+      "kind": "structural",
+      "ref": "packages/cli/src/config/settings.ts:138-146",
+      "chars": 382
+    },
+    {
+      "id": "E17",
+      "kind": "structural",
+      "ref": "packages/cli/src/config/settings.ts:180-203",
+      "chars": 678
+    },
+    {
+      "id": "E18",
+      "kind": "structural",
+      "ref": "packages/cli/src/config/settings.ts:477-517",
+      "chars": 1493
+    },
+    {
+      "id": "E19",
+      "kind": "structural",
+      "ref": "packages/cli/src/utils/envVarResolver.ts:50-52",
+      "chars": 234
+    },
+    {
+      "id": "E20",
+      "kind": "structural",
+      "ref": "packages/cli/src/config/settings.ts:125-136",
+      "chars": 541
+    },
+    {
+      "id": "E21",
+      "kind": "structural",
+      "ref": "packages/cli/src/config/settings.ts:402-415",
+      "chars": 502
+    },
+    {
+      "id": "E22",
+      "kind": "structural",
+      "ref": "packages/cli/src/config/settings.ts:283-325",
+      "chars": 1287
+    },
+    {
+      "id": "E23",
+      "kind": "structural",
+      "ref": "packages/cli/src/commands/mcp/add.ts:12-125",
+      "chars": 2500
+    },
+    {
+      "id": "E24",
+      "kind": "structural",
+      "ref": "packages/cli/src/commands/mcp/remove.ts:11-35",
+      "chars": 687
+    },
+    {
+      "id": "E25",
+      "kind": "structural",
+      "ref": "packages/cli/src/config/extension.ts:605-624",
+      "chars": 751
+    },
+    {
+      "id": "E26",
+      "kind": "test_execution",
+      "ref": "ci_suite",
+      "chars": 52
+    },
+    {
+      "id": "E27",
+      "kind": "gap",
+      "ref": "unresolved:applyUpdates",
+      "chars": 80
+    },
+    {
+      "id": "E28",
+      "kind": "gap",
+      "ref": "unresolved:constructor",
+      "chars": 79
+    },
+    {
+      "id": "E29",
+      "kind": "gap",
+      "ref": "unresolved:loadSettings",
+      "chars": 80
+    },
+    {
+      "id": "E30",
+      "kind": "gap",
+      "ref": "unresolved:restoreEnvVarReferences",
+      "chars": 91
+    },
+    {
+      "id": "E31",
+      "kind": "gap",
+      "ref": "unresolved:restoreEnvVarsRecursive",
+      "chars": 91
+    },
+    {
+      "id": "E32",
+      "kind": "gap",
+      "ref": "unresolved:saveSettings",
+      "chars": 80
+    },
+    {
+      "id": "E33",
+      "kind": "gap",
+      "ref": "unresolved:setValue",
+      "chars": 76
+    },
+    {
+      "id": "E34",
+      "kind": "gap",
+      "ref": "unresolved:trackEnvVarMappings",
+      "chars": 87
+    },
+    {
+      "id": "E35",
+      "kind": "gap",
+      "ref": "unresolved:updateSettingsFilePreservingFormat",
+      "chars": 102
+    },
+    {
+      "id": "E36",
+      "kind": "change_analysis",
+      "ref": "summary",
+      "chars": 390
+    },
+    {
+      "id": "E37",
+      "kind": "change_analysis",
+      "ref": "local_risk",
+      "chars": 318
+    },
+    {
+      "id": "E38",
+      "kind": "change_analysis",
+      "ref": "local_risk",
+      "chars": 354
+    },
+    {
+      "id": "E39",
+      "kind": "change_analysis",
+      "ref": "local_risk",
+      "chars": 314
+    },
+    {
+      "id": "E40",
+      "kind": "change_analysis",
+      "ref": "uncertainty",
+      "chars": 167
+    },
+    {
+      "id": "E41",
+      "kind": "change_analysis",
+      "ref": "uncertainty",
+      "chars": 143
+    },
+    {
+      "id": "E42",
+      "kind": "change_analysis",
+      "ref": "uncertainty",
+      "chars": 207
+    },
+    {
+      "id": "E43",
+      "kind": "change_analysis",
+      "ref": "uncertainty",
+      "chars": 156
+    },
+    {
+      "id": "E44",
+      "kind": "change_analysis",
+      "ref": "uncertainty",
+      "chars": 216
+    }
+  ],
+  "hypotheses": [
+    {
+      "id": "H1",
+      "claim": "Removing an MCP server does not delete it from the settings file: the remove command omits the server from `updates`, but `applyUpdates` only merges keys present in `updates` and never removes keys from the parsed file, so the command can report success while the server returns on the next load.",
+      "why_suspected": "`removeMcpServer` deletes a property in memory and saves the remaining `mcpServers`, while the new persistence path recursively overlays that object onto the old file rather than replacing it or reconciling removed keys.",
+      "file": "packages/cli/src/utils/commentJson.ts",
+      "line": 58,
+      "severity": "P1",
+      "initial_evidence": [
+        "E11",
+        "E24",
+        "E7",
+        "E9",
+        "E37"
+      ],
+      "questions_to_resolve": [
+        "After removing an existing server and reloading settings from disk, is that server still present?",
+        "Does any layer before `applyUpdates` encode deleted properties explicitly rather than omitting them?"
+      ]
+    },
+    {
+      "id": "H2",
+      "claim": "A setting originally backed by an environment-variable reference cannot be replaced with a new explicit string during the same `LoadedSettings` lifetime, because the stale mapping unconditionally rewrites any string at that path back to the original environment reference.",
+      "why_suspected": "Mappings are captured once during load and retained by `LoadedSettings`; `setValue` does not update them, and restoration checks neither whether the current value still equals `resolvedValue` nor whether the caller intentionally changed it.",
+      "file": "packages/cli/src/utils/commentJson.ts",
+      "line": 113,
+      "severity": "P2",
+      "initial_evidence": [
+        "E7",
+        "E8",
+        "E12",
+        "E13",
+        "E14",
+        "E38"
+      ],
+      "questions_to_resolve": [
+        "If `$API_KEY` resolves to `old-secret` and `setValue` assigns `new-literal` at that path, does the file incorrectly retain `$API_KEY`?",
+        "Are environment mappings invalidated or updated anywhere outside the supplied `setValue` implementation?"
+      ]
+    },
+    {
+      "id": "H3",
+      "claim": "Saving settings can disclose resolved environment-variable values located inside arrays, because tracking records mappings for array indices but restoration never descends into arrays before serializing the resolved in-memory settings.",
+      "why_suspected": "`trackEnvVarMappings` recursively treats arrays as objects, whereas `restoreEnvVarsRecursive` explicitly excludes arrays; the save path writes the resulting structure to disk.",
+      "file": "packages/cli/src/utils/commentJson.ts",
+      "line": 118,
+      "severity": "P1",
+      "initial_evidence": [
+        "E9",
+        "E13",
+        "E14",
+        "E39"
+      ],
+      "questions_to_resolve": [
+        "Does `resolveEnvVarsInObject` resolve references in array elements used by real settings such as command arguments?",
+        "When such a file is saved, is the literal resolved value written instead of the original `$VAR` reference?"
+      ]
+    },
+    {
+      "id": "H4",
+      "claim": "Environment-reference restoration can modify the wrong setting when object keys contain dots, because distinct paths such as `['a.b']` and `['a','b']` are both collapsed to the same `a.b` map key.",
+      "why_suspected": "Both mapping construction and restoration identify paths using `path.join('.')`, while settings include user-controlled map keys such as MCP server names and header names that may contain dots.",
+      "file": "packages/cli/src/utils/commentJson.ts",
+      "line": 89,
+      "severity": "P2",
+      "initial_evidence": [
+        "E12",
+        "E13",
+        "E14",
+        "E23"
+      ],
+      "questions_to_resolve": [
+        "Can supported settings keys, particularly MCP server or header names, contain periods?",
+        "For a file containing both a dotted key and the equivalent nested path, does saving restore one path's environment reference onto the other?"
+      ]
+    },
+    {
+      "id": "H5",
+      "claim": "Saving a legacy settings file can leak resolved environment values for migrated settings, because mappings are recorded against the in-memory v2 paths but `saveSettings` converts values back to v1 keys without converting the mapping paths before restoration.",
+      "why_suspected": "Environment mappings are captured after settings have been loaded into their in-memory structure, while the save path conditionally calls `migrateSettingsToV1` and then passes the original mappings to the format-preserving writer; renamed paths will no longer match.",
+      "file": "packages/cli/src/config/settings.ts",
+      "line": 732,
+      "severity": "P1",
+      "initial_evidence": [
+        "E8",
+        "E9",
+        "E12",
+        "E14",
+        "E22"
+      ],
+      "questions_to_resolve": [
+        "Are mappings for legacy files captured using v2 paths before `migrateSettingsToV1` runs?",
+        "When a migrated setting contains `$VAR`, does saving a legacy file write the resolved value under its v1 key?"
+      ]
+    }
+  ],
+  "lookups": [
+    {
+      "n": 1,
+      "id": "L1",
+      "hypothesis": "H1",
+      "tool": "read_source",
+      "args": {
+        "path": "packages/cli/src/utils/commentJson.ts",
+        "start_line": 1,
+        "end_line": 140
+      },
+      "why": "Inspect applyUpdates and its callers in this file to determine whether omitted or explicitly deleted keys can remove parsed settings properties.",
+      "provenance": "source_read",
+      "result_chars": 4128,
+      "result_excerpt": "1: /**\n2:  * @license\n3:  * Copyright 2025 Google LLC\n4:  * SPDX-License-Identifier: Apache-2.0\n5:  */\n6: \n7: import * as fs from 'node:fs';\n8: import { parse, stringify } from 'comment-json';\n9: \n10: interface EnvVarMapping {\n11:   path: string[];\n12:   originalValue: string;\n13:   resolvedValue: unknown;\n14: }\n15: \n16: /**\n17:  * Updates a JSON file while preserving comments, formatting, and environment variable references.\n18:  */\n19: export function updateSettingsFilePreservingFormat(\n20:   filePath: string,\n21:   updates: Record<string, unknown>,\n22:   envVarMappings: EnvVarMapping[] = []"
+    },
+    {
+      "n": 2,
+      "id": "L2",
+      "hypothesis": "H1",
+      "tool": "search_text",
+      "args": {
+        "pattern": "updateSettingsFilePreservingFormat|remove.*mcp|mcp.*remove",
+        "path_glob": "packages/cli/src/**/*.{ts,tsx}"
+      },
+      "why": "Identify the MCP remove path and inspect what update object it passes, deciding whether deletion is omitted or explicitly encoded before applyUpdates.",
+      "provenance": "source_search",
+      "result_chars": 12,
+      "result_excerpt": "(no matches)"
+    },
+    {
+      "n": 3,
+      "id": "L3",
+      "hypothesis": "H1",
+      "tool": "find_symbol",
+      "args": {
+        "name_pattern": "updateSettingsFilePreservingFormat"
+      },
+      "why": "Locate all callers of the settings writer so the MCP removal path and exact update payload can be traced.",
+      "provenance": "structural_query",
+      "result_chars": 424,
+      "result_excerpt": "{\"qn_rule\":\"qn = qn_prefix == \\\"\\\" ? name : qn_prefix + \\\".\\\" + name\",\"cols\":[\"name\",\"label\",\"lines\",\"in\",\"out\"],\"groups\":[{\"qn_prefix\":\"Users-ksnaik-.cache-sydes-aacr-repos-google-gemini__gemini-cli.packages.cli.src.utils.commentJson\",\"file\":\"packages/cli/src/utils/commentJson.ts\",\"rows\":[[\"updateSettingsFilePreservingFormat\",\"Function\",\"19-50\",1,4]]}],\"total\":1,\"returned\":1,\"count\":1,\"has_more\":false,\"truncated\":false}"
+    },
+    {
+      "n": 4,
+      "id": "L4",
+      "hypothesis": "H1",
+      "tool": "callers",
+      "args": {
+        "symbol": "updateSettingsFilePreservingFormat"
+      },
+      "why": "Find the four call sites reported by symbol indexing and identify which one persists MCP removal, so its exact updates payload can be inspected.",
+      "provenance": "structural_query",
+      "result_chars": 388,
+      "result_excerpt": "{\"function\":\"updateSettingsFilePreservingFormat\",\"direction\":\"inbound\",\"mode\":\"calls\",\"callers_total\":1,\"callers_total_relation\":\"eq\",\"callers\":{\"qn_rule\":\"qn = qn_prefix == \\\"\\\" ? name : qn_prefix + \\\".\\\" + name\",\"cols\":[\"name\",\"hop\"],\"groups\":[{\"qn_prefix\":\"Users-ksnaik-.cache-sydes-aacr-repos-google-gemini__gemini-cli.packages.cli.src.config.settings\",\"rows\":[[\"saveSettings\",1]]}]}}"
+    },
+    {
+      "n": 5,
+      "id": "L5",
+      "hypothesis": "H2",
+      "tool": "read_source",
+      "args": {
+        "path": "packages/cli/src/utils/commentJson.ts",
+        "start_line": 1,
+        "end_line": 180
+      },
+      "why": "Inspect LoadedSettings parsing, environment-reference mapping, and setValue behavior around line 113 to determine whether a new literal is rewritten to the stale reference.",
+      "provenance": "source_read",
+      "result_chars": 5189,
+      "result_excerpt": "1: /**\n2:  * @license\n3:  * Copyright 2025 Google LLC\n4:  * SPDX-License-Identifier: Apache-2.0\n5:  */\n6: \n7: import * as fs from 'node:fs';\n8: import { parse, stringify } from 'comment-json';\n9: \n10: interface EnvVarMapping {\n11:   path: string[];\n12:   originalValue: string;\n13:   resolvedValue: unknown;\n14: }\n15: \n16: /**\n17:  * Updates a JSON file while preserving comments, formatting, and environment variable references.\n18:  */\n19: export function updateSettingsFilePreservingFormat(\n20:   filePath: string,\n21:   updates: Record<string, unknown>,\n22:   envVarMappings: EnvVarMapping[] = []"
+    },
+    {
+      "n": 6,
+      "id": "L6",
+      "hypothesis": "H2",
+      "tool": "search_text",
+      "args": {
+        "pattern": "envVarMappings|trackEnvVarMappings|updateSettingsFilePreservingFormat",
+        "path_glob": "packages/cli/src/**/*.ts"
+      },
+      "why": "Find where mappings are stored and passed during LoadedSettings updates, and whether any code invalidates or refreshes them after setValue.",
+      "provenance": "source_search",
+      "result_chars": 3321,
+      "result_excerpt": "packages/cli/src/config/settings.ts:33: updateSettingsFilePreservingFormat,\npackages/cli/src/config/settings.ts:34: trackEnvVarMappings,\npackages/cli/src/config/settings.ts:360: envVarMappings: Map<\npackages/cli/src/config/settings.ts:362: ReturnType<typeof trackEnvVarMappings>\npackages/cli/src/config/settings.ts:371: this.envVarMappings = envVarMappings;\npackages/cli/src/config/settings.ts:381: readonly envVarMappings: Map<\npackages/cli/src/config/settings.ts:383: ReturnType<typeof trackEnvVarMappings>\npackages/cli/src/config/settings.ts:421: const envMappings = this.envVarMappings.get(scope)"
+    },
+    {
+      "n": 7,
+      "id": "L7",
+      "hypothesis": "H2",
+      "tool": "read_source",
+      "args": {
+        "path": "packages/cli/src/config/settings.ts",
+        "start_line": 350,
+        "end_line": 445
+      },
+      "why": "Inspect LoadedSettings construction and setValue to determine whether its per-scope environment mappings are invalidated or updated before the file write.",
+      "provenance": "source_read",
+      "result_chars": 3333,
+      "result_excerpt": "350: }\n351: \n352: export class LoadedSettings {\n353:   constructor(\n354:     system: SettingsFile,\n355:     systemDefaults: SettingsFile,\n356:     user: SettingsFile,\n357:     workspace: SettingsFile,\n358:     isTrusted: boolean,\n359:     migratedInMemorScopes: Set<SettingScope>,\n360:     envVarMappings: Map<\n361:       SettingScope,\n362:       ReturnType<typeof trackEnvVarMappings>\n363:     > = new Map(),\n364:   ) {\n365:     this.system = system;\n366:     this.systemDefaults = systemDefaults;\n367:     this.user = user;\n368:     this.workspace = workspace;\n369:     this.isTrusted = isTrusted;\n"
+    },
+    {
+      "n": 8,
+      "id": "L8",
+      "hypothesis": "H2",
+      "tool": "read_source",
+      "args": {
+        "path": "packages/cli/src/config/settings.ts",
+        "start_line": 520,
+        "end_line": 750
+      },
+      "why": "Verify mappings are created only during load and trace saveSettings to confirm no later invalidation or refresh occurs outside LoadedSettings.setValue.",
+      "provenance": "source_read",
+      "result_chars": 6000,
+      "result_excerpt": "520:  * Loads settings from user and workspace directories.\n521:  * Project settings override user settings.\n522:  */\n523: export function loadSettings(\n524:   workspaceDir: string = process.cwd(),\n525: ): LoadedSettings {\n526:   let systemSettings: Settings = {};\n527:   let systemDefaultSettings: Settings = {};\n528:   let userSettings: Settings = {};\n529:   let workspaceSettings: Settings = {};\n530:   const settingsErrors: SettingsError[] = [];\n531:   const systemSettingsPath = getSystemSettingsPath();\n532:   const systemDefaultsPath = getSystemDefaultsPath();\n533:   const migratedInMemorScop"
+    },
+    {
+      "n": 9,
+      "id": "L9",
+      "hypothesis": "H3",
+      "tool": "read_source",
+      "args": {
+        "path": "packages/cli/src/utils/commentJson.ts",
+        "start_line": 1,
+        "end_line": 190
+      },
+      "why": "Determine whether environment-variable resolution traverses arrays, how original references are tracked, and whether save-time restoration recurses into arrays before serialization.",
+      "provenance": "source_read",
+      "result_chars": 5189,
+      "result_excerpt": "1: /**\n2:  * @license\n3:  * Copyright 2025 Google LLC\n4:  * SPDX-License-Identifier: Apache-2.0\n5:  */\n6: \n7: import * as fs from 'node:fs';\n8: import { parse, stringify } from 'comment-json';\n9: \n10: interface EnvVarMapping {\n11:   path: string[];\n12:   originalValue: string;\n13:   resolvedValue: unknown;\n14: }\n15: \n16: /**\n17:  * Updates a JSON file while preserving comments, formatting, and environment variable references.\n18:  */\n19: export function updateSettingsFilePreservingFormat(\n20:   filePath: string,\n21:   updates: Record<string, unknown>,\n22:   envVarMappings: EnvVarMapping[] = []"
+    },
+    {
+      "n": 10,
+      "id": "L10",
+      "hypothesis": "H3",
+      "tool": "find_symbol",
+      "args": {
+        "name_pattern": "resolveEnvVarsInObject"
+      },
+      "why": "Determine whether resolution traverses array elements and identify its production call sites for real settings.",
+      "provenance": "structural_query",
+      "result_chars": 885,
+      "result_excerpt": "{\"qn_rule\":\"qn = qn_prefix == \\\"\\\" ? name : qn_prefix + \\\".\\\" + name\",\"cols\":[\"name\",\"label\",\"lines\",\"in\",\"out\"],\"groups\":[{\"qn_prefix\":\"Users-ksnaik-.cache-sydes-aacr-repos-google-gemini__gemini-cli.packages.cli.src.utils.envVarResolver\",\"file\":\"packages/cli/src/utils/envVarResolver.ts\",\"rows\":[[\"resolveEnvVarsInObject\",\"Function\",\"50-52\",2,1]]},{\"qn_prefix\":\"Users-ksnaik-.cache-sydes-aacr-repos-google-gemini__gemini-cli.packages.a2a-server.src.config.settings\",\"file\":\"packages/a2a-server/src/config/settings.ts\",\"rows\":[[\"resolveEnvVarsInObject\",\"Function\",\"125-154\",1,1]]},{\"qn_prefix\":\"Users"
+    },
+    {
+      "n": 11,
+      "id": "L11",
+      "hypothesis": "H3",
+      "tool": "read_source",
+      "args": {
+        "path": "packages/cli/src/utils/envVarResolver.ts",
+        "start_line": 1,
+        "end_line": 130
+      },
+      "why": "This decides whether the CLI resolver descends into arrays and resolves environment-variable references in array elements while preserving index-based paths.",
+      "provenance": "source_read",
+      "result_chars": 3808,
+      "result_excerpt": "1: /**\n2:  * @license\n3:  * Copyright 2025 Google LLC\n4:  * SPDX-License-Identifier: Apache-2.0\n5:  */\n6: \n7: /**\n8:  * Resolves environment variables in a string.\n9:  * Replaces $VAR_NAME and ${VAR_NAME} with their corresponding environment variable values.\n10:  * If the environment variable is not defined, the original placeholder is preserved.\n11:  *\n12:  * @param value - The string that may contain environment variable placeholders\n13:  * @returns The string with environment variables resolved\n14:  *\n15:  * @example\n16:  * resolveEnvVarsInString(\"Token: $API_KEY\") // Returns \"Token: secret"
+    },
+    {
+      "n": 12,
+      "id": "L12",
+      "hypothesis": "H3",
+      "tool": "search_text",
+      "args": {
+        "pattern": "trackEnvVarMappings|updateSettingsFilePreservingFormat|resolveEnvVarsInObject|args",
+        "path_glob": "packages/cli/src/config/*.ts"
+      },
+      "why": "Confirm the production settings load/save flow passes resolved array values and index mappings into serialization, and identify a real array-valued setting such as command arguments.",
+      "provenance": "source_search",
+      "result_chars": 3301,
+      "result_excerpt": "packages/cli/src/config/config.integration.test.ts:364: // Should throw during argument parsing due to yargs validation\npackages/cli/src/config/config.test.ts:1125: { args: ['node', 'script.js'] }, // default\npackages/cli/src/config/config.test.ts:1126: { args: ['node', 'script.js', '--approval-mode', 'default'] },\npackages/cli/src/config/config.test.ts:1127: { args: ['node', 'script.js', '--approval-mode', 'auto_edit'] },\npackages/cli/src/config/config.test.ts:1128: { args: ['node', 'script.js', '--approval-mode', 'yolo'] },\npackages/cli/src/config/config.test.ts:1129: { args: ['node', 'scrip"
+    }
+  ],
+  "outcomes": [
+    {
+      "hypothesis": "H1",
+      "lookups": [
+        "L1",
+        "L2",
+        "L3",
+        "L4"
+      ],
+      "status": "CONFIRMED",
+      "supported_claim": "When removing an existing MCP server from an existing settings file whose `mcpServers` value is an object, the server remains in that file even though the remove command reports success.",
+      "reasoning": "The remove path represents deletion by executing `delete mcpServers[name]`, so the object passed to `setValue` omits the deleted server; no explicit deletion marker is encoded. The changed save path sends the resulting settings through `updateSettingsFilePreservingFormat`. That function parses the old file and recursively merges object-valued updates into the parsed object. Because `applyUpdates` iterates only over keys present in the update object, it never visits or deletes the omitted server key from the parsed on-disk `mcpServers` object. The retained structure is then stringified and written back, while the command unconditionally prints that the server was removed.",
+      "defect_evidence": [
+        {
+          "source": "E24",
+          "file": "packages/cli/src/commands/mcp/remove.ts",
+          "line": 30,
+          "quote": "delete mcpServers[name];"
+        },
+        {
+          "source": "E24",
+          "file": "packages/cli/src/commands/mcp/remove.ts",
+          "line": 32,
+          "quote": "settings.setValue(settingsScope, 'mcpServers', mcpServers);"
+        },
+        {
+          "source": "E24",
+          "file": "packages/cli/src/commands/mcp/remove.ts",
+          "line": 34,
+          "quote": "console.log(`Server \"${name}\" removed from ${scope} settings.`);"
+        },
+        {
+          "source": "L1",
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "line": 49,
+          "quote": "fs.writeFileSync(filePath, updatedContent, 'utf-8');"
+        }
+      ],
+      "changed_evidence": [
+        {
+          "source": "E7",
+          "file": "packages/cli/src/config/settings.ts",
+          "line": 421,
+          "quote": "saveSettings(settingsFile, envMappings);"
+        },
+        {
+          "source": "E9",
+          "file": "packages/cli/src/config/settings.ts",
+          "line": 740,
+          "quote": "updateSettingsFilePreservingFormat("
+        },
+        {
+          "source": "L1",
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "line": 42,
+          "quote": "const updatedStructure = applyUpdates(parsed, updates);"
+        },
+        {
+          "source": "L1",
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "line": 56,
+          "quote": "const result = current;"
+        },
+        {
+          "source": "L1",
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "line": 58,
+          "quote": "for (const [key, value] of Object.entries(updates)) {"
+        },
+        {
+          "source": "L1",
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "line": 71,
+          "quote": "result[key] = applyUpdates(\n        result[key] as Record<string, unknown>,\n        value as Record<string, unknown>,\n      );"
+        }
+      ],
+      "causal_link": "Before saving, the remove command omits the server key via `delete`. The changed format-preserving save implementation starts from the parsed old file and recursively merges the now-smaller `mcpServers` object. Since the deleted key is absent from `Object.entries(updates)`, it is untouched in `result = current` and is written back to disk. Thus this change causes the remove operation to preserve the deleted server on the existing-file path.",
+      "refuting": [],
+      "missing": [],
+      "verified_defect_evidence": [
+        {
+          "source": "E24",
+          "file": "packages/cli/src/commands/mcp/remove.ts",
+          "line": 30,
+          "quote": "delete mcpServers[name];",
+          "verification": "citation confirmed near packages/cli/src/commands/mcp/remove.ts:30"
+        },
+        {
+          "source": "E24",
+          "file": "packages/cli/src/commands/mcp/remove.ts",
+          "line": 32,
+          "quote": "settings.setValue(settingsScope, 'mcpServers', mcpServers);",
+          "verification": "citation confirmed near packages/cli/src/commands/mcp/remove.ts:32"
+        },
+        {
+          "source": "E24",
+          "file": "packages/cli/src/commands/mcp/remove.ts",
+          "line": 34,
+          "quote": "console.log(`Server \"${name}\" removed from ${scope} settings.`);",
+          "verification": "citation confirmed near packages/cli/src/commands/mcp/remove.ts:34"
+        },
+        {
+          "source": "L1",
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "line": 49,
+          "quote": "fs.writeFileSync(filePath, updatedContent, 'utf-8');",
+          "verification": "citation confirmed near packages/cli/src/utils/commentJson.ts:49"
+        }
+      ],
+      "verified_changed_evidence": [
+        {
+          "source": "E7",
+          "file": "packages/cli/src/config/settings.ts",
+          "line": 421,
+          "quote": "saveSettings(settingsFile, envMappings);",
+          "verification": "citation confirmed near packages/cli/src/config/settings.ts:421"
+        },
+        {
+          "source": "E9",
+          "file": "packages/cli/src/config/settings.ts",
+          "line": 740,
+          "quote": "updateSettingsFilePreservingFormat(",
+          "verification": "citation confirmed near packages/cli/src/config/settings.ts:740"
+        },
+        {
+          "source": "L1",
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "line": 42,
+          "quote": "const updatedStructure = applyUpdates(parsed, updates);",
+          "verification": "citation confirmed near packages/cli/src/utils/commentJson.ts:42"
+        },
+        {
+          "source": "L1",
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "line": 56,
+          "quote": "const result = current;",
+          "verification": "citation confirmed near packages/cli/src/utils/commentJson.ts:56"
+        },
+        {
+          "source": "L1",
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "line": 58,
+          "quote": "for (const [key, value] of Object.entries(updates)) {",
+          "verification": "citation confirmed near packages/cli/src/utils/commentJson.ts:58"
+        },
+        {
+          "source": "L1",
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "line": 71,
+          "quote": "result[key] = applyUpdates(\n        result[key] as Record<string, unknown>,\n        value as Record<string, unknown>,\n      );",
+          "verification": "citation confirmed near packages/cli/src/utils/commentJson.ts:71"
+        }
+      ]
+    },
+    {
+      "hypothesis": "H2",
+      "lookups": [
+        "L5",
+        "L6",
+        "L7",
+        "L8"
+      ],
+      "status": "CONFIRMED",
+      "supported_claim": "When an existing settings file contains an environment-variable reference that was mapped during load, calling LoadedSettings.setValue with a new string at that same path writes the original environment-variable reference back to disk rather than the new string, provided the mapping has not been manually mutated externally.",
+      "reasoning": "The mappings are created from the original and resolved settings during load and retained on LoadedSettings. setValue changes the resolved in-memory settings but then retrieves the existing scope mapping and passes it unchanged to saveSettings. The preservation code applies the new settings, then replaces every string at a mapped path with mapping.originalValue; it never compares the string with mapping.resolvedValue. Thus, for an original \"$API_KEY\" resolved to \"old-secret\", setting that path to \"new-literal\" still satisfies typeof value === 'string' and is changed back to \"$API_KEY\" before the file is written. The supplied symbol search shows mapping creation and consumption but no invalidation or update when setValue replaces a mapped value.",
+      "defect_evidence": [
+        {
+          "source": "L5",
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "line": 114,
+          "quote": "const envVarReference = envVarMap.get(pathStr);"
+        },
+        {
+          "source": "L5",
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "line": 115,
+          "quote": "if (envVarReference && typeof value === 'string') {"
+        },
+        {
+          "source": "L5",
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "line": 116,
+          "quote": "(obj as Record<string, unknown>)[key] = envVarReference;"
+        },
+        {
+          "source": "L5",
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "line": 49,
+          "quote": "fs.writeFileSync(filePath, updatedContent, 'utf-8');"
+        }
+      ],
+      "changed_evidence": [
+        {
+          "source": "E7",
+          "file": "packages/cli/src/config/settings.ts",
+          "line": 417,
+          "quote": "setValue(scope: SettingScope, key: string, value: unknown): void { const settingsFile = this.forScope(scope); setNestedProperty(settingsFile.settings, key, value); this._merged = this.computeMergedSettings(); const envMappings = this.envVarMappings.get(scope) || []; saveSettings(settingsFile, envMappings); }"
+        },
+        {
+          "source": "L5",
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "line": 42,
+          "quote": "const updatedStructure = applyUpdates(parsed, updates);"
+        },
+        {
+          "source": "L5",
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "line": 43,
+          "quote": "const restoredStructure = restoreEnvVarReferences("
+        },
+        {
+          "source": "L5",
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "line": 94,
+          "quote": "envVarMap.set(pathStr, mapping.originalValue);"
+        }
+      ],
+      "causal_link": "This change introduces persistent per-scope environment mappings and makes setValue pass the old mapping to the new format-preserving save path. After applyUpdates places \"new-literal\" at the mapped path, restoreEnvVarReferences unconditionally substitutes \"$API_KEY\" for any string there, and that restored structure is written to disk. No check against the recorded resolvedValue or mapping removal occurs in setValue.",
+      "refuting": [],
+      "missing": [],
+      "verified_defect_evidence": [
+        {
+          "source": "L5",
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "line": 114,
+          "quote": "const envVarReference = envVarMap.get(pathStr);",
+          "verification": "citation confirmed near packages/cli/src/utils/commentJson.ts:114"
+        },
+        {
+          "source": "L5",
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "line": 115,
+          "quote": "if (envVarReference && typeof value === 'string') {",
+          "verification": "citation confirmed near packages/cli/src/utils/commentJson.ts:115"
+        },
+        {
+          "source": "L5",
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "line": 116,
+          "quote": "(obj as Record<string, unknown>)[key] = envVarReference;",
+          "verification": "citation confirmed near packages/cli/src/utils/commentJson.ts:116"
+        },
+        {
+          "source": "L5",
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "line": 49,
+          "quote": "fs.writeFileSync(filePath, updatedContent, 'utf-8');",
+          "verification": "citation confirmed near packages/cli/src/utils/commentJson.ts:49"
+        }
+      ],
+      "verified_changed_evidence": [
+        {
+          "source": "L5",
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "line": 42,
+          "quote": "const updatedStructure = applyUpdates(parsed, updates);",
+          "verification": "citation confirmed near packages/cli/src/utils/commentJson.ts:42"
+        },
+        {
+          "source": "L5",
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "line": 43,
+          "quote": "const restoredStructure = restoreEnvVarReferences(",
+          "verification": "citation confirmed near packages/cli/src/utils/commentJson.ts:43"
+        },
+        {
+          "source": "L5",
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "line": 94,
+          "quote": "envVarMap.set(pathStr, mapping.originalValue);",
+          "verification": "citation confirmed near packages/cli/src/utils/commentJson.ts:94"
+        }
+      ]
+    },
+    {
+      "hypothesis": "H3",
+      "lookups": [
+        "L9",
+        "L10",
+        "L11",
+        "L12"
+      ],
+      "status": "CONFIRMED",
+      "supported_claim": "When an existing settings file contains an array element that is exactly `$VAR` or `${VAR}`, and the resolved settings array is passed through the new save path, the resolved value is serialized instead of the environment-variable reference.",
+      "reasoning": "`resolveEnvVarsInObject` explicitly maps over arrays and recursively resolves each element. `trackEnvVarMappings` also recurses into arrays through their numeric keys, producing paths such as `args.0`. During saving, `applyUpdates` replaces an array with the resolved updates array. However, `restoreEnvVarsRecursive` only recurses when `!Array.isArray(value)`, so it never reaches `args.0`. The resulting structure is then stringified and written. E9 establishes that the changed `saveSettings` path invokes this updater with the tracked mappings. Thus, for this array path, the changed save implementation writes the resolved value.",
+      "defect_evidence": [
+        {
+          "source": "L11",
+          "file": "packages/cli/src/utils/envVarResolver.ts",
+          "line": 86,
+          "quote": "const result = obj.map((item) =>\n      resolveEnvVarsInObjectInternal(item, visited),\n    ) as unknown as T;"
+        },
+        {
+          "source": "L9",
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "line": 146,
+          "quote": "for (const key in obj as Record<string, unknown>) {"
+        },
+        {
+          "source": "L9",
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "line": 162,
+          "quote": "} else if (typeof value === 'object' && value !== null) {"
+        },
+        {
+          "source": "L9",
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "line": 118,
+          "quote": "typeof value === 'object' &&\n      value !== null &&\n      !Array.isArray(value)"
+        },
+        {
+          "source": "L9",
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "line": 47,
+          "quote": "const updatedContent = stringify(restoredStructure, null, 2);"
+        },
+        {
+          "source": "L9",
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "line": 49,
+          "quote": "fs.writeFileSync(filePath, updatedContent, 'utf-8');"
+        }
+      ],
+      "changed_evidence": [
+        {
+          "source": "L9",
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "line": 63,
+          "quote": "if (\n      typeof value === 'object' &&\n      value !== null &&\n      !Array.isArray(value) &&\n      typeof result[key] === 'object' &&\n      result[key] !== null &&\n      !Array.isArray(result[key])\n    ) {"
+        },
+        {
+          "source": "L9",
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "line": 75,
+          "quote": "} else {\n      result[key] = value;\n    }"
+        },
+        {
+          "source": "L9",
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "line": 114,
+          "quote": "const envVarReference = envVarMap.get(pathStr);\n    if (envVarReference && typeof value === 'string') {\n      (obj as Record<string, unknown>)[key] = envVarReference;\n    } else if (\n      typeof value === 'object' &&\n      value !== null &&\n      !Array.isArray(value)\n    ) {\n      restoreEnvVarsRecursive(value, fullPath, envVarMap);\n    }"
+        },
+        {
+          "source": "E9",
+          "file": "packages/cli/src/config/settings.ts",
+          "line": 740,
+          "quote": "updateSettingsFilePreservingFormat( settingsFile.path, settingsToSave as Record<string, unknown>, envVarMappings, );"
+        }
+      ],
+      "causal_link": "The change routes settings saves through `updateSettingsFilePreservingFormat`. For an original array such as `[\"$TOKEN\"]`, resolution produces `[\"secret\"]` and tracking records the path ending in index `0`. The changed updater installs the resolved array, but its changed restoration routine refuses to descend into arrays, so the mapping for index `0` is never applied before stringify/write.",
+      "refuting": [],
+      "missing": [
+        "The supplied evidence does not identify a specific production settings-schema field whose array elements commonly contain environment references; L12 only indicates that settings tests use `args` arrays. The confirmed claim is therefore limited to the demonstrated array save path rather than every command-argument configuration."
+      ],
+      "verified_defect_evidence": [
+        {
+          "source": "L11",
+          "file": "packages/cli/src/utils/envVarResolver.ts",
+          "line": 86,
+          "quote": "const result = obj.map((item) =>\n      resolveEnvVarsInObjectInternal(item, visited),\n    ) as unknown as T;",
+          "verification": "citation confirmed near packages/cli/src/utils/envVarResolver.ts:86"
+        },
+        {
+          "source": "L9",
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "line": 146,
+          "quote": "for (const key in obj as Record<string, unknown>) {",
+          "verification": "citation confirmed near packages/cli/src/utils/commentJson.ts:146"
+        },
+        {
+          "source": "L9",
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "line": 162,
+          "quote": "} else if (typeof value === 'object' && value !== null) {",
+          "verification": "citation confirmed near packages/cli/src/utils/commentJson.ts:162"
+        },
+        {
+          "source": "L9",
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "line": 118,
+          "quote": "typeof value === 'object' &&\n      value !== null &&\n      !Array.isArray(value)",
+          "verification": "citation confirmed near packages/cli/src/utils/commentJson.ts:118"
+        },
+        {
+          "source": "L9",
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "line": 47,
+          "quote": "const updatedContent = stringify(restoredStructure, null, 2);",
+          "verification": "citation confirmed near packages/cli/src/utils/commentJson.ts:47"
+        },
+        {
+          "source": "L9",
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "line": 49,
+          "quote": "fs.writeFileSync(filePath, updatedContent, 'utf-8');",
+          "verification": "citation confirmed near packages/cli/src/utils/commentJson.ts:49"
+        }
+      ],
+      "verified_changed_evidence": [
+        {
+          "source": "L9",
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "line": 63,
+          "quote": "if (\n      typeof value === 'object' &&\n      value !== null &&\n      !Array.isArray(value) &&\n      typeof result[key] === 'object' &&\n      result[key] !== null &&\n      !Array.isArray(result[key])\n    ) {",
+          "verification": "citation recovered near packages/cli/src/utils/commentJson.ts:60-70 (model cited line 63; the real text was located there instead)"
+        },
+        {
+          "source": "L9",
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "line": 75,
+          "quote": "} else {\n      result[key] = value;\n    }",
+          "verification": "citation confirmed near packages/cli/src/utils/commentJson.ts:75"
+        },
+        {
+          "source": "L9",
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "line": 114,
+          "quote": "const envVarReference = envVarMap.get(pathStr);\n    if (envVarReference && typeof value === 'string') {\n      (obj as Record<string, unknown>)[key] = envVarReference;\n    } else if (\n      typeof value === 'object' &&\n      value !== null &&\n      !Array.isArray(value)\n    ) {\n      restoreEnvVarsRecursive(value, fullPath, envVarMap);\n    }",
+          "verification": "citation recovered near packages/cli/src/utils/commentJson.ts:113-123 (model cited line 114; the real text was located there instead)"
+        },
+        {
+          "source": "E9",
+          "file": "packages/cli/src/config/settings.ts",
+          "line": 740,
+          "quote": "updateSettingsFilePreservingFormat( settingsFile.path, settingsToSave as Record<string, unknown>, envVarMappings, );",
+          "verification": "citation confirmed near packages/cli/src/config/settings.ts:740"
+        }
+      ]
+    },
+    {
+      "hypothesis": "H4",
+      "lookups": [],
+      "status": "CONFIRMED",
+      "supported_claim": "For supported MCP header paths, distinct paths containing dotted server/header names can collide. In particular, `['mcpServers','a','headers','b.headers.c']` and `['mcpServers','a.headers.b','headers','c']` both become `mcpServers.a.headers.b.headers.c`; if they have different environment references, the new save restoration writes one reference to both paths, corrupting one header.",
+      "reasoning": "E23 shows MCP server names and header names are used directly as object keys without rejecting periods. E14 preserves those keys as distinct path-array elements while tracking environment references. E12 then converts every mapping path to a dot-joined string and stores it in a Map, so the two concrete supported paths collide and the later mapping overwrites the earlier one. E13 dot-joins each actual object path in the same way; therefore both header values retrieve the single surviving reference and are assigned it. If the original references differ, at least one header is restored incorrectly. This behavior is introduced by the newly added restoration code and is exercised by the changed save path.",
+      "defect_evidence": [
+        {
+          "source": "E23",
+          "file": "packages/cli/src/commands/mcp/add.ts",
+          "line": 52,
+          "quote": "acc[key.trim()] = value;"
+        },
+        {
+          "source": "E23",
+          "file": "packages/cli/src/commands/mcp/add.ts",
+          "line": 119,
+          "quote": "mcpServers[name] = newServer as MCPServerConfig;"
+        },
+        {
+          "source": "E14",
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "line": 151,
+          "quote": "const currentPath = [...path, key];"
+        },
+        {
+          "source": "E12",
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "line": 93,
+          "quote": "const pathStr = mapping.path.join('.');"
+        },
+        {
+          "source": "E12",
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "line": 94,
+          "quote": "envVarMap.set(pathStr, mapping.originalValue);"
+        },
+        {
+          "source": "E13",
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "line": 111,
+          "quote": "const pathStr = fullPath.join('.');"
+        },
+        {
+          "source": "E13",
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "line": 112,
+          "quote": "const envVarReference = envVarMap.get(pathStr);"
+        },
+        {
+          "source": "E13",
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "line": 114,
+          "quote": "(obj as Record<string, unknown>)[key] = envVarReference;"
+        }
+      ],
+      "changed_evidence": [
+        {
+          "source": "E12",
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "line": 93,
+          "quote": "const pathStr = mapping.path.join('.');"
+        },
+        {
+          "source": "E12",
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "line": 94,
+          "quote": "envVarMap.set(pathStr, mapping.originalValue);"
+        },
+        {
+          "source": "E13",
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "line": 111,
+          "quote": "const pathStr = fullPath.join('.');"
+        },
+        {
+          "source": "E13",
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "line": 114,
+          "quote": "(obj as Record<string, unknown>)[key] = envVarReference;"
+        }
+      ],
+      "causal_link": "The change adds restoration that serializes structured path arrays using `join('.')`. The two valid MCP paths identified above serialize identically, so `Map.set` discards one original reference. Recursive restoration performs the same lossy serialization and assigns the surviving reference at both actual paths. Because this restoration implementation is newly added by the change, the change directly introduces the wrong-setting modification.",
+      "refuting": [],
+      "missing": [],
+      "verified_defect_evidence": [
+        {
+          "source": "E23",
+          "file": "packages/cli/src/commands/mcp/add.ts",
+          "line": 52,
+          "quote": "acc[key.trim()] = value;",
+          "verification": "citation confirmed near packages/cli/src/commands/mcp/add.ts:52"
+        },
+        {
+          "source": "E23",
+          "file": "packages/cli/src/commands/mcp/add.ts",
+          "line": 119,
+          "quote": "mcpServers[name] = newServer as MCPServerConfig;",
+          "verification": "citation confirmed near packages/cli/src/commands/mcp/add.ts:119"
+        },
+        {
+          "source": "E14",
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "line": 151,
+          "quote": "const currentPath = [...path, key];",
+          "verification": "citation confirmed near packages/cli/src/utils/commentJson.ts:151"
+        },
+        {
+          "source": "E12",
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "line": 93,
+          "quote": "const pathStr = mapping.path.join('.');",
+          "verification": "citation confirmed near packages/cli/src/utils/commentJson.ts:93"
+        },
+        {
+          "source": "E12",
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "line": 94,
+          "quote": "envVarMap.set(pathStr, mapping.originalValue);",
+          "verification": "citation confirmed near packages/cli/src/utils/commentJson.ts:94"
+        },
+        {
+          "source": "E13",
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "line": 111,
+          "quote": "const pathStr = fullPath.join('.');",
+          "verification": "citation confirmed near packages/cli/src/utils/commentJson.ts:111"
+        },
+        {
+          "source": "E13",
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "line": 112,
+          "quote": "const envVarReference = envVarMap.get(pathStr);",
+          "verification": "citation confirmed near packages/cli/src/utils/commentJson.ts:112"
+        },
+        {
+          "source": "E13",
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "line": 114,
+          "quote": "(obj as Record<string, unknown>)[key] = envVarReference;",
+          "verification": "citation confirmed near packages/cli/src/utils/commentJson.ts:114"
+        }
+      ],
+      "verified_changed_evidence": [
+        {
+          "source": "E12",
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "line": 93,
+          "quote": "const pathStr = mapping.path.join('.');",
+          "verification": "citation confirmed near packages/cli/src/utils/commentJson.ts:93"
+        },
+        {
+          "source": "E12",
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "line": 94,
+          "quote": "envVarMap.set(pathStr, mapping.originalValue);",
+          "verification": "citation confirmed near packages/cli/src/utils/commentJson.ts:94"
+        },
+        {
+          "source": "E13",
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "line": 111,
+          "quote": "const pathStr = fullPath.join('.');",
+          "verification": "citation confirmed near packages/cli/src/utils/commentJson.ts:111"
+        },
+        {
+          "source": "E13",
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "line": 114,
+          "quote": "(obj as Record<string, unknown>)[key] = envVarReference;",
+          "verification": "citation confirmed near packages/cli/src/utils/commentJson.ts:114"
+        }
+      ]
+    },
+    {
+      "hypothesis": "H5",
+      "lookups": [],
+      "status": "UNKNOWN",
+      "supported_claim": "The evidence shows a potential path mismatch: mappings use paths traversed in the in-memory settings object, while legacy serialization moves values from v2 paths to v1 keys before passing those mappings to the restoration code. It does not establish that this causes a resolved environment value to be written for an actual legacy setting.",
+      "reasoning": "E14 records each mapping at `currentPath`. E22 shows legacy migration reading a value from `newPath` and assigning it to `oldKey`. E12 then indexes mappings by their unchanged joined paths, and E9 passes those mappings alongside the migrated settings. However, the supplied loadSettings excerpt does not show that a legacy file has already been migrated to v2 before E14 is called. The body of `restoreEnvVarsRecursive` is also absent, so exact-path-only restoration and the resulting persisted output cannot be established. Finally, there is no evidence of the pre-change legacy save behavior, so the required causal finding that this change introduces, exposes, or materially changes the alleged leak cannot be made.",
+      "defect_evidence": [
+        {
+          "source": "E22",
+          "file": "packages/cli/src/config/settings.ts",
+          "line": 290,
+          "quote": "const value = getNestedProperty(v2Settings, newPath);"
+        },
+        {
+          "source": "E22",
+          "file": "packages/cli/src/config/settings.ts",
+          "line": 292,
+          "quote": "v1Settings[oldKey] = value;"
+        },
+        {
+          "source": "E12",
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "line": 92,
+          "quote": "const pathStr = mapping.path.join('.');"
+        }
+      ],
+      "changed_evidence": [
+        {
+          "source": "E14",
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "line": 148,
+          "quote": "const currentPath = [...path, key];"
+        },
+        {
+          "source": "E14",
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "line": 155,
+          "quote": "path: currentPath,"
+        },
+        {
+          "source": "E9",
+          "file": "packages/cli/src/config/settings.ts",
+          "line": 738,
+          "quote": "updateSettingsFilePreservingFormat("
+        }
+      ],
+      "causal_link": "If legacy settings are migrated to v2 before mapping capture and restoration only matches the unchanged joined paths, `migrateSettingsToV1` would relocate a resolved value to `oldKey` while its mapping remained at `newPath`, preventing restoration. Those necessary conditions and change-relative causation are not established by the supplied evidence.",
+      "refuting": [],
+      "missing": [
+        "The load/migration code proving that legacy settings are represented at v2 paths when `trackEnvVarMappings` runs.",
+        "The implementation or behavioral evidence for `restoreEnvVarsRecursive` proving that it cannot translate or otherwise match v2 mapping paths to v1 keys.",
+        "A legacy-file save test or observed output showing a `$VAR` setting persisted as its resolved value under the v1 key.",
+        "Evidence of the pre-change legacy save behavior needed to establish that this change introduces, exposes, or materially changes the leak rather than leaving a pre-existing behavior unchanged."
+      ],
+      "verified_defect_evidence": [
+        {
+          "source": "E22",
+          "file": "packages/cli/src/config/settings.ts",
+          "line": 290,
+          "quote": "const value = getNestedProperty(v2Settings, newPath);",
+          "verification": "citation confirmed near packages/cli/src/config/settings.ts:290"
+        },
+        {
+          "source": "E22",
+          "file": "packages/cli/src/config/settings.ts",
+          "line": 292,
+          "quote": "v1Settings[oldKey] = value;",
+          "verification": "citation confirmed near packages/cli/src/config/settings.ts:292"
+        },
+        {
+          "source": "E12",
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "line": 92,
+          "quote": "const pathStr = mapping.path.join('.');",
+          "verification": "citation confirmed near packages/cli/src/utils/commentJson.ts:92"
+        }
+      ],
+      "verified_changed_evidence": [
+        {
+          "source": "E14",
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "line": 148,
+          "quote": "const currentPath = [...path, key];",
+          "verification": "citation confirmed near packages/cli/src/utils/commentJson.ts:148"
+        },
+        {
+          "source": "E14",
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "line": 155,
+          "quote": "path: currentPath,",
+          "verification": "citation confirmed near packages/cli/src/utils/commentJson.ts:155"
+        },
+        {
+          "source": "E9",
+          "file": "packages/cli/src/config/settings.ts",
+          "line": 738,
+          "quote": "updateSettingsFilePreservingFormat(",
+          "verification": "citation confirmed near packages/cli/src/config/settings.ts:738"
+        }
+      ]
+    }
+  ],
+  "confirmed": [
+    "H1",
+    "H2",
+    "H3",
+    "H4"
+  ],
+  "refuted": [],
+  "unknown": [
+    "H5"
+  ],
+  "findings": [
+    "investigator-H1",
+    "investigator-H3",
+    "investigator-H2",
+    "investigator-H4"
+  ],
+  "budget": {
+    "max_hypotheses": 5,
+    "max_lookups": 12,
+    "used_lookups": 12,
+    "max_lookups_per_hypothesis": 4
+  },
+  "usage": {
+    "llm_calls": 18,
+    "by_stage": {
+      "finder": 1,
+      "investigator": 12,
+      "verifier": 5
+    },
+    "prompt_tokens": 70103,
+    "completion_tokens": 21034,
+    "reasoning_tokens": 15542,
+    "llm_seconds": 479.8
+  },
+  "errors": []
+}

@@ -1,0 +1,22 @@
+{
+  "instance_id": "dbeaver__dbeaver@8224826",
+  "reviewer": "sydes",
+  "boundary": "code_findings",
+  "status": "completed",
+  "duration_seconds": 655.9,
+  "review": {
+    "comments": [
+      {
+        "path": "plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksExecutionContext.java",
+        "start_line": 68,
+        "end_line": 68,
+        "content": "On the changed initializeContextState path with a non-null initFrom and a default catalog, a Databricks catalog-selection failure reported by GenericExecutionContext as DBCException is suppressed, so\nGenericExecutionContext performs catalog selection through the driver or an active-database query and converts SQLException into DBCException. Its catalog state update occurs only after that operation succeeds. The new Databricks override calls this method but catches DBCException, logs it, and does not rethrow; its activeCatalogName assignment is also skipped on that exception. The changed initializeContextState caller neither verifies the selected catalog nor handles failure locally, so propagation would have aborted initialization, whereas the new suppression lets the method return normally.\nImpact: Caused by the change: The changed override intercepts the DBCException that GenericExecutionContext produces when catalog selection fails and replaces propagation with debug logging. Because execution jumps over activeCatalogName assignment and GenericExecutionContext's selectedEntityName assignment is after its failing operation, the requested catalog is not recorded as selected. The changed initializeContextState call therefore completes instead of aborting on that failure.",
+        "severity": "P1"
+      }
+    ],
+    "summary": {
+      "input_tokens": 88038,
+      "output_tokens": 16835
+    }
+  }
+}

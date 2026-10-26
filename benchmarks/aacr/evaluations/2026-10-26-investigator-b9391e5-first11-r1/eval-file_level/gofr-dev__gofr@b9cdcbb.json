@@ -1,0 +1,22 @@
+{
+  "instance_id": "gofr-dev__gofr@b9cdcbb",
+  "reviewer": "sydes",
+  "boundary": "code_findings",
+  "status": "completed",
+  "duration_seconds": 299.0,
+  "review": {
+    "comments": [
+      {
+        "path": "pkg/gofr/http/responder.go",
+        "start_line": 33,
+        "end_line": 33,
+        "content": "On the newly added resTypes.Response responder path, a Response with unset Metadata is serialized with a top-level \"metadata\": null member, contrary to the updated documentation\u2019s data-only shape for\nThe updated documentation says omitted metadata produces only the data member, while the added test explicitly expects \"metadata\":null for a Response whose Metadata field is unset. The code explains that result: Response.Metadata is a nil map, but the new responder branch assigns it to the internal interface-typed Metadata field. That interface then contains the typed nil map, so `omitempty` does not omit the interface field and JSON encodes the nil map as null.\nImpact: Caused by the change: This change adds the resTypes.Response branch and copies its nil map Metadata into an interface-valued envelope field. The resulting non-nil interface value is retained despite `omitempty`, while its contained nil map is encoded as JSON null, producing the documented-contract mismatch shown by the new test expectation.",
+        "severity": "P2"
+      }
+    ],
+    "summary": {
+      "input_tokens": 100207,
+      "output_tokens": 16588
+    }
+  }
+}

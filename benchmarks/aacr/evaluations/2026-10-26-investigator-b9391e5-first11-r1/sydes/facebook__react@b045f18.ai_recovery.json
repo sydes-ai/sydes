@@ -1,0 +1,100 @@
+{
+  "path_recovery": {
+    "status": "partial",
+    "paths": [
+      {
+        "entrypoint": "root.render(<Activity>\u2026</Activity>)",
+        "target_node": "updateActivityComponent",
+        "status": "partial",
+        "root_boundary_status": "candidate_boundary",
+        "nodes": [
+          {
+            "symbol": "ReactDOMRoot.render",
+            "file": "packages/react-dom/src/client/ReactDOMRoot.js",
+            "qualified_name": "ReactDOMRoot.prototype.render"
+          },
+          {
+            "symbol": "updateContainer",
+            "file": "packages/react-reconciler/src/ReactFiberReconciler.js",
+            "qualified_name": "updateContainer"
+          }
+        ],
+        "edges": [
+          {
+            "from": {
+              "symbol": "ReactDOMRoot.render",
+              "file": "packages/react-dom/src/client/ReactDOMRoot.js",
+              "qualified_name": "ReactDOMRoot.prototype.render"
+            },
+            "to": {
+              "symbol": "updateContainer",
+              "file": "packages/react-reconciler/src/ReactFiberReconciler.js",
+              "qualified_name": "updateContainer"
+            },
+            "relationship": "ReactDOMRoot.prototype.render directly calls the updateContainer imported from ReactFiberReconciler, passing the rendered children and the root's internal FiberRoot.",
+            "evidence": [
+              {
+                "file": "packages/react-dom/src/client/ReactDOMRoot.js",
+                "line_start": 82,
+                "line_end": 92,
+                "fact": "This import binds updateContainer specifically from react-reconciler/src/ReactFiberReconciler."
+              },
+              {
+                "file": "packages/react-dom/src/client/ReactDOMRoot.js",
+                "line_start": 101,
+                "line_end": 104,
+                "fact": "These lines declare ReactDOMRoot.prototype.render and obtain its internal root."
+              },
+              {
+                "file": "packages/react-dom/src/client/ReactDOMRoot.js",
+                "line_start": 129,
+                "line_end": 130,
+                "fact": "ReactDOMRoot.prototype.render directly invokes updateContainer(children, root, null, null)."
+              }
+            ],
+            "status": "established",
+            "provenance": "ai_recovery",
+            "rejection_reason": null,
+            "from_decomposition": false
+          }
+        ],
+        "unresolved_suffix": [
+          {
+            "from": {
+              "symbol": "updateContainer",
+              "file": "packages/react-reconciler/src/ReactFiberReconciler.js",
+              "qualified_name": null
+            },
+            "to": {
+              "symbol": "beginWork",
+              "file": "packages/react-reconciler/src/ReactFiberBeginWork.js",
+              "qualified_name": null
+            },
+            "relationship": "no relationship found",
+            "rejection_reason": "no evidence is located in either entity's own declared file ('packages/react-reconciler/src/ReactFiberReconciler.js' or 'packages/react-reconciler/src/ReactFiberBeginWork.js') -- possible wrong-file/wrong-module substitution"
+          },
+          {
+            "from": {
+              "symbol": "beginWork",
+              "file": "packages/react-reconciler/src/ReactFiberBeginWork.js",
+              "qualified_name": null
+            },
+            "to": {
+              "symbol": "updateActivityComponent",
+              "file": "packages/react-reconciler/src/ReactFiberBeginWork.js",
+              "qualified_name": null
+            },
+            "relationship": "beginWork calls updateActivityComponent directly (the caller's own source)",
+            "rejection_reason": null
+          }
+        ]
+      }
+    ],
+    "corrected_first_pass_claims": [],
+    "unresolved": []
+  },
+  "test_recovery": {
+    "status": "unresolved",
+    "tests": []
+  }
+}

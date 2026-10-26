@@ -1,0 +1,122 @@
+AI recovery (experimental): triggered (a structural boundary was found but no complete route/entrypoint flow reaches it; the first pass reported route composition as unresolved in this repository; no relevant test was mapped even though this diff changed a test file (packages/cli/src/utils/commentJson.test.ts); 9 changed symbol(s) reach no entrypoint the first pass found)
+AI recovery (experimental): path=established test=established turns=17 llm_calls=18 tokens=42641+1569 edge_retries_attempted=0 edge_retries_succeeded=0 graph_paths_proposed=0 graph_paths_established=0 graph_paths_established_unverified_boundary=0 explicit_relation_edges=1
+Wrote AI recovery result: /Users/ksnaik/StudioProjects/sydes/benchmarks/aacr/results/investigator-b9391e5-first11-r1-2026-10-26/sydes/google-gemini__gemini-cli@0fa1bd7.ai_recovery.json
+SYDES VERIFICATION
+
+MEDIUM RISK · 5 AFFECTED BEHAVIORS
+
+Changed
+───────
+packages/cli/src/config/settings.ts:353 — LoadedSettings.constructor
+packages/cli/src/config/settings.ts:417 — LoadedSettings.setValue
+packages/cli/src/config/settings.ts:523 — loadSettings
+packages/cli/src/config/settings.ts:719 — saveSettings
+packages/cli/src/utils/commentJson.ts:52 — applyUpdates
++1 more relevant changed symbol — use --verbose
+
+CHANGE ANALYSIS (citations verified, indeterminate)
+───────────────────────────────────────────────────
+Cannot be established from this repository alone: depends on state only known at runtime (e.g. feature flags, request data).
+The mechanism is clear, but its real observable effect requires a save path to be reached and depends on the runtime contents and validity of each installation's settings files and environment-variable resolution results.
+
+CLI settings persistence now reads and updates existing comment-bearing JSON instead of replacing it with freshly serialized JSON. It also records environment-variable references during settings loading and attempts to restore those references when a scope is saved, so resolved values are not normally written to disk. Invalid existing settings files are now left unchanged by this writer.
+
+Likely behavioral changes
+  • Saving an existing valid settings file now updates its parsed structure and serializes it with comment-aware tooling, retaining comments and existing structure while applying supplied setting values.
+  • For settings whose original values were complete environment-variable references and resolved to different strings, saving the same scope now substitutes the original references back into the persisted structure rather than normally exposing the resolved values.
+  • If an existing settings file cannot be parsed, this save path reports the parse problem and returns without changing the file; a missing file is still created as ordinary formatted JSON.
+
+Investigate
+  • Trace all callers that modify or save settings, especially reset, unset, migration, and bulk-update flows, to determine whether they rely on omitted properties being removed from disk.
+  • Inspect environment-variable resolution across objects, arrays, dotted property names, unresolved variables, and values deliberately changed after loading.
+  • Review file-write guarantees and comment-json behavior, including metadata preservation, concurrent edits, symlinks, partial writes, and malformed JSON handling.
+  • Identify which CLI commands, interactive settings surfaces, or library entry points reach these functions and which setting scopes they can modify.
+
+Uncertain
+  • The supplied context does not identify which CLI commands, settings interfaces, migrations, or external library callers invoke LoadedSettings.setValue or saveSettings.
+  • It is not established whether settings persistence is exposed only through CLI interaction or also through other callable application surfaces.
+  • Observable impact depends on whether real settings files contain comments, complete environment-variable references, arrays containing references, malformed JSON, or properties that callers intend to delete.
+  • Filesystem permissions, concurrent modifications, and failure behavior during the non-atomic synchronous write cannot be established from the supplied diff.
+  • The exact preservation guarantees and serialization behavior of comment-json 4.2.5, including comment attachment and formatting normalization for all supported JSON-with-comments constructs, are not established here.
+
+System impact
+─────────────
+No structural propagation path was established.
+
+Inferred boundaries
+───────────────────
+INFERRED · callable/service · CLI settings load and persistence service
+    CLI command and configuration components cross into the shared settings service to load or mutate settings, reaching the changed persistence behavior through LoadedSettings.setValue and saveSettings.
+    Evidence: Established call edge: addMcpServer calls loadSettings and setValue from packages/cli/src/commands/mcp/add.ts.; Established call edge: removeMcpServer calls loadSettings and setValue from packages/cli/src/commands/mcp/remove.ts.
+    Uncertain: The evidence establishes an internal shared service boundary, but does not show that these settings callables are a public package API or that saveSettings is called directly outside the settings implementation.
+
+Inferred impact
+───────────────
+INFERRED · 0.92
+individual settings updates retain nested environment-variable placeholders
+
+Why:
+setValue ultimately saves settings through updateSettingsFilePreservingFormat, which calls the recursive restoration logic to replace resolved nested values with their original environment-variable references before writing the file.
+
+Static confirmation: unavailable
+
+INFERRED · 0.91
+settings-file updates preserve environment-variable references and comments
+
+Why:
+Programmatic settings changes now carry mappings captured from loaded environment-variable references into format-preserving persistence, so saved files may retain placeholders and existing comments instead of writing resolved values or replacing the file wholesale.
+
+Static confirmation: unavailable
+
+INFERRED · 0.91
+settings-file writes ignore prototype-polluting property names
+
+Why:
+Settings updates flowing through updateSettingsFilePreservingFormat now skip __proto__, constructor, and prototype properties during recursive application, preventing those writes from altering object prototypes.
+
+Static confirmation: unavailable
+
+… 2 more inferred impacts — use --verbose for the full list.
+
+Code review (advisory; excluded from the verdict)
+─────────────────────────────────────────────────
+[P1] When removing an existing MCP server from an existing settings file whose `mcpServers` value is an object, the server remains in that file even though the remove command reports success.
+  packages/cli/src/utils/commentJson.ts:58
+  Why: The remove path represents deletion by executing `delete mcpServers[name]`, so the object passed to `setValue` omits the deleted server; no explicit deletion marker is encoded. The changed save path sends the resulting settings through `updateSettingsFilePreservingFormat`. That function parses the old file and recursively merges object-valued updates into t…
+  Impact: Caused by the change: Before saving, the remove command omits the server key via `delete`. The changed format-preserving save implementation starts from the parsed old file and recursively merges the now-smaller `mcpServers` object. Since the deleted key is absent from `Object.entries(updates)`, it is untouched in `result = current` and is written back to d…
+
+[P1] When an existing settings file contains an array element that is exactly `$VAR` or `${VAR}`, and the resolved settings array is passed through the new save path, the resolved value is serialized inste
+  packages/cli/src/utils/commentJson.ts:118
+  Why: `resolveEnvVarsInObject` explicitly maps over arrays and recursively resolves each element. `trackEnvVarMappings` also recurses into arrays through their numeric keys, producing paths such as `args.0`. During saving, `applyUpdates` replaces an array with the resolved updates array. However, `restoreEnvVarsRecursive` only recurses when `!Array.isArray(value)…
+  Impact: Caused by the change: The change routes settings saves through `updateSettingsFilePreservingFormat`. For an original array such as `["$TOKEN"]`, resolution produces `["secret"]` and tracking records the path ending in index `0`. The changed updater installs the resolved array, but its changed restoration routine refuses to descend into arrays, so the mappin…
+
+[P2] When an existing settings file contains an environment-variable reference that was mapped during load, calling LoadedSettings.setValue with a new string at that same path writes the original environme
+  packages/cli/src/utils/commentJson.ts:113
+  Why: The mappings are created from the original and resolved settings during load and retained on LoadedSettings. setValue changes the resolved in-memory settings but then retrieves the existing scope mapping and passes it unchanged to saveSettings. The preservation code applies the new settings, then replaces every string at a mapped path with mapping.originalV…
+  Impact: Caused by the change: This change introduces persistent per-scope environment mappings and makes setValue pass the old mapping to the new format-preserving save path. After applyUpdates places "new-literal" at the mapped path, restoreEnvVarReferences unconditionally substitutes "$API_KEY" for any string there, and that restored structure is written to disk.…
+
+[P2] For supported MCP header paths, distinct paths containing dotted server/header names can collide. In particular, `['mcpServers','a','headers','b.headers.c']` and `['mcpServers','a.headers.b','headers'
+  packages/cli/src/utils/commentJson.ts:89
+  Why: E23 shows MCP server names and header names are used directly as object keys without rejecting periods. E14 preserves those keys as distinct path-array elements while tracking environment references. E12 then converts every mapping path to a dot-joined string and stores it in a Map, so the two concrete supported paths collide and the later mapping overwrite…
+  Impact: Caused by the change: The change adds restoration that serializes structured path arrays using `join('.')`. The two valid MCP paths identified above serialize identically, so `Map.set` discards one original reference. Recursive restoration performs the same lossy serialization and assigns the surviving reference at both actual paths. Because this restoratio…
+
+CI
+──
+? the test suite could not run
+  No repository test command could be resolved
+
+What Sydes could not establish
+──────────────────────────────
+• 4 additional affected areas are not yet verification-modeled.
+• 9 changed symbols have unresolved impact paths.
+• 5 inferred impacts could not be structurally confirmed.
+• The repository test suite could not run (No repository test command could be resolved).
+
+Verdict
+───────
+VERIFICATION INCOMPLETE
+
+Wrote verification result: /Users/ksnaik/StudioProjects/sydes/benchmarks/aacr/results/investigator-b9391e5-first11-r1-2026-10-26/sydes/google-gemini__gemini-cli@0fa1bd7.json
+
+--- stderr ---
+Preparing Sydes code intelligence...

@@ -1,0 +1,57 @@
+{
+  "path_recovery": {
+    "status": "unresolved",
+    "paths": [
+      {
+        "entrypoint": "DOM click on \u201cSubmit twice\u201d button, causing two rapid form submissions",
+        "target_node": "startTransition",
+        "status": "unresolved",
+        "root_boundary_status": "candidate_boundary",
+        "nodes": [
+          {
+            "symbol": "submitFormTwice",
+            "file": "packages/react-dom/src/__tests__/ReactDOMForm-test.js",
+            "qualified_name": null
+          }
+        ],
+        "edges": [],
+        "unresolved_suffix": [
+          {
+            "from": {
+              "symbol": "submitFormTwice",
+              "file": "packages/react-dom/src/__tests__/ReactDOMForm-test.js",
+              "qualified_name": null
+            },
+            "to": {
+              "symbol": "startTransition",
+              "file": "packages/react-reconciler/src/ReactFiberHooks.js",
+              "qualified_name": null
+            },
+            "relationship": "no relationship found",
+            "rejection_reason": "no evidence is located in either entity's own declared file ('packages/react-dom/src/__tests__/ReactDOMForm-test.js' or 'packages/react-reconciler/src/ReactFiberHooks.js') -- possible wrong-file/wrong-module substitution"
+          }
+        ]
+      }
+    ],
+    "corrected_first_pass_claims": [],
+    "unresolved": []
+  },
+  "test_recovery": {
+    "status": "unresolved",
+    "tests": [
+      {
+        "file": "packages/react-dom/src/__tests__/ReactDOMForm-test.js",
+        "test": "multiple form submissions in rapid succession do not throw",
+        "covers": "Clicks a button that calls requestSubmit twice while the first asynchronous form action remains pending, directly exercising concurrent form action transitions and verifying both submissions complete without throwing.",
+        "target": {
+          "symbol": "startTransition",
+          "file": "packages/react-reconciler/src/ReactFiberHooks.js",
+          "qualified_name": null
+        },
+        "evidence": [],
+        "status": "rejected",
+        "rejection_reason": "no evidence cited at all"
+      }
+    ]
+  }
+}

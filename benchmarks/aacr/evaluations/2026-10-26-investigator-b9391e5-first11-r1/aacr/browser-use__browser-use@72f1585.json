@@ -1,0 +1,22 @@
+{
+  "instance_id": "browser-use__browser-use@72f1585",
+  "reviewer": "sydes",
+  "boundary": "code_findings",
+  "status": "completed",
+  "duration_seconds": 325.2,
+  "review": {
+    "comments": [
+      {
+        "path": "browser_use/llm/google/chat.py",
+        "start_line": 203,
+        "end_line": 203,
+        "content": "For ChatGoogle.ainvoke calls with any non-None thinking_budget, including an explicitly requested positive fixed budget, the method sends -1 instead of the configured value. The evidence does not esta\nThe public field accepts an integer or None, but ainvoke tests only for None and then hard-codes -1. The resulting config is passed directly to generate_content. Therefore, for an explicit positive value such as 100, the transmitted thinking_budget is deterministically -1 rather than 100. The changed line replaces the prior use of self.thinking_budget and introduces this behavior. No in-repository callers were found, and Google's meanings for 0 and -1 are absent, so the stronger disable-versus-dynamic semantic claim is not confirmed.\nImpact: Caused by the change: The change replaced {'thinking_budget': self.thinking_budget} with {'thinking_budget': -1}. Consequently, every non-None configured value takes the branch at line 201, is replaced by -1 at line 202, and is sent in the API config at line 220; an explicitly requested positive fixed budget is therefore not transmitted.",
+        "severity": "P2"
+      }
+    ],
+    "summary": {
+      "input_tokens": 139156,
+      "output_tokens": 16838
+    }
+  }
+}

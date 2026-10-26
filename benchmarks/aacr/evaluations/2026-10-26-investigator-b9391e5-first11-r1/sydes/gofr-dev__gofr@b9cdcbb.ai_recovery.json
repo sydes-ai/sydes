@@ -1,0 +1,117 @@
+{
+  "path_recovery": {
+    "status": "unresolved",
+    "paths": [],
+    "corrected_first_pass_claims": [],
+    "unresolved": []
+  },
+  "test_recovery": {
+    "status": "established",
+    "tests": [
+      {
+        "file": "pkg/gofr/http/responder_test.go",
+        "test": "TestResponder",
+        "covers": "TestResponder constructs a responder using NewResponder, directly calls Responder.Respond for multiple response types, and asserts the resulting Content-Type header and serialized response body.",
+        "target": {
+          "symbol": "Responder.Respond",
+          "file": "pkg/gofr/http/responder.go",
+          "qualified_name": null
+        },
+        "evidence": [
+          {
+            "file": "pkg/gofr/http/responder_test.go",
+            "line_start": 63,
+            "line_end": 68,
+            "fact": "Each table case creates an HTTP response recorder, constructs a responder with NewResponder, and directly invokes r.Respond(tc.data, nil)."
+          },
+          {
+            "file": "pkg/gofr/http/responder_test.go",
+            "line_start": 70,
+            "line_end": 79,
+            "fact": "The test asserts both the Content-Type header and serialized response body produced by Respond."
+          }
+        ],
+        "status": "accepted",
+        "rejection_reason": null
+      },
+      {
+        "file": "pkg/gofr/http/responder_test.go",
+        "test": "TestResponder/gofr response type with metadata",
+        "covers": "The named table case constructs a response.Response containing both Data and Metadata, passes it directly to Responder.Respond, and asserts the recorder's serialized JSON body contains both fields.",
+        "target": {
+          "symbol": "Responder.Respond",
+          "file": "pkg/gofr/http/responder.go",
+          "qualified_name": null
+        },
+        "evidence": [
+          {
+            "file": "pkg/gofr/http/responder_test.go",
+            "line_start": 43,
+            "line_end": 52,
+            "fact": "The named case supplies resTypes.Response with Data and Metadata and defines the expected JSON containing both metadata and data."
+          },
+          {
+            "file": "pkg/gofr/http/responder_test.go",
+            "line_start": 63,
+            "line_end": 79,
+            "fact": "The test creates a Responder via NewResponder, directly calls r.Respond(tc.data, nil), reads the HTTP recorder body, and asserts it equals the case's expected body."
+          }
+        ],
+        "status": "accepted",
+        "rejection_reason": null
+      },
+      {
+        "file": "pkg/gofr/http/responder_test.go",
+        "test": "TestResponder/gofr response type without metadata",
+        "covers": "The named table-test case constructs a response.Response with Data set and Metadata omitted, passes it directly to Responder.Respond, and asserts that the serialized body contains a null metadata field and the expected data.",
+        "target": {
+          "symbol": "Responder.Respond",
+          "file": "pkg/gofr/http/responder.go",
+          "qualified_name": null
+        },
+        "evidence": [
+          {
+            "file": "pkg/gofr/http/responder_test.go",
+            "line_start": 54,
+            "line_end": 59,
+            "fact": "The named case supplies resTypes.Response{Data: \"Hello World from new Server\"} with no Metadata and expects JSON containing \"metadata\":null and the data value."
+          },
+          {
+            "file": "pkg/gofr/http/responder_test.go",
+            "line_start": 63,
+            "line_end": 79,
+            "fact": "The table loop creates a responder, directly calls r.Respond(tc.data, nil), then compares the recorder content type and serialized response body with the case expectations."
+          }
+        ],
+        "status": "accepted",
+        "rejection_reason": null
+      },
+      {
+        "file": "pkg/gofr/http/responder_test.go",
+        "test": "TestResponder/file response type",
+        "covers": "The \"file response type\" table case constructs response.File, passes it directly to Responder.Respond, and asserts that the recorder receives the file's ContentType and an empty body.",
+        "target": {
+          "symbol": "Responder.Respond",
+          "file": "pkg/gofr/http/responder.go",
+          "qualified_name": null
+        },
+        "evidence": [
+          {
+            "file": "pkg/gofr/http/responder_test.go",
+            "line_start": 29,
+            "line_end": 35,
+            "fact": "The named table case constructs resTypes.File with ContentType \"image/png\" and expects that content type with a nil body."
+          },
+          {
+            "file": "pkg/gofr/http/responder_test.go",
+            "line_start": 63,
+            "line_end": 79,
+            "fact": "Each case, including \"file response type\", creates a Responder via NewResponder, calls r.Respond(tc.data, nil), then asserts the recorder's Content-Type header and body equal the case expectations."
+          }
+        ],
+        "status": "accepted",
+        "rejection_reason": null
+      }
+    ]
+  }
+}

@@ -1,0 +1,956 @@
+{
+  "version": "v3",
+  "kind": "sydes_change_verification",
+  "generated_at": "2026-10-26T15:57:05.484348+00:00",
+  "change": {
+    "base": "8e9a5fc6c1a6252ca1727ab8fe0d4ee13f2568ec",
+    "head": "be58f26f9a6e579d8df36d901a59249d9ac1393f",
+    "merge_base": "8e9a5fc6c1a6252ca1727ab8fe0d4ee13f2568ec",
+    "repos": [
+      {
+        "name": "app",
+        "root": "/Users/ksnaik/.cache/sydes-aacr/repos/facebook__react"
+      }
+    ],
+    "includes_working_tree": false,
+    "files": [
+      {
+        "repo": "app",
+        "path": "packages/react-dom/src/__tests__/ReactDOMForm-test.js",
+        "old_path": null,
+        "change_type": "modified",
+        "role": "test_usage_candidate",
+        "added_lines": 42,
+        "removed_lines": 0,
+        "hunks": [
+          {
+            "start_line": 1673,
+            "end_line": 1714
+          }
+        ],
+        "symbols": [],
+        "binary": false
+      },
+      {
+        "repo": "app",
+        "path": "packages/react-reconciler/src/ReactFiberHooks.js",
+        "old_path": null,
+        "change_type": "modified",
+        "role": "source_route_candidate",
+        "added_lines": 1,
+        "removed_lines": 1,
+        "hunks": [
+          {
+            "start_line": 3264,
+            "end_line": 3264
+          }
+        ],
+        "symbols": [],
+        "binary": false
+      }
+    ],
+    "symbols": [],
+    "notes": []
+  },
+  "summary": {
+    "risk": "MEDIUM",
+    "verdict": "VERIFICATION INCOMPLETE",
+    "headline": "0 changed symbol(s); no route flow resolved to them.",
+    "counts": {
+      "changed_files": 2,
+      "changed_source_files": 1,
+      "changed_test_files": 1,
+      "changed_symbols": 0,
+      "affected_flows": 0,
+      "flows_partially_analyzed": 0,
+      "code_findings": 0,
+      "obligations": 0,
+      "obligations_introduced_by_change": 0,
+      "obligations_passed": 0,
+      "obligations_failed": 0,
+      "obligations_unverified": 0,
+      "obligations_unknown": 0,
+      "mapped_tests": 0,
+      "supporting_tests": 0,
+      "tests_exercising_flows": 0,
+      "tests_supporting_behavior": 0,
+      "tests_verifying_behavior": 0,
+      "changed_test_cases": 1,
+      "tests_executed": 0,
+      "verification_gaps": 0,
+      "runtime_dependencies": 1,
+      "cross_repo_impacts": 0,
+      "impacts_proven": 0,
+      "impacts_inferred": 0,
+      "impacts_not_modeled": 0,
+      "unresolved_changed_symbols": 0
+    },
+    "risk_reasons": [
+      "change could not be tied to any verifiable behavior"
+    ]
+  },
+  "code_review_status": "completed",
+  "code_findings": [],
+  "accepted_impacts": [],
+  "pr_semantic_analysis": {
+    "origin": "llm_hypothesis",
+    "change_summary": "The reconciler now considers a form already upgraded to stateful only when its existing hook has a successor hook. The accompanying regression test exercises two closely spaced submissions while the first action is still pending and expects both actions to run without an exception. The test is currently committed as a focused `it.only` test.",
+    "behavior_changes": [
+      {
+        "description": "When the same form is submitted twice in rapid succession while its asynchronous action is still pending, the intended behavior is now for both submissions to invoke the action without throwing. Internally, a form with only one existing hook is no longer treated as fully upgraded to stateful form handling.",
+        "changed_symbols": [
+          "ensureFormComponentIsStateful",
+          "submitFormTwice",
+          "submitForm"
+        ],
+        "evidence": [
+          "The stateful-form fast path now requires both an existing hook and a non-null next hook.",
+          "The regression test issues two `requestSubmit()` calls separated by a short delay and verifies that the action runs twice."
+        ],
+        "confidence": 0.97,
+        "citations": [
+          {
+            "file": "packages/react-reconciler/src/ReactFiberHooks.js",
+            "line": 3264,
+            "quoted_text": "  if (existingStateHook !== null && existingStateHook.next !== null) {"
+          },
+          {
+            "file": "packages/react-dom/src/__tests__/ReactDOMForm-test.js",
+            "line": 1673,
+            "quoted_text": "  it.only('multiple form submissions in rapid succession do not throw', async () => {"
+          },
+          {
+            "file": "packages/react-dom/src/__tests__/ReactDOMForm-test.js",
+            "line": 1681,
+            "quoted_text": "        formRef.current.requestSubmit();"
+          },
+          {
+            "file": "packages/react-dom/src/__tests__/ReactDOMForm-test.js",
+            "line": 1683,
+            "quoted_text": "        formRef.current.requestSubmit();"
+          },
+          {
+            "file": "packages/react-dom/src/__tests__/ReactDOMForm-test.js",
+            "line": 1712,
+            "quoted_text": "    expect(actionCounter).toBe(2);"
+          }
+        ],
+        "citations_verified": 5,
+        "citation_notes": [
+          "citation confirmed near packages/react-reconciler/src/ReactFiberHooks.js:3264",
+          "citation confirmed near packages/react-dom/src/__tests__/ReactDOMForm-test.js:1673",
+          "citation confirmed near packages/react-dom/src/__tests__/ReactDOMForm-test.js:1681",
+          "citation confirmed near packages/react-dom/src/__tests__/ReactDOMForm-test.js:1683",
+          "citation confirmed near packages/react-dom/src/__tests__/ReactDOMForm-test.js:1712"
+        ]
+      }
+    ],
+    "important_symbols": [
+      {
+        "repo": ".",
+        "file": "packages/react-reconciler/src/ReactFiberHooks.js",
+        "symbol": "ensureFormComponentIsStateful",
+        "reason": "This contains the production behavior change: the hook-list shape, rather than merely the presence of memoized state, now determines whether form state initialization is complete."
+      },
+      {
+        "repo": ".",
+        "file": "packages/react-dom/src/__tests__/ReactDOMForm-test.js",
+        "symbol": "submitFormTwice",
+        "reason": "This models the triggering scenario by starting a second submission before the first asynchronous form action completes."
+      },
+      {
+        "repo": ".",
+        "file": "packages/react-dom/src/__tests__/ReactDOMForm-test.js",
+        "symbol": "submitForm",
+        "reason": "This action remains pending briefly and records whether both submissions actually reach userspace."
+      }
+    ],
+    "investigation_hints": [
+      {
+        "description": "Trace all callers of the form-state upgrade helper and determine which host-transition paths can present a form fiber with exactly one hook.",
+        "related_symbols": [
+          "ensureFormComponentIsStateful",
+          "startHostTransition"
+        ],
+        "concepts": [
+          "form action transitions",
+          "fiber hook-list construction",
+          "stateful form upgrade lifecycle"
+        ],
+        "likely_boundary_types": [
+          "callable",
+          "async"
+        ]
+      },
+      {
+        "description": "Check whether the two-hook shape is a stable invariant across initial submission, overlapping submission, retries, interruption, hydration, and alternate renderers.",
+        "related_symbols": [
+          "ensureFormComponentIsStateful"
+        ],
+        "concepts": [
+          "hook ordering invariants",
+          "concurrent transitions",
+          "hydration",
+          "renderer integration"
+        ],
+        "likely_boundary_types": [
+          "callable",
+          "async",
+          "unknown"
+        ]
+      },
+      {
+        "description": "Follow the public form-action path from DOM submission through React DOM into the reconciler, including browser `requestSubmit()` behavior and action completion scheduling.",
+        "related_symbols": [
+          "submitFormTwice",
+          "submitForm",
+          "ensureFormComponentIsStateful"
+        ],
+        "concepts": [
+          "DOM form submission",
+          "function-valued form actions",
+          "pending actions",
+          "event scheduling"
+        ],
+        "likely_boundary_types": [
+          "api",
+          "callable",
+          "async",
+          "external"
+        ]
+      }
+    ],
+    "likely_boundary_types": [
+      "api",
+      "callable",
+      "async",
+      "external"
+    ],
+    "local_risks": [
+      {
+        "description": "The new fast-path criterion relies on the invariant that every fully upgraded form has at least two linked hooks. If a valid upgraded form can retain exactly one hook, it will no longer be recognized as upgraded and may enter the upgrade path again, potentially disturbing hook state or ordering.",
+        "severity": "P1",
+        "citations": [
+          {
+            "file": "packages/react-reconciler/src/ReactFiberHooks.js",
+            "line": 3264,
+            "quoted_text": "  if (existingStateHook !== null && existingStateHook.next !== null) {"
+          },
+          {
+            "file": "packages/react-reconciler/src/ReactFiberHooks.js",
+            "line": 3265,
+            "quoted_text": "    // This fiber was already upgraded to be stateful."
+          }
+        ],
+        "citations_verified": 2,
+        "citation_notes": [
+          "citation confirmed near packages/react-reconciler/src/ReactFiberHooks.js:3264",
+          "citation confirmed near packages/react-reconciler/src/ReactFiberHooks.js:3265"
+        ]
+      },
+      {
+        "description": "The regression test is marked `it.only`; under test runners honoring focused tests, this can suppress neighboring coverage and allow unrelated regressions to go untested in that run.",
+        "severity": "P2",
+        "citations": [
+          {
+            "file": "packages/react-dom/src/__tests__/ReactDOMForm-test.js",
+            "line": 1673,
+            "quoted_text": "  it.only('multiple form submissions in rapid succession do not throw', async () => {"
+          }
+        ],
+        "citations_verified": 1,
+        "citation_notes": [
+          "citation confirmed near packages/react-dom/src/__tests__/ReactDOMForm-test.js:1673"
+        ]
+      },
+      {
+        "description": "The concurrency setup depends on one-millisecond timers to keep the first action pending and place the second submission in the desired window. Timer scheduling differences could make the test sensitive to the test environment unless the harness controls timers and transition flushing reliably.",
+        "severity": "P2",
+        "citations": [
+          {
+            "file": "packages/react-dom/src/__tests__/ReactDOMForm-test.js",
+            "line": 1682,
+            "quoted_text": "        await new Promise(res => setTimeout(res, 1));"
+          },
+          {
+            "file": "packages/react-dom/src/__tests__/ReactDOMForm-test.js",
+            "line": 1691,
+            "quoted_text": "        return new Promise(res => setTimeout(res, 1));"
+          }
+        ],
+        "citations_verified": 2,
+        "citation_notes": [
+          "citation confirmed near packages/react-dom/src/__tests__/ReactDOMForm-test.js:1682",
+          "citation confirmed near packages/react-dom/src/__tests__/ReactDOMForm-test.js:1691"
+        ]
+      }
+    ],
+    "uncertainties": [
+      "The supplied context does not show every caller of `ensureFormComponentIsStateful`, so it is unknown which form-action, hydration, retry, or renderer paths can reach the changed condition.",
+      "It is not established whether this reconciler behavior applies only to React DOM forms or is shared by other host renderers that call the same transition code.",
+      "The diff does not establish how often a real form fiber has exactly one hook when another submission begins, or whether real submission timing reaches that intermediate state.",
+      "The supplied context does not show the test-runner configuration, so the exact CI treatment of `it.only` and whether focused tests are rejected cannot be established.",
+      "The remainder of `ensureFormComponentIsStateful` is not shown, so the exact initialization performed after the changed guard and the full consequences of re-entering that path cannot be established."
+    ],
+    "uncertainty_items": [
+      {
+        "kind": "caller_reachability",
+        "text": "The supplied context does not show every caller of `ensureFormComponentIsStateful`, so it is unknown which form-action, hydration, retry, or renderer paths can reach the changed condition.",
+        "symbols": [
+          "ensureFormComponentIsStateful"
+        ],
+        "resolved_by": null,
+        "established_context": null,
+        "scoped_text": null
+      },
+      {
+        "kind": "boundary_identity",
+        "text": "It is not established whether this reconciler behavior applies only to React DOM forms or is shared by other host renderers that call the same transition code.",
+        "symbols": [
+          "ensureFormComponentIsStateful",
+          "startHostTransition"
+        ],
+        "resolved_by": null,
+        "established_context": null,
+        "scoped_text": null
+      },
+      {
+        "kind": "runtime_condition",
+        "text": "The diff does not establish how often a real form fiber has exactly one hook when another submission begins, or whether real submission timing reaches that intermediate state.",
+        "symbols": [
+          "ensureFormComponentIsStateful",
+          "submitFormTwice"
+        ],
+        "resolved_by": null,
+        "established_context": null,
+        "scoped_text": null
+      },
+      {
+        "kind": "dependency_semantics",
+        "text": "The supplied context does not show the test-runner configuration, so the exact CI treatment of `it.only` and whether focused tests are rejected cannot be established.",
+        "symbols": [
+          "submitFormTwice"
+        ],
+        "resolved_by": null,
+        "established_context": null,
+        "scoped_text": null
+      },
+      {
+        "kind": "other",
+        "text": "The remainder of `ensureFormComponentIsStateful` is not shown, so the exact initialization performed after the changed guard and the full consequences of re-entering that path cannot be established.",
+        "symbols": [
+          "ensureFormComponentIsStateful"
+        ],
+        "resolved_by": null,
+        "established_context": null,
+        "scoped_text": null
+      }
+    ],
+    "verification_state": "verified",
+    "is_indeterminate": true,
+    "indeterminate_reason": "runtime_only_behavior",
+    "indeterminate_detail": "The mechanism is clear, but observable impact requires a second form submission to occur while the first asynchronous action is still pending and while the form fiber has the relevant intermediate hook shape. The diff does not establish whether that timing and state occur in any particular real application."
+  },
+  "affected_boundaries": [],
+  "composed_dispatch_edges": [],
+  "run_metrics": {
+    "llm_by_purpose": {
+      "pr_semantic_analysis": {
+        "calls": 1,
+        "errors": 0,
+        "input_tokens": 2596,
+        "output_tokens": 3552,
+        "reasoning_tokens": 2031,
+        "models": [
+          "gpt-5.6-sol"
+        ]
+      },
+      "route_discovery": {
+        "calls": 1,
+        "errors": 0,
+        "input_tokens": 8703,
+        "output_tokens": 35,
+        "reasoning_tokens": 0,
+        "models": [
+          "gpt-5.6-sol"
+        ]
+      },
+      "investigator": {
+        "calls": 16,
+        "errors": 0,
+        "input_tokens": 30611,
+        "output_tokens": 8346,
+        "reasoning_tokens": 5568,
+        "models": [
+          "gpt-5.6-sol"
+        ]
+      },
+      "ai_recovery": {
+        "calls": 16,
+        "errors": 0,
+        "input_tokens": 26520,
+        "output_tokens": 1096,
+        "reasoning_tokens": 153,
+        "models": [
+          "gpt-5.6-sol"
+        ]
+      }
+    },
+    "llm_totals": {
+      "calls": 34,
+      "errors": 0,
+      "input_tokens": 68430,
+      "output_tokens": 13029,
+      "reasoning_tokens": 7752
+    },
+    "cbm": {
+      "calls": 28,
+      "errors": 0,
+      "by_operation": {
+        "index_repository": 3,
+        "query_graph": 11,
+        "search_graph": 14
+      },
+      "enrichment_requests": 0
+    },
+    "wall_seconds": 272.9,
+    "tests": {
+      "environments": [],
+      "mapped_executions": 0,
+      "mapped_outcomes": {},
+      "ci_suite": {
+        "status": "unknown",
+        "blocker": "runner_missing",
+        "passed": null,
+        "failed": null
+      }
+    }
+  },
+  "framework_boundary_candidates": [],
+  "affected_flows": [],
+  "unresolved_changed_symbols": 0,
+  "unresolved_changed_symbol_names": [],
+  "analysis_status": "partial",
+  "analysis_notes": [
+    "Changed source file `packages/react-reconciler/src/ReactFiberHooks.js` yielded no symbols: file could not be parsed into symbols. Downstream effects of this file are not established.",
+    "Route composition is unresolved in app; some routes may be missing."
+  ],
+  "test_executions": [],
+  "ci_suite": {
+    "command": [],
+    "source": "",
+    "working_dir": ".",
+    "framework": "",
+    "status": "unknown",
+    "blocker": "runner_missing",
+    "reason": "`jest` is declared in package.json but not installed in node_modules",
+    "exit_code": null,
+    "duration_ms": null,
+    "tests_passed": null,
+    "tests_failed": null,
+    "summary_line": null,
+    "failed_test_ids": [],
+    "stdout_excerpt": null,
+    "stderr_excerpt": null,
+    "output_truncated": false,
+    "evidence": []
+  },
+  "verification_gaps": [],
+  "runtime_dependencies": [
+    {
+      "id": "runtime:cache:redis",
+      "name": "Redis",
+      "kind": "cache",
+      "repo": "app",
+      "required_for_flow_ids": [],
+      "detected_from": [
+        {
+          "file": "compiler/apps/playground/components/Editor/EditorImpl.tsx",
+          "symbol": null,
+          "label": "client_import",
+          "snippet": "import {useStore, useStoreDispatch} from '../StoreContext';"
+        },
+        {
+          "file": "compiler/apps/playground/components/Editor/Input.tsx",
+          "symbol": null,
+          "label": "client_import",
+          "snippet": "import {useStore, useStoreDispatch} from '../StoreContext';"
+        },
+        {
+          "file": "compiler/apps/playground/components/Header.tsx",
+          "symbol": null,
+          "label": "client_import",
+          "snippet": "import {useStoreDispatch} from './StoreContext';"
+        }
+      ],
+      "scope": "repository"
+    }
+  ],
+  "cross_repo_impacts": [],
+  "notes": [
+    "test_execution=whole_suite_fallback reason=no_mapped_tests",
+    "AI recovery (experimental, provenance=ai_recovery, run-local, not merged into structural results): path recovery could not establish a source-backed path beyond the first pass; test recovery recovered no verified tests.",
+    "Saved change verification artifact: /Users/ksnaik/.sydes/workspaces/a89a343269b1635c/artifacts/20261026T160138Z-e14b7d55/change_verification.json"
+  ],
+  "diagnostics": [
+    "code_intelligence_effective_backend=cbm selected_by=default",
+    "code_intelligence_backend=cbm transport=persistent_mcp_stdio cbm_server_version=0.11.0 cbm_executable=/Users/ksnaik/.cache/uv/archive-v0/qjq2WVkR8Mwv6VtFhJ9Dm/bin/codebase-memory-mcp",
+    "cbm_session_start_ms=1357.8 cbm_calls=21 cbm_mean_call_ms=232.1",
+    "cbm_index_ms=3255.5 cbm_query_ms=1642.0 sydes_route_semantics_ms=2165.3 total_ms=8424.0",
+    "cbm_supplied=symbols,spans,imports,exports,call_edges,usage_edges,entrypoints  sydes_semantics=route_index,route_graph,repo_map",
+    "route_derived_entrypoints_added=2",
+    "cbm_gap: route composition is computed by Sydes, not CBM: CBM reports uncomposed route paths and models no persistence sinks",
+    "cbm_gap: app: route composition is unresolved for some containers; route-derived entrypoint paths from this repo may be incomplete",
+    "cbm_gap: CALLS/USAGE edges deferred: they are fetched as a bounded neighborhood around the changed symbols instead of a repository-wide sweep",
+    "handler_symbol_index: exports=8097, files_indexed=1295, imports=8297, symbols=8165",
+    "pr_semantic_analysis_prompt_chars=11042",
+    "reverse_reach_candidate_files=186",
+    "app: deterministic_routes_found=18, deterministic_frameworks=express,express_mount_graph",
+    "app: discovery_coverage=moderate score=0.7",
+    "app: discovery_coverage_reasons=deterministic route extraction produced grounded routes; route graph composition produced mounted routes; some mount edges could not be resolved; route composition is unresolved: 8 of 9 route containers have no resolvable mount or declared prefix, so route paths may be incomplete",
+    "app: route_graph_containers=20, route_graph_declarations=26, route_graph_mount_edges=12, route_graph_composed_routes=26, route_graph_unresolved_mounts=12",
+    "app: deterministic_routes=18, llm_routes=0, merged_routes=18, rejected_routes=0, final_routes=18",
+    "app: merged_llm_routes=0",
+    "graph_slice_seeds: changed=0 routes=0 dropped_auxiliary=0 total=0",
+    "graph_slice: used=False seeds=0 canonical_seeds=0 unresolved_seeds=0 unresolved_changed=0 unresolved_auxiliary=0 graph_calls=0 nodes=0 call_edges=0 usage_edges=0 truncated=False fell_back=False",
+    "graph_slice_reason: no seed symbols to build a bounded slice from",
+    "impact_interpreter: affected_entrypoints=0, ambiguous_edges=0, boundary_budget_exhausted=False, boundary_emitted=0, boundary_expansions=0, boundary_frontier_considered=0, boundary_rejected_weak_evidence=0, call_edges=0, changed_symbols=0, evidence_confirmed=0, guide_actions={}, guide_budget_exhausted=False, guide_calls=0, guide_error_details=[], guide_errors=0, guide_latency_ms=0.0, guide_no_progress=0, guide_triggered=False, http_entrypoints=0, known_entrypoints=2, llm_candidates=0, llm_candidates_accepted=0, llm_candidates_corroborated=0, llm_candidates_missing_reason=0, llm_candidates_self_referential=0, llm_candidates_uncorroborated=0, llm_candidates_ungrounded=0, llm_candidates_whole_change_unanchored=0, llm_new_entrypoints=0, llm_no_candidate_turns=0, unresolved_after=0, unresolved_before=0, unresolved_symbols=0, usage_edges=0",
+    "repo_profile: rebuilt (105 package(s), 3 framework(s))",
+    "boundary_reasoning skipped: no production boundary candidate to reason over",
+    "app: test_files_found=2141",
+    "app: test_cases_found=7311",
+    "changed_test_cases_found: ['packages/react-dom/src/__tests__/ReactDOMForm-test.js::multiple form submissions in rapid succession do not throw']",
+    "test_frameworks_detected=jest,mocha",
+    "ci_suite=unresolved reason=`jest` is declared in package.json but not installed in node_modules",
+    "structural_enrichment: triggered=[] cbm_requests=0 (none) cache_hits=(none) errors=0 truncated=0 families=[] candidates=0 unresolved=0",
+    "code_review_context_related=none (no changed program symbols)",
+    "code_review_questions=10",
+    "investigator: hypotheses=3 lookups=12/12 confirmed=0 refuted=0 unknown=3 findings=0 llm_calls=16 errors=0",
+    "investigation_artifact=/Users/ksnaik/StudioProjects/sydes/benchmarks/aacr/results/investigator-b9391e5-first11-r1-2026-10-26/sydes/facebook__react@be58f26.investigation.json",
+    "run_metrics: wall_seconds=272.9 llm_calls=34 (ai_recovery:16,investigator:16,pr_semantic_analysis:1,route_discovery:1) llm_errors=0 input_tokens=68430 output_tokens=13029 estimated_cost_usd=unavailable (set SYDES_LLM_PRICE_PER_MTOK) cbm_requests=28 cbm_enrichment_requests=0 test_executions=0 test_outcomes={}"
+  ],
+  "behavioral": null,
+  "known_routes": [
+    {
+      "method": "ALL",
+      "path": "/",
+      "handler": null,
+      "file": "fixtures/flight-esm/server/global.js",
+      "repo": "app",
+      "service": null,
+      "evidence": [
+        {
+          "file": "fixtures/flight-esm/server/global.js",
+          "symbol": null,
+          "label": "route_declaration",
+          "snippet": "app.all('/', async function (req, res, next) { // Proxy the request to the regional server. const proxiedHeaders = { 'X-Forwarded-Host': req.hostname, 'X-Forwarded-For': req.ips, 'X-Forwarded-Port': 3000, 'X-Forwarded-Proto': req.protocol, }; // Proxy other headers as desired."
+        }
+      ],
+      "confidence": 1.0,
+      "status": "deterministic_composed",
+      "kind": "http",
+      "impact_status": null
+    },
+    {
+      "method": "ALL",
+      "path": "/",
+      "handler": "renderApp",
+      "file": "fixtures/flight/server/global.js",
+      "repo": "app",
+      "service": null,
+      "evidence": [
+        {
+          "file": "fixtures/flight/server/global.js",
+          "symbol": "renderApp",
+          "label": "route_declaration",
+          "snippet": "app.all('/', renderApp);"
+        }
+      ],
+      "confidence": 1.0,
+      "status": "deterministic_composed",
+      "kind": "http",
+      "impact_status": null
+    },
+    {
+      "method": "ALL",
+      "path": "/prerender",
+      "handler": "renderApp",
+      "file": "fixtures/flight/server/global.js",
+      "repo": "app",
+      "service": null,
+      "evidence": [
+        {
+          "file": "fixtures/flight/server/global.js",
+          "symbol": "renderApp",
+          "label": "route_declaration",
+          "snippet": "app.all('/prerender', renderApp);"
+        }
+      ],
+      "confidence": 1.0,
+      "status": "deterministic_composed",
+      "kind": "http",
+      "impact_status": null
+    },
+    {
+      "method": "GET",
+      "path": "/",
+      "handler": "res",
+      "file": "fixtures/ssr/server/index.js",
+      "repo": "app",
+      "service": null,
+      "evidence": [
+        {
+          "file": "fixtures/ssr/server/index.js",
+          "symbol": "res",
+          "label": "app.get('/', function (req, res) {",
+          "snippet": "app.get('/', function (req, res) {"
+        },
+        {
+          "file": "fixtures/view-transition/server/index.js",
+          "symbol": "res",
+          "label": "app.get('/', function (req, res) {",
+          "snippet": "app.get('/', function (req, res) {"
+        },
+        {
+          "file": "fixtures/fizz/server/server.js",
+          "symbol": null,
+          "label": "route_declaration",
+          "snippet": "app.get( '/', handleErrors(async function (req, res) { await waitForWebpack(); renderToStream(req.url, res); }) );"
+        },
+        {
+          "file": "fixtures/flight-esm/server/region.js",
+          "symbol": null,
+          "label": "route_declaration",
+          "snippet": "app.get('/', async function (req, res) { await renderApp(res, null); });"
+        },
+        {
+          "file": "fixtures/flight-parcel/src/server.tsx",
+          "symbol": null,
+          "label": "route_declaration",
+          "snippet": "app.get('/', async (req, res) => { await render(req, res, <Todos />); });"
+        },
+        {
+          "file": "fixtures/flight/server/region.js",
+          "symbol": null,
+          "label": "route_declaration",
+          "snippet": "app.get('/', async function (req, res) { if ('prerender' in req.query) { await prerenderApp(res, null, null); } else { await renderApp(res, null, null); } });"
+        },
+        {
+          "file": "fixtures/ssr/server/index.js",
+          "symbol": null,
+          "label": "route_declaration",
+          "snippet": "app.get('/', function (req, res) { // In development mode we clear the module cache between each request to // get automatic hot reloading. for (var key in require.cache) { delete require.cache[key]; } const render = require('./render').default; render(req.url, res); });"
+        },
+        {
+          "file": "fixtures/ssr/server/index.js",
+          "symbol": null,
+          "label": "route_declaration",
+          "snippet": "app.get('/', function (req, res) { render(req.url, res); });"
+        },
+        {
+          "file": "fixtures/ssr2/server/server.js",
+          "symbol": null,
+          "label": "route_declaration",
+          "snippet": "app.get( '/', handleErrors(async function (req, res) { await waitForWebpack(); render(req.url, res); }) );"
+        },
+        {
+          "file": "fixtures/view-transition/server/index.js",
+          "symbol": null,
+          "label": "route_declaration",
+          "snippet": "app.get('/', function (req, res) { // In development mode we clear the module cache between each request to // get automatic hot reloading. for (var key in require.cache) { delete require.cache[key]; } const render = require('./render').default; render(req.url, res); });"
+        },
+        {
+          "file": "fixtures/view-transition/server/index.js",
+          "symbol": null,
+          "label": "route_declaration",
+          "snippet": "app.get('/', function (req, res) { render(req.url, res); });"
+        }
+      ],
+      "confidence": 1.0,
+      "status": "deterministic",
+      "kind": "http",
+      "impact_status": null
+    },
+    {
+      "method": "GET",
+      "path": "/buffer",
+      "handler": null,
+      "file": "fixtures/fizz/server/server.js",
+      "repo": "app",
+      "service": null,
+      "evidence": [
+        {
+          "file": "fixtures/fizz/server/server.js",
+          "symbol": null,
+          "label": "route_declaration",
+          "snippet": "app.get( '/buffer', handleErrors(async function (req, res) { await waitForWebpack(); renderToBuffer(req.url, res); }) );"
+        }
+      ],
+      "confidence": 1.0,
+      "status": "deterministic_composed",
+      "kind": "http",
+      "impact_status": null
+    },
+    {
+      "method": "GET",
+      "path": "/source-maps",
+      "handler": null,
+      "file": "fixtures/flight-esm/server/global.js",
+      "repo": "app",
+      "service": null,
+      "evidence": [
+        {
+          "file": "fixtures/flight-esm/server/global.js",
+          "symbol": null,
+          "label": "route_declaration",
+          "snippet": "app.get('/source-maps', async function (req, res, next) { // Proxy the request to the regional server. const proxiedHeaders = { 'X-Forwarded-Host': req.hostname, 'X-Forwarded-For': req.ips, 'X-Forwarded-Port': 3000, 'X-Forwarded-Proto': req.protocol, };"
+        }
+      ],
+      "confidence": 1.0,
+      "status": "deterministic_composed",
+      "kind": "http",
+      "impact_status": null
+    },
+    {
+      "method": "GET",
+      "path": "/source-maps",
+      "handler": null,
+      "file": "fixtures/flight-esm/server/region.js",
+      "repo": "app",
+      "service": null,
+      "evidence": [
+        {
+          "file": "fixtures/flight-esm/server/region.js",
+          "symbol": null,
+          "label": "route_declaration",
+          "snippet": "app.get('/source-maps', async function (req, res, next) { try { res.set('Content-type', 'application/json'); let requestedFilePath = req.query.name; let isCompiledOutput = false; if (requestedFilePath.startsWith('file://')) { // We assume that if it was prefixed with file:// it's referring to the..."
+        }
+      ],
+      "confidence": 1.0,
+      "status": "deterministic_composed",
+      "kind": "http",
+      "impact_status": null
+    },
+    {
+      "method": "GET",
+      "path": "/source-maps",
+      "handler": null,
+      "file": "fixtures/flight/server/global.js",
+      "repo": "app",
+      "service": null,
+      "evidence": [
+        {
+          "file": "fixtures/flight/server/global.js",
+          "symbol": null,
+          "label": "route_declaration",
+          "snippet": "app.get('/source-maps', async function (req, res, next) { // Proxy the request to the regional server. const proxiedHeaders = { 'X-Forwarded-Host': req.hostname, 'X-Forwarded-For': req.ips, 'X-Forwarded-Port': 3000, 'X-Forwarded-Proto': req.protocol, };"
+        }
+      ],
+      "confidence": 1.0,
+      "status": "deterministic_composed",
+      "kind": "http",
+      "impact_status": null
+    },
+    {
+      "method": "GET",
+      "path": "/source-maps",
+      "handler": null,
+      "file": "fixtures/flight/server/region.js",
+      "repo": "app",
+      "service": null,
+      "evidence": [
+        {
+          "file": "fixtures/flight/server/region.js",
+          "symbol": null,
+          "label": "route_declaration",
+          "snippet": "app.get('/source-maps', async function (req, res, next) { try { res.set('Content-type', 'application/json'); let requestedFilePath = req.query.name; let isCompiledOutput = false; if (requestedFilePath.startsWith('file://')) { // We assume that if it was prefixed with file:// it's referring to the..."
+        }
+      ],
+      "confidence": 1.0,
+      "status": "deterministic_composed",
+      "kind": "http",
+      "impact_status": null
+    },
+    {
+      "method": "GET",
+      "path": "/stream",
+      "handler": null,
+      "file": "fixtures/fizz/server/server.js",
+      "repo": "app",
+      "service": null,
+      "evidence": [
+        {
+          "file": "fixtures/fizz/server/server.js",
+          "symbol": null,
+          "label": "route_declaration",
+          "snippet": "app.get( '/stream', handleErrors(async function (req, res) { await waitForWebpack(); renderToStream(req.url, res); }) );"
+        }
+      ],
+      "confidence": 1.0,
+      "status": "deterministic_composed",
+      "kind": "http",
+      "impact_status": null
+    },
+    {
+      "method": "GET",
+      "path": "/string",
+      "handler": null,
+      "file": "fixtures/fizz/server/server.js",
+      "repo": "app",
+      "service": null,
+      "evidence": [
+        {
+          "file": "fixtures/fizz/server/server.js",
+          "symbol": null,
+          "label": "route_declaration",
+          "snippet": "app.get( '/string', handleErrors(async function (req, res) { await waitForWebpack(); renderToString(req.url, res); }) );"
+        }
+      ],
+      "confidence": 1.0,
+      "status": "deterministic_composed",
+      "kind": "http",
+      "impact_status": null
+    },
+    {
+      "method": "GET",
+      "path": "/todos",
+      "handler": null,
+      "file": "fixtures/flight-esm/server/region.js",
+      "repo": "app",
+      "service": null,
+      "evidence": [
+        {
+          "file": "fixtures/flight-esm/server/region.js",
+          "symbol": null,
+          "label": "route_declaration",
+          "snippet": "app.get('/todos', function (req, res) { res.json([ { id: 1, text: 'Shave yaks', }, { id: 2, text: 'Eat kale',"
+        }
+      ],
+      "confidence": 1.0,
+      "status": "deterministic_composed",
+      "kind": "http",
+      "impact_status": null
+    },
+    {
+      "method": "GET",
+      "path": "/todos",
+      "handler": null,
+      "file": "fixtures/flight/server/region.js",
+      "repo": "app",
+      "service": null,
+      "evidence": [
+        {
+          "file": "fixtures/flight/server/region.js",
+          "symbol": null,
+          "label": "route_declaration",
+          "snippet": "app.get('/todos', function (req, res) { res.json([ { id: 1, text: 'Shave yaks', }, { id: 2, text: 'Eat kale',"
+        }
+      ],
+      "confidence": 1.0,
+      "status": "deterministic_composed",
+      "kind": "http",
+      "impact_status": null
+    },
+    {
+      "method": "GET",
+      "path": "/todos/{id}",
+      "handler": null,
+      "file": "fixtures/flight-parcel/src/server.tsx",
+      "repo": "app",
+      "service": null,
+      "evidence": [
+        {
+          "file": "fixtures/flight-parcel/src/server.tsx",
+          "symbol": null,
+          "label": "route_declaration",
+          "snippet": "app.get('/todos/:id', async (req, res) => { await render(req, res, <Todos id={Number(req.params.id)} />); });"
+        }
+      ],
+      "confidence": 1.0,
+      "status": "deterministic_composed",
+      "kind": "http",
+      "impact_status": null
+    },
+    {
+      "method": "POST",
+      "path": "/",
+      "handler": null,
+      "file": "fixtures/flight-esm/server/region.js",
+      "repo": "app",
+      "service": null,
+      "evidence": [
+        {
+          "file": "fixtures/flight-esm/server/region.js",
+          "symbol": null,
+          "label": "route_declaration",
+          "snippet": "app.post('/', bodyParser.text(), async function (req, res) { const { renderToPipeableStream, decodeReply, decodeReplyFromBusboy, decodeAction, } = await import('react-server-dom-esm/server'); const serverReference = req.get('rsc-action'); if (serverReference) {"
+        }
+      ],
+      "confidence": 1.0,
+      "status": "deterministic_composed",
+      "kind": "http",
+      "impact_status": null
+    },
+    {
+      "method": "POST",
+      "path": "/",
+      "handler": null,
+      "file": "fixtures/flight-parcel/src/server.tsx",
+      "repo": "app",
+      "service": null,
+      "evidence": [
+        {
+          "file": "fixtures/flight-parcel/src/server.tsx",
+          "symbol": null,
+          "label": "route_declaration",
+          "snippet": "app.post('/', async (req, res) => { await handleAction(req, res, <Todos />); });"
+        }
+      ],
+      "confidence": 1.0,
+      "status": "deterministic_composed",
+      "kind": "http",
+      "impact_status": null
+    },
+    {
+      "method": "POST",
+      "path": "/",
+      "handler": null,
+      "file": "fixtures/flight/server/region.js",
+      "repo": "app",
+      "service": null,
+      "evidence": [
+        {
+          "file": "fixtures/flight/server/region.js",
+          "symbol": null,
+          "label": "route_declaration",
+          "snippet": "app.post('/', bodyParser.text(), async function (req, res) { const {decodeReply, decodeReplyFromBusboy, decodeAction, decodeFormState} = await import('react-server-dom-webpack/server'); const serverReference = req.get('rsc-action'); if (serverReference) { // This is the client-side case const [fi..."
+        }
+      ],
+      "confidence": 1.0,
+      "status": "deterministic_composed",
+      "kind": "http",
+      "impact_status": null
+    },
+    {
+      "method": "POST",
+      "path": "/todos/{id}",
+      "handler": "render",
+      "file": "fixtures/flight-parcel/src/server.tsx",
+      "repo": "app",
+      "service": null,
+      "evidence": [
+        {
+          "file": "fixtures/flight-parcel/src/server.tsx",
+          "symbol": "render",
+          "label": "route_declaration",
+          "snippet": "app.post('/todos/:id', async (req, res) => { await handleAction(req, res, <Todos id={Number(req.params.id)} />); });"
+        }
+      ],
+      "confidence": 1.0,
+      "status": "deterministic_composed",
+      "kind": "http",
+      "impact_status": null
+    }
+  ],
+  "unattached_evidence": []
+}
