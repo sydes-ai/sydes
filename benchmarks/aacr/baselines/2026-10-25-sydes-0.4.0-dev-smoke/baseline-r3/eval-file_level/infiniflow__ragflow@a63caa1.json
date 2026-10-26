@@ -1,0 +1,14 @@
+{
+  "instance_id": "infiniflow__ragflow@a63caa1",
+  "reviewer": "sydes",
+  "boundary": "code_findings",
+  "status": "completed",
+  "duration_seconds": 245.2,
+  "review": {
+    "comments": [],
+    "summary": {
+      "input_tokens": 135185,
+      "output_tokens": 11576
+    }
+  }
+}

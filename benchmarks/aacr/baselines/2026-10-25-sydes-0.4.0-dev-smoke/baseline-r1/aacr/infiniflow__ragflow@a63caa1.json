@@ -1,0 +1,22 @@
+{
+  "instance_id": "infiniflow__ragflow@a63caa1",
+  "reviewer": "sydes",
+  "boundary": "code_findings",
+  "status": "completed",
+  "duration_seconds": 231.6,
+  "review": {
+    "comments": [
+      {
+        "path": "graphrag/entity_resolution.py",
+        "start_line": 114,
+        "end_line": 114,
+        "content": "Bind each connected component before scheduling its merge\n`merging_nodes` is rebound on every loop iteration, while the scheduled lambda closes over that variable rather than the current list. Under Python's late-binding closure semantics, a child that invokes the lambda after the loop advances receives a later component's nodes instead of the component for which it was scheduled.\nImpact: When `resolution_result` contains multiple disconnected components and the scheduled children execute after `merging_nodes` has been rebound, multiple merge tasks can process the final component while earlier components are never merged, producing an incorrectly resolved graph and potentially concurrent duplicate mutations of the same nodes.\nFix: Pass the method and current list directly to Trio, for example `nursery.start_soon(self._merge_graph_nodes, graph, merging_nodes, change)`, or capture the value with a default lambda argument.",
+        "severity": "P1"
+      }
+    ],
+    "summary": {
+      "input_tokens": 109959,
+      "output_tokens": 11023
+    }
+  }
+}

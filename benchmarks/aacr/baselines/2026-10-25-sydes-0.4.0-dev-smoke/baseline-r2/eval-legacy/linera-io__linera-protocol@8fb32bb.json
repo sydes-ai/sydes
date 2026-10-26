@@ -1,0 +1,14 @@
+{
+  "instance_id": "linera-io__linera-protocol@8fb32bb",
+  "reviewer": "sydes",
+  "boundary": "code_findings",
+  "status": "completed",
+  "duration_seconds": 102.5,
+  "review": {
+    "comments": [],
+    "summary": {
+      "input_tokens": 47224,
+      "output_tokens": 5365
+    }
+  }
+}

@@ -1,0 +1,83 @@
+{
+  "version": 1,
+  "purpose": "Sydes-specific architectural and debugging cases. NOT part of any AACR-Bench metric. Later used to test blast radius, runtime evidence, the Investigator, and DiffGenome probes.",
+  "scoring": "none here; each case lists what is independently established about it",
+  "cases": [
+    {
+      "id": "kokoro-stream-cleanup",
+      "repo": "sydes-examples/Kokoro-FastAPI",
+      "pr": 11,
+      "pr_url": "https://github.com/sydes-examples/Kokoro-FastAPI/pull/11",
+      "base": "b37ad0c80728c32ad4673ea063194fcd1f551451",
+      "head": "83427d885e4a91f9cac468a5f916e867528beb33",
+      "language": "Python (FastAPI)",
+      "source": "upstream remsky/Kokoro-FastAPI#533 (cf8d71e); same change as closed PR #10 (head c85a3e8)",
+      "tests_later": ["blast radius", "runtime evidence", "Investigator: forward value flow, resource ownership", "quantifier-scope check"],
+      "known_findings": [
+        {"source": "Greptile (2026-10-24)", "severity": "P1", "location": "api/src/routers/development.py:374",
+         "finding": "JSONStreamingResponse.body_iterator wraps single_output() in a plain async-for; closing the wrapper does not aclose the inner generator, so captioned streams keep the writer open until GC (download-link branch too).",
+         "status": "confirmed by code reading"}
+      ],
+      "sydes_observations": ["0.4.0 run missed the defect and over-claimed cleanup on abandonment; an earlier 0.3.x run on PR #8 found it (P2)"]
+    },
+    {
+      "id": "healthchecks-rename-and-delete",
+      "repo": "sydes-examples/healthchecks",
+      "pr": 3,
+      "pr_url": "https://github.com/sydes-examples/healthchecks/pull/3",
+      "base": "8a71f9e8e9c962fa5ab201a446de26ca6e3d7c7d",
+      "head": "3f876b069498d0d1abb8d9b71ac349230a70af7b",
+      "language": "Python (Django)",
+      "source": "upstream healthchecks/healthchecks@3685590f",
+      "status": "PR closed (2026-10-24); branch kept",
+      "tests_later": ["blast radius across api/front/accounts apps", "race-condition review"],
+      "known_findings": []
+    },
+    {
+      "id": "spring-jwt-grace-window",
+      "repo": "sydes-examples/spring-boot-demo",
+      "pr": 5,
+      "pr_url": "https://github.com/sydes-examples/spring-boot-demo/pull/5",
+      "base": "9661050a2848c46cf35d0f12ce2d5ec7a76fcd7f",
+      "head": "04d9a4f5d27c13ac945f4537b5ef85442aff7b00",
+      "language": "Java (Spring Boot)",
+      "source": "recreation of calibration case JAVA-H-01",
+      "status": "PR closed (2026-10-24); branch kept",
+      "tests_later": ["Redis key namespace effects", "logout/revocation", "concurrent refresh", "auth propagation"],
+      "known_findings": []
+    },
+    {
+      "id": "spring-realworld-password-encoder",
+      "repo": "sydes-examples/spring-boot-realworld-example-app",
+      "pr": 2,
+      "pr_url": "https://github.com/sydes-examples/spring-boot-realworld-example-app/pull/2",
+      "base": "6af3a317296179c0896199342b8832e4d8b8313f",
+      "head_at_evaluation": "ccc482d22207f5132a7dbffaf8606d8503ea6a19",
+      "language": "Java (Spring Boot, DGS GraphQL)",
+      "source": "upstream gothinkster/spring-boot-realworld-example-app@74c9326",
+      "status": "PR closed (2026-10-10)",
+      "tests_later": ["route method parsing", "signature-reference identity", "Code Review depth"],
+      "known_findings": [
+        {"source": "independent ground truth (2026-10-09)", "severity": "high", "location": "src/main/java/io/spring/application/user/UserService.java (updateUser -> User.update)",
+         "finding": "Password updates store the raw password while login now uses BCrypt matches, so users who change their password can no longer log in; existing plaintext rows also stop authenticating.",
+         "status": "confirmed by code reading; Sydes 0.4.0 Code Review missed it"}
+      ]
+    },
+    {
+      "id": "simplebank-token-type",
+      "repo": "sydes-examples/simplebank",
+      "pr": 4,
+      "pr_url": "https://github.com/sydes-examples/simplebank/pull/4",
+      "base": "7c6f92f2bc5dd7ffe30552bd2fe9699de06b5512",
+      "head_at_evaluation": "81a38b64d88d79370be87f2d435490568d805331",
+      "language": "Go (Gin, gRPC)",
+      "status": "PR closed (2026-10-10)",
+      "tests_later": ["partial semantic reconciliation", "Go test-file roles", "HANDLES/gRPC identity", "LLM handler canonicalization"],
+      "known_findings": [
+        {"source": "Sydes Code Review (native-fallback run, 2026-10-09)", "severity": "P2", "location": "token/payload.go:53",
+         "finding": "Tokens issued before the change have no token_type and are rejected after rollout.",
+         "status": "plausible; not independently ruled"}
+      ]
+    }
+  ]
+}

@@ -1,0 +1,97 @@
+{
+  "run": "baseline-r2",
+  "metrics_file_level": {
+    "total_instances": 3,
+    "candidate_instances": 3,
+    "evaluated_instances": 3,
+    "missing_instances": 0,
+    "expected_notes": 10,
+    "generated_notes": 1,
+    "total_duration_seconds": 434.5,
+    "avg_duration_seconds": 144.83,
+    "total_input_tokens": 243708,
+    "total_output_tokens": 21813,
+    "total_tokens": 265521,
+    "avg_input_tokens": 81236,
+    "avg_output_tokens": 7271,
+    "matched_generated_notes": 1,
+    "matched_file_semantic_notes": 1,
+    "file_semantic_match_rate": 1.0,
+    "file_semantic_recall_rate": 0.1,
+    "balanced_score": 0.182,
+    "derived_noise_rate": 0.0
+  },
+  "metrics_legacy": {
+    "total_instances": 3,
+    "candidate_instances": 3,
+    "evaluated_instances": 3,
+    "missing_instances": 0,
+    "expected_notes": 10,
+    "generated_notes": 1,
+    "total_duration_seconds": 434.5,
+    "avg_duration_seconds": 144.83,
+    "total_input_tokens": 243708,
+    "total_output_tokens": 21813,
+    "total_tokens": 265521,
+    "avg_input_tokens": 81236,
+    "avg_output_tokens": 7271,
+    "matched_line_notes": 1,
+    "matched_semantic_notes": 1,
+    "semantic_match_rate": 1.0,
+    "line_match_rate": 1.0,
+    "semantic_recall_rate": 0.1,
+    "line_recall_rate": 0.1,
+    "semantic_f1": 0.182,
+    "line_f1": 0.182,
+    "derived_noise_rate": 0.0
+  },
+  "cases": [
+    {
+      "case_id": "cline__cline-1808",
+      "language": "TypeScript",
+      "status": "completed",
+      "wall_seconds": 129.8,
+      "code_findings": 0,
+      "code_review_status": "completed"
+    },
+    {
+      "case_id": "infiniflow__ragflow-6691",
+      "language": "Python",
+      "status": "completed",
+      "wall_seconds": 202.2,
+      "code_findings": 1,
+      "code_review_status": "completed"
+    },
+    {
+      "case_id": "linera-io__linera-protocol-3151",
+      "language": "Rust",
+      "status": "completed",
+      "wall_seconds": 102.5,
+      "code_findings": 0,
+      "code_review_status": "completed"
+    }
+  ],
+  "per_pr": {
+    "wall_seconds": 144.8,
+    "llm_calls": 27.3,
+    "input_tokens": 81236,
+    "output_tokens": 7271,
+    "estimated_cost_usd": "unavailable (set SYDES_AACR_PRICE_IN/OUT)",
+    "llm_calls_by_purpose": {
+      "pr_semantic_analysis": 3,
+      "route_discovery": 3,
+      "impact_guide": 12,
+      "boundary_reasoning": 3,
+      "code_review": 3,
+      "ai_recovery": 58
+    }
+  },
+  "findings_submitted": 1,
+  "judge": {
+    "model": "gpt-5.2",
+    "calls": 3,
+    "errors": 0,
+    "input_tokens": 1364,
+    "output_tokens": 93
+  }
+}

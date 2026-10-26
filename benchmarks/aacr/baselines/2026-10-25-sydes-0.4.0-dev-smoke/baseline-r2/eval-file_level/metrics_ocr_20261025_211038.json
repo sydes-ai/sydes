@@ -1,0 +1,146 @@
+{
+  "ex_info": {
+    "start_time": "2026-10-25T21:10:38.563429",
+    "results_dir": "~/StudioProjects/sydes/benchmarks/aacr/results/baseline-r2/eval-file_level",
+    "reviewer": "ocr",
+    "line_k": 1,
+    "limit": null,
+    "score_mode": "file_semantic",
+    "missing_instance_ids": []
+  },
+  "summary": {
+    "total_instances": 3,
+    "candidate_instances": 3,
+    "evaluated_instances": 3,
+    "missing_instances": 0,
+    "expected_notes": 10,
+    "generated_notes": 1,
+    "total_duration_seconds": 434.5,
+    "avg_duration_seconds": 144.83,
+    "total_input_tokens": 243708,
+    "total_output_tokens": 21813,
+    "total_tokens": 265521,
+    "avg_input_tokens": 81236,
+    "avg_output_tokens": 7271,
+    "matched_generated_notes": 1,
+    "matched_file_semantic_notes": 1,
+    "file_semantic_match_rate": 1.0,
+    "file_semantic_recall_rate": 0.1,
+    "balanced_score": 0.182
+  },
+  "eval_res": [
+    {
+      "instance_id": "infiniflow__ragflow@a63caa1",
+      "repo": "infiniflow/ragflow",
+      "comments": [
+        {
+          "note": "Accessing `.nodes` on the result of `nx.connected_components` (which returns node sets, not graph objects) causes AttributeError; use the set of nodes directly.",
+          "path": "graphrag/entity_resolution.py",
+          "side": "right",
+          "from_line": 114,
+          "to_line": 114,
+          "file_semantic_match": false
+        },
+        {
+          "note": "Critical bug: Lambda function captures loop variable by reference. All async tasks will use the last value of `merging_nodes` instead of their intended values. This will cause incorrect node merging behavior. Fix by using a default argument to capture the value: `lambda nodes=merging_nodes: self._merge_graph_nodes(graph, nodes, change)`\n\n```suggestion\n                nursery.start_soon(lambda nodes=merging_nodes: self._merge_graph_nodes(graph, nodes, change))\n```",
+          "path": "graphrag/entity_resolution.py",
+          "side": "right",
+          "from_line": 115,
+          "to_line": 115,
+          "file_semantic_match": true
+        },
+        {
+          "note": "The direct access to `node1_attrs[\"source_id\"]` risks KeyError if the attribute is missing; replace with `.get(\"source_id\", [])` to safely handle absent attributes during list extension.",
+          "path": "graphrag/general/extractor.py",
+          "side": "right",
+          "from_line": 205,
+          "to_line": 205,
+          "file_semantic_match": false
+        },
+        {
+          "note": "Similar to prior corrections applied to node merging logic, suggest applying consistent idiom here too i.e., prefer creating new combined collection over mutating existing one e.g.: `edge0_attrs[\"keywords\"] = list(set(edge0_attrs[\"keywords\"] + edge1_attrs[\"keywords\"]))`. Improves readability & reduces mutation-related confusion.",
+          "path": "graphrag/general/extractor.py",
+          "side": "right",
+          "from_line": 216,
+          "to_line": 217,
+          "file_semantic_match": false
+        },
+        {
+          "note": "Type/ordering consistency: for edges you deduplicate with `list(set(...))`, which produces non-deterministic order. Elsewhere you use `sorted(set(...))` (node source_id). If downstream relies on stable ordering (e.g., tests, hashing, serialization diffs), consider using `sorted(set(...))` consistently for both `keywords` and `source_id`. Also ensure the attributes exist and are lists before calling `extend`.\n\n```suggestion\n                        if isinstance(edge0_attrs.get(\"keywords\"), list) and isinstance(edge1_attrs.get(\"keywords\"), list):\n                            edge0_attrs[\"keywords\"].extend(edge1_attrs[\"keywords\"])\n                            edge0_attrs[\"keywords\"] = sorted(set(edge0_attrs[\"keywords\"]))\n                        \n                        if isinstance(edge0_attrs.get(\"source_id\"), list) and isinstance(edge1_attrs.get(\"source_id\"), list):\n                            edge0_attrs[\"source_id\"].extend(edge1_attrs[\"source_id\"])\n                            edge0_attrs[\"source_id\"] = sorted(set(edge0_attrs[\"source_id\"]))\n```",
+          "path": "graphrag/general/extractor.py",
+          "side": "right",
+          "from_line": 216,
+          "to_line": 219,
+          "file_semantic_match": false
+        },
+        {
+          "note": "The change replaces concurrent edge deletion (via `nursery.start_soon`) with sequential execution (via `await trio.to_thread.run_sync`), causing unnecessary performance degradation when removing multiple edges.",
+          "path": "graphrag/utils.py",
+          "side": "right",
+          "from_line": 442,
+          "to_line": 442,
+          "file_semantic_match": false
+        }
+      ],
+      "generated_comments": [
+        {
+          "note": "Late-bound loop variable makes merge tasks target the wrong component\nThe changed line now allows the loop to reach `nursery.start_soon`, but the scheduled lambda closes over the loop-local `merging_nodes` instead of binding its current value. Python closures resolve that variable when the lambda executes. If multiple tasks begin after the loop advances, they all receive the final component rather than their respective components.\nImpact: When `connect_graph` has at least two connected components and the nursery tasks execute after the loop has advanced, the earlier components are never passed to `_merge_graph_nodes`, while the final component is processed multiple times. Entity resolution therefore leaves mergeable nodes unmerged and may concurrently repeat mutations for the final component.\nFix: Pass the arguments directly, e.g. `nursery.start_soon(self._merge_graph_nodes, graph, merging_nodes, change)`, or bind the value in the lambda with a default argument.",
+          "path": "graphrag/entity_resolution.py",
+          "from_line": 114,
+          "to_line": 114,
+          "matched_gt_indices": [
+            1
+          ],
+          "judge_reason": "1. No match — ref is about `nx.connected_components` returning sets (no `.nodes`), whereas generated is about closure/late-binding in the lambda passed to `start_soon`.\n2. Match — both identify the lambda capturing `merging_nodes` by reference in the loop, causing all tasks to use the last component; both suggest binding via default arg or passing args directly.\n\n[2]",
+          "hit_new_gt": true
+        }
+      ]
+    },
+    {
+      "instance_id": "linera-io__linera-protocol@8fb32bb",
+      "repo": "linera-io/linera-protocol",
+      "comments": [
+        {
+          "note": "The doc comment uses lowercase for \"prometheus\" and \"linera\"; capitalize as proper nouns since they refer to specific projects.",
+          "path": "linera-base/src/prometheus_util.rs",
+          "side": "right",
+          "from_line": 25,
+          "to_line": 25,
+          "file_semantic_match": false
+        }
+      ],
+      "generated_comments": []
+    },
+    {
+      "instance_id": "cline__cline@cb4d5c9",
+      "repo": "cline/cline",
+      "comments": [
+        {
+          "note": "The condition for Azure API shape detection was incorrectly modified to check the base URL for 'deepseek'; it should verify 'azure.com' in the base URL while excluding DeepSeek models via the model ID to prevent duplicated logic.",
+          "path": "src/api/providers/openai.ts",
+          "side": "right",
+          "from_line": 17,
+          "to_line": 17,
+          "file_semantic_match": false
+        },
+        {
+          "note": "**Duplicate code**: The condition `modelId.includes(\"deepseek-reasoner\") || modelId.includes(\"deepseek-r1\")` is duplicated across multiple provider files (openai.ts, deepseek.ts, qwen.ts, together.ts, requesty.ts). Consider extracting this into a shared utility function to improve maintainability.\n\nExample:\n```typescript\n// In a shared utils file\nexport const isDeepSeekReasonerModel = (modelId: string): boolean => {\n  return modelId.includes(\"deepseek-reasoner\") || modelId.includes(\"deepseek-r1\");\n};\n```",
+          "path": "src/api/providers/openai.ts",
+          "side": "right",
+          "from_line": 39,
+          "to_line": 39,
+          "file_semantic_match": false
+        },
+        {
+          "note": "Model checks using substring `includes` can create false positives (e.g., custom model names that contain these tokens). If model IDs are known, prefer exact match or a small set/regex anchored to expected patterns. Also consider normalizing case once (model IDs can sometimes be mixed-case).\n\n```suggestion\n\t\tconst normalizedModelId = modelId.toLowerCase()\n\t\tconst isDeepseekReasoner =\n\t\t\tnormalizedModelId === \"deepseek-reasoner\" || normalizedModelId === \"deepseek-r1\"\n```",
+          "path": "src/api/providers/openai.ts",
+          "side": "right",
+          "from_line": 39,
+          "to_line": 39,
+          "file_semantic_match": false
+        }
+      ],
+      "generated_comments": []
+    }
+  ]
+}

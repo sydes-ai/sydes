@@ -1,0 +1,32 @@
+{
+  "version": 1,
+  "aacr": {
+    "repo": "alibaba/aacr-bench",
+    "clone_url": "https://github.com/alibaba/aacr-bench.git",
+    "commit": "ee9d7fef70ef31acea2ff7ae316ce0a9575fe4df",
+    "licence": "Apache-2.0",
+    "dataset": "dataset/positive_samples.json",
+    "reader": "ocr",
+    "line_k": 1,
+    "eval_rounds": 1,
+    "python": "3.11",
+    "note": "OpenQodex's published AACR numbers were judged at 68a569759289a83654a59d06db2a72910edf0a4a (legacy per-comment scoring was the default there); the same legacy scoring is produced here with --use-deprecated-score."
+  },
+  "judge": {
+    "model": "gpt-5.2",
+    "why": "The judge model OpenQodex used for its AACR board, so judgments are comparable.",
+    "relay": "adapter/judge_relay.py drops chat_template_kwargs, temperature and top_p and renames max_tokens to max_completion_tokens, as OpenQodex's relay does."
+  },
+  "sydes": {
+    "package": "sydes==0.4.0",
+    "model": "openai:gpt-5.6-sol",
+    "args": ["--llm-policy", "auto", "--impact-guide", "auto", "--code-review"],
+    "timeout_minutes": 45
+  },
+  "openqodex_split": {
+    "repo": "openqodex/openqodex",
+    "commit": "92d2063",
+    "file": "benchmark/splits/aacr-v1.json",
+    "licence": "Apache-2.0"
+  }
+}

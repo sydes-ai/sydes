@@ -1,0 +1,19 @@
+{
+  "run": "baseline-r3",
+  "cases_file": "benchmarks/aacr/cases/dev-smoke-supported.json",
+  "sydes": {
+    "package": "sydes==0.4.0",
+    "model": "openai:gpt-5.6-sol",
+    "args": [
+      "--llm-policy",
+      "auto",
+      "--impact-guide",
+      "auto",
+      "--code-review"
+    ],
+    "timeout_minutes": 45
+  },
+  "aacr_commit": "ee9d7fef70ef31acea2ff7ae316ce0a9575fe4df",
+  "boundary": "code_findings",
+  "started_at": "2026-10-26T01:10:40Z"
+}

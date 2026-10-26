@@ -1,0 +1,22 @@
+{
+  "instance_id": "infiniflow__ragflow@a63caa1",
+  "reviewer": "sydes",
+  "boundary": "code_findings",
+  "status": "completed",
+  "duration_seconds": 202.2,
+  "review": {
+    "comments": [
+      {
+        "path": "graphrag/entity_resolution.py",
+        "start_line": 114,
+        "end_line": 114,
+        "content": "Late-bound loop variable makes merge tasks target the wrong component\nThe changed line now allows the loop to reach `nursery.start_soon`, but the scheduled lambda closes over the loop-local `merging_nodes` instead of binding its current value. Python closures resolve that variable when the lambda executes. If multiple tasks begin after the loop advances, they all receive the final component rather than their respective components.\nImpact: When `connect_graph` has at least two connected components and the nursery tasks execute after the loop has advanced, the earlier components are never passed to `_merge_graph_nodes`, while the final component is processed multiple times. Entity resolution therefore leaves mergeable nodes unmerged and may concurrently repeat mutations for the final component.\nFix: Pass the arguments directly, e.g. `nursery.start_soon(self._merge_graph_nodes, graph, merging_nodes, change)`, or bind the value in the lambda with a default argument.",
+        "severity": "P1"
+      }
+    ],
+    "summary": {
+      "input_tokens": 106057,
+      "output_tokens": 9849
+    }
+  }
+}

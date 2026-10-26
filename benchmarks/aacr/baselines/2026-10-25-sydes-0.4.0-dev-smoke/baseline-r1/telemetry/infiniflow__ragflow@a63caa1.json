@@ -1,0 +1,49 @@
+{
+  "case_id": "infiniflow__ragflow-6691",
+  "instance_id": "infiniflow__ragflow@a63caa1",
+  "language": "Python",
+  "status": "completed",
+  "wall_seconds": 231.6,
+  "review_base": "e2b66628f4728aeda0c1db5aa8e75d5d6729f3db",
+  "review_base_info": {
+    "rule": "merge base (newest committer date, then smallest id)",
+    "merge_bases": [
+      "e2b66628f4728aeda0c1db5aa8e75d5d6729f3db"
+    ]
+  },
+  "code_review_status": "completed",
+  "code_findings": 1,
+  "not_submitted": {
+    "local_risks": 3,
+    "affected_flows": 0
+  },
+  "llm_totals": {
+    "calls": 34,
+    "errors": 0,
+    "input_tokens": 109959,
+    "output_tokens": 11023,
+    "reasoning_tokens": 6419
+  },
+  "llm_calls_by_purpose": {
+    "pr_semantic_analysis": 1,
+    "route_discovery": 1,
+    "impact_guide": 8,
+    "boundary_reasoning": 1,
+    "code_review": 1,
+    "ai_recovery": 22
+  },
+  "cbm": {
+    "calls": 37,
+    "errors": 2,
+    "by_operation": {
+      "index_repository": 2,
+      "query_graph": 22,
+      "search_graph": 10,
+      "get_graph_schema": 1,
+      "trace_path": 2
+    },
+    "enrichment_requests": 3
+  },
+  "sydes_wall_seconds": 230.1,
+  "verdict": "VERIFICATION INCOMPLETE"
+}

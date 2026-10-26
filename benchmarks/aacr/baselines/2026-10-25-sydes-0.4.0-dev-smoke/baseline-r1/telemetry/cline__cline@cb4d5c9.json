@@ -1,0 +1,50 @@
+{
+  "case_id": "cline__cline-1808",
+  "instance_id": "cline__cline@cb4d5c9",
+  "language": "TypeScript",
+  "status": "completed",
+  "wall_seconds": 125.7,
+  "review_base": "283d7d6928755ce5f62827e25c437a7a77964549",
+  "review_base_info": {
+    "rule": "merge base (newest committer date, then smallest id)",
+    "merge_bases": [
+      "283d7d6928755ce5f62827e25c437a7a77964549"
+    ]
+  },
+  "code_review_status": "completed",
+  "code_findings": 0,
+  "not_submitted": {
+    "local_risks": 2,
+    "affected_flows": 0
+  },
+  "llm_totals": {
+    "calls": 27,
+    "errors": 0,
+    "input_tokens": 81495,
+    "output_tokens": 6694,
+    "reasoning_tokens": 3150
+  },
+  "llm_calls_by_purpose": {
+    "pr_semantic_analysis": 1,
+    "route_discovery": 1,
+    "impact_guide": 4,
+    "boundary_reasoning": 1,
+    "code_review": 1,
+    "ai_recovery": 19
+  },
+  "cbm": {
+    "calls": 24,
+    "errors": 1,
+    "by_operation": {
+      "index_repository": 2,
+      "query_graph": 14,
+      "search_graph": 4,
+      "get_graph_schema": 1,
+      "search_code": 2,
+      "trace_path": 1
+    },
+    "enrichment_requests": 4
+  },
+  "sydes_wall_seconds": 123.9,
+  "verdict": "VERIFICATION INCOMPLETE"
+}

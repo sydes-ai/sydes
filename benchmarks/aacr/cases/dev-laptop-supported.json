@@ -1,0 +1,274 @@
+{
+  "version": 1,
+  "subset": "openqodex aacr-v1 dev-laptop, Sydes-supported languages",
+  "rule": "OpenQodex's published subset, in its order, keeping only cases whose project_main_language is in supported_languages. No case is chosen by Sydes' results.",
+  "source": {
+    "aacr_dataset_sha256": "02c8561f1c3994a26f427d479b2a3f6e6c8e6858161fbc903b45248fa2cb2097",
+    "split_file_sha256": "edf0f4863eb81a3004d9319cb4fa8cea7085466c5774b6ad51567aff642585f4",
+    "split_name": "aacr-v1",
+    "split_dataset_revision": "68a569759289a83654a59d06db2a72910edf0a4a",
+    "supported_languages": [
+      "Python",
+      "TypeScript",
+      "JavaScript",
+      "Java",
+      "Go",
+      "Rust"
+    ]
+  },
+  "cases": [
+    {
+      "case_id": "browser-use__browser-use-1482",
+      "instance_id": "browser-use__browser-use@0b21e50",
+      "repo": "browser-use/browser-use",
+      "pr": 1482,
+      "pr_url": "https://github.com/browser-use/browser-use/pull/1482",
+      "language": "Python",
+      "base_commit": "fa461585f1fc2d4a430e68e6c115a12f4936fe73",
+      "head_commit": "0b21e50ca640581ecd46990475c8b223eaa05045",
+      "change_line_count": 133
+    },
+    {
+      "case_id": "browser-use__browser-use-3172",
+      "instance_id": "browser-use__browser-use@72f1585",
+      "repo": "browser-use/browser-use",
+      "pr": 3172,
+      "pr_url": "https://github.com/browser-use/browser-use/pull/3172",
+      "language": "Python",
+      "base_commit": "e85a547378b236c9788802d28e816f10940a7e53",
+      "head_commit": "72f1585f9add5b72e829eaee3b5bff684e0b08d3",
+      "change_line_count": 324
+    },
+    {
+      "case_id": "cline__cline-1808",
+      "instance_id": "cline__cline@cb4d5c9",
+      "repo": "cline/cline",
+      "pr": 1808,
+      "pr_url": "https://github.com/cline/cline/pull/1808",
+      "language": "TypeScript",
+      "base_commit": "4d8bdf29458db722a2bce1dfacc50771959b32fa",
+      "head_commit": "cb4d5c90460885942cbbae0298b95f4ee5682086",
+      "change_line_count": 11
+    },
+    {
+      "case_id": "dbeaver__dbeaver-37564",
+      "instance_id": "dbeaver__dbeaver@bc3ac7b",
+      "repo": "dbeaver/dbeaver",
+      "pr": 37564,
+      "pr_url": "https://github.com/dbeaver/dbeaver/pull/37564",
+      "language": "Java",
+      "base_commit": "24ad3c4030412df3d9c843c405e90a0b1e2ad5dd",
+      "head_commit": "bc3ac7bb47092a934b344791d8aa3a1c41e6c8f7",
+      "change_line_count": 22
+    },
+    {
+      "case_id": "dbeaver__dbeaver-38239",
+      "instance_id": "dbeaver__dbeaver@ed40132",
+      "repo": "dbeaver/dbeaver",
+      "pr": 38239,
+      "pr_url": "https://github.com/dbeaver/dbeaver/pull/38239",
+      "language": "Java",
+      "base_commit": "1df2fe97207fe1346ca92ea9c41dd3fd13303001",
+      "head_commit": "ed40132dcb3c6ab5502056b7de0e47c0858ec016",
+      "change_line_count": 90
+    },
+    {
+      "case_id": "dbeaver__dbeaver-38915",
+      "instance_id": "dbeaver__dbeaver@8224826",
+      "repo": "dbeaver/dbeaver",
+      "pr": 38915,
+      "pr_url": "https://github.com/dbeaver/dbeaver/pull/38915",
+      "language": "Java",
+      "base_commit": "8793ec7a6c71aa503b1dc492ddb4e982a8f3e9d9",
+      "head_commit": "8224826969254a49e68e025cae82d3cf1574de38",
+      "change_line_count": 130
+    },
+    {
+      "case_id": "facebook__react-32499",
+      "instance_id": "facebook__react@b045f18",
+      "repo": "facebook/react",
+      "pr": 32499,
+      "pr_url": "https://github.com/facebook/react/pull/32499",
+      "language": "JavaScript",
+      "base_commit": "99563e91736e9de473c4865d5cb6fd9eb1a26bcb",
+      "head_commit": "b045f18e378341876ee69e729fc855cab501c3cd",
+      "change_line_count": 599
+    },
+    {
+      "case_id": "facebook__react-33059",
+      "instance_id": "facebook__react@be58f26",
+      "repo": "facebook/react",
+      "pr": 33059,
+      "pr_url": "https://github.com/facebook/react/pull/33059",
+      "language": "JavaScript",
+      "base_commit": "88b976740467f9dfabae03c79a8eff9033c35050",
+      "head_commit": "be58f26f9a6e579d8df36d901a59249d9ac1393f",
+      "change_line_count": 31
+    },
+    {
+      "case_id": "gofr-dev__gofr-1325",
+      "instance_id": "gofr-dev__gofr@b9cdcbb",
+      "repo": "gofr-dev/gofr",
+      "pr": 1325,
+      "pr_url": "https://github.com/gofr-dev/gofr/pull/1325",
+      "language": "Go",
+      "base_commit": "7f1760b083ea23ffd95fdf83467bdfa21735df81",
+      "head_commit": "b9cdcbb2b9fc78499d15d51ffbb7c861592b0efe",
+      "change_line_count": 215
+    },
+    {
+      "case_id": "google-gemini__gemini-cli-8154",
+      "instance_id": "google-gemini__gemini-cli@0fa1bd7",
+      "repo": "google-gemini/gemini-cli",
+      "pr": 8154,
+      "pr_url": "https://github.com/google-gemini/gemini-cli/pull/8154",
+      "language": "TypeScript",
+      "base_commit": "5a05fb0dd002481343aaab7736a871904bb07c6f",
+      "head_commit": "0fa1bd7ac417366f321ed2554caeaef550321959",
+      "change_line_count": 405
+    },
+    {
+      "case_id": "immich-app__immich-16893",
+      "instance_id": "immich-app__immich@d38f1f5",
+      "repo": "immich-app/immich",
+      "pr": 16893,
+      "pr_url": "https://github.com/immich-app/immich/pull/16893",
+      "language": "TypeScript",
+      "base_commit": "c664d99a348999d16cda45a8dd57db436b8f9fba",
+      "head_commit": "d38f1f55f42d600d05058e70d6ccee9679623591",
+      "change_line_count": 125
+    },
+    {
+      "case_id": "immich-app__immich-17879",
+      "instance_id": "immich-app__immich@b7a1255",
+      "repo": "immich-app/immich",
+      "pr": 17879,
+      "pr_url": "https://github.com/immich-app/immich/pull/17879",
+      "language": "TypeScript",
+      "base_commit": "b845184c80295603e3a02dfad84ff2755d417aff",
+      "head_commit": "b7a12558bc8e69c9c96b9a5b12f61f94689ea0e3",
+      "change_line_count": 213
+    },
+    {
+      "case_id": "immich-app__immich-18043",
+      "instance_id": "immich-app__immich@9032c7e",
+      "repo": "immich-app/immich",
+      "pr": 18043,
+      "pr_url": "https://github.com/immich-app/immich/pull/18043",
+      "language": "TypeScript",
+      "base_commit": "55f4e93456ab7415082e342af9ad5cabd52562a6",
+      "head_commit": "9032c7e021872a913e28de2e79bd9ab9806e7413",
+      "change_line_count": 253
+    },
+    {
+      "case_id": "juspay__hyperswitch-7353",
+      "instance_id": "juspay__hyperswitch@59ec03c",
+      "repo": "juspay/hyperswitch",
+      "pr": 7353,
+      "pr_url": "https://github.com/juspay/hyperswitch/pull/7353",
+      "language": "Rust",
+      "base_commit": "50cbe20ee1da0392f4f590bade9f866435356b87",
+      "head_commit": "59ec03ceef191dcada50380ec20cd843b80a87b6",
+      "change_line_count": 94
+    },
+    {
+      "case_id": "kestra-io__kestra-7191",
+      "instance_id": "kestra-io__kestra@0ec45f0",
+      "repo": "kestra-io/kestra",
+      "pr": 7191,
+      "pr_url": "https://github.com/kestra-io/kestra/pull/7191",
+      "language": "Java",
+      "base_commit": "bfcfb2ac16dd8f198a99fef43072cb178f9a1d8e",
+      "head_commit": "0ec45f028467c99d8d1efeee6c201210d9433e6d",
+      "change_line_count": 458
+    },
+    {
+      "case_id": "linera-io__linera-protocol-3151",
+      "instance_id": "linera-io__linera-protocol@8fb32bb",
+      "repo": "linera-io/linera-protocol",
+      "pr": 3151,
+      "pr_url": "https://github.com/linera-io/linera-protocol/pull/3151",
+      "language": "Rust",
+      "base_commit": "ad508025a9d05552a1c8ac1ba4e71a0062ebb556",
+      "head_commit": "8fb32bb8a463a3b19e291426f83833027739f868",
+      "change_line_count": 8
+    },
+    {
+      "case_id": "microsoft__typescript-go-1000",
+      "instance_id": "microsoft__typescript-go@45c0de9",
+      "repo": "microsoft/typescript-go",
+      "pr": 1000,
+      "pr_url": "https://github.com/microsoft/typescript-go/pull/1000",
+      "language": "Go",
+      "base_commit": "af2ba7365ad3e2f572ddb95a439b0220eccc06b1",
+      "head_commit": "45c0de96a08812aff07974b859bc2327e7fe25ed",
+      "change_line_count": 47
+    },
+    {
+      "case_id": "microsoft__typescript-go-691",
+      "instance_id": "microsoft__typescript-go@1a84d8d",
+      "repo": "microsoft/typescript-go",
+      "pr": 691,
+      "pr_url": "https://github.com/microsoft/typescript-go/pull/691",
+      "language": "Go",
+      "base_commit": "da4e121142cd3f891785b573a194b9caaaa01d55",
+      "head_commit": "1a84d8d5705df98fd1e1f81d9d3115a7a203509d",
+      "change_line_count": 92
+    },
+    {
+      "case_id": "mrdoob__three.js-30076",
+      "instance_id": "mrdoob__three.js@7388f60",
+      "repo": "mrdoob/three.js",
+      "pr": 30076,
+      "pr_url": "https://github.com/mrdoob/three.js/pull/30076",
+      "language": "JavaScript",
+      "base_commit": "1fc010cb7bd1e17d94c1a33ba8dacdf9e34193cb",
+      "head_commit": "7388f600209ce8a98f7211cd0e93a170b6e98d61",
+      "change_line_count": 151
+    },
+    {
+      "case_id": "ollama__ollama-8938",
+      "instance_id": "ollama__ollama@c2d08dd",
+      "repo": "ollama/ollama",
+      "pr": 8938,
+      "pr_url": "https://github.com/ollama/ollama/pull/8938",
+      "language": "Go",
+      "base_commit": "f53f4198c36d0a943de598ad91a20baa9481c5c5",
+      "head_commit": "c2d08dd67a9bcf15e52a2f15b1fad888afffcd32",
+      "change_line_count": 24
+    },
+    {
+      "case_id": "ollama__ollama-9654",
+      "instance_id": "ollama__ollama@498792c",
+      "repo": "ollama/ollama",
+      "pr": 9654,
+      "pr_url": "https://github.com/ollama/ollama/pull/9654",
+      "language": "Go",
+      "base_commit": "56dc316a57f07fbed80723d1ecd589da0906018e",
+      "head_commit": "498792c9be023ebfdaa1e0dbc6ac85c0ff8c75b1",
+      "change_line_count": 776
+    },
+    {
+      "case_id": "ollama__ollama-9746",
+      "instance_id": "ollama__ollama@2ed14f2",
+      "repo": "ollama/ollama",
+      "pr": 9746,
+      "pr_url": "https://github.com/ollama/ollama/pull/9746",
+      "language": "Go",
+      "base_commit": "4ea4d2b18952a104a47079df00ac0bfe4706f3aa",
+      "head_commit": "2ed14f2a28867c017426b41a9ff6bfc52c981a43",
+      "change_line_count": 716
+    },
+    {
+      "case_id": "vllm-project__vllm-19756",
+      "instance_id": "vllm-project__vllm@3fe1893",
+      "repo": "vllm-project/vllm",
+      "pr": 19756,
+      "pr_url": "https://github.com/vllm-project/vllm/pull/19756",
+      "language": "Python",
+      "base_commit": "c3bf9bad11193ee684ed6083b6692d0b5bf2bac7",
+      "head_commit": "3fe18934d7f33b98812d7402463fe171c24efc77",
+      "change_line_count": 51
+    }
+  ]
+}

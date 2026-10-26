@@ -1,0 +1,54 @@
+{
+  "version": 1,
+  "subset": "openqodex aacr-v1 dev-smoke, Sydes-supported languages",
+  "rule": "OpenQodex's published subset, in its order, keeping only cases whose project_main_language is in supported_languages. No case is chosen by Sydes' results.",
+  "source": {
+    "aacr_dataset_sha256": "02c8561f1c3994a26f427d479b2a3f6e6c8e6858161fbc903b45248fa2cb2097",
+    "split_file_sha256": "edf0f4863eb81a3004d9319cb4fa8cea7085466c5774b6ad51567aff642585f4",
+    "split_name": "aacr-v1",
+    "split_dataset_revision": "68a569759289a83654a59d06db2a72910edf0a4a",
+    "supported_languages": [
+      "Python",
+      "TypeScript",
+      "JavaScript",
+      "Java",
+      "Go",
+      "Rust"
+    ]
+  },
+  "cases": [
+    {
+      "case_id": "cline__cline-1808",
+      "instance_id": "cline__cline@cb4d5c9",
+      "repo": "cline/cline",
+      "pr": 1808,
+      "pr_url": "https://github.com/cline/cline/pull/1808",
+      "language": "TypeScript",
+      "base_commit": "4d8bdf29458db722a2bce1dfacc50771959b32fa",
+      "head_commit": "cb4d5c90460885942cbbae0298b95f4ee5682086",
+      "change_line_count": 11
+    },
+    {
+      "case_id": "infiniflow__ragflow-6691",
+      "instance_id": "infiniflow__ragflow@a63caa1",
+      "repo": "infiniflow/ragflow",
+      "pr": 6691,
+      "pr_url": "https://github.com/infiniflow/ragflow/pull/6691",
+      "language": "Python",
+      "base_commit": "0a42e5777eb966b26aaf8f2a7d593ae99a4aa87a",
+      "head_commit": "a63caa1087852ada98964678be26b7c4d8363af6",
+      "change_line_count": 11
+    },
+    {
+      "case_id": "linera-io__linera-protocol-3151",
+      "instance_id": "linera-io__linera-protocol@8fb32bb",
+      "repo": "linera-io/linera-protocol",
+      "pr": 3151,
+      "pr_url": "https://github.com/linera-io/linera-protocol/pull/3151",
+      "language": "Rust",
+      "base_commit": "ad508025a9d05552a1c8ac1ba4e71a0062ebb556",
+      "head_commit": "8fb32bb8a463a3b19e291426f83833027739f868",
+      "change_line_count": 8
+    }
+  ]
+}

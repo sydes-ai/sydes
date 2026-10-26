@@ -1,0 +1,95 @@
+{
+  "run": "baseline-r3",
+  "metrics_file_level": {
+    "total_instances": 3,
+    "candidate_instances": 3,
+    "evaluated_instances": 3,
+    "missing_instances": 0,
+    "expected_notes": 10,
+    "generated_notes": 0,
+    "total_duration_seconds": 425.8,
+    "avg_duration_seconds": 141.93,
+    "total_input_tokens": 237639,
+    "total_output_tokens": 21111,
+    "total_tokens": 258750,
+    "avg_input_tokens": 79213,
+    "avg_output_tokens": 7037,
+    "matched_generated_notes": 0,
+    "matched_file_semantic_notes": 0,
+    "file_semantic_match_rate": 0.0,
+    "file_semantic_recall_rate": 0.0,
+    "balanced_score": 0.0
+  },
+  "metrics_legacy": {
+    "total_instances": 3,
+    "candidate_instances": 3,
+    "evaluated_instances": 3,
+    "missing_instances": 0,
+    "expected_notes": 10,
+    "generated_notes": 0,
+    "total_duration_seconds": 425.8,
+    "avg_duration_seconds": 141.93,
+    "total_input_tokens": 237639,
+    "total_output_tokens": 21111,
+    "total_tokens": 258750,
+    "avg_input_tokens": 79213,
+    "avg_output_tokens": 7037,
+    "matched_line_notes": 0,
+    "matched_semantic_notes": 0,
+    "semantic_match_rate": 0.0,
+    "line_match_rate": 0.0,
+    "semantic_recall_rate": 0.0,
+    "line_recall_rate": 0.0,
+    "semantic_f1": 0.0,
+    "line_f1": 0.0
+  },
+  "cases": [
+    {
+      "case_id": "cline__cline-1808",
+      "language": "TypeScript",
+      "status": "completed",
+      "wall_seconds": 95.8,
+      "code_findings": 0,
+      "code_review_status": "completed"
+    },
+    {
+      "case_id": "infiniflow__ragflow-6691",
+      "language": "Python",
+      "status": "completed",
+      "wall_seconds": 245.2,
+      "code_findings": 0,
+      "code_review_status": "completed"
+    },
+    {
+      "case_id": "linera-io__linera-protocol-3151",
+      "language": "Rust",
+      "status": "completed",
+      "wall_seconds": 84.8,
+      "code_findings": 0,
+      "code_review_status": "completed"
+    }
+  ],
+  "per_pr": {
+    "wall_seconds": 141.9,
+    "llm_calls": 26.3,
+    "input_tokens": 79213,
+    "output_tokens": 7037,
+    "estimated_cost_usd": "unavailable (set SYDES_AACR_PRICE_IN/OUT)",
+    "llm_calls_by_purpose": {
+      "pr_semantic_analysis": 3,
+      "route_discovery": 3,
+      "impact_guide": 12,
+      "boundary_reasoning": 3,
+      "code_review": 3,
+      "ai_recovery": 55
+    }
+  },
+  "findings_submitted": 0,
+  "judge": {
+    "model": "gpt-5.2",
+    "calls": 0,
+    "errors": 0,
+    "input_tokens": 0,
+    "output_tokens": 0
+  }
+}
