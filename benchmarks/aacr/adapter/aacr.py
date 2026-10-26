@@ -180,8 +180,14 @@ def review(cases_file: Path, run: str, only: list[str] | None = None, sydes_ref:
         sydes = json.loads(result_json.read_text()) if result_json.exists() else None
         (out / "aacr" / f"{sid}.json").write_text(json.dumps(
             to_aacr_result(case["instance_id"], sydes, duration_seconds=elapsed, status=status), indent=2) + "\n")
-        (out / "telemetry" / f"{sid}.json").write_text(json.dumps(
-            telemetry(case, base, base_info, status, elapsed, sydes), indent=2) + "\n")
+        tele = telemetry(case, base, base_info, status, elapsed, sydes)
+        sidecar = result_json.with_name(result_json.stem + ".investigation.json")
+        if sidecar.exists():  # written by `--investigator`; summarised here, kept in full beside the result
+            art = json.loads(sidecar.read_text())
+            tele["investigation"] = {"hypotheses": len(art.get("hypotheses") or []), "lookups": len(art.get("lookups") or []),
+                                     "confirmed": len(art.get("confirmed") or []), "refuted": len(art.get("refuted") or []),
+                                     "unknown": len(art.get("unknown") or []), "usage": art.get("usage")}
+        (out / "telemetry" / f"{sid}.json").write_text(json.dumps(tele, indent=2) + "\n")
         print(f"  {status} in {elapsed:.0f}s, {len((sydes or {}).get('code_findings') or [])} finding(s)")
 
 

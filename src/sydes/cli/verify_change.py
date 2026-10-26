@@ -110,6 +110,17 @@ def verify_change_command(
             help="Run the advisory LLM code-findings pass (off by default; never affects the verdict).",
         ),
     ] = False,
+    investigator: Annotated[
+        bool,
+        typer.Option(
+            "--investigator",
+            help=(
+                "Experimental: run code review as an evidence-constrained Finder -> Investigator -> "
+                "Verifier; only CONFIRMED hypotheses become findings. Implies --code-review. With "
+                "--json, the investigation is written beside it as <name>.investigation.json."
+            ),
+        ),
+    ] = False,
     llm_policy: Annotated[
         Literal["auto", "never"],
         typer.Option(
@@ -448,7 +459,10 @@ def verify_change_command(
         checked_behavior_preamble=checked_preamble,
         base=base,
         include_working_tree=not no_working_tree,
-        code_review=code_review,
+        code_review=code_review or investigator,
+        investigator=investigator,
+        investigation_out=(json_output.with_name(json_output.stem + ".investigation.json")
+                           if investigator and json_output is not None else None),
         llm_policy=llm_policy,
         model_spec=model,
         run_tests=not no_run_tests,
