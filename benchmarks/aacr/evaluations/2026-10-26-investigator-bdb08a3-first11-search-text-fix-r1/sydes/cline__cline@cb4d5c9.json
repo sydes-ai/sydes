@@ -1,0 +1,788 @@
+{
+  "version": "v3",
+  "kind": "sydes_change_verification",
+  "generated_at": "2026-10-26T18:36:14.158023+00:00",
+  "change": {
+    "base": "283d7d6928755ce5f62827e25c437a7a77964549",
+    "head": "cb4d5c90460885942cbbae0298b95f4ee5682086",
+    "merge_base": "283d7d6928755ce5f62827e25c437a7a77964549",
+    "repos": [
+      {
+        "name": "app",
+        "root": "/Users/ksnaik/.cache/sydes-aacr/repos/cline__cline"
+      }
+    ],
+    "includes_working_tree": false,
+    "files": [
+      {
+        "repo": "app",
+        "path": ".changeset/hot-pens-own.md",
+        "old_path": null,
+        "change_type": "added",
+        "role": "docs_candidate",
+        "added_lines": 5,
+        "removed_lines": 0,
+        "hunks": [
+          {
+            "start_line": 1,
+            "end_line": 5
+          }
+        ],
+        "symbols": [],
+        "binary": false
+      },
+      {
+        "repo": "app",
+        "path": "src/api/providers/deepseek.ts",
+        "old_path": null,
+        "change_type": "modified",
+        "role": "source_route_candidate",
+        "added_lines": 1,
+        "removed_lines": 1,
+        "hunks": [
+          {
+            "start_line": 26,
+            "end_line": 26
+          }
+        ],
+        "symbols": [
+          "app:src/api/providers/deepseek.ts:DeepSeekHandler.createMessage"
+        ],
+        "binary": false
+      },
+      {
+        "repo": "app",
+        "path": "src/api/providers/openai.ts",
+        "old_path": null,
+        "change_type": "modified",
+        "role": "source_route_candidate",
+        "added_lines": 7,
+        "removed_lines": 2,
+        "hunks": [
+          {
+            "start_line": 17,
+            "end_line": 22
+          },
+          {
+            "start_line": 39,
+            "end_line": 39
+          }
+        ],
+        "symbols": [
+          "app:src/api/providers/openai.ts:OpenAiHandler.constructor",
+          "app:src/api/providers/openai.ts:OpenAiHandler.createMessage"
+        ],
+        "binary": false
+      }
+    ],
+    "symbols": [
+      {
+        "id": "app:src/api/providers/deepseek.ts:DeepSeekHandler.createMessage",
+        "repo": "app",
+        "file": "src/api/providers/deepseek.ts",
+        "name": "createMessage",
+        "qualified_name": "DeepSeekHandler.createMessage",
+        "cbm_qualified_name": "Users-ksnaik-.cache-sydes-aacr-repos-cline__cline.src.api.providers.deepseek.DeepSeekHandler.createMessage",
+        "kind": "class_method",
+        "language": "typescript",
+        "start_line": 23,
+        "end_line": 75,
+        "change_type": "modified",
+        "changed_lines": 1,
+        "decorators": []
+      },
+      {
+        "id": "app:src/api/providers/openai.ts:OpenAiHandler.constructor",
+        "repo": "app",
+        "file": "src/api/providers/openai.ts",
+        "name": "constructor",
+        "qualified_name": "OpenAiHandler.constructor",
+        "cbm_qualified_name": "Users-ksnaik-.cache-sydes-aacr-repos-cline__cline.src.api.providers.openai.OpenAiHandler.constructor",
+        "kind": "class_method",
+        "language": "typescript",
+        "start_line": 14,
+        "end_line": 34,
+        "change_type": "modified",
+        "changed_lines": 6,
+        "decorators": []
+      },
+      {
+        "id": "app:src/api/providers/openai.ts:OpenAiHandler.createMessage",
+        "repo": "app",
+        "file": "src/api/providers/openai.ts",
+        "name": "createMessage",
+        "qualified_name": "OpenAiHandler.createMessage",
+        "cbm_qualified_name": "Users-ksnaik-.cache-sydes-aacr-repos-cline__cline.src.api.providers.openai.OpenAiHandler.createMessage",
+        "kind": "class_method",
+        "language": "typescript",
+        "start_line": 37,
+        "end_line": 81,
+        "change_type": "modified",
+        "changed_lines": 1,
+        "decorators": []
+      }
+    ],
+    "notes": []
+  },
+  "summary": {
+    "risk": "MEDIUM",
+    "verdict": "VERIFICATION INCOMPLETE",
+    "headline": "3 changed symbol(s); no route flow resolved to them.",
+    "counts": {
+      "changed_files": 3,
+      "changed_source_files": 2,
+      "changed_test_files": 0,
+      "changed_symbols": 3,
+      "affected_flows": 0,
+      "flows_partially_analyzed": 0,
+      "code_findings": 0,
+      "obligations": 0,
+      "obligations_introduced_by_change": 0,
+      "obligations_passed": 0,
+      "obligations_failed": 0,
+      "obligations_unverified": 0,
+      "obligations_unknown": 0,
+      "mapped_tests": 0,
+      "supporting_tests": 0,
+      "tests_exercising_flows": 0,
+      "tests_supporting_behavior": 0,
+      "tests_verifying_behavior": 0,
+      "changed_test_cases": 0,
+      "tests_executed": 0,
+      "verification_gaps": 0,
+      "runtime_dependencies": 0,
+      "cross_repo_impacts": 0,
+      "impacts_proven": 2,
+      "impacts_inferred": 2,
+      "impacts_not_modeled": 4,
+      "unresolved_changed_symbols": 1
+    },
+    "risk_reasons": [
+      "change could not be tied to any verifiable behavior"
+    ]
+  },
+  "code_review_status": "completed",
+  "code_findings": [],
+  "accepted_impacts": [
+    {
+      "id": "impact:app:Users-ksnaik-.cache-sydes-aacr-repos-cline__cline.src.api.providers.deepseek.DeepSeekHandler.createMessage",
+      "label": "DeepSeekHandler.createMessage",
+      "repo": "app",
+      "kind": "decorated",
+      "status": "proven",
+      "changed_symbols": [
+        "createMessage"
+      ],
+      "route_method": null,
+      "route_path": null,
+      "llm_confidence": null,
+      "llm_reason": null,
+      "llm_inference_type": null,
+      "llm_uncertainty": null,
+      "corroborated": null,
+      "behavior_label": "",
+      "verification_model_status": "unsupported_or_partial",
+      "provenance": "structural"
+    },
+    {
+      "id": "impact:app:Users-ksnaik-.cache-sydes-aacr-repos-cline__cline.src.api.providers.openai.OpenAiHandler.createMessage",
+      "label": "OpenAiHandler.createMessage",
+      "repo": "app",
+      "kind": "decorated",
+      "status": "proven",
+      "changed_symbols": [
+        "createMessage"
+      ],
+      "route_method": null,
+      "route_path": null,
+      "llm_confidence": null,
+      "llm_reason": null,
+      "llm_inference_type": null,
+      "llm_uncertainty": null,
+      "corroborated": null,
+      "behavior_label": "",
+      "verification_model_status": "unsupported_or_partial",
+      "provenance": "structural"
+    },
+    {
+      "id": "impact:app:constructor",
+      "label": "message requests through DeepSeek-compatible base URLs",
+      "repo": "app",
+      "kind": "unknown",
+      "status": "inferred",
+      "changed_symbols": [
+        "constructor"
+      ],
+      "route_method": null,
+      "route_path": null,
+      "llm_confidence": 0.88,
+      "llm_reason": "OpenAiHandler instances configured with a base URL containing \"deepseek\" now construct the core OpenAI client with that base URL and API key, so downstream createMessage requests may use a different request shape, endpoint routing, or authentication than Azure-backed instances.",
+      "llm_inference_type": "semantic_indirect_dependency",
+      "llm_uncertainty": "The complete constructor branches and runtime handler-instantiation paths were not shown, so the exact request-level difference is unknown.",
+      "corroborated": false,
+      "behavior_label": "message requests through DeepSeek-compatible base URLs",
+      "verification_model_status": "unsupported_or_partial",
+      "provenance": "structural"
+    },
+    {
+      "id": "impact:app:createMessage",
+      "label": "message generation through DeepSeek-compatible base URLs",
+      "repo": "app",
+      "kind": "unknown",
+      "status": "inferred",
+      "changed_symbols": [
+        "(whole change)"
+      ],
+      "route_method": null,
+      "route_path": null,
+      "llm_confidence": 0.88,
+      "llm_reason": "Message creation configured with an OpenAI base URL containing \"deepseek\" may now send requests through the core OpenAI client rather than the Azure-shaped client, changing request compatibility and whether generation succeeds against DeepSeek endpoints.",
+      "llm_inference_type": "semantic_pr_wide_theme",
+      "llm_uncertainty": "The preview is truncated, so the constructor's enclosing handler and the exact differences in request construction are not shown.",
+      "corroborated": false,
+      "behavior_label": "message generation through DeepSeek-compatible base URLs",
+      "verification_model_status": "unsupported_or_partial",
+      "provenance": "structural"
+    }
+  ],
+  "pr_semantic_analysis": {
+    "origin": "llm_hypothesis",
+    "change_summary": "DeepSeek compatibility is broadened in two ways: OpenAI-compatible endpoints whose configured base URL contains \"deepseek\" now use the standard OpenAI SDK client even when the URL also looks Azure-hosted, and model IDs containing \"deepseek-r1\" are now classified like existing DeepSeek reasoner models in both provider handlers.",
+    "behavior_changes": [
+      {
+        "description": "When OpenAiHandler is configured with a base URL containing \"deepseek\" case-insensitively, it now constructs the standard OpenAI client. This check precedes the Azure-domain check, so a URL containing both \"deepseek\" and \"azure.com\" also takes the standard OpenAI client path rather than the AzureOpenAI path.",
+        "changed_symbols": [
+          "OpenAiHandler.constructor"
+        ],
+        "evidence": [
+          "The new DeepSeek URL branch constructs OpenAI and is evaluated before the existing Azure branch.",
+          "The release note describes the intended outcome as enabling DeepSeek use in Azure."
+        ],
+        "confidence": 0.98,
+        "citations": [
+          {
+            "file": "src/api/providers/openai.ts",
+            "line": 17,
+            "quoted_text": "\t\tif (this.options.openAiBaseUrl?.toLowerCase().includes(\"deepseek\")) {"
+          },
+          {
+            "file": "src/api/providers/openai.ts",
+            "line": 18,
+            "quoted_text": "\t\t\tthis.client = new OpenAI({"
+          },
+          {
+            "file": "src/api/providers/openai.ts",
+            "line": 22,
+            "quoted_text": "\t\t} else if (this.options.openAiBaseUrl?.toLowerCase().includes(\"azure.com\")) {"
+          },
+          {
+            "file": ".changeset/hot-pens-own.md",
+            "line": 5,
+            "quoted_text": "Fixed to be able to use DeepSeek in Azure."
+          }
+        ],
+        "citations_verified": 4,
+        "citation_notes": [
+          "citation confirmed near src/api/providers/openai.ts:17",
+          "citation confirmed near src/api/providers/openai.ts:18",
+          "citation confirmed near src/api/providers/openai.ts:22",
+          "citation confirmed near .changeset/hot-pens-own.md:5"
+        ]
+      },
+      {
+        "description": "Models whose IDs contain \"deepseek-r1\" are now classified as DeepSeek reasoner models by both DeepSeekHandler and OpenAiHandler, causing them to enter the same subsequent reasoner-specific handling as IDs containing \"deepseek-reasoner\".",
+        "changed_symbols": [
+          "DeepSeekHandler.createMessage",
+          "OpenAiHandler.createMessage"
+        ],
+        "evidence": [
+          "Both handlers extend the same reasoner-model predicate with the deepseek-r1 identifier."
+        ],
+        "confidence": 0.96,
+        "citations": [
+          {
+            "file": "src/api/providers/deepseek.ts",
+            "line": 26,
+            "quoted_text": "\t\tconst isDeepseekReasoner = model.id.includes(\"deepseek-reasoner\") || model.id.includes(\"deepseek-r1\")"
+          },
+          {
+            "file": "src/api/providers/openai.ts",
+            "line": 39,
+            "quoted_text": "\t\tconst isDeepseekReasoner = modelId.includes(\"deepseek-reasoner\") || modelId.includes(\"deepseek-r1\")"
+          }
+        ],
+        "citations_verified": 2,
+        "citation_notes": [
+          "citation confirmed near src/api/providers/deepseek.ts:26",
+          "citation confirmed near src/api/providers/openai.ts:39"
+        ]
+      }
+    ],
+    "important_symbols": [
+      {
+        "repo": "app",
+        "file": "src/api/providers/openai.ts",
+        "symbol": "OpenAiHandler.constructor",
+        "reason": "It controls which SDK client and API shape are selected from the configured base URL; branch precedence is central to the stated Azure DeepSeek compatibility change."
+      },
+      {
+        "repo": "app",
+        "file": "src/api/providers/openai.ts",
+        "symbol": "OpenAiHandler.createMessage",
+        "reason": "It expands reasoner-model recognition for OpenAI-compatible configurations to include deepseek-r1."
+      },
+      {
+        "repo": "app",
+        "file": "src/api/providers/deepseek.ts",
+        "symbol": "DeepSeekHandler.createMessage",
+        "reason": "It applies the same deepseek-r1 reasoner classification in the dedicated DeepSeek provider, so consistency between the two handlers matters."
+      },
+      {
+        "repo": "app",
+        "file": ".changeset/hot-pens-own.md",
+        "symbol": "release note",
+        "reason": "It records the intended user-facing purpose: making DeepSeek usable in Azure."
+      }
+    ],
+    "investigation_hints": [
+      {
+        "description": "Trace where OpenAiHandler is instantiated and how openAiBaseUrl is populated, especially for Azure-hosted DeepSeek deployments and URLs containing both identifying substrings.",
+        "related_symbols": [
+          "OpenAiHandler.constructor"
+        ],
+        "concepts": [
+          "provider selection",
+          "base URL configuration",
+          "SDK client selection",
+          "branch precedence"
+        ],
+        "likely_boundary_types": [
+          "callable",
+          "external"
+        ]
+      },
+      {
+        "description": "Inspect all uses of isDeepseekReasoner after these predicates to determine the exact message conversion, streaming, and response behavior now applied to deepseek-r1 models.",
+        "related_symbols": [
+          "DeepSeekHandler.createMessage",
+          "OpenAiHandler.createMessage"
+        ],
+        "concepts": [
+          "reasoning-model protocol",
+          "message normalization",
+          "stream handling",
+          "model aliases"
+        ],
+        "likely_boundary_types": [
+          "callable",
+          "external"
+        ]
+      },
+      {
+        "description": "Verify the OpenAI SDK's required client, authentication, URL, and API-version semantics for Azure-hosted DeepSeek endpoints; the code intentionally bypasses AzureOpenAI for matching URLs.",
+        "related_symbols": [
+          "OpenAiHandler.constructor"
+        ],
+        "concepts": [
+          "OpenAI SDK",
+          "Azure API shape",
+          "authentication",
+          "API versioning"
+        ],
+        "likely_boundary_types": [
+          "external"
+        ]
+      }
+    ],
+    "likely_boundary_types": [
+      "callable",
+      "external",
+      "api"
+    ],
+    "local_risks": [
+      {
+        "description": "Client selection relies on a broad substring and gives it precedence over the Azure-domain test. If an Azure-hosted DeepSeek endpoint actually requires the AzureOpenAI API shape, this branch would use the wrong client and could make requests fail or authenticate incorrectly; the required SDK semantics need verification.",
+        "severity": "P1",
+        "citations": [
+          {
+            "file": "src/api/providers/openai.ts",
+            "line": 16,
+            "quoted_text": "\t\t// Azure API shape slightly differs from the core API shape: https://github.com/openai/openai-node?tab=readme-ov-file#microsoft-azure-openai"
+          },
+          {
+            "file": "src/api/providers/openai.ts",
+            "line": 17,
+            "quoted_text": "\t\tif (this.options.openAiBaseUrl?.toLowerCase().includes(\"deepseek\")) {"
+          },
+          {
+            "file": "src/api/providers/openai.ts",
+            "line": 18,
+            "quoted_text": "\t\t\tthis.client = new OpenAI({"
+          },
+          {
+            "file": "src/api/providers/openai.ts",
+            "line": 22,
+            "quoted_text": "\t\t} else if (this.options.openAiBaseUrl?.toLowerCase().includes(\"azure.com\")) {"
+          }
+        ],
+        "citations_verified": 4,
+        "citation_notes": [
+          "citation confirmed near src/api/providers/openai.ts:16",
+          "citation confirmed near src/api/providers/openai.ts:17",
+          "citation confirmed near src/api/providers/openai.ts:18",
+          "citation confirmed near src/api/providers/openai.ts:22"
+        ]
+      },
+      {
+        "description": "The reasoner-model naming rule is duplicated across two handlers. The predicates currently agree, but they form a maintenance invariant: future alias changes must remain synchronized or the same model ID could receive different handling depending on provider selection.",
+        "severity": "P3",
+        "citations": [
+          {
+            "file": "src/api/providers/deepseek.ts",
+            "line": 26,
+            "quoted_text": "\t\tconst isDeepseekReasoner = model.id.includes(\"deepseek-reasoner\") || model.id.includes(\"deepseek-r1\")"
+          },
+          {
+            "file": "src/api/providers/openai.ts",
+            "line": 39,
+            "quoted_text": "\t\tconst isDeepseekReasoner = modelId.includes(\"deepseek-reasoner\") || modelId.includes(\"deepseek-r1\")"
+          }
+        ],
+        "citations_verified": 2,
+        "citation_notes": [
+          "citation confirmed near src/api/providers/deepseek.ts:26",
+          "citation confirmed near src/api/providers/openai.ts:39"
+        ]
+      }
+    ],
+    "uncertainties": [
+      "The supplied context does not identify any HTTP route or endpoint that invokes either createMessage implementation.",
+      "The supplied context does not show which provider-selection or factory callers instantiate OpenAiHandler with Azure-hosted DeepSeek settings.",
+      "It is not established whether any deployed configuration supplies an openAiBaseUrl containing \"deepseek\", or one containing both \"deepseek\" and \"azure.com\".",
+      "It is not established whether real configurations select model IDs containing the exact case-sensitive substring \"deepseek-r1\".",
+      "The diff does not establish whether Azure-hosted DeepSeek endpoints require the standard OpenAI client or AzureOpenAI client, including their authentication and API-version behavior."
+    ],
+    "uncertainty_items": [
+      {
+        "kind": "route_identity",
+        "text": "The supplied context does not identify any HTTP route or endpoint that invokes either createMessage implementation.",
+        "symbols": [
+          "DeepSeekHandler.createMessage",
+          "OpenAiHandler.createMessage"
+        ],
+        "resolved_by": null,
+        "established_context": null,
+        "scoped_text": null
+      },
+      {
+        "kind": "caller_reachability",
+        "text": "The supplied context does not show which provider-selection or factory callers instantiate OpenAiHandler with Azure-hosted DeepSeek settings.",
+        "symbols": [
+          "OpenAiHandler.constructor"
+        ],
+        "resolved_by": null,
+        "established_context": null,
+        "scoped_text": null
+      },
+      {
+        "kind": "runtime_condition",
+        "text": "It is not established whether any deployed configuration supplies an openAiBaseUrl containing \"deepseek\", or one containing both \"deepseek\" and \"azure.com\".",
+        "symbols": [
+          "OpenAiHandler.constructor"
+        ],
+        "resolved_by": null,
+        "established_context": null,
+        "scoped_text": null
+      },
+      {
+        "kind": "runtime_condition",
+        "text": "It is not established whether real configurations select model IDs containing the exact case-sensitive substring \"deepseek-r1\".",
+        "symbols": [
+          "DeepSeekHandler.createMessage",
+          "OpenAiHandler.createMessage"
+        ],
+        "resolved_by": null,
+        "established_context": null,
+        "scoped_text": null
+      },
+      {
+        "kind": "dependency_semantics",
+        "text": "The diff does not establish whether Azure-hosted DeepSeek endpoints require the standard OpenAI client or AzureOpenAI client, including their authentication and API-version behavior.",
+        "symbols": [
+          "OpenAiHandler.constructor"
+        ],
+        "resolved_by": null,
+        "established_context": null,
+        "scoped_text": null
+      }
+    ],
+    "verification_state": "verified",
+    "is_indeterminate": true,
+    "indeterminate_reason": "deployment_config_required",
+    "indeterminate_detail": "The observable effect depends on configured provider base URLs and model IDs, none of whose deployed values are supplied. The diff establishes the conditional mechanisms but not whether any real installation exercises them."
+  },
+  "affected_boundaries": [],
+  "composed_dispatch_edges": [],
+  "run_metrics": {
+    "llm_by_purpose": {
+      "pr_semantic_analysis": {
+        "calls": 1,
+        "errors": 0,
+        "input_tokens": 2760,
+        "output_tokens": 3345,
+        "reasoning_tokens": 1673,
+        "models": [
+          "gpt-5.6-sol"
+        ]
+      },
+      "route_discovery": {
+        "calls": 1,
+        "errors": 0,
+        "input_tokens": 9443,
+        "output_tokens": 53,
+        "reasoning_tokens": 0,
+        "models": [
+          "gpt-5.6-sol"
+        ]
+      },
+      "impact_guide": {
+        "calls": 4,
+        "errors": 0,
+        "input_tokens": 11543,
+        "output_tokens": 1140,
+        "reasoning_tokens": 694,
+        "models": [
+          "gpt-5.6-sol"
+        ]
+      },
+      "boundary_reasoning": {
+        "calls": 1,
+        "errors": 0,
+        "input_tokens": 2207,
+        "output_tokens": 97,
+        "reasoning_tokens": 81,
+        "models": [
+          "gpt-5.6-sol"
+        ]
+      },
+      "investigator": {
+        "calls": 18,
+        "errors": 0,
+        "input_tokens": 39769,
+        "output_tokens": 9818,
+        "reasoning_tokens": 6095,
+        "models": [
+          "gpt-5.6-sol"
+        ]
+      },
+      "ai_recovery": {
+        "calls": 25,
+        "errors": 0,
+        "input_tokens": 53783,
+        "output_tokens": 2188,
+        "reasoning_tokens": 991,
+        "models": [
+          "gpt-5.6-sol"
+        ]
+      }
+    },
+    "llm_totals": {
+      "calls": 50,
+      "errors": 0,
+      "input_tokens": 119505,
+      "output_tokens": 16641,
+      "reasoning_tokens": 9534
+    },
+    "cbm": {
+      "calls": 28,
+      "errors": 2,
+      "by_operation": {
+        "index_repository": 3,
+        "query_graph": 13,
+        "search_graph": 7,
+        "get_graph_schema": 1,
+        "search_code": 2,
+        "trace_path": 2
+      },
+      "enrichment_requests": 4
+    },
+    "wall_seconds": 294.2,
+    "tests": {
+      "environments": [],
+      "mapped_executions": 0,
+      "mapped_outcomes": {},
+      "ci_suite": {
+        "status": "unknown",
+        "blocker": "framework_unsupported",
+        "passed": null,
+        "failed": null
+      }
+    }
+  },
+  "framework_boundary_candidates": [
+    {
+      "category": "callback_registration",
+      "status": "unresolved",
+      "source_symbol": "?",
+      "via": "?",
+      "targets": [
+        "DeepSeekHandler.createMessage"
+      ],
+      "message_type": null,
+      "facts": [
+        {
+          "provenance": "cbm_entrypoint",
+          "fact": "DeepSeekHandler.createMessage is a reached entrypoint with decorator metadata and no route",
+          "file": "src/api/providers/deepseek.ts",
+          "line": null
+        },
+        {
+          "provenance": "cbm_inherits",
+          "fact": "DeepSeekHandler implements ApiHandler",
+          "file": "src/api/providers/deepseek.ts",
+          "line": null
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "api.buildApiHandler calls DeepSeekHandler",
+          "file": "src/api/index.ts",
+          "line": 52
+        },
+        {
+          "provenance": "cbm_configures",
+          "fact": "CBM records no CONFIGURES relation for DeepSeekHandler (CBM emits CONFIGURES for configuration keys and environment access, not registrations)",
+          "file": null,
+          "line": null
+        }
+      ],
+      "checks": {},
+      "missing": [
+        "no repository code that hands DeepSeekHandler to the framework was found"
+      ],
+      "runtime_needed": null,
+      "resolved_by": null,
+      "queries": 4
+    },
+    {
+      "category": "callback_registration",
+      "status": "unresolved",
+      "source_symbol": "?",
+      "via": "?",
+      "targets": [
+        "OpenAiHandler.createMessage"
+      ],
+      "message_type": null,
+      "facts": [
+        {
+          "provenance": "cbm_entrypoint",
+          "fact": "OpenAiHandler.createMessage is a reached entrypoint with decorator metadata and no route",
+          "file": "src/api/providers/openai.ts",
+          "line": null
+        },
+        {
+          "provenance": "cbm_inherits",
+          "fact": "OpenAiHandler implements ApiHandler",
+          "file": "src/api/providers/openai.ts",
+          "line": null
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "api.buildApiHandler calls OpenAiHandler",
+          "file": "src/api/index.ts",
+          "line": 42
+        },
+        {
+          "provenance": "cbm_configures",
+          "fact": "CBM records no CONFIGURES relation for OpenAiHandler (CBM emits CONFIGURES for configuration keys and environment access, not registrations)",
+          "file": null,
+          "line": null
+        }
+      ],
+      "checks": {},
+      "missing": [
+        "no repository code that hands OpenAiHandler to the framework was found"
+      ],
+      "runtime_needed": null,
+      "resolved_by": null,
+      "queries": 4
+    }
+  ],
+  "affected_flows": [],
+  "unresolved_changed_symbols": 1,
+  "unresolved_changed_symbol_names": [
+    "constructor"
+  ],
+  "analysis_status": "partial",
+  "analysis_notes": [
+    "Structural exploration was bounded for this change (max_depth reached with unexplored frontier); boundaries beyond the explored neighborhood are not established either way.",
+    "1 changed symbol(s) have no established impact path to any entrypoint (an AI-inferred candidate may still exist for one — see AFFECTED BEHAVIOR — but that is not the same as resolved impact coverage).",
+    "No discovered route declaration reaches the changed symbols."
+  ],
+  "test_executions": [],
+  "ci_suite": {
+    "command": [],
+    "source": "",
+    "working_dir": ".",
+    "framework": "",
+    "status": "unknown",
+    "blocker": "framework_unsupported",
+    "reason": "No repository test command could be resolved",
+    "exit_code": null,
+    "duration_ms": null,
+    "tests_passed": null,
+    "tests_failed": null,
+    "summary_line": null,
+    "failed_test_ids": [],
+    "stdout_excerpt": null,
+    "stderr_excerpt": null,
+    "output_truncated": false,
+    "evidence": []
+  },
+  "verification_gaps": [],
+  "runtime_dependencies": [],
+  "cross_repo_impacts": [],
+  "notes": [
+    "test_execution=whole_suite_fallback reason=no_mapped_tests",
+    "AI recovery (experimental, provenance=ai_recovery, run-local, not merged into structural results): path recovery could not establish a source-backed path beyond the first pass; test recovery recovered no verified tests.",
+    "Saved change verification artifact: /Users/ksnaik/.sydes/workspaces/a132d021db6590eb/artifacts/20261026T184108Z-818b210e/change_verification.json"
+  ],
+  "diagnostics": [
+    "code_intelligence_effective_backend=cbm selected_by=default",
+    "code_intelligence_backend=cbm transport=persistent_mcp_stdio cbm_server_version=0.11.0 cbm_executable=/Users/ksnaik/.cache/uv/archive-v0/VHN9zLCDciAGKPuuofk9f/bin/codebase-memory-mcp",
+    "cbm_session_start_ms=1346.9 cbm_calls=9 cbm_mean_call_ms=186.1",
+    "cbm_index_ms=1546.0 cbm_query_ms=132.1 sydes_route_semantics_ms=274.1 total_ms=3300.1",
+    "cbm_supplied=symbols,spans,imports,exports,call_edges,usage_edges,entrypoints  sydes_semantics=route_index,route_graph,repo_map",
+    "route_derived_entrypoints_added=0",
+    "cbm_gap: route composition is computed by Sydes, not CBM: CBM reports uncomposed route paths and models no persistence sinks",
+    "cbm_gap: CALLS/USAGE edges deferred: they are fetched as a bounded neighborhood around the changed symbols instead of a repository-wide sweep",
+    "handler_symbol_index: exports=1191, files_indexed=151, imports=601, symbols=1200",
+    "pr_semantic_analysis_prompt_chars=11425",
+    "reverse_reach_candidate_files=22",
+    "app: deterministic_routes_found=0, deterministic_frameworks=none",
+    "app: discovery_coverage=unknown score=0.2",
+    "app: discovery_coverage_reasons=insufficient route index/graph signals",
+    "app: route_graph_containers=0, route_graph_declarations=0, route_graph_mount_edges=0, route_graph_composed_routes=0, route_graph_unresolved_mounts=0",
+    "app: deterministic_routes=0, llm_routes=0, merged_routes=0, rejected_routes=0, final_routes=0",
+    "app: merged_llm_routes=0",
+    "graph_slice_seeds: changed=3 routes=0 dropped_auxiliary=0 total=3",
+    "graph_slice: used=True seeds=3 canonical_seeds=3 unresolved_seeds=0 unresolved_changed=0 unresolved_auxiliary=0 graph_calls=4 nodes=169 call_edges=28 usage_edges=191 truncated=True fell_back=False",
+    "impact_interpreter: affected_entrypoints=4, ambiguous_edges=0, boundary_budget_exhausted=False, boundary_emitted=0, boundary_expansions=3, boundary_frontier_considered=3, boundary_rejected_weak_evidence=0, call_edges=28, changed_symbols=3, evidence_confirmed=0, guide_actions={'infer_impact': 2, 'trace_usages': 1, 'stop_unresolved': 1}, guide_budget_exhausted=False, guide_calls=4, guide_error_details=[], guide_errors=0, guide_latency_ms=21396.31004189141, guide_no_progress=0, guide_triggered=True, http_entrypoints=0, known_entrypoints=11, llm_candidates=2, llm_candidates_accepted=2, llm_candidates_corroborated=0, llm_candidates_missing_reason=0, llm_candidates_self_referential=0, llm_candidates_uncorroborated=2, llm_candidates_ungrounded=0, llm_candidates_whole_change_unanchored=0, llm_new_entrypoints=2, llm_no_candidate_turns=0, unresolved_after=1, unresolved_before=1, unresolved_symbols=1, usage_edges=191",
+    "repo_profile: reused persisted profile",
+    "boundary_reasoning: candidates=4 inferred=0",
+    "app: test_files_found=15",
+    "app: test_cases_found=104",
+    "test_frameworks_detected=none",
+    "ci_suite=unresolved reason=No repository test command could be resolved",
+    "structural_enrichment: triggered=[callback_registration: 2 callback entrypoint(s); route_container_registration: 1 unresolved changed symbol(s)] cbm_requests=4 (relations:1,schema:1,search:2) cache_hits=(none) errors=0 truncated=0 families=[CALLS,IMPLEMENTS,search_code] candidates=2 unresolved=2",
+    "code_review_context_added: src/api/providers/deepseek.ts:getModel -- createMessage calls getModel at src/api/providers/deepseek.ts:24 (2 line(s) from a changed line)",
+    "code_review_context_added: src/api/transform/openai-format.ts:convertToOpenAiMessages -- createMessage calls convertToOpenAiMessages at src/api/providers/deepseek.ts:30 (4 line(s) from a changed line)",
+    "code_review_context_related=2",
+    "code_review_questions=10",
+    "investigator: hypotheses=4 lookups=12/12 confirmed=0 refuted=2 unknown=2 findings=0 llm_calls=18 errors=0",
+    "investigation_artifact=/Users/ksnaik/StudioProjects/sydes/benchmarks/aacr/results/investigator-bdb08a3-first11-r1-2026-10-26/sydes/cline__cline@cb4d5c9.investigation.json",
+    "run_metrics: wall_seconds=294.2 llm_calls=50 (ai_recovery:25,boundary_reasoning:1,impact_guide:4,investigator:18,pr_semantic_analysis:1,route_discovery:1) llm_errors=0 input_tokens=119505 output_tokens=16641 estimated_cost_usd=unavailable (set SYDES_LLM_PRICE_PER_MTOK) cbm_requests=28 cbm_enrichment_requests=4 test_executions=0 test_outcomes={}"
+  ],
+  "behavioral": null,
+  "known_routes": [],
+  "unattached_evidence": []
+}

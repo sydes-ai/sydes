@@ -1,0 +1,534 @@
+{
+ "fixed_run_search_text_calls": [
+  {
+   "case": "browser-use__browser-use@0b21e50",
+   "id": "L2",
+   "hypothesis": "H1",
+   "args": {
+    "pattern": "chrome_remote_debugging_port",
+    "path_glob": "browser_use/**/*.py"
+   },
+   "brace_or_pipe": false,
+   "result": "hits",
+   "result_lines": 6
+  },
+  {
+   "case": "browser-use__browser-use@0b21e50",
+   "id": "L6",
+   "hypothesis": "H2",
+   "args": {
+    "pattern": "chrome_remote_debugging_port",
+    "path_glob": "**/*.py"
+   },
+   "brace_or_pipe": false,
+   "result": "hits",
+   "result_lines": 6
+  },
+  {
+   "case": "browser-use__browser-use@0b21e50",
+   "id": "L10",
+   "hypothesis": "H3",
+   "args": {
+    "pattern": "extra_browser_args|chrome_remote_debugging_port",
+    "path_glob": "browser_use/**/*.py"
+   },
+   "brace_or_pipe": false,
+   "result": "hits",
+   "result_lines": 7
+  },
+  {
+   "case": "browser-use__browser-use@0b21e50",
+   "id": "L12",
+   "hypothesis": "H3",
+   "args": {
+    "pattern": "remote-debugging-port.*remote-debugging-port|duplicate.*remote-debugging|last.*remote-debugging|first.*remote-debugging",
+    "path_glob": "**/*"
+   },
+   "brace_or_pipe": false,
+   "result": "no_matches",
+   "result_lines": 0
+  },
+  {
+   "case": "browser-use__browser-use@72f1585",
+   "id": "L2",
+   "hypothesis": "H1",
+   "args": {
+    "pattern": "thinking_budget\\s*=",
+    "path_glob": "**/*.py"
+   },
+   "brace_or_pipe": false,
+   "result": "no_matches",
+   "result_lines": 0
+  },
+  {
+   "case": "browser-use__browser-use@72f1585",
+   "id": "L4",
+   "hypothesis": "H1",
+   "args": {
+    "pattern": "thinking_budget",
+    "path_glob": "**/*"
+   },
+   "brace_or_pipe": false,
+   "result": "hits",
+   "result_lines": 3
+  },
+  {
+   "case": "browser-use__browser-use@72f1585",
+   "id": "L11",
+   "hypothesis": "H3",
+   "args": {
+    "pattern": "google-genai|google_genai",
+    "path_glob": "{pyproject.toml,uv.lock,poetry.lock,requirements*.txt}"
+   },
+   "brace_or_pipe": true,
+   "result": "hits",
+   "result_lines": 1
+  },
+  {
+   "case": "cline__cline@cb4d5c9",
+   "id": "L2",
+   "hypothesis": "H1",
+   "args": {
+    "pattern": "deepseek|DeepSeek",
+    "path_glob": "**/*"
+   },
+   "brace_or_pipe": false,
+   "result": "hits",
+   "result_lines": 6
+  },
+  {
+   "case": "cline__cline@cb4d5c9",
+   "id": "L6",
+   "hypothesis": "H2",
+   "args": {
+    "pattern": "(?i)(azure.{0,80}deepseek|deepseek.{0,80}azure)"
+   },
+   "brace_or_pipe": false,
+   "result": "hits",
+   "result_lines": 1
+  },
+  {
+   "case": "dbeaver__dbeaver@bc3ac7b",
+   "id": "L3",
+   "hypothesis": "H1",
+   "args": {
+    "pattern": "getAdapter\\(InputStream\\.class\\)|InputStream\\.class",
+    "path_glob": "plugins/**/*.java"
+   },
+   "brace_or_pipe": false,
+   "result": "hits",
+   "result_lines": 3
+  },
+  {
+   "case": "dbeaver__dbeaver@bc3ac7b",
+   "id": "L12",
+   "hypothesis": "H3",
+   "args": {
+    "pattern": "\\.dropNodes\\s*\\(|dropNodes\\s*\\(",
+    "path_glob": "plugins/**/*.java"
+   },
+   "brace_or_pipe": false,
+   "result": "hits",
+   "result_lines": 4
+  },
+  {
+   "case": "dbeaver__dbeaver@ed40132",
+   "id": "L2",
+   "hypothesis": "H1",
+   "args": {
+    "pattern": "org\\.jkiss\\.dbeaver\\.model\\.struct",
+    "path_glob": "plugins/**/META-INF/MANIFEST.MF"
+   },
+   "brace_or_pipe": false,
+   "result": "hits",
+   "result_lines": 3
+  },
+  {
+   "case": "dbeaver__dbeaver@ed40132",
+   "id": "L4",
+   "hypothesis": "H1",
+   "args": {
+    "pattern": "(?i)(binary compatibility|API baseline|baseline.*API|japicmp|revapi|NoSuchMethodError|breaking change)",
+    "path_glob": "**/*"
+   },
+   "brace_or_pipe": false,
+   "result": "no_matches",
+   "result_lines": 0
+  },
+  {
+   "case": "facebook__react@be58f26",
+   "id": "L2",
+   "hypothesis": "H1",
+   "args": {
+    "pattern": "forbidOnly|forbid.*only|focused tests|hasFocusedTests|testNamePattern",
+    "path_glob": "**/*{jest,Jest,test,Test}*"
+   },
+   "brace_or_pipe": true,
+   "result": "no_matches",
+   "result_lines": 0
+  },
+  {
+   "case": "facebook__react@be58f26",
+   "id": "L3",
+   "hypothesis": "H1",
+   "args": {
+    "pattern": "\"test[^\"\\n]*\"\\s*:\\s*\"[^\"]*(jest|test-runner)|jest-cli|scripts/jest",
+    "path_glob": "**/package.json"
+   },
+   "brace_or_pipe": false,
+   "result": "hits",
+   "result_lines": 7
+  },
+  {
+   "case": "facebook__react@be58f26",
+   "id": "L7",
+   "hypothesis": "H2",
+   "args": {
+    "pattern": "(jest\\.(useFakeTimers|useRealTimers)|setTimeout\\s*=|mock.*timer|advanceTimers|runAllTimers)",
+    "path_glob": "packages/react-dom/src/__tests__/ReactDOMForm-test.js"
+   },
+   "brace_or_pipe": false,
+   "result": "no_matches",
+   "result_lines": 0
+  },
+  {
+   "case": "facebook__react@be58f26",
+   "id": "L10",
+   "hypothesis": "H3",
+   "args": {
+    "pattern": "memoizedState\\s*=.*Hook|existingStateHook|requestFormReset\\(|ensureFormComponentIsStateful",
+    "path_glob": "packages/react-reconciler/src/**/*.js"
+   },
+   "brace_or_pipe": false,
+   "result": "hits",
+   "result_lines": 6
+  },
+  {
+   "case": "gofr-dev__gofr@b9cdcbb",
+   "id": "L6",
+   "hypothesis": "H2",
+   "args": {
+    "pattern": "func (getStatusCode|isNil)|getStatusCode\\(|isNil\\(",
+    "path_glob": "**/*.go"
+   },
+   "brace_or_pipe": false,
+   "result": "hits",
+   "result_lines": 10
+  },
+  {
+   "case": "gofr-dev__gofr@b9cdcbb",
+   "id": "L8",
+   "hypothesis": "H2",
+   "args": {
+    "pattern": "return\\s+(response\\.)?Response\\s*\\{[^\\n]*\\}\\s*,\\s*[^n]|Response\\s*\\{\\s*Data:\\s*nil",
+    "path_glob": "**/*.go"
+   },
+   "brace_or_pipe": false,
+   "result": "hits",
+   "result_lines": 1
+  },
+  {
+   "case": "gofr-dev__gofr@b9cdcbb",
+   "id": "L12",
+   "hypothesis": "H3",
+   "args": {
+    "pattern": "response\\.Response\\s*\\{|Response\\s*\\{",
+    "path_glob": "**/*.go"
+   },
+   "brace_or_pipe": false,
+   "result": "hits",
+   "result_lines": 6
+  },
+  {
+   "case": "google-gemini__gemini-cli@0fa1bd7",
+   "id": "L2",
+   "hypothesis": "H1",
+   "args": {
+    "pattern": "updateSettingsFilePreservingFormat|trackEnvVarMappings|setValue",
+    "path_glob": "packages/cli/src/**/*.ts"
+   },
+   "brace_or_pipe": false,
+   "result": "hits",
+   "result_lines": 7
+  },
+  {
+   "case": "google-gemini__gemini-cli@0fa1bd7",
+   "id": "L6",
+   "hypothesis": "H2",
+   "args": {
+    "pattern": "trackEnvVarMappings|envVarMappings|updateSettingsFilePreservingFormat",
+    "path_glob": "packages/cli/src/**/*.ts"
+   },
+   "brace_or_pipe": false,
+   "result": "hits",
+   "result_lines": 8
+  },
+  {
+   "case": "google-gemini__gemini-cli@0fa1bd7",
+   "id": "L10",
+   "hypothesis": "H3",
+   "args": {
+    "pattern": "updateSettingsFilePreservingFormat|mcpServers",
+    "path_glob": "packages/cli/src/**/*.{ts,tsx}"
+   },
+   "brace_or_pipe": true,
+   "result": "hits",
+   "result_lines": 8
+  },
+  {
+   "case": "google-gemini__gemini-cli@0fa1bd7",
+   "id": "L12",
+   "hypothesis": "H3",
+   "args": {
+    "pattern": "setValue\\(|updateSettingsFilePreservingFormat",
+    "path_glob": "packages/cli/src/config/settings.ts"
+   },
+   "brace_or_pipe": false,
+   "result": "hits",
+   "result_lines": 3
+  },
+  {
+   "case": "immich-app__immich@d38f1f5",
+   "id": "L2",
+   "hypothesis": "H1",
+   "args": {
+    "pattern": "/api/assets/.*(original|thumbnail)|api/assets/.+thumbnail|api/assets/.+original",
+    "path_glob": "web/src/**/*.{ts,svelte}"
+   },
+   "brace_or_pipe": true,
+   "result": "no_matches",
+   "result_lines": 0
+  },
+  {
+   "case": "immich-app__immich@d38f1f5",
+   "id": "L3",
+   "hypothesis": "H1",
+   "args": {
+    "pattern": "thumbnailUrl|originalUrl|getAsset.*Url|asset.*thumbnail|asset.*original",
+    "path_glob": "web/src/**/*.{ts,svelte}"
+   },
+   "brace_or_pipe": true,
+   "result": "hits",
+   "result_lines": 6
+  },
+  {
+   "case": "immich-app__immich@d38f1f5",
+   "id": "L6",
+   "hypothesis": "H2",
+   "args": {
+    "pattern": "type:\\s*['\"]cancel['\"]|BroadcastChannel\\(['\"]immich['\"]\\)|\\.postMessage\\(",
+    "path_glob": "web/src/**/*.{ts,js,svelte}"
+   },
+   "brace_or_pipe": true,
+   "result": "hits",
+   "result_lines": 4
+  },
+  {
+   "case": "immich-app__immich@d38f1f5",
+   "id": "L10",
+   "hypothesis": "H3",
+   "args": {
+    "pattern": "\\b(Range|If-None-Match|If-Modified-Since|If-Match|If-Unmodified-Since|If-Range)\\b",
+    "path_glob": "web/src/**/*"
+   },
+   "brace_or_pipe": false,
+   "result": "hits",
+   "result_lines": 2
+  },
+  {
+   "case": "immich-app__immich@d38f1f5",
+   "id": "L11",
+   "hypothesis": "H3",
+   "args": {
+    "pattern": "(/api/assets/|original|thumbnail)",
+    "path_glob": "web/src/**/*.{ts,svelte}"
+   },
+   "brace_or_pipe": true,
+   "result": "hits",
+   "result_lines": 6
+  },
+  {
+   "case": "immich-app__immich@d38f1f5",
+   "id": "L12",
+   "hypothesis": "H3",
+   "args": {
+    "pattern": "getAssetOriginalUrl|getAssetThumbnailUrl",
+    "path_glob": "web/src/**/*.{ts,svelte}"
+   },
+   "brace_or_pipe": true,
+   "result": "hits",
+   "result_lines": 5
+  }
+ ],
+ "prior_false_negatives_replayed_on_fixed_tool": [
+  {
+   "repo": "cline__cline@cb4d5c9",
+   "id": "L8",
+   "hypothesis": "H2",
+   "args": {
+    "pattern": "DeepSeek|deepseek|Azure AI|azure\\.com|models\\.ai\\.azure|inference",
+    "path_glob": "**/*.{ts,tsx,md,json}"
+   },
+   "old_result": "(no matches)",
+   "fixed_result_lines": 40,
+   "fixed_excerpt": [
+    ".changeset/hot-pens-own.md:5: Fixed to be able to use DeepSeek in Azure.",
+    ".changeset/stale-lizards-poke.md:5: qwen platform adds deepseek-r1/v3 support",
+    "CHANGELOG.md:37: -   Improve support for DeepSeek-R1 (deepseek-reasoner) model for OpenRouter, OpenAI-compatible, and DeepSeek direct",
+    "CHANGELOG.md:56: -   Add DeepSeek-R1 (deepseek-reasoner) model support with proper parameter handling (thanks @slavakurilyak!)",
+    "CHANGELOG.md:105: -   Fix DeepSeek API cost reporting (input price is 0 since it's all either a cache read or write, different than how Anthropic reports cache usage)",
+    "CHANGELOG.md:113: -   Add DeepSeek provider to API Provider options"
+   ]
+  },
+  {
+   "repo": "cline__cline@cb4d5c9",
+   "id": "L10",
+   "hypothesis": "H3",
+   "args": {
+    "pattern": "openAiModelId|azure.*deployment|deployment.*[Nn]ame",
+    "path_glob": "src/**/*.{ts,tsx}"
+   },
+   "old_result": "(no matches)",
+   "fixed_result_lines": 11,
+   "fixed_excerpt": [
+    "src/api/providers/openai.ts:38: const modelId = this.options.openAiModelId ?? \"\"",
+    "src/api/providers/openai.ts:85: id: this.options.openAiModelId ?? \"\",",
+    "src/core/webview/ClineProvider.ts:68: | \"openAiModelId\"",
+    "src/core/webview/ClineProvider.ts:446: openAiModelId,",
+    "src/core/webview/ClineProvider.ts:486: await this.updateGlobalState(\"openAiModelId\", openAiModelId)",
+    "src/core/webview/ClineProvider.ts:566: await this.updateGlobalState(\"previousModeModelId\", apiConfiguration.openAiModelId)"
+   ]
+  },
+  {
+   "repo": "facebook__react@be58f26",
+   "id": "L2",
+   "hypothesis": "H1",
+   "args": {
+    "pattern": "forbidOnly|no-focused-tests|it\\.only|fit\\(",
+    "path_glob": "{scripts,packages,.github}/**/*"
+   },
+   "old_result": "(no matches)",
+   "fixed_result_lines": 12,
+   "fixed_excerpt": [
+    "packages/react-devtools-extensions/flow-typed/jest.js:1074: declare function fit(",
+    "packages/react-devtools-shared/src/__tests__/transform-react-version-pragma-test.js:96: /* eslint-disable jest/no-focused-tests */",
+    "packages/react-devtools-shared/src/__tests__/transform-react-version-pragma-test.js:99: it.only('reactVersion fit', () => {",
+    "packages/react-devtools-shared/src/__tests__/transform-react-version-pragma-test.js:105: it.only('reactVersion test.only', () => {",
+    "packages/react-devtools-shared/src/__tests__/transform-react-version-pragma-test.js:126: it.only('reactVersion focused multiple pragmas fail', () => {",
+    "packages/react-devtools-shared/src/__tests__/transform-react-version-pragma-test.js:133: it.only('reactVersion focused multiple pragmas pass', () => {"
+   ]
+  },
+  {
+   "repo": "facebook__react@be58f26",
+   "id": "L3",
+   "hypothesis": "H1",
+   "args": {
+    "pattern": "jest|test-ci|test.*packages|runTestsByPath",
+    "path_glob": "package.json|scripts/**/*|.github/**/*"
+   },
+   "old_result": "(no matches)",
+   "fixed_result_lines": 40,
+   "fixed_excerpt": [
+    ".github/workflows/compiler_typescript.yml:60: jest:",
+    ".github/workflows/compiler_typescript.yml:79: - run: yarn workspace babel-plugin-react-compiler jest",
+    ".github/workflows/devtools_regression_tests.yml:146: - run: node ./scripts/jest/jest-cli.js --build --project devtools --release-channel=experimental --reactVersion ${{ matrix.version }} --ci",
+    "package.json:68: \"eslint-plugin-jest\": \"28.4.0\",",
+    "package.json:83: \"jest\": \"^29.4.2\",",
+    "package.json:84: \"jest-cli\": \"^29.4.2\","
+   ]
+  },
+  {
+   "repo": "google-gemini__gemini-cli@0fa1bd7",
+   "id": "L2",
+   "hypothesis": "H1",
+   "args": {
+    "pattern": "updateSettingsFilePreservingFormat|remove.*mcp|mcp.*remove",
+    "path_glob": "packages/cli/src/**/*.{ts,tsx}"
+   },
+   "old_result": "(no matches)",
+   "fixed_result_lines": 17,
+   "fixed_excerpt": [
+    "packages/cli/src/commands/mcp/remove.test.ts:27: describe('mcp remove command', () => {",
+    "packages/cli/src/commands/mcp/remove.ts:7: // File for 'gemini mcp remove' command",
+    "packages/cli/src/commands/mcp/remove.ts:42: .usage('Usage: gemini mcp remove [options] <name>')",
+    "packages/cli/src/commands/mcp.ts:10: import { removeCommand } from './mcp/remove.js';",
+    "packages/cli/src/config/settings.ts:33: updateSettingsFilePreservingFormat,",
+    "packages/cli/src/config/settings.ts:738: updateSettingsFilePreservingFormat("
+   ]
+  },
+  {
+   "repo": "immich-app__immich@d38f1f5",
+   "id": "L2",
+   "hypothesis": "H1",
+   "args": {
+    "pattern": "api/assets/.+(original|thumbnail)|/api/assets/|assetId.*(original|thumbnail)",
+    "path_glob": "**/*.{ts,svelte,js}"
+   },
+   "old_result": "(no matches)",
+   "fixed_result_lines": 14,
+   "fixed_excerpt": [
+    "e2e/src/utils.ts:370: .put(`/assets/${assetId}/original`)",
+    "server/src/migrations/1724080823160-AddThumbnailJobStatus.ts:10: await queryRunner.query(`UPDATE \"asset_job_status\" SET \"thumbnailAt\" = NOW() FROM \"assets\" WHERE \"assetId\" = \"assets\".\"id\" AND \"assets\".\"thumbnailPath\" IS NOT NULL`);",
+    "server/src/migrations/1724101822106-AddAssetFilesTable.ts:16: await queryRunner.query(`INSERT INTO \"asset_files\" (\"assetId\", \"type\", \"path\") SELECT \"id\", 'thumbnail', \"thumbnailPath\" FROM \"assets\" WHERE \"thumbnailPath\" IS NOT NULL AND \"thumbnailPath\" != ''`);",
+    "server/src/migrations/1724101822106-AddAssetFilesTable.ts:27: await queryRunner.query(`UPDATE \"assets\" SET \"thumbnailPath\" = \"asset_files\".path FROM \"asset_files\" WHERE \"assets\".id = \"asset_files\".assetId AND \"asset_files\".type = 'thumbnail'`);",
+    "server/src/migrations/1725258039306-UpsertMissingAssetJobStatus.ts:6: `INSERT INTO \"asset_job_status\" (\"assetId\", \"facesRecognizedAt\", \"metadataExtractedAt\", \"duplicatesDetectedAt\", \"previewAt\", \"thumbnailAt\") SELECT \"assetId\", NULL, NULL, NULL, NULL, NULL FROM \"asset_f",
+    "server/src/migrations/1725258039306-UpsertMissingAssetJobStatus.ts:14: `UPDATE \"asset_job_status\" SET \"thumbnailAt\" = NOW() FROM \"asset_files\" f WHERE \"thumbnailAt\" IS NULL AND \"asset_job_status\".\"assetId\" = \"f\".\"assetId\" AND \"f\".\"type\" = 'thumbnail' AND \"f\".\"path\" IS NO"
+   ]
+  },
+  {
+   "repo": "immich-app__immich@d38f1f5",
+   "id": "L3",
+   "hypothesis": "H1",
+   "args": {
+    "pattern": "thumbnailUrl|originalUrl|asset.*thumbnail|asset.*original",
+    "path_glob": "web/src/**/*.{ts,svelte,js}"
+   },
+   "old_result": "(no matches)",
+   "fixed_result_lines": 40,
+   "fixed_excerpt": [
+    "web/src/lib/components/album-page/album-cover.svelte:17: let thumbnailUrl = $derived(",
+    "web/src/lib/components/album-page/album-cover.svelte:22: {#if thumbnailUrl}",
+    "web/src/lib/components/album-page/album-cover.svelte:23: <AssetCover {alt} class={className} src={thumbnailUrl} {preload} />",
+    "web/src/lib/components/asset-viewer/asset-viewer-nav-bar.svelte:100: //     (asset.originalPath && asset.originalPath.toLowerCase().endsWith('.insp'))",
+    "web/src/lib/components/asset-viewer/asset-viewer-nav-bar.svelte:102: //   !(asset.originalPath && asset.originalPath.toLowerCase().endsWith('.gif')) &&",
+    "web/src/lib/components/asset-viewer/asset-viewer.svelte:38: import Thumbnail from '../assets/thumbnail/thumbnail.svelte';"
+   ]
+  },
+  {
+   "repo": "immich-app__immich@d38f1f5",
+   "id": "L6",
+   "hypothesis": "H2",
+   "args": {
+    "pattern": "\\bcaches\\.(open|keys|delete|match)\\s*\\(|\\bCacheStorage\\b",
+    "path_glob": "**/*.{ts,js,svelte,tsx,jsx}"
+   },
+   "old_result": "(no matches)",
+   "fixed_result_lines": 3,
+   "fixed_excerpt": [
+    "web/src/service-worker/index.ts:36: for (const key of await caches.keys()) {",
+    "web/src/service-worker/index.ts:38: await caches.delete(key);",
+    "web/src/service-worker/index.ts:44: const cache = await caches.open(CACHE);"
+   ]
+  },
+  {
+   "repo": "immich-app__immich@d38f1f5",
+   "id": "L8",
+   "hypothesis": "H2",
+   "args": {
+    "pattern": "(?i)(subpath|base path|reverse proxy|same origin|co-host|service worker|CacheStorage)",
+    "path_glob": "**/*.{md,mdx,yml,yaml,ts,js,json}"
+   },
+   "old_result": "(no matches)",
+   "fixed_result_lines": 13,
+   "fixed_excerpt": [
+    "docs/docs/FAQ.mdx:95: This often happens when using a reverse proxy in front of Immich.",
+    "docs/docs/FAQ.mdx:96: Make sure to [set your reverse proxy](/docs/administration/reverse-proxy/) to allow large requests.",
+    "docs/docs/FAQ.mdx:97: Also, check the disk space of your reverse proxy.",
+    "docs/docs/FAQ.mdx:360: You need to [enable WebSockets](/docs/administration/reverse-proxy/) on your reverse proxy.",
+    "docs/docs/administration/reverse-proxy.md:1: # Reverse Proxy",
+    "docs/docs/administration/reverse-proxy.md:3: Users can deploy a custom reverse proxy that forwards requests to Immich. This way, the reverse proxy can handle TLS termination, load balancing, or other advanced features. All reverse proxies betwee"
+   ]
+  }
+ ],
+ "note": "Fixed-run no_matches results were re-checked against PR-head snapshots with the fixed RepoTools and a brute-force regex oracle over every file; all 6 are genuine (no in-glob hit). Prior false negatives were replayed with the fixed tool against the same heads."
+}

@@ -1,0 +1,140 @@
+AI recovery (experimental): triggered (a structural boundary was found but no complete route/entrypoint flow reaches it; 14 changed symbol(s) reach no entrypoint the first pass found)
+AI recovery (experimental): path=established test=unresolved turns=20 llm_calls=22 tokens=44966+2049 edge_retries_attempted=0 edge_retries_succeeded=0 graph_paths_proposed=0 graph_paths_established=0 graph_paths_established_unverified_boundary=0 explicit_relation_edges=0
+Wrote AI recovery result: /Users/ksnaik/StudioProjects/sydes/benchmarks/aacr/results/investigator-bdb08a3-first11-r1-2026-10-26/sydes/immich-app__immich@d38f1f5.ai_recovery.json
+SYDES VERIFICATION
+
+MEDIUM RISK · 9 AFFECTED BEHAVIORS
+
+Changed
+───────
+web/src/lib/utils/sw-messaging.ts:1 — broadcast
+web/src/service-worker/index.ts:7 — useCache
+web/src/service-worker/index.ts:8 — sw
+web/src/service-worker/index.ts:9 — pendingLoads
+web/src/service-worker/index.ts:12 — CACHE
++3 more relevant changed symbols — use --verbose
+
+CHANGE ANALYSIS (citations verified, indeterminate)
+───────────────────────────────────────────────────
+Cannot be established from this repository alone: the diff and surrounding context alone are not enough to say.
+The mechanisms are explicit, but actual user-visible impact requires the new service worker to be built, registered, activated, and controlling a page that issues matching asset requests. Those reachability and runtime facts are not established by the supplied diff.
+
+The web client adds a service worker that intercepts image asset GETs, serves successful responses from a versioned browser cache, supports background preloading, and can abort in-flight image loads when viewers or thumbnails are destroyed. Production tooling also gains a command to stop the production Compose stack. Several end-to-end assertions were removed or relaxed, but the supplied post-change source does not establish a corresponding product behavior change.
+
+Likely behavioral changes
+  • Once the service worker controls a page, matching original and thumbnail asset GETs can be returned from a deployment-versioned browser cache; cache misses are fetched and successful 200 responses are stored for later requests.
+  • Photo-viewer lookahead loading is now requested through a BroadcastChannel instead of creating an Image object directly, allowing the service worker to fetch and cache the requested image in the background.
+  • When a photo loader is cleaned up or a thumbnail action is destroyed, the client asks the service worker to abort a currently tracked fetch for that URL.
+  • Operators can now stop the production Docker Compose stack, including orphaned containers, through the new prod-down Make target.
+
+Investigate
+  • Trace how the framework builds, registers, updates, and activates this service worker, including whether it immediately controls existing tabs after skipWaiting and clients.claim.
+  • Trace all producers and consumers of the immich BroadcastChannel protocol and determine whether URL cancellation is scoped to one component or shared among concurrent consumers and tabs.
+  • Inspect the asset endpoint's authorization, request-header, range-request, and caching semantics because interception replaces the original Request with a fetch made from its URL and may serve a cached response without contacting the endpoint.
+  • Check test coverage for loading indicators and download progress after the photo-viewer spinner test and shared-link DOWNLOADING assertion were removed.
+
+Uncertain
+  • The supplied context does not establish whether the SvelteKit build automatically discovers and registers this service-worker entry, or which supported browsers provide the required BroadcastChannel behavior.
+  • The matching URL pattern is visible, but the backend handler and authorization policy serving /api/assets/{id}/original and /api/assets/{id}/thumbnail are not supplied.
+  • Whether real pages are controlled by the new worker and issue matching asset requests depends on service-worker activation, browser state, and request URLs at runtime.
+  • Whether URL-global cancellation actually conflicts depends on concurrent requests for the same URL and the order in which components are destroyed.
+  • The observable effect of cache hits, old-cache deletion, and possible cross-session reuse depends on Cache Storage contents and authentication/account transitions in the browser.
+
+System impact
+─────────────
+No structural propagation path was established.
+
+?
+  → ?: registers AppDelegate
+  → [framework lifecycle unresolved]
+  → candidate: AppDelegate.AppDelegate
+
+?
+  → ?: registers AlbumsPage
+  → [framework lifecycle unresolved]
+  → candidate: AlbumsPage.build
+
+?
+  → ?: registers PhotosPage
+  → [framework lifecycle unresolved]
+  → candidate: PhotosPage.build
+
+?
+  → ?: registers AddToAlbumBottomSheet
+  → [framework lifecycle unresolved]
+  → candidate: AddToAlbumBottomSheet.build
+
+Inferred boundaries
+───────────────────
+INFERRED · callable/public_callable · Component-to-service-worker image control helpers
+    Viewer and thumbnail components cross into a shared messaging callable surface to request background image preloading or cancellation.
+    Evidence: The established call edge `preload -> preloadImageUrl` at `web/src/lib/components/asset-viewer/photo-viewer.svelte:72` crosses from the viewer component into `sw-messaging.ts`.; The established call edge `photo-viewer -> cancelImageUrl` in `web/src/lib/components/asset-viewer/photo-viewer.svelte` crosses into the same messaging surface.
+    Uncertain: The supplied context does not establish whether other callers use these helpers or whether all target browsers support the underlying BroadcastChannel behavior.
+
+INFERRED · async/event_handler · Service-worker preload and cancellation message handling
+    BroadcastChannel messages cross from the web client into the service worker to initiate background image fetches or abort tracked fetches.
+    Evidence: The supplied behavior facts state that photo-viewer lookahead loading is requested through a BroadcastChannel and that cleanup asks the service worker to abort the tracked fetch for a URL.; A changed `broadcast` symbol exists on both sides of this interaction in `web/src/lib/utils/sw-messaging.ts` and `web/src/service-worker/index.ts`.
+    Uncertain: No source snippet identifies the precise message-event callback or message schema, and the supplied context does not establish whether additional producers send messages on this channel.
+
+INFERRED · async/event_handler · Service-worker image request interception
+    Browser image fetch events cross into the service worker, which can satisfy them from Cache Storage or fetch and cache successful responses.
+    Evidence: The supplied behavior fact states that the service worker intercepts matching original and thumbnail asset GETs, returns cache hits, and stores successful 200 responses.; The established call edge `index -> immichAsset` in `web/src/service-worker/index.ts` connects the worker entry module to the changed request-processing function.
+    Uncertain: The actual fetch-event listener and automatic registration of this service-worker entry are not supplied, and whether pages are controlled and issue matching requests remains runtime-dependent.
+
+INFERRED · callable/public_callable · Production Compose lifecycle commands
+    An operator or automation invoking the public Make targets crosses into the repository's production environment startup and teardown tooling.
+    Evidence: `prod` and `prod-down` are supplied changed production symbols in `Makefile`.; The accepted impact `Production Docker environment startup and teardown` is marked inferred.
+    Uncertain: The Make recipes and their dependency relationships are not supplied, so the exact Compose invocation and any relationship between `prod` and `prod-down` cannot be structurally verified.
+
+Inferred impact
+───────────────
+INFERRED · 0.93
+Production Docker environment startup and teardown
+
+Why:
+The production compose workflow now explicitly rebuilds images, renews anonymous volumes, and removes orphaned containers during startup, while teardown also removes orphans, so operators may observe recreated persisted container state and cleanup of services no longer present in the compose file.
+
+Static confirmation: unavailable
+
+INFERRED · 0.81
+Image loading during gallery navigation
+
+Why:
+Image assets are now routed through coordinated preload, pending-load, cache, and cancellation logic, so browsing between assets may change when network requests begin, whether duplicate requests are reused, and whether loads continue after an image element is removed.
+
+Static confirmation: unavailable
+
+INFERRED · 0.81
+Image preloading and cancellation during gallery navigation
+
+Why:
+The shared broadcast channel is used by preloadImageUrl and cancelImageUrl, so photo viewers and thumbnail lifecycle operations may now send image preload or cancellation requests differently to the service worker.
+
+Static confirmation: unavailable
+
+… 2 more inferred impacts — use --verbose for the full list.
+
+CI
+──
+? the test suite could not run
+  test execution unavailable: no runnable target-project environment found (uv project with no synced `.venv`; Sydes does not create or install environments)
+
+What Sydes could not establish
+──────────────────────────────
+• 8 additional affected areas are not yet verification-modeled.
+• 14 changed symbols have unresolved impact paths.
+• 5 inferred impacts could not be structurally confirmed.
+• The repository test suite could not run (test execution unavailable: no runnable target-project environment found (uv project with no synced `.venv`; Sydes does not create or install environments)).
+
+Full verification requires
+──────────────────────────
+PostgreSQL · SQL database (TypeORM) · Redis · Mail/SMTP service
+
+Verdict
+───────
+VERIFICATION INCOMPLETE
+
+Wrote verification result: /Users/ksnaik/StudioProjects/sydes/benchmarks/aacr/results/investigator-bdb08a3-first11-r1-2026-10-26/sydes/immich-app__immich@d38f1f5.json
+
+--- stderr ---
+Preparing Sydes code intelligence...

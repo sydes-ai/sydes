@@ -1,0 +1,67 @@
+{
+  "case_id": "facebook__react-32499",
+  "instance_id": "facebook__react@b045f18",
+  "language": "JavaScript",
+  "status": "INVALID(provider errors)",
+  "wall_seconds": 417.6,
+  "review_base": "2980f27779cf37a9656b25418a3c5cfca989e244",
+  "review_base_info": {
+    "rule": "merge base (newest committer date, then smallest id)",
+    "merge_bases": [
+      "2980f27779cf37a9656b25418a3c5cfca989e244"
+    ]
+  },
+  "code_review_status": "completed",
+  "code_findings": 0,
+  "not_submitted": {
+    "local_risks": 3,
+    "affected_flows": 0
+  },
+  "llm_totals": {
+    "calls": 14,
+    "errors": 1,
+    "input_tokens": 49155,
+    "output_tokens": 8271,
+    "reasoning_tokens": 4751
+  },
+  "llm_calls_by_purpose": {
+    "pr_semantic_analysis": 1,
+    "route_discovery": 1,
+    "impact_guide": 8,
+    "boundary_reasoning": 1,
+    "investigator": 1,
+    "ai_recovery": 2
+  },
+  "cbm": {
+    "calls": 28,
+    "errors": 0,
+    "by_operation": {
+      "index_repository": 1,
+      "query_graph": 15,
+      "search_graph": 11,
+      "get_graph_schema": 1
+    },
+    "enrichment_requests": 4
+  },
+  "sydes_wall_seconds": 415.4,
+  "verdict": "VERIFICATION INCOMPLETE",
+  "invalid_reasons": [
+    "1 LLM call error(s) in run_metrics",
+    "1 investigator error(s)"
+  ],
+  "investigation": {
+    "hypotheses": 0,
+    "lookups": 0,
+    "confirmed": 0,
+    "refuted": 0,
+    "unknown": 0,
+    "usage": {
+      "llm_calls": 0,
+      "by_stage": {},
+      "prompt_tokens": 0,
+      "completion_tokens": 0,
+      "reasoning_tokens": 0,
+      "llm_seconds": 0.0
+    }
+  }
+}

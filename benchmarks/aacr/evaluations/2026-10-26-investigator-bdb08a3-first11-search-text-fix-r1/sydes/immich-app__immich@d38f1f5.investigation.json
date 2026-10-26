@@ -1,0 +1,927 @@
+{
+  "version": "sydes-investigation/1",
+  "packet": [
+    {
+      "id": "E1",
+      "kind": "diff",
+      "ref": "Makefile",
+      "chars": 457
+    },
+    {
+      "id": "E2",
+      "kind": "diff",
+      "ref": "e2e/src/api/specs/oauth.e2e-spec.ts",
+      "chars": 696
+    },
+    {
+      "id": "E3",
+      "kind": "diff",
+      "ref": "e2e/src/web/specs/photo-viewer.e2e-spec.ts",
+      "chars": 1317
+    },
+    {
+      "id": "E4",
+      "kind": "diff",
+      "ref": "e2e/src/web/specs/shared-link.e2e-spec.ts",
+      "chars": 595
+    },
+    {
+      "id": "E5",
+      "kind": "diff",
+      "ref": "web/eslint.config.js",
+      "chars": 343
+    },
+    {
+      "id": "E6",
+      "kind": "diff",
+      "ref": "web/src/lib/components/asset-viewer/photo-viewer.svelte",
+      "chars": 1330
+    },
+    {
+      "id": "E7",
+      "kind": "diff",
+      "ref": "web/src/lib/components/assets/thumbnail/image-thumbnail.svelte",
+      "chars": 1199
+    },
+    {
+      "id": "E8",
+      "kind": "diff",
+      "ref": "web/src/lib/utils/sw-messaging.ts",
+      "chars": 459
+    },
+    {
+      "id": "E9",
+      "kind": "diff",
+      "ref": "web/src/service-worker/index.ts",
+      "chars": 2500
+    },
+    {
+      "id": "E10",
+      "kind": "changed_symbol",
+      "ref": "web/src/lib/utils/sw-messaging.ts:1-1",
+      "chars": 68
+    },
+    {
+      "id": "E11",
+      "kind": "changed_symbol",
+      "ref": "web/src/lib/utils/sw-messaging.ts:3-5",
+      "chars": 119
+    },
+    {
+      "id": "E12",
+      "kind": "changed_symbol",
+      "ref": "web/src/lib/utils/sw-messaging.ts:6-8",
+      "chars": 122
+    },
+    {
+      "id": "E13",
+      "kind": "changed_symbol",
+      "ref": "web/src/service-worker/index.ts:7-7",
+      "chars": 40
+    },
+    {
+      "id": "E14",
+      "kind": "changed_symbol",
+      "ref": "web/src/service-worker/index.ts:8-8",
+      "chars": 73
+    },
+    {
+      "id": "E15",
+      "kind": "changed_symbol",
+      "ref": "web/src/service-worker/index.ts:9-9",
+      "chars": 78
+    },
+    {
+      "id": "E16",
+      "kind": "changed_symbol",
+      "ref": "web/src/service-worker/index.ts:12-12",
+      "chars": 48
+    },
+    {
+      "id": "E17",
+      "kind": "changed_symbol",
+      "ref": "web/src/service-worker/index.ts:35-41",
+      "chars": 153
+    },
+    {
+      "id": "E18",
+      "kind": "changed_symbol",
+      "ref": "web/src/service-worker/index.ts:43-68",
+      "chars": 644
+    },
+    {
+      "id": "E19",
+      "kind": "changed_symbol",
+      "ref": "web/src/service-worker/index.ts:70-70",
+      "chars": 68
+    },
+    {
+      "id": "E20",
+      "kind": "changed_symbol",
+      "ref": "Makefile:17-20",
+      "chars": 112
+    },
+    {
+      "id": "E21",
+      "kind": "changed_symbol",
+      "ref": "Makefile:20-23",
+      "chars": 114
+    },
+    {
+      "id": "E22",
+      "kind": "changed_symbol",
+      "ref": "web/src/lib/components/asset-viewer/photo-viewer.svelte:72-78",
+      "chars": 17
+    },
+    {
+      "id": "E23",
+      "kind": "changed_symbol",
+      "ref": "web/src/lib/components/assets/thumbnail/image-thumbnail.svelte:64-72",
+      "chars": 15
+    },
+    {
+      "id": "E24",
+      "kind": "changed_symbol",
+      "ref": "web/src/lib/components/assets/thumbnail/image-thumbnail.svelte:70-70",
+      "chars": 17
+    },
+    {
+      "id": "E25",
+      "kind": "structural",
+      "ref": "mobile/lib/services/background.service.dart:641-641",
+      "chars": 123
+    },
+    {
+      "id": "E26",
+      "kind": "structural",
+      "ref": "web/src/lib/components/asset-viewer/photo-viewer.svelte:80-88",
+      "chars": 535
+    },
+    {
+      "id": "E27",
+      "kind": "structural",
+      "ref": "web/src/lib/components/assets/thumbnail/image-thumbnail.svelte:30-46",
+      "chars": 485
+    },
+    {
+      "id": "E28",
+      "kind": "structural",
+      "ref": "mobile/lib/services/album.service.dart:73-73",
+      "chars": 85
+    },
+    {
+      "id": "E29",
+      "kind": "structural",
+      "ref": "mobile/lib/services/album.service.dart:165-165",
+      "chars": 85
+    },
+    {
+      "id": "E30",
+      "kind": "structural",
+      "ref": "mobile/lib/services/asset.service.dart:83-83",
+      "chars": 85
+    },
+    {
+      "id": "E31",
+      "kind": "test_execution",
+      "ref": "ci_suite",
+      "chars": 163
+    },
+    {
+      "id": "E32",
+      "kind": "gap",
+      "ref": "unresolved:CACHE",
+      "chars": 73
+    },
+    {
+      "id": "E33",
+      "kind": "gap",
+      "ref": "unresolved:broadcast",
+      "chars": 77
+    },
+    {
+      "id": "E34",
+      "kind": "gap",
+      "ref": "unresolved:cancelImageUrl",
+      "chars": 82
+    },
+    {
+      "id": "E35",
+      "kind": "gap",
+      "ref": "unresolved:deleteOldCaches",
+      "chars": 83
+    },
+    {
+      "id": "E36",
+      "kind": "gap",
+      "ref": "unresolved:destroy",
+      "chars": 75
+    },
+    {
+      "id": "E37",
+      "kind": "gap",
+      "ref": "unresolved:immichAsset",
+      "chars": 79
+    },
+    {
+      "id": "E38",
+      "kind": "gap",
+      "ref": "unresolved:mount",
+      "chars": 73
+    },
+    {
+      "id": "E39",
+      "kind": "gap",
+      "ref": "unresolved:pendingLoads",
+      "chars": 80
+    },
+    {
+      "id": "E40",
+      "kind": "gap",
+      "ref": "unresolved:preload",
+      "chars": 75
+    },
+    {
+      "id": "E41",
+      "kind": "gap",
+      "ref": "unresolved:preloadImageUrl",
+      "chars": 83
+    },
+    {
+      "id": "E42",
+      "kind": "gap",
+      "ref": "unresolved:prod",
+      "chars": 72
+    },
+    {
+      "id": "E43",
+      "kind": "gap",
+      "ref": "unresolved:prod-down",
+      "chars": 77
+    },
+    {
+      "id": "E44",
+      "kind": "change_analysis",
+      "ref": "summary",
+      "chars": 469
+    },
+    {
+      "id": "E45",
+      "kind": "change_analysis",
+      "ref": "local_risk",
+      "chars": 336
+    },
+    {
+      "id": "E46",
+      "kind": "change_analysis",
+      "ref": "local_risk",
+      "chars": 292
+    },
+    {
+      "id": "E47",
+      "kind": "change_analysis",
+      "ref": "local_risk",
+      "chars": 282
+    },
+    {
+      "id": "E48",
+      "kind": "change_analysis",
+      "ref": "local_risk",
+      "chars": 263
+    },
+    {
+      "id": "E49",
+      "kind": "change_analysis",
+      "ref": "uncertainty",
+      "chars": 208
+    },
+    {
+      "id": "E50",
+      "kind": "change_analysis",
+      "ref": "uncertainty",
+      "chars": 168
+    },
+    {
+      "id": "E51",
+      "kind": "change_analysis",
+      "ref": "uncertainty",
+      "chars": 167
+    },
+    {
+      "id": "E52",
+      "kind": "change_analysis",
+      "ref": "uncertainty",
+      "chars": 147
+    },
+    {
+      "id": "E53",
+      "kind": "change_analysis",
+      "ref": "uncertainty",
+      "chars": 178
+    }
+  ],
+  "hypotheses": [
+    {
+      "id": "H1",
+      "claim": "Cached asset responses must not be served to a different or unauthenticated session merely because it requests the same asset URL; the new URL-keyed cache may disclose images cached under a previous user's authorization.",
+      "why_suspected": "The worker returns cache.match(url) before contacting the authenticated asset endpoint, and stores every 200 response without associating it with the requesting session or clearing it on account changes.",
+      "file": "web/src/service-worker/index.ts",
+      "line": 46,
+      "severity": "P1",
+      "initial_evidence": [
+        "E18",
+        "E45",
+        "E50",
+        "E53"
+      ],
+      "questions_to_resolve": [
+        "Can two authentication sessions generate the same original or thumbnail URL for an asset?",
+        "Are these caches cleared on logout or account change?"
+      ]
+    },
+    {
+      "id": "H2",
+      "claim": "Destroying one image consumer must not abort another concurrent consumer's request for the same URL; the URL-global pendingLoads entry and cancellation message may make the surviving consumer receive Response.error().",
+      "why_suspected": "Every request for a URL overwrites the single AbortController stored under that URL, while thumbnail and viewer destruction sends cancellation using only the URL; this cannot identify which component or tab owns the controller.",
+      "file": "web/src/service-worker/index.ts",
+      "line": 55,
+      "severity": "P2",
+      "initial_evidence": [
+        "E6",
+        "E7",
+        "E11",
+        "E15",
+        "E18",
+        "E46",
+        "E52"
+      ],
+      "questions_to_resolve": [
+        "When two intercepted fetches use the same URL, which request does the stored controller belong to when either component is destroyed?",
+        "Can separate tabs or visible thumbnails concurrently consume an identical URL?"
+      ]
+    },
+    {
+      "id": "H3",
+      "claim": "Intercepted asset GETs must preserve the original Request semantics, including Range and conditional headers; reconstructing the fetch from only the URL may turn a ranged or conditional request into an unconditional full-body 200 response.",
+      "why_suspected": "The fetch handler receives event.request but passes only a URL to immichAsset, which invokes fetch(url) with no original headers or request options.",
+      "file": "web/src/service-worker/index.ts",
+      "line": 51,
+      "severity": "P2",
+      "initial_evidence": [
+        "E9",
+        "E18",
+        "E47"
+      ],
+      "questions_to_resolve": [
+        "Do any original or thumbnail consumers issue Range or conditional requests?",
+        "Should immichAsset fetch event.request, possibly with only the signal overridden, instead of fetching the URL?"
+      ]
+    },
+    {
+      "id": "H4",
+      "claim": "Activating this worker must not delete Cache Storage entries it does not own; deleteOldCaches currently removes every cache on the origin whose name is not the current deployment cache.",
+      "why_suspected": "The activation cleanup checks only key !== CACHE and has no Immich cache namespace or ownership check, so unrelated application or feature caches sharing the origin are deleted.",
+      "file": "web/src/service-worker/index.ts",
+      "line": 37,
+      "severity": "P2",
+      "initial_evidence": [
+        "E16",
+        "E17",
+        "E48"
+      ],
+      "questions_to_resolve": [
+        "Can any other worker or web feature on this origin create Cache Storage entries?",
+        "Should cleanup be restricted to names beginning with this worker's cache prefix?"
+      ]
+    },
+    {
+      "id": "H5",
+      "claim": "Adjacent-photo preloading must still initiate a request when the service worker is not yet active or BroadcastChannel delivery is unavailable; replacing Image.src with a fire-and-forget message can silently skip the preload on an initial visit.",
+      "why_suspected": "The previous code directly initiated a browser image request, whereas preload now only posts a BroadcastChannel message and provides no fallback or acknowledgement that an active worker received it.",
+      "file": "web/src/lib/components/asset-viewer/photo-viewer.svelte",
+      "line": 75,
+      "severity": "P2",
+      "initial_evidence": [
+        "E6",
+        "E8",
+        "E12",
+        "E22",
+        "E49",
+        "E51"
+      ],
+      "questions_to_resolve": [
+        "Can preload run before the newly registered worker has installed and opened its BroadcastChannel?",
+        "Is a direct image-fetch fallback required when no worker acknowledges the preload message?"
+      ]
+    }
+  ],
+  "lookups": [
+    {
+      "n": 1,
+      "id": "L1",
+      "hypothesis": "H1",
+      "tool": "read_source",
+      "args": {
+        "path": "web/src/service-worker/index.ts",
+        "start_line": 1,
+        "end_line": 140
+      },
+      "why": "Inspect the new URL-keyed cache logic, including cache names, request matching, and any session/auth scoping.",
+      "provenance": "source_read",
+      "result_chars": 2800,
+      "result_excerpt": "1: /// <reference types=\"@sveltejs/kit\" />\n2: /// <reference no-default-lib=\"true\"/>\n3: /// <reference lib=\"esnext\" />\n4: /// <reference lib=\"webworker\" />\n5: import { version } from '$service-worker';\n6: \n7: const useCache = true;\n8: const sw = globalThis as unknown as ServiceWorkerGlobalScope;\n9: const pendingLoads = new Map<string, AbortController>();\n10: \n11: // Create a unique cache name for this deployment\n12: const CACHE = `cache-${version}`;\n13: \n14: sw.addEventListener('install', (event) => {\n15:   event.waitUntil(sw.skipWaiting());\n16: });\n17: \n18: sw.addEventListener('activate', (ev"
+    },
+    {
+      "n": 2,
+      "id": "L2",
+      "hypothesis": "H1",
+      "tool": "search_text",
+      "args": {
+        "pattern": "/api/assets/.*(original|thumbnail)|api/assets/.+thumbnail|api/assets/.+original",
+        "path_glob": "web/src/**/*.{ts,svelte}"
+      },
+      "why": "Determine how asset URLs are constructed and whether they include any session/account-specific component that would prevent two sessions from requesting the same URL.",
+      "provenance": "source_search",
+      "result_chars": 12,
+      "result_excerpt": "(no matches)"
+    },
+    {
+      "n": 3,
+      "id": "L3",
+      "hypothesis": "H1",
+      "tool": "search_text",
+      "args": {
+        "pattern": "thumbnailUrl|originalUrl|getAsset.*Url|asset.*thumbnail|asset.*original",
+        "path_glob": "web/src/**/*.{ts,svelte}"
+      },
+      "why": "Find the frontend helpers or call sites that construct original/thumbnail asset URLs, to determine whether cache keys include session/account identity.",
+      "provenance": "source_search",
+      "result_chars": 4966,
+      "result_excerpt": "web/src/lib/components/album-page/__tests__/album-cover.spec.ts:2: import { getAssetThumbnailUrl } from '$lib/utils';\nweb/src/lib/components/album-page/__tests__/album-cover.spec.ts:10: vi.mocked(getAssetThumbnailUrl).mockReturnValue('/asdf');\nweb/src/lib/components/album-page/__tests__/album-cover.spec.ts:24: expect(getAssetThumbnailUrl).toHaveBeenCalledWith({ id: '123' });\nweb/src/lib/components/album-page/album-cover.svelte:2: import { getAssetThumbnailUrl } from '$lib/utils';\nweb/src/lib/components/album-page/album-cover.svelte:17: let thumbnailUrl = $derived(\nweb/src/lib/components/album-"
+    },
+    {
+      "n": 4,
+      "id": "L4",
+      "hypothesis": "H1",
+      "tool": "find_symbol",
+      "args": {
+        "name_pattern": "^getAsset(Thumbnail|Original)Url$"
+      },
+      "why": "Locate the exact URL helper definitions to verify whether generated cache keys contain only asset identifiers/options or any session/account-specific identity.",
+      "provenance": "structural_query",
+      "result_chars": 420,
+      "result_excerpt": "{\"qn_rule\":\"qn = qn_prefix == \\\"\\\" ? name : qn_prefix + \\\".\\\" + name\",\"cols\":[\"name\",\"label\",\"lines\",\"in\",\"out\"],\"groups\":[{\"qn_prefix\":\"Users-ksnaik-.cache-sydes-aacr-repos-immich-app__immich.web.src.lib.utils\",\"file\":\"web/src/lib/utils.ts\",\"rows\":[[\"getAssetOriginalUrl\",\"Function\",\"187-193\",3,4],[\"getAssetThumbnailUrl\",\"Function\",\"195-201\",5,5]]}],\"total\":2,\"returned\":2,\"count\":2,\"has_more\":false,\"truncated\":false}"
+    },
+    {
+      "n": 5,
+      "id": "L5",
+      "hypothesis": "H2",
+      "tool": "read_source",
+      "args": {
+        "path": "web/src/service-worker/index.ts",
+        "start_line": 1,
+        "end_line": 130
+      },
+      "why": "Inspect pendingLoads ownership, same-URL fetch handling, and cancellation behavior around line 55.",
+      "provenance": "source_read",
+      "result_chars": 2800,
+      "result_excerpt": "1: /// <reference types=\"@sveltejs/kit\" />\n2: /// <reference no-default-lib=\"true\"/>\n3: /// <reference lib=\"esnext\" />\n4: /// <reference lib=\"webworker\" />\n5: import { version } from '$service-worker';\n6: \n7: const useCache = true;\n8: const sw = globalThis as unknown as ServiceWorkerGlobalScope;\n9: const pendingLoads = new Map<string, AbortController>();\n10: \n11: // Create a unique cache name for this deployment\n12: const CACHE = `cache-${version}`;\n13: \n14: sw.addEventListener('install', (event) => {\n15:   event.waitUntil(sw.skipWaiting());\n16: });\n17: \n18: sw.addEventListener('activate', (ev"
+    },
+    {
+      "n": 6,
+      "id": "L6",
+      "hypothesis": "H2",
+      "tool": "search_text",
+      "args": {
+        "pattern": "type:\\s*['\"]cancel['\"]|BroadcastChannel\\(['\"]immich['\"]\\)|\\.postMessage\\(",
+        "path_glob": "web/src/**/*.{ts,js,svelte}"
+      },
+      "why": "Identify who sends URL-scoped cancellation messages and whether component destruction can cancel a URL shared by other consumers.",
+      "provenance": "source_search",
+      "result_chars": 343,
+      "result_excerpt": "web/src/lib/utils/sw-messaging.ts:1: const broadcast = new BroadcastChannel('immich');\nweb/src/lib/utils/sw-messaging.ts:4: broadcast.postMessage({ type: 'cancel', url });\nweb/src/lib/utils/sw-messaging.ts:7: broadcast.postMessage({ type: 'preload', url });\nweb/src/service-worker/index.ts:70: const broadcast = new BroadcastChannel('immich');"
+    },
+    {
+      "n": 7,
+      "id": "L7",
+      "hypothesis": "H2",
+      "tool": "read_source",
+      "args": {
+        "path": "web/src/lib/utils/sw-messaging.ts",
+        "start_line": 1,
+        "end_line": 80
+      },
+      "why": "Identify the cancellation API exported to components so its callers can be traced and determine whether destruction sends a URL-global cancel.",
+      "provenance": "source_read",
+      "result_chars": 272,
+      "result_excerpt": "1: const broadcast = new BroadcastChannel('immich');\n2: \n3: export function cancelImageUrl(url: string) {\n4:   broadcast.postMessage({ type: 'cancel', url });\n5: }\n6: export function preloadImageUrl(url: string) {\n7:   broadcast.postMessage({ type: 'preload', url });\n8: }"
+    },
+    {
+      "n": 8,
+      "id": "L8",
+      "hypothesis": "H2",
+      "tool": "callers",
+      "args": {
+        "symbol": "cancelImageUrl"
+      },
+      "why": "Find which components invoke URL-scoped cancellation, especially whether teardown/destruction triggers it for thumbnails that may share a URL.",
+      "provenance": "structural_query",
+      "result_chars": 515,
+      "result_excerpt": "{\"function\":\"cancelImageUrl\",\"direction\":\"inbound\",\"mode\":\"calls\",\"callers_total\":2,\"callers_total_relation\":\"eq\",\"callers\":{\"qn_rule\":\"qn = qn_prefix == \\\"\\\" ? name : qn_prefix + \\\".\\\" + name\",\"cols\":[\"name\",\"hop\"],\"groups\":[{\"qn_prefix\":\"Users-ksnaik-.cache-sydes-aacr-repos-immich-app__immich.web.src.lib.components.assets.thumbnail.image-thumbnail\",\"rows\":[[\"destroy\",1]]},{\"qn_prefix\":\"Users-ksnaik-.cache-sydes-aacr-repos-immich-app__immich.web.src.lib.components.asset-viewer\",\"rows\":[[\"photo-viewer\",1]]}]}}"
+    },
+    {
+      "n": 9,
+      "id": "L9",
+      "hypothesis": "H3",
+      "tool": "read_source",
+      "args": {
+        "path": "web/src/service-worker/index.ts",
+        "start_line": 1,
+        "end_line": 130
+      },
+      "why": "Inspect the interception predicate and immichAsset implementation to determine whether it discards Request headers/method/options and how its abort signal is applied.",
+      "provenance": "source_read",
+      "result_chars": 2800,
+      "result_excerpt": "1: /// <reference types=\"@sveltejs/kit\" />\n2: /// <reference no-default-lib=\"true\"/>\n3: /// <reference lib=\"esnext\" />\n4: /// <reference lib=\"webworker\" />\n5: import { version } from '$service-worker';\n6: \n7: const useCache = true;\n8: const sw = globalThis as unknown as ServiceWorkerGlobalScope;\n9: const pendingLoads = new Map<string, AbortController>();\n10: \n11: // Create a unique cache name for this deployment\n12: const CACHE = `cache-${version}`;\n13: \n14: sw.addEventListener('install', (event) => {\n15:   event.waitUntil(sw.skipWaiting());\n16: });\n17: \n18: sw.addEventListener('activate', (ev"
+    },
+    {
+      "n": 10,
+      "id": "L10",
+      "hypothesis": "H3",
+      "tool": "search_text",
+      "args": {
+        "pattern": "\\b(Range|If-None-Match|If-Modified-Since|If-Match|If-Unmodified-Since|If-Range)\\b",
+        "path_glob": "web/src/**/*"
+      },
+      "why": "Determine whether any web original/thumbnail consumers explicitly issue Range or conditional headers, which decides the first question and whether URL-only reconstruction changes observed request semantics.",
+      "provenance": "source_search",
+      "result_chars": 181,
+      "result_excerpt": "web/src/lib/components/asset-viewer/photo-viewer.svelte:118: if (globalThis.getSelection()?.type === 'Range') {\nweb/src/lib/stores/asset-interaction.svelte.ts:72: // Range selection"
+    },
+    {
+      "n": 11,
+      "id": "L11",
+      "hypothesis": "H3",
+      "tool": "search_text",
+      "args": {
+        "pattern": "(/api/assets/|original|thumbnail)",
+        "path_glob": "web/src/**/*.{ts,svelte}"
+      },
+      "why": "Identify original/thumbnail consumers and whether they use browser media elements or explicit fetches; media consumers may generate Range or conditional requests even though no headers are explicitly set in source.",
+      "provenance": "source_search",
+      "result_chars": 5138,
+      "result_excerpt": "web/src/lib/__mocks__/sdk.mock.ts:4: vi.mock('@immich/sdk', async (originalImport) => {\nweb/src/lib/__mocks__/sdk.mock.ts:5: const module = await originalImport<typeof import('@immich/sdk')>();\nweb/src/lib/actions/thumbhash.ts:5: * Renders a thumbnail onto a canvas from a base64 encoded hash.\nweb/src/lib/components/admin-page/jobs/jobs-panel.svelte:67: subtitle: $t('admin.thumbnail_generation_job_description'),\nweb/src/lib/components/admin-page/settings/ffmpeg/ffmpeg-settings.svelte:209: { value: 'original', text: $t('original') },\nweb/src/lib/components/admin-page/settings/image/image-setting"
+    },
+    {
+      "n": 12,
+      "id": "L12",
+      "hypothesis": "H3",
+      "tool": "search_text",
+      "args": {
+        "pattern": "getAssetOriginalUrl|getAssetThumbnailUrl",
+        "path_glob": "web/src/**/*.{ts,svelte}"
+      },
+      "why": "Identify all consumers of intercepted original/thumbnail URLs and whether they are assigned to browser media/image elements that can autonomously issue Range or conditional requests.",
+      "provenance": "source_search",
+      "result_chars": 4998,
+      "result_excerpt": "web/src/lib/components/album-page/__tests__/album-cover.spec.ts:2: import { getAssetThumbnailUrl } from '$lib/utils';\nweb/src/lib/components/album-page/__tests__/album-cover.spec.ts:10: vi.mocked(getAssetThumbnailUrl).mockReturnValue('/asdf');\nweb/src/lib/components/album-page/__tests__/album-cover.spec.ts:24: expect(getAssetThumbnailUrl).toHaveBeenCalledWith({ id: '123' });\nweb/src/lib/components/album-page/album-cover.svelte:2: import { getAssetThumbnailUrl } from '$lib/utils';\nweb/src/lib/components/album-page/album-cover.svelte:18: album.albumThumbnailAssetId ? getAssetThumbnailUrl({ id: a"
+    }
+  ],
+  "outcomes": [
+    {
+      "hypothesis": "H1",
+      "lookups": [
+        "L1",
+        "L2",
+        "L3",
+        "L4"
+      ],
+      "status": "UNKNOWN",
+      "supported_claim": "The new service worker stores successful asset responses in a deployment-wide cache by URL and returns a matching cached response without making a backend request; the supplied evidence does not establish that this permits reuse across authorization sessions.",
+      "reasoning": "L1 establishes the risky mechanism: a URL match is returned immediately, and successful network responses are cached under that URL. However, E50 states that the endpoint authorization policy is unavailable, and the evidence does not show whether asset URLs remain identical across users/sessions or whether logout/account-change logic clears Cache Storage. Therefore, an unauthorized disclosure cannot be established rather than merely inferred.",
+      "defect_evidence": [],
+      "changed_evidence": [
+        {
+          "source": "L1",
+          "file": "web/src/service-worker/index.ts",
+          "line": 45,
+          "quote": "let response = useCache ? await cache.match(url) : undefined;"
+        },
+        {
+          "source": "L1",
+          "file": "web/src/service-worker/index.ts",
+          "line": 46,
+          "quote": "if (response) {\n    return response;\n  }"
+        },
+        {
+          "source": "L1",
+          "file": "web/src/service-worker/index.ts",
+          "line": 59,
+          "quote": "if (response.status === 200) {\n      cache.put(url, response.clone());\n    }"
+        }
+      ],
+      "causal_link": "If a protected asset has the same URL after an authorization-session change and its cached entry survives that change, the changed cache-hit path would return the prior response without contacting the authorization-enforcing endpoint. Neither prerequisite is established by the supplied evidence.",
+      "refuting": [],
+      "missing": [
+        "Evidence that two differently authorized or unauthenticated sessions can request the same asset original/thumbnail URL.",
+        "Logout and account-change implementation showing whether the service-worker cache is retained or cleared.",
+        "Backend authorization behavior for /api/assets/{id}/original and /api/assets/{id}/thumbnail, needed to establish that serving the cached response bypasses access that would otherwise be denied.",
+        "A demonstrated cache entry and subsequent request under another session showing protected image bytes are returned."
+      ],
+      "verified_defect_evidence": [],
+      "verified_changed_evidence": [
+        {
+          "source": "L1",
+          "file": "web/src/service-worker/index.ts",
+          "line": 45,
+          "quote": "let response = useCache ? await cache.match(url) : undefined;",
+          "verification": "citation confirmed near web/src/service-worker/index.ts:45"
+        },
+        {
+          "source": "L1",
+          "file": "web/src/service-worker/index.ts",
+          "line": 46,
+          "quote": "if (response) {\n    return response;\n  }",
+          "verification": "citation confirmed near web/src/service-worker/index.ts:46"
+        },
+        {
+          "source": "L1",
+          "file": "web/src/service-worker/index.ts",
+          "line": 59,
+          "quote": "if (response.status === 200) {\n      cache.put(url, response.clone());\n    }",
+          "verification": "citation confirmed near web/src/service-worker/index.ts:59"
+        }
+      ]
+    },
+    {
+      "hypothesis": "H2",
+      "lookups": [
+        "L5",
+        "L6",
+        "L7",
+        "L8"
+      ],
+      "status": "UNKNOWN",
+      "supported_claim": "The new service worker tracks only one AbortController per URL. If two cache-miss fetches for the same URL overlap, the later controller replaces the earlier one, and any URL-only cancellation can abort that stored request and make it return Response.error(). The evidence does not establish that two consumers actually issue such overlapping same-URL requests.",
+      "reasoning": "The mechanism is present: pendingLoads is keyed solely by URL, each request overwrites that entry, and cancellation carries no consumer identity. Thus the stored controller belongs to the most recent request that called pendingLoads.set for that URL, subject also to either request's finally block deleting the shared entry. Aborting the stored controller causes its fetch await to reject and the catch returns Response.error(). However, E52 explicitly leaves actual same-URL concurrency unresolved, and the supplied component evidence does not show two tabs or thumbnail/viewer instances issuing overlapping cache-miss requests for an identical URL. Therefore the cross-consumer defect cannot be established from the evidence.",
+      "defect_evidence": [
+        {
+          "source": "L5",
+          "file": "web/src/service-worker/index.ts",
+          "line": 63,
+          "quote": "  } catch {\n    return Response.error();\n  }"
+        }
+      ],
+      "changed_evidence": [
+        {
+          "source": "L5",
+          "file": "web/src/service-worker/index.ts",
+          "line": 9,
+          "quote": "const pendingLoads = new Map<string, AbortController>();"
+        },
+        {
+          "source": "L5",
+          "file": "web/src/service-worker/index.ts",
+          "line": 50,
+          "quote": "    const cancelToken = new AbortController();\n    const request = fetch(url, {\n      signal: cancelToken.signal,\n    });\n    pendingLoads.set(url.toString(), cancelToken);"
+        },
+        {
+          "source": "L5",
+          "file": "web/src/service-worker/index.ts",
+          "line": 80,
+          "quote": "    const pending = pendingLoads.get(url.toString());\n    if (pending) {\n      pending.abort();\n      pendingLoads.delete(url.toString());\n    }"
+        },
+        {
+          "source": "L7",
+          "file": "web/src/lib/utils/sw-messaging.ts",
+          "line": 3,
+          "quote": "export function cancelImageUrl(url: string) {\n  broadcast.postMessage({ type: 'cancel', url });\n}"
+        }
+      ],
+      "causal_link": "This change introduces URL-global controller storage and URL-only cancellation. Under overlapping identical-URL cache misses, the second set overwrites the first controller; a cancellation from either consumer then aborts whichever controller is stored, whose rejected fetch is converted to Response.error(). The missing evidence is whether that overlap occurs in an actual application path.",
+      "refuting": [],
+      "missing": [
+        "Evidence that separate tabs, visible thumbnails, or another concrete pair of consumers concurrently issue intercepted cache-miss fetches for the exact same URL.",
+        "Evidence that one such consumer can be destroyed and send its cancellation while the other consumer's controller is the value currently stored in pendingLoads."
+      ],
+      "verified_defect_evidence": [
+        {
+          "source": "L5",
+          "file": "web/src/service-worker/index.ts",
+          "line": 63,
+          "quote": "  } catch {\n    return Response.error();\n  }",
+          "verification": "citation confirmed near web/src/service-worker/index.ts:63"
+        }
+      ],
+      "verified_changed_evidence": [
+        {
+          "source": "L5",
+          "file": "web/src/service-worker/index.ts",
+          "line": 9,
+          "quote": "const pendingLoads = new Map<string, AbortController>();",
+          "verification": "citation confirmed near web/src/service-worker/index.ts:9"
+        },
+        {
+          "source": "L5",
+          "file": "web/src/service-worker/index.ts",
+          "line": 50,
+          "quote": "    const cancelToken = new AbortController();\n    const request = fetch(url, {\n      signal: cancelToken.signal,\n    });\n    pendingLoads.set(url.toString(), cancelToken);",
+          "verification": "citation confirmed near web/src/service-worker/index.ts:50"
+        },
+        {
+          "source": "L5",
+          "file": "web/src/service-worker/index.ts",
+          "line": 80,
+          "quote": "    const pending = pendingLoads.get(url.toString());\n    if (pending) {\n      pending.abort();\n      pendingLoads.delete(url.toString());\n    }",
+          "verification": "citation confirmed near web/src/service-worker/index.ts:80"
+        },
+        {
+          "source": "L7",
+          "file": "web/src/lib/utils/sw-messaging.ts",
+          "line": 3,
+          "quote": "export function cancelImageUrl(url: string) {\n  broadcast.postMessage({ type: 'cancel', url });\n}",
+          "verification": "citation confirmed near web/src/lib/utils/sw-messaging.ts:3"
+        }
+      ]
+    },
+    {
+      "hypothesis": "H3",
+      "lookups": [
+        "L9",
+        "L10",
+        "L11",
+        "L12"
+      ],
+      "status": "UNKNOWN",
+      "supported_claim": "The new service worker handles matching asset GETs using only their URL, but the evidence does not establish that any intercepted request carries Range or conditional headers or that an incorrect full-body 200 response occurs.",
+      "reasoning": "L9 shows that the fetch handler converts event.request to a URL and passes only that URL to immichAsset, which then calls fetch(url, ...). Thus the original Request object is not forwarded. However, L10 found no explicit Range or HTTP conditional-header usage in web/src, and no request trace, test, or server response evidence shows an intercepted consumer issuing such a request. Consequently, the proposed response/status defect is plausible but not established on any concrete path.",
+      "defect_evidence": [],
+      "changed_evidence": [
+        {
+          "source": "L9",
+          "file": "web/src/service-worker/index.ts",
+          "line": 31,
+          "quote": "event.respondWith(immichAsset(url));"
+        },
+        {
+          "source": "L9",
+          "file": "web/src/service-worker/index.ts",
+          "line": 51,
+          "quote": "const request = fetch(url, {"
+        }
+      ],
+      "causal_link": "Passing only url into immichAsset and fetch(url, ...) would omit properties carried solely by event.request; whether that causes the claimed defect depends on an intercepted request actually containing relevant Range or conditional headers, which the supplied evidence does not establish.",
+      "refuting": [
+        {
+          "source": "L10",
+          "explanation": "The search of web/src found no explicit Range or HTTP conditional-header use; its only 'Range' hits concern text/range selection, not HTTP requests. This limits support for the claimed consumer path but does not exclude browser- or library-generated headers."
+        }
+      ],
+      "missing": [
+        "Evidence that an original or thumbnail request intercepted by this service worker actually contains Range, If-None-Match, If-Modified-Since, If-Match, If-Unmodified-Since, or If-Range headers.",
+        "A request trace or test comparing the response to fetch(event.request) with the response to fetch(url), including resulting status and body size.",
+        "Evidence of server behavior for the relevant asset endpoint when those headers are present versus omitted."
+      ],
+      "verified_defect_evidence": [],
+      "verified_changed_evidence": [
+        {
+          "source": "L9",
+          "file": "web/src/service-worker/index.ts",
+          "line": 31,
+          "quote": "event.respondWith(immichAsset(url));",
+          "verification": "citation confirmed near web/src/service-worker/index.ts:31"
+        },
+        {
+          "source": "L9",
+          "file": "web/src/service-worker/index.ts",
+          "line": 51,
+          "quote": "const request = fetch(url, {",
+          "verification": "citation confirmed near web/src/service-worker/index.ts:51"
+        }
+      ]
+    },
+    {
+      "hypothesis": "H4",
+      "lookups": [],
+      "status": "UNKNOWN",
+      "supported_claim": "On activation, deleteOldCaches attempts to delete every Cache Storage entry whose key is not the current `CACHE` value; the evidence does not establish that any matching entry is owned by another feature or must be preserved.",
+      "reasoning": "E17 confirms the cleanup is not namespace-restricted: it enumerates all origin cache keys and deletes each key unequal to `CACHE`. However, E48 labels harm to other functionality as an unverified inference, and there are no lookup results showing another worker or web feature creates Cache Storage entries on this origin or establishing an ownership/preservation requirement. Thus the broad deletion behavior is proven, but an actual deletion of non-owned data\u2014and therefore the claimed defect\u2014cannot be established.",
+      "defect_evidence": [],
+      "changed_evidence": [
+        {
+          "source": "E17",
+          "file": "web/src/service-worker/index.ts",
+          "line": 35,
+          "quote": "async function deleteOldCaches() { for (const key of await caches.keys()) { if (key !== CACHE) { await caches.delete(key); } } }"
+        },
+        {
+          "source": "E16",
+          "file": "web/src/service-worker/index.ts",
+          "line": 12,
+          "quote": "const CACHE = `cache-${version}`;"
+        }
+      ],
+      "causal_link": "The new activation cleanup would cause deletion of any other cache key, but the supplied evidence does not establish that such a key can exist, is non-owned, or is required to survive activation.",
+      "refuting": [],
+      "missing": [
+        "Evidence that another worker or web feature on this origin creates a Cache Storage entry with a name different from the current `CACHE`.",
+        "Evidence that such entries are outside this worker's ownership or are required to be preserved.",
+        "A documented cache-name namespace or cleanup contract showing cleanup should be restricted to this worker's prefix."
+      ],
+      "verified_defect_evidence": [],
+      "verified_changed_evidence": [
+        {
+          "source": "E17",
+          "file": "web/src/service-worker/index.ts",
+          "line": 35,
+          "quote": "async function deleteOldCaches() { for (const key of await caches.keys()) { if (key !== CACHE) { await caches.delete(key); } } }",
+          "verification": "citation recovered near web/src/service-worker/index.ts:31-41 (model cited line 35; the real text was located there instead)"
+        },
+        {
+          "source": "E16",
+          "file": "web/src/service-worker/index.ts",
+          "line": 12,
+          "quote": "const CACHE = `cache-${version}`;",
+          "verification": "citation confirmed near web/src/service-worker/index.ts:12"
+        }
+      ]
+    },
+    {
+      "hypothesis": "H5",
+      "lookups": [],
+      "status": "UNKNOWN",
+      "supported_claim": "The adjacent-photo preload path now only posts an unacknowledged BroadcastChannel message instead of directly assigning an Image.src; the supplied evidence does not establish that this message is lost on any supported runtime path.",
+      "reasoning": "The change confirms that preload() delegates solely to preloadImageUrl(), and that preloadImageUrl() only calls BroadcastChannel.postMessage() with no acknowledgement or direct-fetch fallback. However, no evidence establishes that preload() executes before the service worker has created its BroadcastChannel, that messages sent in that state are discarded in the relevant runtime, or that BroadcastChannel is unavailable in a supported browser. E49 and E51 explicitly identify service-worker registration, activation, browser state, and BroadcastChannel behavior as unresolved. Therefore the alleged skipped preload cannot be confirmed, while nothing supplied proves it cannot occur.",
+      "defect_evidence": [],
+      "changed_evidence": [
+        {
+          "source": "E22",
+          "file": "web/src/lib/components/asset-viewer/photo-viewer.svelte",
+          "line": 75,
+          "quote": "preloadImageUrl(getAssetUrl(preloadAsset.id, targetSize, preloadAsset.thumbhash));"
+        },
+        {
+          "source": "E12",
+          "file": "web/src/lib/utils/sw-messaging.ts",
+          "line": 7,
+          "quote": "broadcast.postMessage({ type: 'preload', url });"
+        }
+      ],
+      "causal_link": "The changed code removes the direct Image.src request and replaces it with a fire-and-forget message, which could cause a skipped preload if no listener receives that message. The evidence does not establish that the required no-listener or unsupported-delivery condition actually occurs.",
+      "refuting": [],
+      "missing": [
+        "Evidence of when and how the new service worker is registered relative to photo-viewer preload execution.",
+        "Evidence that an initial-visit preload message can be sent before the worker creates its BroadcastChannel listener.",
+        "Runtime or test evidence showing that such a message is dropped and no asset request is initiated.",
+        "Supported-browser requirements and behavior when BroadcastChannel is unavailable.",
+        "Evidence establishing whether a direct-fetch fallback or acknowledgement mechanism is required by intended behavior."
+      ],
+      "verified_defect_evidence": [],
+      "verified_changed_evidence": [
+        {
+          "source": "E22",
+          "file": "web/src/lib/components/asset-viewer/photo-viewer.svelte",
+          "line": 75,
+          "quote": "preloadImageUrl(getAssetUrl(preloadAsset.id, targetSize, preloadAsset.thumbhash));",
+          "verification": "citation confirmed near web/src/lib/components/asset-viewer/photo-viewer.svelte:75"
+        },
+        {
+          "source": "E12",
+          "file": "web/src/lib/utils/sw-messaging.ts",
+          "line": 7,
+          "quote": "broadcast.postMessage({ type: 'preload', url });",
+          "verification": "citation confirmed near web/src/lib/utils/sw-messaging.ts:7"
+        }
+      ]
+    }
+  ],
+  "confirmed": [],
+  "refuted": [],
+  "unknown": [
+    "H1",
+    "H2",
+    "H3",
+    "H4",
+    "H5"
+  ],
+  "findings": [],
+  "budget": {
+    "max_hypotheses": 5,
+    "max_lookups": 12,
+    "used_lookups": 12,
+    "max_lookups_per_hypothesis": 4
+  },
+  "usage": {
+    "llm_calls": 18,
+    "by_stage": {
+      "finder": 1,
+      "investigator": 12,
+      "verifier": 5
+    },
+    "prompt_tokens": 48439,
+    "completion_tokens": 8528,
+    "reasoning_tokens": 4593,
+    "llm_seconds": 153.4
+  },
+  "errors": []
+}

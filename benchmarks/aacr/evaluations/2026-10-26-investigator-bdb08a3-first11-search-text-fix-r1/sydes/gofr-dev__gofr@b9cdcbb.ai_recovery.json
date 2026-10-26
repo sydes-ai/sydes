@@ -1,0 +1,26 @@
+{
+  "path_recovery": {
+    "status": "unresolved",
+    "paths": [],
+    "corrected_first_pass_claims": [],
+    "unresolved": []
+  },
+  "test_recovery": {
+    "status": "unresolved",
+    "tests": [
+      {
+        "file": "pkg/gofr/http/responder_test.go",
+        "test": "TestResponder",
+        "covers": "Directly constructs and invokes the HTTP responder across response formatting cases, including typed response handling changed by this diff.",
+        "target": {
+          "symbol": "Responder.Respond",
+          "file": "pkg/gofr/http/responder.go",
+          "qualified_name": null
+        },
+        "evidence": [],
+        "status": "rejected",
+        "rejection_reason": "no evidence cited at all"
+      }
+    ]
+  }
+}

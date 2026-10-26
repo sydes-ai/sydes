@@ -1,0 +1,646 @@
+{
+ "old_b9391e5": [
+  {
+   "run": "old",
+   "case": "browser-use__browser-use-1482",
+   "status": "completed",
+   "H": 3,
+   "L": 12,
+   "hit": true,
+   "C": 1,
+   "R": 0,
+   "U": 2,
+   "per": {
+    "H1": 4,
+    "H2": 4,
+    "H3": 4
+   },
+   "find": 1,
+   "match": 0,
+   "calls": 40,
+   "tin": 128596,
+   "tout": 20090,
+   "sec": 399.8,
+   "st": 3,
+   "errors": 0,
+   "tools": {
+    "read_source": 8,
+    "search_text": 3,
+    "find_symbol": 1
+   }
+  },
+  {
+   "run": "old",
+   "case": "browser-use__browser-use-3172",
+   "status": "completed",
+   "H": 4,
+   "L": 12,
+   "hit": true,
+   "C": 1,
+   "R": 0,
+   "U": 3,
+   "per": {
+    "H1": 4,
+    "H2": 4,
+    "H3": 4,
+    "H4": 0
+   },
+   "find": 1,
+   "match": 1,
+   "calls": 40,
+   "tin": 139156,
+   "tout": 16838,
+   "sec": 325.2,
+   "st": 3,
+   "errors": 0,
+   "tools": {
+    "read_source": 7,
+    "search_text": 3,
+    "tests_for": 1,
+    "runtime_for": 1
+   }
+  },
+  {
+   "run": "old",
+   "case": "cline__cline-1808",
+   "status": "completed",
+   "H": 3,
+   "L": 12,
+   "hit": true,
+   "C": 0,
+   "R": 0,
+   "U": 3,
+   "per": {
+    "H1": 4,
+    "H2": 4,
+    "H3": 4
+   },
+   "find": 0,
+   "match": 0,
+   "calls": 61,
+   "tin": 147422,
+   "tout": 17334,
+   "sec": 346.7,
+   "st": 5,
+   "errors": 0,
+   "tools": {
+    "read_source": 5,
+    "search_text": 5,
+    "tests_for": 1,
+    "find_symbol": 1
+   }
+  },
+  {
+   "run": "old",
+   "case": "dbeaver__dbeaver-37564",
+   "status": "completed",
+   "H": 4,
+   "L": 12,
+   "hit": true,
+   "C": 0,
+   "R": 1,
+   "U": 3,
+   "per": {
+    "H1": 4,
+    "H2": 4,
+    "H3": 1,
+    "H4": 3
+   },
+   "find": 0,
+   "match": 0,
+   "calls": 23,
+   "tin": 57311,
+   "tout": 15409,
+   "sec": 598.3,
+   "st": 4,
+   "errors": 0,
+   "tools": {
+    "read_source": 7,
+    "search_text": 4,
+    "find_symbol": 1
+   }
+  },
+  {
+   "run": "old",
+   "case": "dbeaver__dbeaver-38239",
+   "status": "completed",
+   "H": 1,
+   "L": 4,
+   "hit": false,
+   "C": 1,
+   "R": 0,
+   "U": 0,
+   "per": {
+    "H1": 4
+   },
+   "find": 1,
+   "match": 0,
+   "calls": 18,
+   "tin": 67093,
+   "tout": 9710,
+   "sec": 532.8,
+   "st": 2,
+   "errors": 0,
+   "tools": {
+    "read_source": 2,
+    "search_text": 2
+   }
+  },
+  {
+   "run": "old",
+   "case": "dbeaver__dbeaver-38915",
+   "status": "completed",
+   "H": 4,
+   "L": 12,
+   "hit": true,
+   "C": 1,
+   "R": 0,
+   "U": 3,
+   "per": {
+    "H1": 4,
+    "H2": 4,
+    "H3": 4,
+    "H4": 0
+   },
+   "find": 1,
+   "match": 1,
+   "calls": 27,
+   "tin": 88038,
+   "tout": 16835,
+   "sec": 655.9,
+   "st": 0,
+   "errors": 0,
+   "tools": {
+    "read_source": 7,
+    "find_symbol": 4,
+    "callers": 1
+   }
+  },
+  {
+   "run": "old",
+   "case": "facebook__react-32499",
+   "status": "INVALID(provider errors)",
+   "H": 0,
+   "L": 0,
+   "hit": false,
+   "C": 0,
+   "R": 0,
+   "U": 0,
+   "per": {},
+   "find": 0,
+   "match": 0,
+   "calls": 28,
+   "tin": 66076,
+   "tout": 8333,
+   "sec": 446.5,
+   "st": 0,
+   "errors": 1,
+   "tools": {}
+  },
+  {
+   "run": "old",
+   "case": "facebook__react-33059",
+   "status": "completed",
+   "H": 3,
+   "L": 12,
+   "hit": true,
+   "C": 0,
+   "R": 0,
+   "U": 3,
+   "per": {
+    "H1": 4,
+    "H2": 4,
+    "H3": 4
+   },
+   "find": 0,
+   "match": 0,
+   "calls": 34,
+   "tin": 68430,
+   "tout": 13029,
+   "sec": 274.4,
+   "st": 2,
+   "errors": 0,
+   "tools": {
+    "read_source": 7,
+    "search_text": 2,
+    "find_symbol": 1,
+    "runtime_for": 1,
+    "tests_for": 1
+   }
+  },
+  {
+   "run": "old",
+   "case": "gofr-dev__gofr-1325",
+   "status": "completed",
+   "H": 2,
+   "L": 8,
+   "hit": false,
+   "C": 1,
+   "R": 0,
+   "U": 1,
+   "per": {
+    "H1": 4,
+    "H2": 4
+   },
+   "find": 1,
+   "match": 1,
+   "calls": 37,
+   "tin": 100207,
+   "tout": 16588,
+   "sec": 299.0,
+   "st": 1,
+   "errors": 0,
+   "tools": {
+    "read_source": 4,
+    "find_symbol": 2,
+    "tests_for": 1,
+    "search_text": 1
+   }
+  },
+  {
+   "run": "old",
+   "case": "google-gemini__gemini-cli-8154",
+   "status": "completed",
+   "H": 5,
+   "L": 12,
+   "hit": true,
+   "C": 4,
+   "R": 0,
+   "U": 1,
+   "per": {
+    "H1": 4,
+    "H2": 4,
+    "H3": 4,
+    "H4": 0,
+    "H5": 0
+   },
+   "find": 4,
+   "match": 2,
+   "calls": 47,
+   "tin": 158708,
+   "tout": 30394,
+   "sec": 659.3,
+   "st": 3,
+   "errors": 0,
+   "tools": {
+    "read_source": 6,
+    "search_text": 3,
+    "find_symbol": 2,
+    "callers": 1
+   }
+  },
+  {
+   "run": "old",
+   "case": "immich-app__immich-16893",
+   "status": "completed",
+   "H": 5,
+   "L": 12,
+   "hit": true,
+   "C": 0,
+   "R": 0,
+   "U": 5,
+   "per": {
+    "H1": 4,
+    "H2": 4,
+    "H3": 4,
+    "H4": 0,
+    "H5": 0
+   },
+   "find": 0,
+   "match": 0,
+   "calls": 54,
+   "tin": 137135,
+   "tout": 22565,
+   "sec": 883.4,
+   "st": 8,
+   "errors": 0,
+   "tools": {
+    "read_source": 4,
+    "search_text": 8
+   }
+  }
+ ],
+ "fixed_bdb08a3": [
+  {
+   "run": "new",
+   "case": "browser-use__browser-use-1482",
+   "status": "completed",
+   "H": 4,
+   "L": 12,
+   "hit": true,
+   "C": 0,
+   "R": 0,
+   "U": 4,
+   "per": {
+    "H1": 4,
+    "H2": 4,
+    "H3": 4,
+    "H4": 0
+   },
+   "find": 0,
+   "match": 0,
+   "calls": 31,
+   "tin": 100673,
+   "tout": 17888,
+   "sec": 307.9,
+   "st": 4,
+   "errors": 0,
+   "tools": {
+    "read_source": 6,
+    "search_text": 4,
+    "runtime_for": 2
+   }
+  },
+  {
+   "run": "new",
+   "case": "browser-use__browser-use-3172",
+   "status": "completed",
+   "H": 5,
+   "L": 12,
+   "hit": true,
+   "C": 1,
+   "R": 0,
+   "U": 4,
+   "per": {
+    "H1": 4,
+    "H2": 4,
+    "H3": 4,
+    "H4": 0,
+    "H5": 0
+   },
+   "find": 1,
+   "match": 1,
+   "calls": 30,
+   "tin": 91529,
+   "tout": 14581,
+   "sec": 232.6,
+   "st": 3,
+   "errors": 0,
+   "tools": {
+    "read_source": 6,
+    "search_text": 3,
+    "runtime_for": 2,
+    "tests_for": 1
+   }
+  },
+  {
+   "run": "new",
+   "case": "cline__cline-1808",
+   "status": "completed",
+   "H": 4,
+   "L": 12,
+   "hit": true,
+   "C": 0,
+   "R": 2,
+   "U": 2,
+   "per": {
+    "H1": 4,
+    "H2": 4,
+    "H3": 3,
+    "H4": 1
+   },
+   "find": 0,
+   "match": 0,
+   "calls": 50,
+   "tin": 119505,
+   "tout": 16641,
+   "sec": 295.6,
+   "st": 2,
+   "errors": 0,
+   "tools": {
+    "read_source": 7,
+    "search_text": 2,
+    "tests_for": 2,
+    "find_symbol": 1
+   }
+  },
+  {
+   "run": "new",
+   "case": "dbeaver__dbeaver-37564",
+   "status": "completed",
+   "H": 4,
+   "L": 12,
+   "hit": true,
+   "C": 0,
+   "R": 0,
+   "U": 4,
+   "per": {
+    "H1": 4,
+    "H2": 4,
+    "H3": 4,
+    "H4": 0
+   },
+   "find": 0,
+   "match": 0,
+   "calls": 22,
+   "tin": 56562,
+   "tout": 17693,
+   "sec": 638.4,
+   "st": 2,
+   "errors": 0,
+   "tools": {
+    "read_source": 7,
+    "search_text": 2,
+    "callers": 2,
+    "find_symbol": 1
+   }
+  },
+  {
+   "run": "new",
+   "case": "dbeaver__dbeaver-38239",
+   "status": "completed",
+   "H": 1,
+   "L": 4,
+   "hit": false,
+   "C": 0,
+   "R": 0,
+   "U": 1,
+   "per": {
+    "H1": 4
+   },
+   "find": 0,
+   "match": 0,
+   "calls": 18,
+   "tin": 60544,
+   "tout": 8418,
+   "sec": 523.0,
+   "st": 2,
+   "errors": 0,
+   "tools": {
+    "read_source": 2,
+    "search_text": 2
+   }
+  },
+  {
+   "run": "new",
+   "case": "dbeaver__dbeaver-38915",
+   "status": "completed",
+   "H": 3,
+   "L": 12,
+   "hit": true,
+   "C": 0,
+   "R": 0,
+   "U": 3,
+   "per": {
+    "H1": 4,
+    "H2": 4,
+    "H3": 4
+   },
+   "find": 0,
+   "match": 0,
+   "calls": 30,
+   "tin": 91719,
+   "tout": 15242,
+   "sec": 620.4,
+   "st": 0,
+   "errors": 0,
+   "tools": {
+    "read_source": 8,
+    "callers": 1,
+    "find_symbol": 3
+   }
+  },
+  {
+   "run": "new",
+   "case": "facebook__react-32499",
+   "status": "INVALID(provider errors)",
+   "H": 0,
+   "L": 0,
+   "hit": false,
+   "C": 0,
+   "R": 0,
+   "U": 0,
+   "per": {},
+   "find": 0,
+   "match": 0,
+   "calls": 14,
+   "tin": 49155,
+   "tout": 8271,
+   "sec": 417.6,
+   "st": 0,
+   "errors": 1,
+   "tools": {}
+  },
+  {
+   "run": "new",
+   "case": "facebook__react-33059",
+   "status": "completed",
+   "H": 3,
+   "L": 12,
+   "hit": true,
+   "C": 0,
+   "R": 0,
+   "U": 3,
+   "per": {
+    "H1": 4,
+    "H2": 4,
+    "H3": 4
+   },
+   "find": 0,
+   "match": 0,
+   "calls": 43,
+   "tin": 89262,
+   "tout": 13801,
+   "sec": 269.7,
+   "st": 4,
+   "errors": 0,
+   "tools": {
+    "read_source": 6,
+    "search_text": 4,
+    "tests_for": 2
+   }
+  },
+  {
+   "run": "new",
+   "case": "gofr-dev__gofr-1325",
+   "status": "completed",
+   "H": 3,
+   "L": 12,
+   "hit": true,
+   "C": 2,
+   "R": 0,
+   "U": 1,
+   "per": {
+    "H1": 4,
+    "H2": 4,
+    "H3": 4
+   },
+   "find": 2,
+   "match": 1,
+   "calls": 35,
+   "tin": 107934,
+   "tout": 18887,
+   "sec": 344.9,
+   "st": 3,
+   "errors": 0,
+   "tools": {
+    "read_source": 6,
+    "find_symbol": 2,
+    "tests_for": 1,
+    "search_text": 3
+   }
+  },
+  {
+   "run": "new",
+   "case": "google-gemini__gemini-cli-8154",
+   "status": "completed",
+   "H": 5,
+   "L": 12,
+   "hit": true,
+   "C": 2,
+   "R": 0,
+   "U": 3,
+   "per": {
+    "H1": 4,
+    "H2": 4,
+    "H3": 4,
+    "H4": 0,
+    "H5": 0
+   },
+   "find": 2,
+   "match": 1,
+   "calls": 53,
+   "tin": 194270,
+   "tout": 29088,
+   "sec": 508.7,
+   "st": 4,
+   "errors": 0,
+   "tools": {
+    "read_source": 8,
+    "search_text": 4
+   }
+  },
+  {
+   "run": "new",
+   "case": "immich-app__immich-16893",
+   "status": "completed",
+   "H": 5,
+   "L": 12,
+   "hit": true,
+   "C": 0,
+   "R": 0,
+   "U": 5,
+   "per": {
+    "H1": 4,
+    "H2": 4,
+    "H3": 4,
+    "H4": 0,
+    "H5": 0
+   },
+   "find": 0,
+   "match": 0,
+   "calls": 51,
+   "tin": 132812,
+   "tout": 20558,
+   "sec": 822.5,
+   "st": 6,
+   "errors": 0,
+   "tools": {
+    "read_source": 4,
+    "search_text": 6,
+    "find_symbol": 1,
+    "callers": 1
+   }
+  }
+ ]
+}

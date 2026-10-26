@@ -1,0 +1,94 @@
+AI recovery (experimental): triggered (a structural boundary was found but no complete route/entrypoint flow reaches it; the first pass reported route composition as unresolved in this repository; 9 changed symbol(s) reach no entrypoint the first pass found)
+AI recovery (experimental): path=unresolved test=unresolved turns=2 llm_calls=2 tokens=6066+212 edge_retries_attempted=0 edge_retries_succeeded=0 graph_paths_proposed=0 graph_paths_established=0 graph_paths_established_unverified_boundary=0 explicit_relation_edges=0
+Wrote AI recovery result: /Users/ksnaik/StudioProjects/sydes/benchmarks/aacr/results/investigator-bdb08a3-first11-r1-2026-10-26/sydes/facebook__react@b045f18.ai_recovery.json
+SYDES VERIFICATION
+
+MEDIUM RISK · 5 AFFECTED BEHAVIORS
+
+Changed
+───────
+packages/react-reconciler/src/ReactFiberBeginWork.js:871 — updateActivityComponent
+packages/react-server/src/ReactFizzServer.js:1121 — renderSuspenseBoundary
+
+CHANGE ANALYSIS (citations verified, indeterminate)
+───────────────────────────────────────────────────
+Cannot be established from this repository alone: depends on state only known at runtime (e.g. feature flags, request data).
+The mechanism is explicit in the repository, but an observable deployment impact requires runtime code to render or compare the experimental `unstable_Activity` value. The supplied context contains no usage data establishing that this occurs.
+
+The experimental `unstable_Activity` element now has its own `react.activity` identity and reconciler work tag instead of being exported as the Offscreen type. Client reconciliation represents it as an Activity fiber wrapping an Offscreen child, server rendering sends it through the existing Offscreen path, and naming/DevTools logic recognizes it as `Activity`.
+
+Likely behavioral changes
+  • Callers importing `unstable_Activity` now receive the distinct global symbol `react.activity`, rather than the Offscreen element type. Identity comparisons and element construction using this export therefore distinguish Activity from Offscreen.
+  • The client reconciler now accepts Activity as an element type, creates a dedicated Activity work item, and reconciles its children through an Offscreen child carrying the Activity `mode` and `children` properties.
+  • During server rendering, Activity elements are handled by the same rendering path as Offscreen elements.
+  • Fiber naming and DevTools inspection can now present the dedicated work tag as `Activity`, rather than treating the exported component solely as Offscreen.
+
+Investigate
+  • Trace all consumers of `unstable_Activity`, `REACT_OFFSCREEN_TYPE`, and direct `Symbol.for` comparisons to identify compatibility assumptions about the former shared identity.
+  • Verify the complete Activity lifecycle across begin work, completion, commit, ref handling, visibility transitions, scheduling, and deletion, especially where logic switches explicitly on OffscreenComponent.
+  • Compare client Activity-wrapper semantics with the server's direct Offscreen rendering path, including hydration and mode behavior.
+  • Check every work-tag map and renderer-version adapter for tag 31 so profiling, inspection, filtering, serialization, and older renderer attachment remain coherent.
+
+Uncertain
+  • The supplied context does not show which applications or internal packages import or render `unstable_Activity`, so the set of callers affected by the new identity cannot be established.
+  • Whether users observe visibility, scheduling, or ref differences depends on the Activity modes and child trees supplied at runtime; no representative usage or tests are shown.
+  • Compatibility when React, renderer, server, and DevTools packages come from mismatched versions is not established, particularly when one side does not recognize `react.activity` or work tag 31.
+  • The diff does not establish which published builds, release channels, or renderer integrations expose and support this experimental export.
+  • No tests are shown for updates, mode transitions, ref attachment, server rendering, hydration, or DevTools behavior, so parity with the former Offscreen-backed implementation cannot be confirmed.
+
+System impact
+─────────────
+callable · cache-sydes-aacr-repos-facebook__react.packages.react-reconciler.src.ReactFiberCompleteWork.completeWork
+
+Inferred impact
+───────────────
+INFERRED · 0.90
+client rendering of Activity boundaries
+
+Why:
+React applications using Activity elements may now have those elements accepted and reconciled as dedicated boundaries whose children are processed according to the supplied mode, rather than being rejected or treated as an unsupported element type.
+
+Static confirmation: unavailable
+
+INFERRED · 0.88
+developer-tools inspection of Activity components
+
+Why:
+React developer tooling can now identify the new fiber tag and present affected fibers as Activity components instead of showing an unknown or incorrect component type.
+
+Static confirmation: unavailable
+
+INFERRED · 0.86
+client visibility and rendering of children inside Activity boundaries
+
+Why:
+This reconciler path converts an Activity boundary's mode and children into offscreen child properties, so client renders and mode transitions can change whether or how existing Activity content is processed and displayed.
+
+Static confirmation: unavailable
+
+… 2 more inferred impacts — use --verbose for the full list.
+
+CI
+──
+? the test suite could not run
+  `jest` is declared in package.json but not installed in node_modules
+
+What Sydes could not establish
+──────────────────────────────
+• 5 additional affected areas are not yet verification-modeled.
+• 9 changed symbols have unresolved impact paths.
+• 5 inferred impacts could not be structurally confirmed.
+• The repository test suite could not run (`jest` is declared in package.json but not installed in node_modules).
+
+Full verification requires
+──────────────────────────
+Redis
+
+Verdict
+───────
+VERIFICATION INCOMPLETE
+
+Wrote verification result: /Users/ksnaik/StudioProjects/sydes/benchmarks/aacr/results/investigator-bdb08a3-first11-r1-2026-10-26/sydes/facebook__react@b045f18.json
+
+--- stderr ---
+Preparing Sydes code intelligence...

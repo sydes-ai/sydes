@@ -1,0 +1,108 @@
+AI recovery (experimental): triggered (a structural boundary was found but no complete route/entrypoint flow reaches it; the first pass reported route composition as unresolved in this repository; 1 changed symbol(s) reach no entrypoint the first pass found)
+AI recovery (experimental): path=unresolved test=unresolved turns=6 llm_calls=6 tokens=21213+369 edge_retries_attempted=0 edge_retries_succeeded=0 graph_paths_proposed=0 graph_paths_established=0 graph_paths_established_unverified_boundary=0 explicit_relation_edges=0
+Wrote AI recovery result: /Users/ksnaik/StudioProjects/sydes/benchmarks/aacr/results/investigator-bdb08a3-first11-r1-2026-10-26/sydes/dbeaver__dbeaver@ed40132.ai_recovery.json
+SYDES VERIFICATION
+
+MEDIUM RISK · 7 AFFECTED BEHAVIORS
+
+Changed
+───────
+plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/struct/DBSObjectFilter.java:153 — DBSObjectFilter.matches
+plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/struct/DBSObjectFilter.java:194 — DBSObjectFilter.atLeastOneNameMatchesPattern
+
+CHANGE ANALYSIS (citations verified, indeterminate)
+───────────────────────────────────────────────────
+Cannot be established from this repository alone: depends on state only known at runtime (e.g. feature flags, request data).
+The mechanism is clear, but a real observable difference occurs only when filtering is active and runtime metadata contains overloaded objects whose ordinary and overloaded names interact differently with the configured patterns.
+
+Object filtering now supports evaluating multiple names for one database object. During navigator tree loading, overloaded objects are filtered using both their ordinary object name and overloaded name; inclusion succeeds when either name matches, while exclusion rejects the object when either name matches.
+
+Likely behavioral changes
+  • When tree items are filtered, an overloaded database object is now evaluated under both its normal name and its overloaded name. It remains visible only if the resulting multi-name filter evaluation accepts it; non-overloaded objects continue to be evaluated by their normal name alone.
+  • The filter contract now accepts multiple candidate names. An inclusion pattern may match any supplied name, but an exclusion pattern matching any supplied name rejects the candidate.
+
+Investigate
+  • Find every caller of DBSObjectFilter.matches and determine whether any callers rely on its former single-String binary signature or will begin supplying multiple aliases.
+  • Trace which navigator-loading flows produce DBPOverloadedObject children and what overloaded names represent for each database implementation.
+  • Check the intended precedence when inclusion matches one name but exclusion matches another, and whether overloaded names are guaranteed to be non-null.
+
+Uncertain
+  • The supplied context does not identify all callers of the public matches method or establish whether any caller other than the shown navigator-loading path supplies multiple names.
+  • The observable effect depends on a non-null filter being active and the loaded child being a DBPOverloadedObject; the supplied diff does not establish how often those conditions occur in real installations.
+  • The contract of DBPOverloadedObject.getOverloadedName, including whether it can return null and how it differs from the ordinary object name, is not shown.
+  • It is not established whether DBSObjectFilter is consumed by separately compiled plugins or other binary clients for which the method descriptor change would be compatibility-sensitive.
+  • Which database metadata providers expose overloaded objects, and what names those providers return at runtime, cannot be determined from the changed files.
+
+System impact
+─────────────
+No structural propagation path was established.
+
+?
+  → ?: registers ERDContentProviderDefault
+  → [framework lifecycle unresolved]
+  → candidate: ERDContentProviderDefault.fillEntityFromObject
+
+?
+  → ?: registers DiagramCreator
+  → [framework lifecycle unresolved]
+  → candidate: DiagramCreator.run
+
+DatabricksMetaModel.loadSchemas
+  → add(new DatabricksSchema(dataSource, …): registers GenericCatalog
+  → [framework lifecycle unresolved]
+  → candidate: GenericCatalog.getSchemas
+  · CBM: direct relation DatabricksMetaModel.loadSchemas -USAGE-> model.GenericCatalog; CALLS path none within 5 hops
+
+DamengTableManager.addObjectRenameActions
+  → getQuotedIdentifier(dataSource, …): registers GenericDataSource
+  → [framework lifecycle unresolved]
+  → candidate: GenericDataSource.initialize
+  · CBM: direct relation DamengTableManager.addObjectRenameActions -USAGE-> model.GenericDataSource; CALLS path none within 5 hops
+
+?
+  → ?: registers PostgreStructureAssistant
+  → [framework lifecycle unresolved]
+  → candidate: PostgreStructureAssistant.findObjectsByMask
+
+?
+  → ?: registers GotoObjectDialog
+  → [framework lifecycle unresolved]
+  → candidate: GotoObjectDialog.fillContentProvider
+
+Inferred boundaries
+───────────────────
+INFERRED · callable/domain · Shared database-object name filtering contract
+    Database-object candidate names cross from multiple consuming components into the shared filter domain operation, whose matching contract now evaluates multiple names.
+    Evidence: The change summary states that the DBSObjectFilter contract now accepts multiple candidate names and applies inclusion/exclusion patterns across them.; Established call edge: DiagramObjectCollector.collectTables calls DBSObjectFilter.matches in plugins/org.jkiss.dbeaver.erd.model/src/org/jkiss/dbeaver/erd/model/DiagramObjectCollector.java:102.
+    Uncertain: The supplied facts do not establish all consumers of matches, whether atLeastOneNameMatchesPattern is itself externally callable, or whether separately compiled plugins face binary-compatibility effects from the signature change; no established loadTreeItems-to-matches edge is supplied.
+
+Inferred impact
+───────────────
+INFERRED · 0.86
+Filtered database tree results for overloaded objects
+
+Why:
+When loading filtered tree contents, overloaded database objects are now matched using both their ordinary object name and overloaded name, so functions or procedures shown or omitted in filtered navigator-style views may differ.
+
+Static confirmation: unavailable
+
+CI
+──
+? the test suite could not run
+  No repository test command could be resolved
+
+What Sydes could not establish
+──────────────────────────────
+• 7 additional affected areas are not yet verification-modeled.
+• 1 changed symbol has unresolved impact paths.
+• An inferred impact could not be structurally confirmed.
+• The repository test suite could not run (No repository test command could be resolved).
+
+Verdict
+───────
+VERIFICATION INCOMPLETE
+
+Wrote verification result: /Users/ksnaik/StudioProjects/sydes/benchmarks/aacr/results/investigator-bdb08a3-first11-r1-2026-10-26/sydes/dbeaver__dbeaver@ed40132.json
+
+--- stderr ---
+Preparing Sydes code intelligence...

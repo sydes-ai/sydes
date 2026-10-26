@@ -1,0 +1,692 @@
+{
+  "version": "sydes-investigation/1",
+  "packet": [
+    {
+      "id": "E1",
+      "kind": "diff",
+      "ref": "docs/advanced-guide/setting-custom-response-headers/page.md",
+      "chars": 2500
+    },
+    {
+      "id": "E2",
+      "kind": "diff",
+      "ref": "pkg/gofr/handler.go",
+      "chars": 421
+    },
+    {
+      "id": "E3",
+      "kind": "diff",
+      "ref": "pkg/gofr/http/responder.go",
+      "chars": 935
+    },
+    {
+      "id": "E4",
+      "kind": "diff",
+      "ref": "pkg/gofr/http/responder_test.go",
+      "chars": 2500
+    },
+    {
+      "id": "E5",
+      "kind": "diff",
+      "ref": "pkg/gofr/http/response/response.go",
+      "chars": 542
+    },
+    {
+      "id": "E6",
+      "kind": "changed_symbol",
+      "ref": "pkg/gofr/handler.go:55-106",
+      "chars": 228
+    },
+    {
+      "id": "E7",
+      "kind": "changed_symbol",
+      "ref": "pkg/gofr/http/responder.go:24-54",
+      "chars": 303
+    },
+    {
+      "id": "E8",
+      "kind": "changed_symbol",
+      "ref": "pkg/gofr/http/responder_test.go:15-81",
+      "chars": 980
+    },
+    {
+      "id": "E9",
+      "kind": "structural",
+      "ref": "pkg/gofr/http/response/response.go:13-17",
+      "chars": 213
+    },
+    {
+      "id": "E10",
+      "kind": "structural",
+      "ref": "pkg/gofr/migration/interface.go:15-15",
+      "chars": 184
+    },
+    {
+      "id": "E11",
+      "kind": "structural",
+      "ref": "pkg/gofr/responder.go:6-6",
+      "chars": 120
+    },
+    {
+      "id": "E12",
+      "kind": "structural",
+      "ref": "pkg/gofr/datasource/opentsdb/interface.go:13-13",
+      "chars": 120
+    },
+    {
+      "id": "E13",
+      "kind": "structural",
+      "ref": "pkg/gofr/http/responder.go:57-71",
+      "chars": 503
+    },
+    {
+      "id": "E14",
+      "kind": "structural",
+      "ref": "pkg/gofr/metrics/handler.go:21-35",
+      "chars": 568
+    },
+    {
+      "id": "E15",
+      "kind": "test_execution",
+      "ref": "ci_suite",
+      "chars": 61
+    },
+    {
+      "id": "E16",
+      "kind": "gap",
+      "ref": "unresolved:Respond",
+      "chars": 75
+    },
+    {
+      "id": "E17",
+      "kind": "gap",
+      "ref": "unresolved:ServeHTTP",
+      "chars": 77
+    },
+    {
+      "id": "E18",
+      "kind": "change_analysis",
+      "ref": "summary",
+      "chars": 359
+    },
+    {
+      "id": "E19",
+      "kind": "change_analysis",
+      "ref": "local_risk",
+      "chars": 335
+    },
+    {
+      "id": "E20",
+      "kind": "change_analysis",
+      "ref": "uncertainty",
+      "chars": 145
+    },
+    {
+      "id": "E21",
+      "kind": "change_analysis",
+      "ref": "uncertainty",
+      "chars": 167
+    },
+    {
+      "id": "E22",
+      "kind": "change_analysis",
+      "ref": "uncertainty",
+      "chars": 165
+    },
+    {
+      "id": "E23",
+      "kind": "change_analysis",
+      "ref": "uncertainty",
+      "chars": 128
+    },
+    {
+      "id": "E24",
+      "kind": "change_analysis",
+      "ref": "uncertainty",
+      "chars": 177
+    }
+  ],
+  "hypotheses": [
+    {
+      "id": "H1",
+      "claim": "A Response with Metadata unset must omit the \"metadata\" member as documented, but copying the nil map into an interface field causes JSON serialization to emit \"metadata\":null.",
+      "why_suspected": "The public Response field has `omitempty`, and the guide promises omission when metadata is absent, but the internal envelope stores Metadata as `interface{}`; the added test explicitly expects `metadata:null`, confirming the observable contract mismatch.",
+      "file": "pkg/gofr/http/responder.go",
+      "line": 96,
+      "severity": "P2",
+      "initial_evidence": [
+        "E1",
+        "E3",
+        "E4",
+        "E5",
+        "E18",
+        "E19"
+      ],
+      "questions_to_resolve": [
+        "Is omission, rather than explicit null, the intended wire contract for nil Metadata?",
+        "Do existing API schemas or clients reject or distinguish an explicit null metadata member?"
+      ]
+    },
+    {
+      "id": "H2",
+      "claim": "Returning Response{Data:nil} with a non-nil error must not change the error status into HTTP 206; preserving the wrapper makes getStatusCode see non-nil data and take its partial-content branch before honoring a statusCodeResponder error or the default 500 path.",
+      "why_suspected": "ServeHTTP previously unwrapped Response.Data before calling Respond. After the deletion it passes a non-nil Response struct, while getStatusCode returns 206 whenever data is non-nil, even if the wrapper's inner Data is nil.",
+      "file": "pkg/gofr/handler.go",
+      "line": 102,
+      "severity": "P1",
+      "initial_evidence": [
+        "E2",
+        "E6",
+        "E7",
+        "E13"
+      ],
+      "questions_to_resolve": [
+        "Does isNil classify a Response value whose Data is nil as non-nil?",
+        "Can handlers return an empty Response together with status-bearing errors such as 4xx errors?"
+      ]
+    },
+    {
+      "id": "H3",
+      "claim": "A successful Response with nil Data and nil Metadata must retain the prior no-payload status semantics, but status selection now receives a non-nil Response struct instead of the nil inner Data and may return a success-with-content status rather than the prior no-content status.",
+      "why_suspected": "The removed unwrapping changes the exact value passed to getStatusCode, whose success path delegates status selection to handleSuccess using that value. The new type-specific unpacking occurs only afterward inside Respond's serialization switch.",
+      "file": "pkg/gofr/handler.go",
+      "line": 102,
+      "severity": "P2",
+      "initial_evidence": [
+        "E2",
+        "E3",
+        "E6",
+        "E7",
+        "E13"
+      ],
+      "questions_to_resolve": [
+        "What status does handleSuccess produce for nil data versus a Response struct containing nil Data?",
+        "Are header-only handlers represented by Response{Data:nil, Metadata:nil}?"
+      ]
+    }
+  ],
+  "lookups": [
+    {
+      "n": 1,
+      "id": "L1",
+      "hypothesis": "H1",
+      "tool": "read_source",
+      "args": {
+        "path": "pkg/gofr/http/responder.go",
+        "start_line": 1,
+        "end_line": 180
+      },
+      "why": "Inspect the Response/serialization implementation and nearby documentation to determine whether nil Metadata is intended to be omitted and whether assignment to an interface defeats omitempty.",
+      "provenance": "source_read",
+      "result_chars": 3440,
+      "result_excerpt": "1: package http\n2: \n3: import (\n4: \t\"encoding/json\"\n5: \t\"net/http\"\n6: \t\"reflect\"\n7: \n8: \tresTypes \"gofr.dev/pkg/gofr/http/response\"\n9: )\n10: \n11: // NewResponder creates a new Responder instance from the given http.ResponseWriter..\n12: func NewResponder(w http.ResponseWriter, method string) *Responder {\n13: \treturn &Responder{w: w, method: method}\n14: }\n15: \n16: // Responder encapsulates an http.ResponseWriter and is responsible for crafting structured responses.\n17: type Responder struct {\n18: \tw      http.ResponseWriter\n19: \tmethod string\n20: }\n21: \n22: // Respond sends a response with the g"
+    },
+    {
+      "n": 2,
+      "id": "L2",
+      "hypothesis": "H1",
+      "tool": "find_symbol",
+      "args": {
+        "name_pattern": "^Response$"
+      },
+      "why": "Locate the public response type and its documentation to verify the intended contract for nil Metadata.",
+      "provenance": "structural_query",
+      "result_chars": 2017,
+      "result_excerpt": "{\"qn_rule\":\"qn = qn_prefix == \\\"\\\" ? name : qn_prefix + \\\".\\\" + name\",\"cols\":[\"name\",\"label\",\"lines\",\"in\",\"out\"],\"groups\":[{\"qn_prefix\":\"Users-ksnaik-.cache-sydes-aacr-repos-gofr-dev__gofr.pkg.gofr.static.swagger-ui-bundle\",\"file\":\"pkg/gofr/static/swagger-ui-bundle.js\",\"rows\":[[\"Response\",\"Class\",\"2-2\",3,0]]},{\"qn_prefix\":\"Users-ksnaik-.cache-sydes-aacr-repos-gofr-dev__gofr.pkg.gofr.static.swagger-ui\",\"file\":\"pkg/gofr/static/swagger-ui.js\",\"rows\":[[\"Response\",\"Class\",\"1-1\",0,0]]},{\"qn_prefix\":\"Users-ksnaik-.cache-sydes-aacr-repos-gofr-dev__gofr.pkg.gofr.datasource.solr\",\"file\":\"pkg/gofr/dataso"
+    },
+    {
+      "n": 3,
+      "id": "L3",
+      "hypothesis": "H1",
+      "tool": "read_source",
+      "args": {
+        "path": "pkg/gofr/http/response/response.go",
+        "start_line": 1,
+        "end_line": 80
+      },
+      "why": "Verify the public Response.Metadata type and documentation, especially whether nil is explicitly documented to omit the wire member.",
+      "provenance": "source_read",
+      "result_chars": 400,
+      "result_excerpt": "1: package response\n2: \n3: import (\n4: \t\"net/http\"\n5: )\n6: \n7: type Response struct {\n8: \tData     any               `json:\"data\"`\n9: \tMetadata map[string]any    `json:\"metadata,omitempty\"`\n10: \tHeaders  map[string]string `json:\"-\"`\n11: }\n12: \n13: func (resp Response) SetCustomHeaders(w http.ResponseWriter) {\n14: \tfor key, value := range resp.Headers {\n15: \t\tw.Header().Set(key, value)\n16: \t}\n17: }"
+    },
+    {
+      "n": 4,
+      "id": "L4",
+      "hypothesis": "H1",
+      "tool": "tests_for",
+      "args": {
+        "term": "pkg/gofr/http/responder.go"
+      },
+      "why": "Find responder serialization tests that establish whether nil Metadata must be absent or whether explicit null is accepted.",
+      "provenance": "test_evidence",
+      "result_chars": 77,
+      "result_excerpt": "no test_mapping/test_execution evidence mentions 'pkg/gofr/http/responder.go'"
+    },
+    {
+      "n": 5,
+      "id": "L5",
+      "hypothesis": "H2",
+      "tool": "read_source",
+      "args": {
+        "path": "pkg/gofr/handler.go",
+        "start_line": 1,
+        "end_line": 180
+      },
+      "why": "This reveals getStatusCode, Response handling, and isNil usage around the changed line, deciding whether a Response{Data:nil} wrapper triggers HTTP 206 before error status handling.",
+      "provenance": "source_read",
+      "result_chars": 5456,
+      "result_excerpt": "1: package gofr\n2: \n3: import (\n4: \t\"context\"\n5: \t\"errors\"\n6: \t\"fmt\"\n7: \t\"io\"\n8: \t\"net/http\"\n9: \t\"os\"\n10: \t\"runtime/debug\"\n11: \t\"time\"\n12: \n13: \t\"github.com/gorilla/websocket\"\n14: \t\"go.opentelemetry.io/otel/trace\"\n15: \n16: \t\"gofr.dev/pkg/gofr/container\"\n17: \tgofrHTTP \"gofr.dev/pkg/gofr/http\"\n18: \t\"gofr.dev/pkg/gofr/http/response\"\n19: \t\"gofr.dev/pkg/gofr/logging\"\n20: \t\"gofr.dev/pkg/gofr/static\"\n21: )\n22: \n23: const colorCodeError = 202 // 202 is red color code\n24: \n25: type Handler func(c *Context) (interface{}, error)\n26: \n27: /*\n28: Developer Note: There is an implementation where we do not n"
+    },
+    {
+      "n": 6,
+      "id": "L6",
+      "hypothesis": "H2",
+      "tool": "search_text",
+      "args": {
+        "pattern": "func (getStatusCode|isNil)|getStatusCode\\(|isNil\\(",
+        "path_glob": "**/*.go"
+      },
+      "why": "Locate the status-selection and nil-classification implementations to determine whether a Response{Data:nil} wrapper is treated as non-nil and can force the HTTP 206 branch.",
+      "provenance": "source_search",
+      "result_chars": 1390,
+      "result_excerpt": "pkg/gofr/container/container.go:155: if !isNil(c.SQL) {\npkg/gofr/container/container.go:159: if !isNil(c.Redis) {\npkg/gofr/container/container.go:163: if !isNil(c.PubSub) {\npkg/gofr/container/health.go:16: if !isNil(c.SQL) {\npkg/gofr/container/health.go:25: if !isNil(c.Redis) {\npkg/gofr/container/health.go:72: if !isNil(service) {\npkg/gofr/container/health.go:96: func isNil(i interface{}) bool {\npkg/gofr/http/responder.go:25: statusCode, errorObj := getStatusCode(r.method, data, err)\npkg/gofr/http/responder.go:42: if isNil(data) {\npkg/gofr/http/responder.go:57: func getStatusCode(method string"
+    },
+    {
+      "n": 7,
+      "id": "L7",
+      "hypothesis": "H2",
+      "tool": "read_source",
+      "args": {
+        "path": "pkg/gofr/http/responder.go",
+        "start_line": 1,
+        "end_line": 130
+      },
+      "why": "This directly decides whether getStatusCode checks non-nil data before status-bearing errors and whether isNil treats a Response value containing nil Data as non-nil.",
+      "provenance": "source_read",
+      "result_chars": 3440,
+      "result_excerpt": "1: package http\n2: \n3: import (\n4: \t\"encoding/json\"\n5: \t\"net/http\"\n6: \t\"reflect\"\n7: \n8: \tresTypes \"gofr.dev/pkg/gofr/http/response\"\n9: )\n10: \n11: // NewResponder creates a new Responder instance from the given http.ResponseWriter..\n12: func NewResponder(w http.ResponseWriter, method string) *Responder {\n13: \treturn &Responder{w: w, method: method}\n14: }\n15: \n16: // Responder encapsulates an http.ResponseWriter and is responsible for crafting structured responses.\n17: type Responder struct {\n18: \tw      http.ResponseWriter\n19: \tmethod string\n20: }\n21: \n22: // Respond sends a response with the g"
+    },
+    {
+      "n": 8,
+      "id": "L8",
+      "hypothesis": "H2",
+      "tool": "search_text",
+      "args": {
+        "pattern": "return\\s+(response\\.)?Response\\s*\\{[^\\n]*\\}\\s*,\\s*[^n]|Response\\s*\\{\\s*Data:\\s*nil",
+        "path_glob": "**/*.go"
+      },
+      "why": "This checks whether handlers or tests return an empty Response together with a non-nil, potentially status-bearing error, resolving the remaining question about real/API-supported return patterns.",
+      "provenance": "source_search",
+      "result_chars": 91,
+      "result_excerpt": "pkg/gofr/datasource/solr/solr.go:259: return Response{resp.StatusCode, respBody}, span, nil"
+    },
+    {
+      "n": 9,
+      "id": "L9",
+      "hypothesis": "H3",
+      "tool": "read_source",
+      "args": {
+        "path": "pkg/gofr/handler.go",
+        "start_line": 1,
+        "end_line": 180
+      },
+      "why": "This reveals the changed success-path argument to handleSuccess and its status-selection logic for nil data versus a non-nil Response wrapper.",
+      "provenance": "source_read",
+      "result_chars": 5456,
+      "result_excerpt": "1: package gofr\n2: \n3: import (\n4: \t\"context\"\n5: \t\"errors\"\n6: \t\"fmt\"\n7: \t\"io\"\n8: \t\"net/http\"\n9: \t\"os\"\n10: \t\"runtime/debug\"\n11: \t\"time\"\n12: \n13: \t\"github.com/gorilla/websocket\"\n14: \t\"go.opentelemetry.io/otel/trace\"\n15: \n16: \t\"gofr.dev/pkg/gofr/container\"\n17: \tgofrHTTP \"gofr.dev/pkg/gofr/http\"\n18: \t\"gofr.dev/pkg/gofr/http/response\"\n19: \t\"gofr.dev/pkg/gofr/logging\"\n20: \t\"gofr.dev/pkg/gofr/static\"\n21: )\n22: \n23: const colorCodeError = 202 // 202 is red color code\n24: \n25: type Handler func(c *Context) (interface{}, error)\n26: \n27: /*\n28: Developer Note: There is an implementation where we do not n"
+    },
+    {
+      "n": 10,
+      "id": "L10",
+      "hypothesis": "H3",
+      "tool": "find_symbol",
+      "args": {
+        "name_pattern": "handleSuccess|Respond"
+      },
+      "why": "This locates the responder success/status logic needed to compare nil data with a non-nil Response wrapper.",
+      "provenance": "structural_query",
+      "result_chars": 3308,
+      "result_excerpt": "{\"qn_rule\":\"qn = qn_prefix == \\\"\\\" ? name : qn_prefix + \\\".\\\" + name\",\"cols\":[\"name\",\"label\",\"lines\",\"in\",\"out\"],\"groups\":[{\"qn_prefix\":\"Users-ksnaik-.cache-sydes-aacr-repos-gofr-dev__gofr.pkg.gofr.logging\",\"file\":\"pkg/gofr/logging/logger.go\",\"rows\":[[\"LogLevelResponder\",\"Interface\",\"224-226\",9,0]]},{\"qn_prefix\":\"Users-ksnaik-.cache-sydes-aacr-repos-gofr-dev__gofr.pkg.gofr.http\",\"file\":\"pkg/gofr/http/responder.go\",\"rows\":[[\"NewResponder\",\"Function\",\"12-14\",5,1],[\"Respond\",\"Method\",\"24-54\",2,18]]},{\"qn_prefix\":\"Users-ksnaik-.cache-sydes-aacr-repos-gofr-dev__gofr.pkg.gofr.cmd\",\"file\":\"pkg/gofr/c"
+    },
+    {
+      "n": 11,
+      "id": "L11",
+      "hypothesis": "H3",
+      "tool": "read_source",
+      "args": {
+        "path": "pkg/gofr/http/responder.go",
+        "start_line": 1,
+        "end_line": 115
+      },
+      "why": "This directly decides the status produced for a nil result versus a non-nil response.Response wrapper and shows whether Respond unwraps Response.Data before status selection.",
+      "provenance": "source_read",
+      "result_chars": 3433,
+      "result_excerpt": "1: package http\n2: \n3: import (\n4: \t\"encoding/json\"\n5: \t\"net/http\"\n6: \t\"reflect\"\n7: \n8: \tresTypes \"gofr.dev/pkg/gofr/http/response\"\n9: )\n10: \n11: // NewResponder creates a new Responder instance from the given http.ResponseWriter..\n12: func NewResponder(w http.ResponseWriter, method string) *Responder {\n13: \treturn &Responder{w: w, method: method}\n14: }\n15: \n16: // Responder encapsulates an http.ResponseWriter and is responsible for crafting structured responses.\n17: type Responder struct {\n18: \tw      http.ResponseWriter\n19: \tmethod string\n20: }\n21: \n22: // Respond sends a response with the g"
+    },
+    {
+      "n": 12,
+      "id": "L12",
+      "hypothesis": "H3",
+      "tool": "search_text",
+      "args": {
+        "pattern": "response\\.Response\\s*\\{|Response\\s*\\{",
+        "path_glob": "**/*.go"
+      },
+      "why": "This determines whether custom/header-only handlers are represented by response.Response values whose Data and Metadata remain nil.",
+      "provenance": "source_search",
+      "result_chars": 3694,
+      "result_excerpt": "examples/grpc-server/grpc/hello.pb.go:80: *x = HelloResponse{}\nexamples/grpc-server/grpc/server.go:26: return &HelloResponse{\nexamples/grpc-server/main_test.go:73: resp := &grpcExample.HelloResponse{Message: \"Hello World\"}\npkg/gofr/datasource/dgraph/dgraph_test.go:65: mockTxn.EXPECT().Query(gomock.Any(), \"my query\").Return(&api.Response{Json: []byte(`{\"result\": \"success\"}`)}, nil)\npkg/gofr/datasource/dgraph/dgraph_test.go:77: require.Equal(t, &api.Response{Json: []byte(`{\"result\": \"success\"}`)}, resp, \"Test_Query_Success Failed!\")\npkg/gofr/datasource/dgraph/dgraph_test.go:109: mockTxn.EXPECT()"
+    }
+  ],
+  "outcomes": [
+    {
+      "hypothesis": "H1",
+      "lookups": [
+        "L1",
+        "L2",
+        "L3",
+        "L4"
+      ],
+      "status": "CONFIRMED",
+      "supported_claim": "On the resTypes.Response path, a nil Metadata map is serialized as an explicit \"metadata\":null member, contrary to the newly added documentation stating that omitted metadata produces a response containing only data. No client or schema rejection is established.",
+      "reasoning": "The changed documentation specifies omission when metadata is absent. The changed responder copies v.Metadata, whose declared type is map[string]any, into an interface{} field tagged omitempty. When the map is nil, that assignment creates an interface containing a typed nil map; the interface itself is non-nil, so omitempty does not remove the field, and encoding/json encodes the nil map as null. The added test expectation independently records the resulting \"metadata\":null body.",
+      "defect_evidence": [
+        {
+          "source": "change",
+          "file": "docs/advanced-guide/setting-custom-response-headers/page.md",
+          "line": 30,
+          "quote": "If metadata is omitted, the response defaults to:"
+        },
+        {
+          "source": "change",
+          "file": "pkg/gofr/http/responder_test.go",
+          "line": 60,
+          "quote": "expectedBody: []byte(`{\"metadata\":null,\"data\":\"Hello World from new Server\"}`),"
+        }
+      ],
+      "changed_evidence": [
+        {
+          "source": "L1",
+          "file": "pkg/gofr/http/responder.go",
+          "line": 32,
+          "quote": "\t\tresp = response{Data: v.Data, Metadata: v.Metadata, Error: errorObj}"
+        },
+        {
+          "source": "L1",
+          "file": "pkg/gofr/http/responder.go",
+          "line": 97,
+          "quote": "\tMetadata interface{} `json:\"metadata,omitempty\"`"
+        },
+        {
+          "source": "L3",
+          "file": "pkg/gofr/http/response/response.go",
+          "line": 9,
+          "quote": "\tMetadata map[string]any    `json:\"metadata,omitempty\"`"
+        }
+      ],
+      "causal_link": "This change introduces the resTypes.Response conversion and assigns its nil map Metadata value to the internal response.Metadata interface field. Because that interface contains the map's dynamic type even when the map is nil, omitempty does not consider the interface empty; JSON encoding therefore emits metadata:null. Previously the handler replaced response.Response with resp.Data, so this metadata serialization path did not exist.",
+      "refuting": [],
+      "missing": [
+        "No supplied API schema or client evidence establishes that consumers reject or otherwise distinguish explicit null from an omitted metadata member.",
+        "L4 provides no mapped test-execution result, although the code semantics and added exact body expectation establish the wire-format mismatch."
+      ],
+      "verified_defect_evidence": [
+        {
+          "source": "change",
+          "file": "docs/advanced-guide/setting-custom-response-headers/page.md",
+          "line": 30,
+          "quote": "If metadata is omitted, the response defaults to:",
+          "verification": "citation confirmed near docs/advanced-guide/setting-custom-response-headers/page.md:30"
+        },
+        {
+          "source": "change",
+          "file": "pkg/gofr/http/responder_test.go",
+          "line": 60,
+          "quote": "expectedBody: []byte(`{\"metadata\":null,\"data\":\"Hello World from new Server\"}`),",
+          "verification": "citation confirmed near pkg/gofr/http/responder_test.go:60"
+        }
+      ],
+      "verified_changed_evidence": [
+        {
+          "source": "L1",
+          "file": "pkg/gofr/http/responder.go",
+          "line": 32,
+          "quote": "\t\tresp = response{Data: v.Data, Metadata: v.Metadata, Error: errorObj}",
+          "verification": "citation confirmed near pkg/gofr/http/responder.go:32"
+        },
+        {
+          "source": "L1",
+          "file": "pkg/gofr/http/responder.go",
+          "line": 97,
+          "quote": "\tMetadata interface{} `json:\"metadata,omitempty\"`",
+          "verification": "citation confirmed near pkg/gofr/http/responder.go:97"
+        },
+        {
+          "source": "L3",
+          "file": "pkg/gofr/http/response/response.go",
+          "line": 9,
+          "quote": "\tMetadata map[string]any    `json:\"metadata,omitempty\"`",
+          "verification": "citation confirmed near pkg/gofr/http/response/response.go:9"
+        }
+      ]
+    },
+    {
+      "hypothesis": "H2",
+      "lookups": [
+        "L5",
+        "L6",
+        "L7",
+        "L8"
+      ],
+      "status": "UNKNOWN",
+      "supported_claim": "For a handler returning a value `response.Response{Data:nil}` together with a non-nil error, this change causes `ServeHTTP` to pass the non-nil Response struct to `getStatusCode`, which returns HTTP 206 before considering the error's `StatusCode()` or the default HTTP 500 path.",
+      "reasoning": "A handler may return any interface value and error. A Response value remains non-nil even when its Data field is nil because `isNil` recognizes only a nil interface or a nil pointer. Consequently, `getStatusCode` takes its partial-content branch for `Response{Data:nil}` plus an error. Before the change, ServeHTTP replaced the Response wrapper with `resp.Data`, making the data nil and allowing the status-bearing-error or default-500 branches to run. The change removes that unwrapping.",
+      "defect_evidence": [
+        {
+          "source": "L5",
+          "file": "pkg/gofr/handler.go",
+          "line": 25,
+          "quote": "type Handler func(c *Context) (interface{}, error)"
+        },
+        {
+          "source": "L7",
+          "file": "pkg/gofr/http/responder.go",
+          "line": 62,
+          "quote": "if !isNil(data) {\n\t\treturn http.StatusPartialContent, createErrorResponse(err)\n\t}"
+        },
+        {
+          "source": "L7",
+          "file": "pkg/gofr/http/responder.go",
+          "line": 66,
+          "quote": "if e, ok := err.(statusCodeResponder); ok {\n\t\treturn e.StatusCode(), createErrorResponse(err)\n\t}\n\n\treturn http.StatusInternalServerError, createErrorResponse(err)"
+        },
+        {
+          "source": "L7",
+          "file": "pkg/gofr/http/responder.go",
+          "line": 108,
+          "quote": "func isNil(i any) bool {\n\tif i == nil {\n\t\treturn true\n\t}\n\n\tv := reflect.ValueOf(i)\n\n\treturn v.Kind() == reflect.Ptr && v.IsNil()\n}"
+        }
+      ],
+      "changed_evidence": [
+        {
+          "source": "change",
+          "file": "pkg/gofr/handler.go",
+          "line": 103,
+          "quote": "-\t\tresult = resp.Data"
+        }
+      ],
+      "causal_link": "Removing `result = resp.Data` preserves the Response value in `result`. Thus an empty Response is passed at line 105 to `Respond`; because it is a struct rather than nil or a nil pointer, `isNil` returns false and line 62 selects HTTP 206. With the removed assignment present, `result` would instead be the nil Data field, so `getStatusCode` would proceed to the error's `StatusCode()` or HTTP 500.",
+      "refuting": [],
+      "missing": [
+        "downgraded from CONFIRMED: no verified quote of the changed code ties the defect to this change"
+      ],
+      "verified_defect_evidence": [
+        {
+          "source": "L5",
+          "file": "pkg/gofr/handler.go",
+          "line": 25,
+          "quote": "type Handler func(c *Context) (interface{}, error)",
+          "verification": "citation confirmed near pkg/gofr/handler.go:25"
+        },
+        {
+          "source": "L7",
+          "file": "pkg/gofr/http/responder.go",
+          "line": 62,
+          "quote": "if !isNil(data) {\n\t\treturn http.StatusPartialContent, createErrorResponse(err)\n\t}",
+          "verification": "citation confirmed near pkg/gofr/http/responder.go:62"
+        },
+        {
+          "source": "L7",
+          "file": "pkg/gofr/http/responder.go",
+          "line": 66,
+          "quote": "if e, ok := err.(statusCodeResponder); ok {\n\t\treturn e.StatusCode(), createErrorResponse(err)\n\t}\n\n\treturn http.StatusInternalServerError, createErrorResponse(err)",
+          "verification": "citation confirmed near pkg/gofr/http/responder.go:66"
+        },
+        {
+          "source": "L7",
+          "file": "pkg/gofr/http/responder.go",
+          "line": 108,
+          "quote": "func isNil(i any) bool {\n\tif i == nil {\n\t\treturn true\n\t}\n\n\tv := reflect.ValueOf(i)\n\n\treturn v.Kind() == reflect.Ptr && v.IsNil()\n}",
+          "verification": "citation recovered near pkg/gofr/http/responder.go:106-116 (model cited line 108; the real text was located there instead)"
+        }
+      ],
+      "verified_changed_evidence": []
+    },
+    {
+      "hypothesis": "H3",
+      "lookups": [
+        "L9",
+        "L10",
+        "L11",
+        "L12"
+      ],
+      "status": "CONFIRMED",
+      "supported_claim": "For a successful POST handler returning a value response.Response with nil Data\u2014including a header-only Response with nil Metadata\u2014this change alters the selected status from 202 Accepted to 201 Created.",
+      "reasoning": "Status selection occurs before the responder unwraps or serializes a Response. For POST, handleSuccess returns 201 whenever its data interface is non-nil and 202 only when it is nil. Previously ServeHTTP replaced a Response with resp.Data, so nil Data reached handleSuccess as nil. The change deletes that replacement, leaving the concrete Response struct in the interface; that interface is non-nil even when Data and Metadata are nil, so the POST path returns 201. Response has an independent Headers field, so a value with Headers populated and Data/Metadata nil is a representable header-only response. This finding is limited to POST: DELETE and default-method status selection do not distinguish nil from non-nil data.",
+      "defect_evidence": [
+        {
+          "source": "L11",
+          "file": "pkg/gofr/http/responder.go",
+          "line": 25,
+          "quote": "\tstatusCode, errorObj := getStatusCode(r.method, data, err)"
+        },
+        {
+          "source": "L11",
+          "file": "pkg/gofr/http/responder.go",
+          "line": 76,
+          "quote": "\t\tif data != nil {\n\t\t\treturn http.StatusCreated, nil\n\t\t}"
+        },
+        {
+          "source": "L11",
+          "file": "pkg/gofr/http/responder.go",
+          "line": 80,
+          "quote": "\t\treturn http.StatusAccepted, nil"
+        },
+        {
+          "source": "change",
+          "file": "pkg/gofr/http/response/response.go",
+          "line": 7,
+          "quote": "\tData     any               `json:\"data\"`\n\tMetadata map[string]any    `json:\"metadata,omitempty\"`\n\tHeaders  map[string]string `json:\"-\"`"
+        }
+      ],
+      "changed_evidence": [
+        {
+          "source": "change",
+          "file": "pkg/gofr/handler.go",
+          "line": 103,
+          "quote": "\t\tresult = resp.Data"
+        },
+        {
+          "source": "E6",
+          "file": "pkg/gofr/handler.go",
+          "line": 100,
+          "quote": "\tif resp, ok := result.(response.Response); ok {\n\t\tresp.SetCustomHeaders(w)\n\t}"
+        },
+        {
+          "source": "L9",
+          "file": "pkg/gofr/handler.go",
+          "line": 105,
+          "quote": "\tc.responder.Respond(result, err)"
+        }
+      ],
+      "causal_link": "The quoted `result = resp.Data` assignment was removed. Consequently, a successful POST returning Response{Data:nil, Metadata:nil, Headers:...} now passes the non-nil Response value to Respond and then getStatusCode, causing handleSuccess's `data != nil` branch to select 201. Before the deletion, nil resp.Data was passed and the same branch selected 202.",
+      "refuting": [
+        {
+          "source": "L11",
+          "explanation": "Lines 81-84 show DELETE always returns 204 and default methods always return 200, so the status regression does not apply to those methods. Also, the prior POST status was 202 Accepted, not HTTP 204 No Content."
+        }
+      ],
+      "missing": [],
+      "verified_defect_evidence": [
+        {
+          "source": "L11",
+          "file": "pkg/gofr/http/responder.go",
+          "line": 25,
+          "quote": "\tstatusCode, errorObj := getStatusCode(r.method, data, err)",
+          "verification": "citation confirmed near pkg/gofr/http/responder.go:25"
+        },
+        {
+          "source": "L11",
+          "file": "pkg/gofr/http/responder.go",
+          "line": 76,
+          "quote": "\t\tif data != nil {\n\t\t\treturn http.StatusCreated, nil\n\t\t}",
+          "verification": "citation confirmed near pkg/gofr/http/responder.go:76"
+        },
+        {
+          "source": "L11",
+          "file": "pkg/gofr/http/responder.go",
+          "line": 80,
+          "quote": "\t\treturn http.StatusAccepted, nil",
+          "verification": "citation confirmed near pkg/gofr/http/responder.go:80"
+        },
+        {
+          "source": "change",
+          "file": "pkg/gofr/http/response/response.go",
+          "line": 7,
+          "quote": "\tData     any               `json:\"data\"`\n\tMetadata map[string]any    `json:\"metadata,omitempty\"`\n\tHeaders  map[string]string `json:\"-\"`",
+          "verification": "citation confirmed near pkg/gofr/http/response/response.go:7"
+        }
+      ],
+      "verified_changed_evidence": [
+        {
+          "source": "E6",
+          "file": "pkg/gofr/handler.go",
+          "line": 100,
+          "quote": "\tif resp, ok := result.(response.Response); ok {\n\t\tresp.SetCustomHeaders(w)\n\t}",
+          "verification": "citation confirmed near pkg/gofr/handler.go:100"
+        }
+      ]
+    }
+  ],
+  "confirmed": [
+    "H1",
+    "H3"
+  ],
+  "refuted": [],
+  "unknown": [
+    "H2"
+  ],
+  "findings": [
+    "investigator-H1",
+    "investigator-H3"
+  ],
+  "budget": {
+    "max_hypotheses": 5,
+    "max_lookups": 12,
+    "used_lookups": 12,
+    "max_lookups_per_hypothesis": 4
+  },
+  "usage": {
+    "llm_calls": 16,
+    "by_stage": {
+      "finder": 1,
+      "investigator": 12,
+      "verifier": 3
+    },
+    "prompt_tokens": 51174,
+    "completion_tokens": 11965,
+    "reasoning_tokens": 8774,
+    "llm_seconds": 202.1
+  },
+  "errors": []
+}

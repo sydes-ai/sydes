@@ -1,0 +1,92 @@
+AI recovery (experimental): triggered (a structural boundary was found but no complete route/entrypoint flow reaches it; the first pass reported route composition as unresolved in this repository)
+AI recovery (experimental): path=unresolved test=unresolved turns=2 llm_calls=2 tokens=5138+78 edge_retries_attempted=0 edge_retries_succeeded=0 graph_paths_proposed=0 graph_paths_established=0 graph_paths_established_unverified_boundary=0 explicit_relation_edges=0
+Wrote AI recovery result: /Users/ksnaik/StudioProjects/sydes/benchmarks/aacr/results/investigator-bdb08a3-first11-r1-2026-10-26/sydes/dbeaver__dbeaver@bc3ac7b.ai_recovery.json
+SYDES VERIFICATION
+
+MEDIUM RISK · 4 AFFECTED BEHAVIORS
+
+Changed
+───────
+plugins/org.jkiss.dbeaver.model.rcp/src/org/jkiss/dbeaver/model/navigator/DBNResource.java:414 — DBNResource.getAdapter
+plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java:251 — DBNPathBase.dropNodes
+plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java:363 — DBNPathBase.copyInputStream
+
+CHANGE ANALYSIS (citations verified, indeterminate)
+───────────────────────────────────────────────────
+Cannot be established from this repository alone: depends on state only known at runtime (e.g. feature flags, request data).
+The mechanism is explicit, but its real observable impact requires runtime nodes with no usable Path and an available InputStream, and filesystem state that determines whether targets exist or path existence is indeterminate.
+
+File-drop handling now supports nodes that cannot provide a filesystem Path but can provide an InputStream, including workspace-backed DBNResource files. These nodes are copied into the destination using their display name. Path existence handling also now distinguishes a definitely missing path from one whose existence is indeterminate.
+
+Likely behavioral changes
+  • When a dropped node has no Path adapter, the drop operation now attempts to obtain an InputStream and copy its contents into the destination folder under the node's display name; an existing target is replaced.
+  • DBNResource can now adapt an Eclipse IFile resource to an InputStream containing that file's contents. A CoreException while opening the contents is exposed to the caller as a RuntimeException.
+  • A dropped Path is now skipped only when it is known not to exist. If the filesystem cannot determine existence, the path can proceed to the later copy or move handling instead of being rejected by this check.
+
+Investigate
+  • Trace callers of dropNodes and the node types supplied by drag/drop or navigator operations, especially cases where Path adaptation returns null but InputStream adaptation succeeds.
+  • Review the contract for node display names before they are resolved as filesystem paths, including uniqueness, absolute names, separators, and parent-directory segments.
+  • Determine ownership and closure requirements for streams returned by node adapters, and compare exception and cancellation behavior with the existing Path-based transfer path.
+
+Uncertain
+  • The supplied context does not establish which drag/drop or navigator callers invoke dropNodes, or whether they pass DBNResource instances through the new stream fallback.
+  • The observable effect depends on a dropped node having no Path adapter while having a non-null InputStream adapter; whether real installations encounter that combination is not shown.
+  • The adapter contract does not show who owns and must close an InputStream returned by getAdapter.
+  • The permitted syntax and uniqueness guarantees of getNodeDisplayName are not shown, so destination containment and collision assumptions cannot be established.
+  • The concrete filesystem providers and workspace resource implementations involved in source adaptation and destination writes are not identified by this diff.
+
+System impact
+─────────────
+No structural propagation path was established.
+
+?
+  → ?: registers BookmarksHandlerImpl
+  → [framework lifecycle unresolved]
+  → candidate: BookmarksHandlerImpl.getAssociatedDataSources
+
+?
+  → ?: registers SQLScriptTaskConfigurationWizard
+  → [framework lifecycle unresolved]
+  → candidate: SQLScriptTaskConfigurationWizard.saveTaskState
+
+AddBookmarkDialog.createDialogArea
+  → setSelection(new StructuredSelection(targetNode)): registers DBNResource
+  → [framework lifecycle unresolved]
+  → candidate: DBNResource.getAdapter
+  · CBM: direct relation AddBookmarkDialog.createDialogArea -USAGE-> navigator.DBNResource; CALLS path none within 5 hops
+
+SQLScriptTaskPageSettings.loadSettings
+  → add(pathNode): registers DBNPathBase
+  → [framework lifecycle unresolved]
+  → candidate: DBNPathBase.dropNodes
+  · CBM: direct relation SQLScriptTaskPageSettings.loadSettings -USAGE-> fs.DBNPathBase; CALLS path none within 5 hops
+
+Inferred boundaries
+───────────────────
+INFERRED · callable/domain · Navigator file-drop operation
+    Callers cross into a destination navigator node's domain operation by supplying nodes whose contents are copied or moved into its filesystem folder.
+    Evidence: The supplied source declares `public void dropNodes(DBRProgressMonitor monitor, Collection<DBNNode> nodes) throws DBException` and resolves the destination from `getPath()` before validating that it is a directory.; The established call edges show `dropNodes` invoking `getPath`, `move`, `copy`, `copyInputStream`, `getNodeDisplayName`, and `refreshNode`.
+
+INFERRED · callable/public_callable · Workspace resource type adaptation
+    Consumers cross the DBNResource adaptation surface to request a typed representation of an underlying workspace resource, now including an InputStream.
+    Evidence: The supplied source declares `public <T> T getAdapter(Class<T> adapter)` and contains a concrete branch `adapter == InputStream.class && resource instanceof IFile file`.; The established call edges show `getAdapter` invoking `getContents` on the underlying resource.
+    Uncertain: stream ownership and closure responsibilities are also unspecified.
+
+CI
+──
+? the test suite could not run
+  No repository test command could be resolved
+
+What Sydes could not establish
+──────────────────────────────
+• 4 additional affected areas are not yet verification-modeled.
+• The repository test suite could not run (No repository test command could be resolved).
+
+Verdict
+───────
+VERIFICATION INCOMPLETE
+
+Wrote verification result: /Users/ksnaik/StudioProjects/sydes/benchmarks/aacr/results/investigator-bdb08a3-first11-r1-2026-10-26/sydes/dbeaver__dbeaver@bc3ac7b.json
+
+--- stderr ---
+Preparing Sydes code intelligence...

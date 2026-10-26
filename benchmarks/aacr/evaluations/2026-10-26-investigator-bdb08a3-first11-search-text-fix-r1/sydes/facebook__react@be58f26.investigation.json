@@ -1,0 +1,512 @@
+{
+  "version": "sydes-investigation/1",
+  "packet": [
+    {
+      "id": "E1",
+      "kind": "diff",
+      "ref": "packages/react-dom/src/__tests__/ReactDOMForm-test.js",
+      "chars": 2002
+    },
+    {
+      "id": "E2",
+      "kind": "diff",
+      "ref": "packages/react-reconciler/src/ReactFiberHooks.js",
+      "chars": 650
+    },
+    {
+      "id": "E3",
+      "kind": "test_execution",
+      "ref": "ci_suite",
+      "chars": 76
+    },
+    {
+      "id": "E4",
+      "kind": "change_analysis",
+      "ref": "summary",
+      "chars": 269
+    },
+    {
+      "id": "E5",
+      "kind": "change_analysis",
+      "ref": "local_risk",
+      "chars": 207
+    },
+    {
+      "id": "E6",
+      "kind": "change_analysis",
+      "ref": "local_risk",
+      "chars": 346
+    },
+    {
+      "id": "E7",
+      "kind": "change_analysis",
+      "ref": "uncertainty",
+      "chars": 164
+    },
+    {
+      "id": "E8",
+      "kind": "change_analysis",
+      "ref": "uncertainty",
+      "chars": 177
+    },
+    {
+      "id": "E9",
+      "kind": "change_analysis",
+      "ref": "uncertainty",
+      "chars": 180
+    },
+    {
+      "id": "E10",
+      "kind": "change_analysis",
+      "ref": "uncertainty",
+      "chars": 181
+    }
+  ],
+  "hypotheses": [
+    {
+      "id": "H1",
+      "claim": "The committed `it.only` causes the ReactDOM form test run to skip the other tests in the suite when executed by a runner that honors focused tests.",
+      "why_suspected": "The new regression case is explicitly marked `it.only`, so unrelated form behavior can lose regression coverage even though the change affects shared reconciler logic.",
+      "file": "packages/react-dom/src/__tests__/ReactDOMForm-test.js",
+      "line": 1673,
+      "severity": "P1",
+      "initial_evidence": [
+        "E1",
+        "E5"
+      ],
+      "questions_to_resolve": [
+        "Does the repository's Jest configuration honor `.only`, reject focused tests, or override them in CI?",
+        "What scope of tests is excluded when this file runs?"
+      ]
+    },
+    {
+      "id": "H2",
+      "claim": "The regression test can pass without exercising overlapping submissions because the first action's one-millisecond completion timer is registered before the one-millisecond delay that triggers the second submission.",
+      "why_suspected": "The assertion checks only that both actions were invoked; it never proves that the first action remained pending when the second `requestSubmit` occurred. Timer ordering can therefore make the submissions sequential and leave the reported concurrent-submission failure uncovered.",
+      "file": "packages/react-dom/src/__tests__/ReactDOMForm-test.js",
+      "line": 1682,
+      "severity": "P2",
+      "initial_evidence": [
+        "E1",
+        "E6",
+        "E10"
+      ],
+      "questions_to_resolve": [
+        "Does the test fail against the pre-change reconciler implementation?",
+        "Can the first action be controlled by an explicit unresolved promise and resolved only after the second submission starts?",
+        "Under the configured timer implementation, which of the two one-millisecond timers fires first?"
+      ]
+    },
+    {
+      "id": "H3",
+      "claim": "When a form fiber already has exactly one state hook, treating it as uninitialized may replace or detach that hook and its update queue, losing pending state or completion updates from the first form transition.",
+      "why_suspected": "The changed predicate deliberately routes a non-null one-hook chain through the initialization path. The regression test verifies only that both action functions run and does not verify preservation of form pending status, reset state, or updates associated with the existing hook.",
+      "file": "packages/react-reconciler/src/ReactFiberHooks.js",
+      "line": 3264,
+      "severity": "P2",
+      "initial_evidence": [
+        "E1",
+        "E2",
+        "E4",
+        "E9"
+      ],
+      "questions_to_resolve": [
+        "What does the initialization path do to `formFiber.memoizedState` and the existing hook's queue?",
+        "Can the lone existing hook contain queued or pending transition work when this branch is reached?",
+        "After both submissions settle, do form status and reset behavior reflect both transitions correctly?"
+      ]
+    }
+  ],
+  "lookups": [
+    {
+      "n": 1,
+      "id": "L1",
+      "hypothesis": "H1",
+      "tool": "read_source",
+      "args": {
+        "path": "packages/react-dom/src/__tests__/ReactDOMForm-test.js",
+        "start_line": 1640,
+        "end_line": 1705
+      },
+      "why": "Confirm the committed focused test and identify its enclosing suite structure, which determines what sibling tests may be excluded.",
+      "provenance": "source_read",
+      "result_chars": 2940,
+      "result_excerpt": "1640:         Scheduler.log(`Async action started`);\n1641:         await getText('Wait');\n1642: \n1643:         // Update the app with new data. This is analagous to re-rendering\n1644:         // from the root with a new RSC payload.\n1645:         startTransition(() => {\n1646:           root.render(<App promiseForUsername={getText(normalizedUsername)} />);\n1647:         });\n1648:       });\n1649:     });\n1650:     assertLog(['Async action started']);\n1651:     expect(inputRef.current.value).toBe('  AcdLite  ');\n1652: \n1653:     // Finish the async action. This will trigger a re-render from the r"
+    },
+    {
+      "n": 2,
+      "id": "L2",
+      "hypothesis": "H1",
+      "tool": "search_text",
+      "args": {
+        "pattern": "forbidOnly|forbid.*only|focused tests|hasFocusedTests|testNamePattern",
+        "path_glob": "**/*{jest,Jest,test,Test}*"
+      },
+      "why": "Determine whether repository test configuration rejects or overrides focused tests such as `it.only`, especially in CI.",
+      "provenance": "source_search",
+      "result_chars": 12,
+      "result_excerpt": "(no matches)"
+    },
+    {
+      "n": 3,
+      "id": "L3",
+      "hypothesis": "H1",
+      "tool": "search_text",
+      "args": {
+        "pattern": "\"test[^\"\\n]*\"\\s*:\\s*\"[^\"]*(jest|test-runner)|jest-cli|scripts/jest",
+        "path_glob": "**/package.json"
+      },
+      "why": "Locate the repository\u2019s actual Jest entry points and CI test scripts so their handling of focused tests can be inspected.",
+      "provenance": "source_search",
+      "result_chars": 1217,
+      "result_excerpt": "compiler/packages/eslint-plugin-react-compiler/package.json:8: \"test\": \"jest\",\ncompiler/packages/make-read-only-util/package.json:10: \"test\": \"jest src\",\nfixtures/legacy-jsx-runtimes/package.json:16: \"test-jsxdev-dev\": \"BABEL_ENV=development NODE_ENV=development jest --env=jsdom\",\nfixtures/legacy-jsx-runtimes/package.json:17: \"test-jsx-dev\": \"BABEL_ENV=production NODE_ENV=development jest --env=jsdom\",\nfixtures/legacy-jsx-runtimes/package.json:18: \"test-jsx-prod\": \"BABEL_ENV=production NODE_ENV=production jest --env=jsdom\",\npackage.json:84: \"jest-cli\": \"^29.4.2\",\npackage.json:118: \"testRegex\":"
+    },
+    {
+      "n": 4,
+      "id": "L4",
+      "hypothesis": "H1",
+      "tool": "read_source",
+      "args": {
+        "path": "scripts/jest/jest-cli.js",
+        "start_line": 1,
+        "end_line": 240
+      },
+      "why": "Inspect the repository\u2019s primary Jest wrapper for CI-specific flags or logic that rejects, strips, or otherwise changes the behavior of focused `.only` tests.",
+      "provenance": "source_read",
+      "result_chars": 6000,
+      "result_excerpt": "1: 'use strict';\n2: \n3: const {spawn} = require('child_process');\n4: const chalk = require('chalk');\n5: const yargs = require('yargs');\n6: const fs = require('fs');\n7: const path = require('path');\n8: const semver = require('semver');\n9: \n10: const ossConfig = './scripts/jest/config.source.js';\n11: const wwwConfig = './scripts/jest/config.source-www.js';\n12: const xplatConfig = './scripts/jest/config.source-xplat.js';\n13: const devToolsConfig = './scripts/jest/config.build-devtools.js';\n14: \n15: // TODO: These configs are separate but should be rolled into the configs above\n16: // so that the "
+    },
+    {
+      "n": 5,
+      "id": "L5",
+      "hypothesis": "H2",
+      "tool": "read_source",
+      "args": {
+        "path": "packages/react-dom/src/__tests__/ReactDOMForm-test.js",
+        "start_line": 1635,
+        "end_line": 1715
+      },
+      "why": "Inspect the regression test\u2019s action and timer registration order to determine whether the second submission necessarily overlaps the first.",
+      "provenance": "source_read",
+      "result_chars": 3418,
+      "result_excerpt": "1635:         requestFormReset(form);\n1636: \n1637:         const rawUsername = formData.get('username');\n1638:         const normalizedUsername = rawUsername.trim().toLowerCase();\n1639: \n1640:         Scheduler.log(`Async action started`);\n1641:         await getText('Wait');\n1642: \n1643:         // Update the app with new data. This is analagous to re-rendering\n1644:         // from the root with a new RSC payload.\n1645:         startTransition(() => {\n1646:           root.render(<App promiseForUsername={getText(normalizedUsername)} />);\n1647:         });\n1648:       });\n1649:     });\n1650:  "
+    },
+    {
+      "n": 6,
+      "id": "L6",
+      "hypothesis": "H2",
+      "tool": "tests_for",
+      "args": {
+        "term": "multiple form submissions in rapid succession do not throw"
+      },
+      "why": "Determine whether this regression test was run against the pre-change reconciler and whether it failed, directly resolving the first question.",
+      "provenance": "test_evidence",
+      "result_chars": 109,
+      "result_excerpt": "no test_mapping/test_execution evidence mentions 'multiple form submissions in rapid succession do not throw'"
+    },
+    {
+      "n": 7,
+      "id": "L7",
+      "hypothesis": "H2",
+      "tool": "search_text",
+      "args": {
+        "pattern": "(jest\\.(useFakeTimers|useRealTimers)|setTimeout\\s*=|mock.*timer|advanceTimers|runAllTimers)",
+        "path_glob": "packages/react-dom/src/__tests__/ReactDOMForm-test.js"
+      },
+      "why": "Determine whether the test configures fake timers or uses real timers, which controls the ordering semantics of the two one-millisecond timers.",
+      "provenance": "source_search",
+      "result_chars": 12,
+      "result_excerpt": "(no matches)"
+    },
+    {
+      "n": 8,
+      "id": "L8",
+      "hypothesis": "H2",
+      "tool": "read_source",
+      "args": {
+        "path": "packages/react-dom/src/__tests__/ReactDOMForm-test.js",
+        "start_line": 1,
+        "end_line": 80
+      },
+      "why": "Identify the test harness and setup so we can determine whether global timer configuration comes from shared Jest setup or this suite uses native timers.",
+      "provenance": "source_read",
+      "result_chars": 2606,
+      "result_excerpt": "1: /**\n2:  * Copyright (c) Meta Platforms, Inc. and affiliates.\n3:  *\n4:  * This source code is licensed under the MIT license found in the\n5:  * LICENSE file in the root directory of this source tree.\n6:  *\n7:  * @emails react-core\n8:  */\n9: \n10: 'use strict';\n11: \n12: global.IS_REACT_ACT_ENVIRONMENT = true;\n13: \n14: // Our current version of JSDOM doesn't implement the event dispatching\n15: // so we polyfill it.\n16: const NativeFormData = global.FormData;\n17: const FormDataPolyfill = function FormData(form) {\n18:   const formData = new NativeFormData(form);\n19:   const formDataEvent = new Ev"
+    },
+    {
+      "n": 9,
+      "id": "L9",
+      "hypothesis": "H3",
+      "tool": "read_source",
+      "args": {
+        "path": "packages/react-reconciler/src/ReactFiberHooks.js",
+        "start_line": 3210,
+        "end_line": 3325
+      },
+      "why": "This reveals the one-hook detection and initialization path, including whether it replaces `formFiber.memoizedState` or preserves the existing hook and queue.",
+      "provenance": "source_read",
+      "result_chars": 4482,
+      "result_excerpt": "3210:               'If this is due to a subscription please re-write it to use React provided hooks. ' +\n3211:               'Otherwise concurrent mode guarantees are off the table.',\n3212:           );\n3213:         }\n3214:       }\n3215:     }\n3216:   }\n3217: }\n3218: \n3219: const noop = () => {};\n3220: \n3221: export function startHostTransition<F>(\n3222:   formFiber: Fiber,\n3223:   pendingState: TransitionStatus,\n3224:   action: (F => mixed) | null,\n3225:   formData: F,\n3226: ): void {\n3227:   if (formFiber.tag !== HostComponent) {\n3228:     throw new Error(\n3229:       'Expected the form in"
+    },
+    {
+      "n": 10,
+      "id": "L10",
+      "hypothesis": "H3",
+      "tool": "search_text",
+      "args": {
+        "pattern": "memoizedState\\s*=.*Hook|existingStateHook|requestFormReset\\(|ensureFormComponentIsStateful",
+        "path_glob": "packages/react-reconciler/src/**/*.js"
+      },
+      "why": "This identifies how a form fiber can acquire exactly one hook before this branch, and whether that hook may receive queued transition/reset work that initialization would discard.",
+      "provenance": "source_search",
+      "result_chars": 1525,
+      "result_excerpt": "packages/react-reconciler/src/ReactFiberHooks.js:990: currentlyRenderingFiber.memoizedState = workInProgressHook = hook;\npackages/react-reconciler/src/ReactFiberHooks.js:1060: currentlyRenderingFiber.memoizedState = workInProgressHook = newHook;\npackages/react-reconciler/src/ReactFiberHooks.js:2375: stateHook.memoizedState = stateHook.baseState = initialState;\npackages/react-reconciler/src/ReactFiberHooks.js:3234: const stateHook = ensureFormComponentIsStateful(formFiber);\npackages/react-reconciler/src/ReactFiberHooks.js:3256: requestFormReset(formFiber);\npackages/react-reconciler/src/ReactFib"
+    },
+    {
+      "n": 11,
+      "id": "L11",
+      "hypothesis": "H3",
+      "tool": "read_source",
+      "args": {
+        "path": "packages/react-reconciler/src/ReactFiberHooks.js",
+        "start_line": 3317,
+        "end_line": 3385
+      },
+      "why": "This shows whether requestFormReset can create or encounter the one-hook state and enqueue pending reset work that a later initialization replaces.",
+      "provenance": "source_read",
+      "result_chars": 2814,
+      "result_excerpt": "3317:   stateHook.next = resetStateHook;\n3318: \n3319:   // Add the hook list to both fiber alternates. The idea is that the fiber\n3320:   // had this hook all along.\n3321:   formFiber.memoizedState = stateHook;\n3322:   const alternate = formFiber.alternate;\n3323:   if (alternate !== null) {\n3324:     alternate.memoizedState = stateHook;\n3325:   }\n3326: \n3327:   return stateHook;\n3328: }\n3329: \n3330: export function requestFormReset(formFiber: Fiber) {\n3331:   const transition = requestCurrentTransition();\n3332: \n3333:   if (transition === null) {\n3334:     if (__DEV__) {\n3335:       // An opti"
+    },
+    {
+      "n": 12,
+      "id": "L12",
+      "hypothesis": "H3",
+      "tool": "tests_for",
+      "args": {
+        "term": "ensureFormComponentIsStateful"
+      },
+      "why": "This can confirm whether concurrent form submissions reproduce the one-hook window and whether final form status/reset behavior loses either transition.",
+      "provenance": "test_evidence",
+      "result_chars": 80,
+      "result_excerpt": "no test_mapping/test_execution evidence mentions 'ensureFormComponentIsStateful'"
+    }
+  ],
+  "outcomes": [
+    {
+      "hypothesis": "H1",
+      "lookups": [
+        "L1",
+        "L2",
+        "L3",
+        "L4"
+      ],
+      "status": "UNKNOWN",
+      "supported_claim": "The change adds a focused `it.only` test to ReactDOMForm-test.js, but the supplied evidence does not establish that the repository's actual test or CI runner skips other tests because of it.",
+      "reasoning": "L1 confirms the changed test is marked `it.only`. L3 shows the repository invokes a custom Jest CLI, but L4 does not show the eventual Jest invocation or any focused-test handling. L2 found no matching prohibition or override, but absence of a search match does not prove that `.only` is honored. E5 explicitly labels the skipping behavior as an unverified inference. There is no runner output, complete configuration, or CI script evidence showing which tests are skipped or whether focused tests instead fail the run.",
+      "defect_evidence": [],
+      "changed_evidence": [
+        {
+          "source": "L1",
+          "file": "packages/react-dom/src/__tests__/ReactDOMForm-test.js",
+          "line": 1673,
+          "quote": "it.only('multiple form submissions in rapid succession do not throw', async () => {"
+        }
+      ],
+      "causal_link": "If the effective runner honors Jest-focused tests normally, this changed `it.only` would select the new test; however, the supplied evidence does not establish that prerequisite or the resulting excluded scope for this repository.",
+      "refuting": [],
+      "missing": [
+        "The remainder of scripts/jest/jest-cli.js and the selected Jest configuration showing how focused tests are handled.",
+        "CI command/configuration or test-run output establishing whether `.only` is honored, rejected, or overridden.",
+        "Evidence identifying the exact scope of tests excluded when ReactDOMForm-test.js runs."
+      ],
+      "verified_defect_evidence": [],
+      "verified_changed_evidence": [
+        {
+          "source": "L1",
+          "file": "packages/react-dom/src/__tests__/ReactDOMForm-test.js",
+          "line": 1673,
+          "quote": "it.only('multiple form submissions in rapid succession do not throw', async () => {",
+          "verification": "citation confirmed near packages/react-dom/src/__tests__/ReactDOMForm-test.js:1673"
+        }
+      ]
+    },
+    {
+      "hypothesis": "H2",
+      "lookups": [
+        "L5",
+        "L6",
+        "L7",
+        "L8"
+      ],
+      "status": "UNKNOWN",
+      "supported_claim": "The added test does not explicitly verify that the first form action remains unresolved when the second requestSubmit call occurs; it only verifies that the action was invoked twice.",
+      "reasoning": "The source shows two independent one-millisecond timers and a final invocation-count assertion, but it does not establish their runtime registration or firing order. Although requestSubmit is called before the inter-submission timer is created, the supplied evidence does not show whether submitForm is invoked synchronously enough for its completion timer to be registered first. No configured timer behavior or execution against the pre-change reconciler is provided. Therefore, the evidence cannot determine whether the test actually exercises overlapping submissions or can pass with sequential submissions.",
+      "defect_evidence": [],
+      "changed_evidence": [
+        {
+          "source": "L5",
+          "file": "packages/react-dom/src/__tests__/ReactDOMForm-test.js",
+          "line": 1682,
+          "quote": "await new Promise(res => setTimeout(res, 1));"
+        },
+        {
+          "source": "L5",
+          "file": "packages/react-dom/src/__tests__/ReactDOMForm-test.js",
+          "line": 1691,
+          "quote": "return new Promise(res => setTimeout(res, 1));"
+        },
+        {
+          "source": "L5",
+          "file": "packages/react-dom/src/__tests__/ReactDOMForm-test.js",
+          "line": 1712,
+          "quote": "expect(actionCounter).toBe(2);"
+        }
+      ],
+      "causal_link": "The changed test introduces equal-duration timers for action completion and the second submission without an explicit pending-state synchronization point, but the available evidence does not establish that this causes sequential rather than overlapping execution in the configured environment.",
+      "refuting": [],
+      "missing": [
+        "A test execution result against the pre-change reconciler showing whether this regression test fails.",
+        "Evidence showing when submitForm is invoked, and thus when its timer is registered, relative to the timer created at line 1682.",
+        "The configured timer implementation and its ordering behavior for these one-millisecond timers.",
+        "A runtime trace or explicit unresolved promise proving whether the first action is still pending when the second requestSubmit call occurs."
+      ],
+      "verified_defect_evidence": [],
+      "verified_changed_evidence": [
+        {
+          "source": "L5",
+          "file": "packages/react-dom/src/__tests__/ReactDOMForm-test.js",
+          "line": 1682,
+          "quote": "await new Promise(res => setTimeout(res, 1));",
+          "verification": "citation confirmed near packages/react-dom/src/__tests__/ReactDOMForm-test.js:1682"
+        },
+        {
+          "source": "L5",
+          "file": "packages/react-dom/src/__tests__/ReactDOMForm-test.js",
+          "line": 1691,
+          "quote": "return new Promise(res => setTimeout(res, 1));",
+          "verification": "citation confirmed near packages/react-dom/src/__tests__/ReactDOMForm-test.js:1691"
+        },
+        {
+          "source": "L5",
+          "file": "packages/react-dom/src/__tests__/ReactDOMForm-test.js",
+          "line": 1712,
+          "quote": "expect(actionCounter).toBe(2);",
+          "verification": "citation confirmed near packages/react-dom/src/__tests__/ReactDOMForm-test.js:1712"
+        }
+      ]
+    },
+    {
+      "hypothesis": "H3",
+      "lookups": [
+        "L9",
+        "L10",
+        "L11",
+        "L12"
+      ],
+      "status": "UNKNOWN",
+      "supported_claim": "For a form fiber whose `memoizedState` is exactly one hook, the changed condition enters the initialization path, creates fresh queues, and replaces the fiber's hook-chain reference. The evidence does not establish that this situation contains pending first-transition work or that any update is consequently lost.",
+      "reasoning": "The changed condition no longer returns a lone existing hook. The initialization path creates a new queue with `pending: null`, attaches it to a new state hook, adds a reset hook, and assigns the new chain to both the fiber and its alternate. However, the shown initialization path links the second hook before publishing the chain, so it does not itself expose a one-hook initialized form. No evidence explains how a lone hook containing pending transition work is reached, shows the old queue's contents at that point, or demonstrates lost status/completion/reset behavior. The added test only expects two actions to start without an exception and provides no execution result or post-settlement status/reset assertions.",
+      "defect_evidence": [
+        {
+          "source": "L9",
+          "file": "packages/react-reconciler/src/ReactFiberHooks.js",
+          "line": 3279,
+          "quote": "    pending: null,"
+        },
+        {
+          "source": "L9",
+          "file": "packages/react-reconciler/src/ReactFiberHooks.js",
+          "line": 3292,
+          "quote": "    queue: newQueue,"
+        },
+        {
+          "source": "L9",
+          "file": "packages/react-reconciler/src/ReactFiberHooks.js",
+          "line": 3321,
+          "quote": "  formFiber.memoizedState = stateHook;"
+        }
+      ],
+      "changed_evidence": [
+        {
+          "source": "L9",
+          "file": "packages/react-reconciler/src/ReactFiberHooks.js",
+          "line": 3264,
+          "quote": "  if (existingStateHook !== null && existingStateHook.next !== null) {"
+        }
+      ],
+      "causal_link": "If a reachable lone existing hook has queued work, the changed condition bypasses returning that hook and the subsequent assignment replaces the fiber's reference with a fresh hook and queue. The evidence establishes this conditional replacement mechanism, but not the required antecedent or any resulting loss of updates.",
+      "refuting": [
+        {
+          "source": "L9",
+          "explanation": "Lines 3317 and 3321 show that the normal initialization path links the reset hook before assigning the hook chain to the fiber, so this path publishes a two-hook chain rather than a lone hook."
+        }
+      ],
+      "missing": [
+        "Evidence showing how a form fiber with exactly one hook is reachable after the first transition has queued work.",
+        "The lone hook's `queue.pending`, `baseQueue`, or completion-update state when the changed branch is entered.",
+        "Test execution evidence demonstrating lost pending status or completion updates.",
+        "Assertions after both submissions settle that verify form status and reset behavior for both transitions.",
+        "The complete rendering/hook-cloning path needed to determine whether a valid upgraded form can temporarily or persistently have only one hook."
+      ],
+      "verified_defect_evidence": [
+        {
+          "source": "L9",
+          "file": "packages/react-reconciler/src/ReactFiberHooks.js",
+          "line": 3279,
+          "quote": "    pending: null,",
+          "verification": "citation confirmed near packages/react-reconciler/src/ReactFiberHooks.js:3279"
+        },
+        {
+          "source": "L9",
+          "file": "packages/react-reconciler/src/ReactFiberHooks.js",
+          "line": 3292,
+          "quote": "    queue: newQueue,",
+          "verification": "citation confirmed near packages/react-reconciler/src/ReactFiberHooks.js:3292"
+        },
+        {
+          "source": "L9",
+          "file": "packages/react-reconciler/src/ReactFiberHooks.js",
+          "line": 3321,
+          "quote": "  formFiber.memoizedState = stateHook;",
+          "verification": "citation confirmed near packages/react-reconciler/src/ReactFiberHooks.js:3321"
+        }
+      ],
+      "verified_changed_evidence": [
+        {
+          "source": "L9",
+          "file": "packages/react-reconciler/src/ReactFiberHooks.js",
+          "line": 3264,
+          "quote": "  if (existingStateHook !== null && existingStateHook.next !== null) {",
+          "verification": "citation confirmed near packages/react-reconciler/src/ReactFiberHooks.js:3264"
+        }
+      ]
+    }
+  ],
+  "confirmed": [],
+  "refuted": [],
+  "unknown": [
+    "H1",
+    "H2",
+    "H3"
+  ],
+  "findings": [],
+  "budget": {
+    "max_hypotheses": 5,
+    "max_lookups": 12,
+    "used_lookups": 12,
+    "max_lookups_per_hypothesis": 4
+  },
+  "usage": {
+    "llm_calls": 16,
+    "by_stage": {
+      "finder": 1,
+      "investigator": 12,
+      "verifier": 3
+    },
+    "prompt_tokens": 30928,
+    "completion_tokens": 8476,
+    "reasoning_tokens": 5668,
+    "llm_seconds": 153.6
+  },
+  "errors": []
+}

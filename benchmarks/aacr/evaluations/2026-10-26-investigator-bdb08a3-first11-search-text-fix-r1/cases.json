@@ -1,0 +1,142 @@
+{
+  "version": 1,
+  "subset": "openqodex aacr-v1 dev-laptop, Sydes-supported languages -- first 11 cases reviewed before the run was stopped (2026-10-25)",
+  "rule": "OpenQodex's published subset, in its order, keeping only cases whose project_main_language is in supported_languages. No case is chosen by Sydes' results.",
+  "source": {
+    "aacr_dataset_sha256": "02c8561f1c3994a26f427d479b2a3f6e6c8e6858161fbc903b45248fa2cb2097",
+    "split_file_sha256": "edf0f4863eb81a3004d9319cb4fa8cea7085466c5774b6ad51567aff642585f4",
+    "split_name": "aacr-v1",
+    "split_dataset_revision": "68a569759289a83654a59d06db2a72910edf0a4a",
+    "supported_languages": [
+      "Python",
+      "TypeScript",
+      "JavaScript",
+      "Java",
+      "Go",
+      "Rust"
+    ]
+  },
+  "cases": [
+    {
+      "case_id": "browser-use__browser-use-1482",
+      "instance_id": "browser-use__browser-use@0b21e50",
+      "repo": "browser-use/browser-use",
+      "pr": 1482,
+      "pr_url": "https://github.com/browser-use/browser-use/pull/1482",
+      "language": "Python",
+      "base_commit": "fa461585f1fc2d4a430e68e6c115a12f4936fe73",
+      "head_commit": "0b21e50ca640581ecd46990475c8b223eaa05045",
+      "change_line_count": 133
+    },
+    {
+      "case_id": "browser-use__browser-use-3172",
+      "instance_id": "browser-use__browser-use@72f1585",
+      "repo": "browser-use/browser-use",
+      "pr": 3172,
+      "pr_url": "https://github.com/browser-use/browser-use/pull/3172",
+      "language": "Python",
+      "base_commit": "e85a547378b236c9788802d28e816f10940a7e53",
+      "head_commit": "72f1585f9add5b72e829eaee3b5bff684e0b08d3",
+      "change_line_count": 324
+    },
+    {
+      "case_id": "cline__cline-1808",
+      "instance_id": "cline__cline@cb4d5c9",
+      "repo": "cline/cline",
+      "pr": 1808,
+      "pr_url": "https://github.com/cline/cline/pull/1808",
+      "language": "TypeScript",
+      "base_commit": "4d8bdf29458db722a2bce1dfacc50771959b32fa",
+      "head_commit": "cb4d5c90460885942cbbae0298b95f4ee5682086",
+      "change_line_count": 11
+    },
+    {
+      "case_id": "dbeaver__dbeaver-37564",
+      "instance_id": "dbeaver__dbeaver@bc3ac7b",
+      "repo": "dbeaver/dbeaver",
+      "pr": 37564,
+      "pr_url": "https://github.com/dbeaver/dbeaver/pull/37564",
+      "language": "Java",
+      "base_commit": "24ad3c4030412df3d9c843c405e90a0b1e2ad5dd",
+      "head_commit": "bc3ac7bb47092a934b344791d8aa3a1c41e6c8f7",
+      "change_line_count": 22
+    },
+    {
+      "case_id": "dbeaver__dbeaver-38239",
+      "instance_id": "dbeaver__dbeaver@ed40132",
+      "repo": "dbeaver/dbeaver",
+      "pr": 38239,
+      "pr_url": "https://github.com/dbeaver/dbeaver/pull/38239",
+      "language": "Java",
+      "base_commit": "1df2fe97207fe1346ca92ea9c41dd3fd13303001",
+      "head_commit": "ed40132dcb3c6ab5502056b7de0e47c0858ec016",
+      "change_line_count": 90
+    },
+    {
+      "case_id": "dbeaver__dbeaver-38915",
+      "instance_id": "dbeaver__dbeaver@8224826",
+      "repo": "dbeaver/dbeaver",
+      "pr": 38915,
+      "pr_url": "https://github.com/dbeaver/dbeaver/pull/38915",
+      "language": "Java",
+      "base_commit": "8793ec7a6c71aa503b1dc492ddb4e982a8f3e9d9",
+      "head_commit": "8224826969254a49e68e025cae82d3cf1574de38",
+      "change_line_count": 130
+    },
+    {
+      "case_id": "facebook__react-32499",
+      "instance_id": "facebook__react@b045f18",
+      "repo": "facebook/react",
+      "pr": 32499,
+      "pr_url": "https://github.com/facebook/react/pull/32499",
+      "language": "JavaScript",
+      "base_commit": "99563e91736e9de473c4865d5cb6fd9eb1a26bcb",
+      "head_commit": "b045f18e378341876ee69e729fc855cab501c3cd",
+      "change_line_count": 599
+    },
+    {
+      "case_id": "facebook__react-33059",
+      "instance_id": "facebook__react@be58f26",
+      "repo": "facebook/react",
+      "pr": 33059,
+      "pr_url": "https://github.com/facebook/react/pull/33059",
+      "language": "JavaScript",
+      "base_commit": "88b976740467f9dfabae03c79a8eff9033c35050",
+      "head_commit": "be58f26f9a6e579d8df36d901a59249d9ac1393f",
+      "change_line_count": 31
+    },
+    {
+      "case_id": "gofr-dev__gofr-1325",
+      "instance_id": "gofr-dev__gofr@b9cdcbb",
+      "repo": "gofr-dev/gofr",
+      "pr": 1325,
+      "pr_url": "https://github.com/gofr-dev/gofr/pull/1325",
+      "language": "Go",
+      "base_commit": "7f1760b083ea23ffd95fdf83467bdfa21735df81",
+      "head_commit": "b9cdcbb2b9fc78499d15d51ffbb7c861592b0efe",
+      "change_line_count": 215
+    },
+    {
+      "case_id": "google-gemini__gemini-cli-8154",
+      "instance_id": "google-gemini__gemini-cli@0fa1bd7",
+      "repo": "google-gemini/gemini-cli",
+      "pr": 8154,
+      "pr_url": "https://github.com/google-gemini/gemini-cli/pull/8154",
+      "language": "TypeScript",
+      "base_commit": "5a05fb0dd002481343aaab7736a871904bb07c6f",
+      "head_commit": "0fa1bd7ac417366f321ed2554caeaef550321959",
+      "change_line_count": 405
+    },
+    {
+      "case_id": "immich-app__immich-16893",
+      "instance_id": "immich-app__immich@d38f1f5",
+      "repo": "immich-app/immich",
+      "pr": 16893,
+      "pr_url": "https://github.com/immich-app/immich/pull/16893",
+      "language": "TypeScript",
+      "base_commit": "c664d99a348999d16cda45a8dd57db436b8f9fba",
+      "head_commit": "d38f1f55f42d600d05058e70d6ccee9679623591",
+      "change_line_count": 125
+    }
+  ]
+}

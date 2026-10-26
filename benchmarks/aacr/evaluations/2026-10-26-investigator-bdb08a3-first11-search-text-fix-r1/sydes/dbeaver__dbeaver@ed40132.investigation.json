@@ -1,0 +1,315 @@
+{
+  "version": "sydes-investigation/1",
+  "packet": [
+    {
+      "id": "E1",
+      "kind": "diff",
+      "ref": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/DBNDatabaseNode.java",
+      "chars": 1507
+    },
+    {
+      "id": "E2",
+      "kind": "diff",
+      "ref": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/struct/DBSObjectFilter.java",
+      "chars": 2393
+    },
+    {
+      "id": "E3",
+      "kind": "changed_symbol",
+      "ref": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/DBNDatabaseNode.java:639-794",
+      "chars": 595
+    },
+    {
+      "id": "E4",
+      "kind": "changed_symbol",
+      "ref": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/struct/DBSObjectFilter.java:153-192",
+      "chars": 709
+    },
+    {
+      "id": "E5",
+      "kind": "changed_symbol",
+      "ref": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/struct/DBSObjectFilter.java:194-197",
+      "chars": 223
+    },
+    {
+      "id": "E6",
+      "kind": "structural",
+      "ref": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/DBPOverloadedObject.java:29-30",
+      "chars": 197
+    },
+    {
+      "id": "E7",
+      "kind": "structural",
+      "ref": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/struct/DBSObjectFilter.java:199-205",
+      "chars": 435
+    },
+    {
+      "id": "E8",
+      "kind": "structural",
+      "ref": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/exec/DBCStatistics.java:158-160",
+      "chars": 269
+    },
+    {
+      "id": "E9",
+      "kind": "structural",
+      "ref": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/struct/DBSDataManipulator.java:53-53",
+      "chars": 217
+    },
+    {
+      "id": "E10",
+      "kind": "structural",
+      "ref": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/struct/DBSObjectFilter.java:74-76",
+      "chars": 231
+    },
+    {
+      "id": "E11",
+      "kind": "structural",
+      "ref": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/struct/DBSObjectFilter.java:140-142",
+      "chars": 262
+    },
+    {
+      "id": "E12",
+      "kind": "structural",
+      "ref": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/struct/DBSObjectFilter.java:207-216",
+      "chars": 555
+    },
+    {
+      "id": "E13",
+      "kind": "structural",
+      "ref": "plugins/org.jkiss.dbeaver.model.sql/src/org/jkiss/dbeaver/model/sql/semantics/OffsetKeyedTreeMap.java:636-639",
+      "chars": 261
+    },
+    {
+      "id": "E14",
+      "kind": "structural",
+      "ref": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/DBNDatabaseNode.java:419-538",
+      "chars": 2500
+    },
+    {
+      "id": "E15",
+      "kind": "structural",
+      "ref": "plugins/org.jkiss.dbeaver.erd.model/src/org/jkiss/dbeaver/erd/model/DiagramObjectCollector.java:102-141",
+      "chars": 1720
+    },
+    {
+      "id": "E16",
+      "kind": "structural",
+      "ref": "plugins/org.jkiss.dbeaver.erd.model/src/org/jkiss/dbeaver/erd/model/ERDContentProviderDefault.java:58-144",
+      "chars": 2500
+    },
+    {
+      "id": "E17",
+      "kind": "test_execution",
+      "ref": "ci_suite",
+      "chars": 52
+    },
+    {
+      "id": "E18",
+      "kind": "gap",
+      "ref": "unresolved:loadTreeItems",
+      "chars": 81
+    },
+    {
+      "id": "E19",
+      "kind": "change_analysis",
+      "ref": "summary",
+      "chars": 308
+    },
+    {
+      "id": "E20",
+      "kind": "change_analysis",
+      "ref": "local_risk",
+      "chars": 295
+    },
+    {
+      "id": "E21",
+      "kind": "change_analysis",
+      "ref": "local_risk",
+      "chars": 256
+    },
+    {
+      "id": "E22",
+      "kind": "change_analysis",
+      "ref": "local_risk",
+      "chars": 306
+    },
+    {
+      "id": "E23",
+      "kind": "change_analysis",
+      "ref": "uncertainty",
+      "chars": 180
+    },
+    {
+      "id": "E24",
+      "kind": "change_analysis",
+      "ref": "uncertainty",
+      "chars": 206
+    },
+    {
+      "id": "E25",
+      "kind": "change_analysis",
+      "ref": "uncertainty",
+      "chars": 155
+    },
+    {
+      "id": "E26",
+      "kind": "change_analysis",
+      "ref": "uncertainty",
+      "chars": 185
+    },
+    {
+      "id": "E27",
+      "kind": "change_analysis",
+      "ref": "uncertainty",
+      "chars": 155
+    }
+  ],
+  "hypotheses": [
+    {
+      "id": "H1",
+      "claim": "Replacing matches(String) with matches(String...) removes the original JVM method descriptor, so any separately compiled plugin invoking matches(String) will fail at runtime with NoSuchMethodError rather than continuing to filter objects.",
+      "why_suspected": "The method is public and its parameter descriptor changes from java.lang.String to java.lang.String[], which is source-compatible for recompiled one-argument calls but not binary-compatible. The available evidence does not establish that every consumer is rebuilt together.",
+      "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/struct/DBSObjectFilter.java",
+      "line": 153,
+      "severity": "P1",
+      "initial_evidence": [
+        "E2",
+        "E15",
+        "E16",
+        "E20",
+        "E23",
+        "E26"
+      ],
+      "questions_to_resolve": [
+        "Is DBSObjectFilter part of an API consumed by independently built plugins or downstream modules?",
+        "Does the project's compatibility policy require retaining matches(String), for example as a delegating overload, across releases?",
+        "Do binary-compatibility checks or an API baseline report removal of matches(String)?"
+      ]
+    }
+  ],
+  "lookups": [
+    {
+      "n": 1,
+      "id": "L1",
+      "hypothesis": "H1",
+      "tool": "read_source",
+      "args": {
+        "path": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/struct/DBSObjectFilter.java",
+        "start_line": 120,
+        "end_line": 180
+      },
+      "why": "Confirm the changed method signature and whether a String overload remains to preserve the original JVM descriptor.",
+      "provenance": "source_read",
+      "result_chars": 2215,
+      "result_excerpt": "120: \n121:     public void addExclude(String name) {\n122:         if (exclude == null) {\n123:             exclude = new ArrayList<>();\n124:         }\n125:         if (!exclude.contains(name)) {\n126:             exclude.add(name);\n127:         }\n128:         this.excludePatterns = null;\n129:     }\n130: \n131:     public void setExclude(List<String> exclude) {\n132:         this.exclude = exclude;\n133:         this.excludePatterns = null;\n134:     }\n135: \n136:     public boolean isNotApplicable() {\n137:         return !enabled || isEmpty();\n138:     }\n139: \n140:     public boolean isEmpty() {\n141:"
+    },
+    {
+      "n": 2,
+      "id": "L2",
+      "hypothesis": "H1",
+      "tool": "search_text",
+      "args": {
+        "pattern": "org\\.jkiss\\.dbeaver\\.model\\.struct",
+        "path_glob": "plugins/**/META-INF/MANIFEST.MF"
+      },
+      "why": "Determine whether the package containing DBSObjectFilter is exported as a plugin API and consumed through OSGi dependencies by separately built plugins.",
+      "provenance": "source_search",
+      "result_chars": 276,
+      "result_excerpt": "plugins/org.jkiss.dbeaver.model/META-INF/MANIFEST.MF:74: org.jkiss.dbeaver.model.struct,\nplugins/org.jkiss.dbeaver.model/META-INF/MANIFEST.MF:75: org.jkiss.dbeaver.model.struct.cache,\nplugins/org.jkiss.dbeaver.model/META-INF/MANIFEST.MF:76: org.jkiss.dbeaver.model.struct.rdb,"
+    },
+    {
+      "n": 3,
+      "id": "L3",
+      "hypothesis": "H1",
+      "tool": "read_source",
+      "args": {
+        "path": "plugins/org.jkiss.dbeaver.model/META-INF/MANIFEST.MF",
+        "start_line": 1,
+        "end_line": 90
+      },
+      "why": "Confirm that org.jkiss.dbeaver.model.struct is explicitly exported by the model bundle, establishing it as accessible to independently compiled OSGi plugins.",
+      "provenance": "source_read",
+      "result_chars": 3558,
+      "result_excerpt": "1: Manifest-Version: 1.0\n2: Bundle-ManifestVersion: 2\n3: Bundle-Vendor: DBeaver Corp\n4: Bundle-Name: DBeaver API\n5: Bundle-SymbolicName: org.jkiss.dbeaver.model;singleton:=true\n6: Bundle-Version: 2.0.17.qualifier\n7: Bundle-Release-Date: 20250616\n8: Bundle-RequiredExecutionEnvironment: JavaSE-21\n9: Bundle-ActivationPolicy: lazy\n10: Bundle-Activator: org.jkiss.dbeaver.bundle.ModelActivator\n11: Export-Package: org.jkiss.dbeaver,\n12:  org.jkiss.dbeaver.model,\n13:  org.jkiss.dbeaver.model.access,\n14:  org.jkiss.dbeaver.model.admin.locks,\n15:  org.jkiss.dbeaver.model.admin.sessions,\n16:  org.jkiss.d"
+    },
+    {
+      "n": 4,
+      "id": "L4",
+      "hypothesis": "H1",
+      "tool": "search_text",
+      "args": {
+        "pattern": "(?i)(binary compatibility|API baseline|baseline.*API|japicmp|revapi|NoSuchMethodError|breaking change)",
+        "path_glob": "**/*"
+      },
+      "why": "Find the project's compatibility policy or binary-compatibility tooling/baseline that could establish whether removal of the matches(String) descriptor is prohibited or reported.",
+      "provenance": "source_search",
+      "result_chars": 12,
+      "result_excerpt": "(no matches)"
+    }
+  ],
+  "outcomes": [
+    {
+      "hypothesis": "H1",
+      "lookups": [
+        "L1",
+        "L2",
+        "L3",
+        "L4"
+      ],
+      "status": "UNKNOWN",
+      "supported_claim": "The change replaces the public matches(String) declaration with matches(String...), and the containing package is exported by the DBeaver API bundle; however, the evidence does not establish an existing independently compiled binary caller that invokes the removed matches(String) descriptor.",
+      "reasoning": "L1 confirms the new varargs declaration, while the supplied diff shows it replaced matches(String). L3 identifies the bundle as \"DBeaver API\" and exports org.jkiss.dbeaver.model.struct, which makes external consumption possible. E20 describes the resulting binary-compatibility risk but explicitly marks it as an unverified inference, and E26 states that separately compiled consumers are not established. The shown source callers in E15 and E16 use one argument and remain source-compatible when recompiled; they do not demonstrate an old binary invocation or a runtime NoSuchMethodError. No compatibility policy or baseline result establishes that retaining the old descriptor is required.",
+      "defect_evidence": [],
+      "changed_evidence": [
+        {
+          "source": "L1",
+          "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/struct/DBSObjectFilter.java",
+          "line": 153,
+          "quote": "public synchronized boolean matches(String... names) {"
+        }
+      ],
+      "causal_link": "Conditional only: if an unrecompiled binary invokes the former matches(String) descriptor, replacing that declaration with the varargs array descriptor would be the linkage-breaking change. The supplied evidence does not establish that such a binary client exists or is loaded with this version, so the claimed runtime failure cannot be confirmed.",
+      "refuting": [],
+      "missing": [
+        "Evidence of an independently compiled plugin or downstream binary that invokes DBSObjectFilter.matches(String).",
+        "A runtime linkage failure or binary-compatibility report identifying removal of matches(String).",
+        "A project compatibility policy or API baseline requiring the old descriptor to be retained across this release."
+      ],
+      "verified_defect_evidence": [],
+      "verified_changed_evidence": [
+        {
+          "source": "L1",
+          "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/struct/DBSObjectFilter.java",
+          "line": 153,
+          "quote": "public synchronized boolean matches(String... names) {",
+          "verification": "citation confirmed near plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/struct/DBSObjectFilter.java:153"
+        }
+      ]
+    }
+  ],
+  "confirmed": [],
+  "refuted": [],
+  "unknown": [
+    "H1"
+  ],
+  "findings": [],
+  "budget": {
+    "max_hypotheses": 5,
+    "max_lookups": 12,
+    "used_lookups": 4,
+    "max_lookups_per_hypothesis": 4
+  },
+  "usage": {
+    "llm_calls": 6,
+    "by_stage": {
+      "finder": 1,
+      "investigator": 4,
+      "verifier": 1
+    },
+    "prompt_tokens": 15289,
+    "completion_tokens": 3113,
+    "reasoning_tokens": 2158,
+    "llm_seconds": 57.7
+  },
+  "errors": []
+}

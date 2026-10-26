@@ -1,0 +1,43 @@
+{
+  "path_recovery": {
+    "status": "unresolved",
+    "paths": [
+      {
+        "entrypoint": "User-initiated Databricks database connection",
+        "target_node": "DatabricksDataSource.initializeContextState",
+        "status": "unresolved",
+        "root_boundary_status": "candidate_boundary",
+        "nodes": [
+          {
+            "symbol": "DBPDataSourceContainer.connect",
+            "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/DBPDataSourceContainer.java",
+            "qualified_name": null
+          }
+        ],
+        "edges": [],
+        "unresolved_suffix": [
+          {
+            "from": {
+              "symbol": "DBPDataSourceContainer.connect",
+              "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/DBPDataSourceContainer.java",
+              "qualified_name": "org.jkiss.dbeaver.model.DBPDataSourceContainer.connect"
+            },
+            "to": {
+              "symbol": "DatabricksDataSource.initializeContextState",
+              "file": "plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksDataSource.java",
+              "qualified_name": "org.jkiss.dbeaver.ext.databricks.DatabricksDataSource.initializeContextState"
+            },
+            "relationship": "no relationship found",
+            "rejection_reason": "no evidence is located in either entity's own declared file ('plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/DBPDataSourceContainer.java' or 'plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksDataSource.java') -- possible wrong-file/wrong-module substitution"
+          }
+        ]
+      }
+    ],
+    "corrected_first_pass_claims": [],
+    "unresolved": []
+  },
+  "test_recovery": {
+    "status": "unresolved",
+    "tests": []
+  }
+}

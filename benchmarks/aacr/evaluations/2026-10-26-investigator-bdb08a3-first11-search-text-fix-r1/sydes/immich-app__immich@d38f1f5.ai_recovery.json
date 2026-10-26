@@ -1,0 +1,105 @@
+{
+  "path_recovery": {
+    "status": "established",
+    "paths": [
+      {
+        "entrypoint": "Service worker fetch event for /api/assets/:id/thumbnail requests",
+        "target_node": "immichAsset",
+        "status": "established",
+        "root_boundary_status": "candidate_boundary",
+        "nodes": [
+          {
+            "symbol": "fetch event listener",
+            "file": "web/src/service-worker/index.ts",
+            "qualified_name": "sw.addEventListener('fetch', ...) image-request interception"
+          },
+          {
+            "symbol": "immichAsset",
+            "file": "web/src/service-worker/index.ts",
+            "qualified_name": "immichAsset"
+          }
+        ],
+        "edges": [
+          {
+            "from": {
+              "symbol": "fetch event listener",
+              "file": "web/src/service-worker/index.ts",
+              "qualified_name": "sw.addEventListener('fetch', ...)"
+            },
+            "to": {
+              "symbol": "immichAsset",
+              "file": "web/src/service-worker/index.ts",
+              "qualified_name": "immichAsset"
+            },
+            "relationship": "The service worker fetch listener intercepts matching GET asset original/thumbnail requests and passes the parsed request URL to immichAsset via event.respondWith().",
+            "evidence": [
+              {
+                "file": "web/src/service-worker/index.ts",
+                "line_start": 24,
+                "line_end": 33,
+                "fact": "The fetch listener filters GET requests whose paths match /api/assets/:id/(original|thumbnail), then directly calls event.respondWith(immichAsset(url))."
+              },
+              {
+                "file": "web/src/service-worker/index.ts",
+                "line_start": 43,
+                "line_end": 45,
+                "fact": "These lines declare the referenced immichAsset function, which accepts the URL passed by the fetch listener."
+              }
+            ],
+            "status": "established",
+            "provenance": "ai_recovery",
+            "rejection_reason": null,
+            "from_decomposition": false
+          }
+        ],
+        "unresolved_suffix": []
+      }
+    ],
+    "corrected_first_pass_claims": [],
+    "unresolved": []
+  },
+  "test_recovery": {
+    "status": "unresolved",
+    "tests": [
+      {
+        "file": "e2e/src/web/specs/photo-viewer.e2e-spec.ts",
+        "test": "photo viewer navigation scenario near changed line 23/26",
+        "covers": "Opens the photo viewer and navigates images, plausibly causing adjacent image URLs to be preloaded through the service worker.",
+        "target": {
+          "symbol": "preload",
+          "file": "web/src/lib/components/asset-viewer/photo-viewer.svelte",
+          "qualified_name": null
+        },
+        "evidence": [],
+        "status": "rejected",
+        "rejection_reason": "no evidence cited at all"
+      },
+      {
+        "file": "e2e/src/web/specs/shared-link.e2e-spec.ts",
+        "test": "shared-link photo viewing scenario near changed line 57",
+        "covers": "Opens an image through a shared link, plausibly exercising photo-viewer URL selection and preloading.",
+        "target": {
+          "symbol": "preload",
+          "file": "web/src/lib/components/asset-viewer/photo-viewer.svelte",
+          "qualified_name": null
+        },
+        "evidence": [],
+        "status": "rejected",
+        "rejection_reason": "no evidence cited at all"
+      },
+      {
+        "file": "e2e/src/web/specs/photo-viewer.e2e-spec.ts",
+        "test": "photo viewer image-loading scenario near changed line 23/26",
+        "covers": "Exercises image requests and preloading while navigating assets in the photo viewer, plausibly reaching service-worker cache interception.",
+        "target": {
+          "symbol": "immichAsset",
+          "file": "web/src/service-worker/index.ts",
+          "qualified_name": null
+        },
+        "evidence": [],
+        "status": "rejected",
+        "rejection_reason": "no evidence cited at all"
+      }
+    ]
+  }
+}

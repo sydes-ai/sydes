@@ -1,0 +1,65 @@
+{
+  "case_id": "facebook__react-33059",
+  "instance_id": "facebook__react@be58f26",
+  "language": "JavaScript",
+  "status": "completed",
+  "wall_seconds": 269.7,
+  "review_base": "8e9a5fc6c1a6252ca1727ab8fe0d4ee13f2568ec",
+  "review_base_info": {
+    "rule": "merge base (newest committer date, then smallest id)",
+    "merge_bases": [
+      "8e9a5fc6c1a6252ca1727ab8fe0d4ee13f2568ec"
+    ]
+  },
+  "code_review_status": "completed",
+  "code_findings": 0,
+  "not_submitted": {
+    "local_risks": 2,
+    "affected_flows": 0
+  },
+  "llm_totals": {
+    "calls": 43,
+    "errors": 0,
+    "input_tokens": 89262,
+    "output_tokens": 13801,
+    "reasoning_tokens": 7673
+  },
+  "llm_calls_by_purpose": {
+    "pr_semantic_analysis": 1,
+    "route_discovery": 1,
+    "investigator": 16,
+    "ai_recovery": 25
+  },
+  "cbm": {
+    "calls": 29,
+    "errors": 0,
+    "by_operation": {
+      "index_repository": 2,
+      "query_graph": 12,
+      "search_graph": 15
+    },
+    "enrichment_requests": 0
+  },
+  "sydes_wall_seconds": 268.2,
+  "verdict": "VERIFICATION INCOMPLETE",
+  "invalid_reasons": [],
+  "investigation": {
+    "hypotheses": 3,
+    "lookups": 12,
+    "confirmed": 0,
+    "refuted": 0,
+    "unknown": 3,
+    "usage": {
+      "llm_calls": 16,
+      "by_stage": {
+        "finder": 1,
+        "investigator": 12,
+        "verifier": 3
+      },
+      "prompt_tokens": 30928,
+      "completion_tokens": 8476,
+      "reasoning_tokens": 5668,
+      "llm_seconds": 153.6
+    }
+  }
+}

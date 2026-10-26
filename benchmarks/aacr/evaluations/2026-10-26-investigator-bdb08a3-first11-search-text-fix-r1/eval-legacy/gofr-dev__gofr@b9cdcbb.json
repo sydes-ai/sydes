@@ -1,0 +1,29 @@
+{
+  "instance_id": "gofr-dev__gofr@b9cdcbb",
+  "reviewer": "sydes",
+  "boundary": "code_findings",
+  "status": "completed",
+  "duration_seconds": 344.9,
+  "review": {
+    "comments": [
+      {
+        "path": "pkg/gofr/http/responder.go",
+        "start_line": 96,
+        "end_line": 96,
+        "content": "On the resTypes.Response path, a nil Metadata map is serialized as an explicit \"metadata\":null member, contrary to the newly added documentation stating that omitted metadata produces a response conta\nThe changed documentation specifies omission when metadata is absent. The changed responder copies v.Metadata, whose declared type is map[string]any, into an interface{} field tagged omitempty. When the map is nil, that assignment creates an interface containing a typed nil map; the interface itself is non-nil, so omitempty does not remove the field, and encoding/json encodes the nil map as null. The added test expectation independently records the resulting \"metadata\":null body.\nImpact: Caused by the change: This change introduces the resTypes.Response conversion and assigns its nil map Metadata value to the internal response.Metadata interface field. Because that interface contains the map's dynamic type even when the map is nil, omitempty does not consider the interface empty; JSON encoding therefore emits metadata:null. Previously the handler replaced response.Response with resp.Data, so this metadata serialization path did not exist.",
+        "severity": "P2"
+      },
+      {
+        "path": "pkg/gofr/handler.go",
+        "start_line": 102,
+        "end_line": 102,
+        "content": "For a successful POST handler returning a value response.Response with nil Data\u2014including a header-only Response with nil Metadata\u2014this change alters the selected status from 202 Accepted to 201 Creat\nStatus selection occurs before the responder unwraps or serializes a Response. For POST, handleSuccess returns 201 whenever its data interface is non-nil and 202 only when it is nil. Previously ServeHTTP replaced a Response with resp.Data, so nil Data reached handleSuccess as nil. The change deletes that replacement, leaving the concrete Response struct in the interface; that interface is non-nil even when Data and Metadata are nil, so the POST path returns 201. Response has an independent Headers field, so a value with Headers populated and Data/Metadata nil is a representable header-only response. This finding is limited to POST: DELETE and default-method status selection do not distinguish nil from non-nil data.\nImpact: Caused by the change: The quoted `result = resp.Data` assignment was removed. Consequently, a successful POST returning Response{Data:nil, Metadata:nil, Headers:...} now passes the non-nil Response value to Respond and then getStatusCode, causing handleSuccess's `data != nil` branch to select 201. Before the deletion, nil resp.Data was passed and the same branch selected 202.",
+        "severity": "P2"
+      }
+    ],
+    "summary": {
+      "input_tokens": 107934,
+      "output_tokens": 18887
+    }
+  }
+}

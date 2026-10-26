@@ -1,0 +1,29 @@
+{
+  "instance_id": "google-gemini__gemini-cli@0fa1bd7",
+  "reviewer": "sydes",
+  "boundary": "code_findings",
+  "status": "completed",
+  "duration_seconds": 508.7,
+  "review": {
+    "comments": [
+      {
+        "path": "packages/cli/src/utils/commentJson.ts",
+        "start_line": 113,
+        "end_line": 113,
+        "content": "For an existing settings file, when LoadedSettings.setValue replaces a string at a tracked environment-variable path with another string and that path is not altered by migration, the save writes the\nLoading records each resolved environment-backed string by path and retains its original reference. setValue changes the in-memory setting but passes the unchanged mapping to saveSettings. applyUpdates first places the new literal into the parsed file structure, but restoreEnvVarsRecursive then looks up only the path and replaces any string there with the original reference. Although mappings contain resolvedValue, restoration never compares the current value with it. The resulting file is explicitly written after this replacement, so the new literal does not persist.\nImpact: Caused by the change: This change introduced persistent load-time mappings and made setValue pass them into the new format-preserving save path. Because the restoration map retains only mapping.originalValue keyed by path, the newly assigned literal is overwritten at that path before serialization. The stored resolvedValue is not consulted, so restoration cannot distinguish an unchanged resolved secret from an intentional replacement literal.",
+        "severity": "P2"
+      },
+      {
+        "path": "packages/cli/src/utils/commentJson.ts",
+        "start_line": 93,
+        "end_line": 93,
+        "content": "For MCP configurations containing both a server named `foo.headers` with header `API` and a server named `foo` with header `headers.API`, distinct environment-reference paths flatten to the same map k\nThe MCP add path stores server names and header names directly as object keys, so dotted names can coexist: `foo.headers` and `foo` are distinct server keys, while `API` and `headers.API` are valid header keys. Their component paths are respectively `['mcpServers','foo.headers','headers','API']` and `['mcpServers','foo','headers','headers.API']`, but both join to `mcpServers.foo.headers.headers.API`. The changed restoration code inserts mappings into a Map under this joined string, so one mapping overwrites the other. Recursive restoration constructs the same joined key for both leaves and therefore applies the surviving reference to both. If the original references differ, such as `$A` and `$B`, at least one field is restored incorrectly.\nImpact: Caused by the change: This change introduces environment-reference restoration keyed by dot-joined paths. The supported MCP keys produce two distinct component paths with the same joined representation; Map insertion discards one mapping, and recursive lookup then uses the remaining reference for both settings. The prior direct save did not perform this ambiguous restoration.",
+        "severity": "P2"
+      }
+    ],
+    "summary": {
+      "input_tokens": 194270,
+      "output_tokens": 29088
+    }
+  }
+}

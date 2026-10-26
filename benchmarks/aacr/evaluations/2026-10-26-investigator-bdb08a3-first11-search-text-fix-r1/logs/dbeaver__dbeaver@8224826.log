@@ -1,0 +1,107 @@
+AI recovery (experimental): triggered (a structural boundary was found but no complete route/entrypoint flow reaches it; the first pass reported route composition as unresolved in this repository; 1 changed symbol(s) reach no entrypoint the first pass found)
+AI recovery (experimental): path=unresolved test=unresolved turns=7 llm_calls=7 tokens=17513+693 edge_retries_attempted=0 edge_retries_succeeded=0 graph_paths_proposed=0 graph_paths_established=0 graph_paths_established_unverified_boundary=0 explicit_relation_edges=0
+Wrote AI recovery result: /Users/ksnaik/StudioProjects/sydes/benchmarks/aacr/results/investigator-bdb08a3-first11-r1-2026-10-26/sydes/dbeaver__dbeaver@8224826.ai_recovery.json
+SYDES VERIFICATION
+
+MEDIUM RISK · 6 AFFECTED BEHAVIORS
+
+Changed
+───────
+plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksDataSource.java:81 — DatabricksDataSource.initializeContextState
+plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksDataSource.java:97 — DatabricksDataSource.createExecutionContext
+plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksExecutionContext.java:43 — activeCatalogName
+plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksExecutionContext.java:46 — DatabricksExecutionContext.DatabricksExecutionContext
+plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksExecutionContext.java:50 — DatabricksExecutionContext.getDefaultCatalog
++2 more relevant changed symbols — use --verbose
+
+CHANGE ANALYSIS (citations verified, indeterminate)
+───────────────────────────────────────────────────
+Cannot be established from this repository alone: depends on state only known at runtime (e.g. feature flags, request data).
+The mechanisms are explicit, but their observable effect depends on runtime lifecycle paths, the database's CURRENT_CATALOG() response, existing bootstrap settings, catalog metadata availability, and whether catalog-selection operations fail.
+
+Databricks now creates a specialized execution context that discovers, tracks, resolves, and propagates the active catalog. Fresh contexts query the database for CURRENT_CATALOG(), while contexts initialized from another context attempt to adopt its default catalog. Catalog-selection and discovery failures are logged rather than propagated in several paths.
+
+Likely behavioral changes
+  • When the Databricks data source creates an execution context, callers now receive a Databricks-specific context with active-catalog tracking rather than the generic execution-context implementation.
+  • A newly initialized Databricks context refreshes its defaults by querying the connected database for its current catalog. A non-empty result becomes the context's tracked catalog and, when bootstrap settings are in use and contain no default catalog, is copied into those settings.
+  • A Databricks context initialized from another context now attempts to select the source context's default catalog, so related contexts can begin in the same catalog when that catalog is available.
+  • If changing the default catalog fails with DBCException, the new Databricks context logs the failure and returns normally instead of reporting the failure to its caller.
+
+Investigate
+  • Trace execution-context construction and initialization to determine which connection, metadata, editor, and auxiliary-context lifecycles use the new context and whether initFrom is always Databricks-specific.
+  • Inspect catalog-selection semantics across the superclass, JDBC driver, and Databricks server, including whether CURRENT_CATALOG() is supported in all relevant modes and whether catalog objects are loaded before name-based resolution.
+  • Determine the ownership and persistence semantics of bootstrap settings because refreshDefaults writes a server-observed catalog into that object when its default is empty.
+  • Review callers' expectations for DBCException from setDefaultCatalog and whether continuing after a failed catalog switch can execute later work in an unintended catalog.
+
+Uncertain
+  • The supplied context does not show which execution-context lifecycle callers invoke createExecutionContext and initializeContextState, or how frequently they create fresh versus copied contexts.
+  • No HTTP route or endpoint is shown, so no web-facing route can be associated with these execution-context changes from this evidence.
+  • The actual value returned by CURRENT_CATALOG(), and whether that name exists in the data source's loaded catalog model, depends on the connected Databricks environment.
+  • The supplied code does not establish how GenericExecutionContext.refreshDefaults and GenericExecutionContext.setDefaultCatalog manipulate JDBC session state or what guarantees they provide after failure.
+  • It is not shown whether getBootstrapSettings returns context-local, shared, or persistently stored settings, so the lifetime and wider effect of setDefaultCatalogName cannot be established.
+
+System impact
+─────────────
+No structural propagation path was established.
+
+?
+  → ?: registers DatabricksDataSource
+  → [framework lifecycle unresolved]
+  → candidate: DatabricksDataSource.createExecutionContext
+
+?
+  → ?: registers DatabricksDataSource
+  → [framework lifecycle unresolved]
+  → candidate: DatabricksDataSource.initializeContextState
+
+?
+  → ?: registers DatabricksExecutionContext
+  → [framework lifecycle unresolved]
+  → candidate: DatabricksExecutionContext.getDefaultCatalog
+
+?
+  → ?: registers DatabricksExecutionContext
+  → [framework lifecycle unresolved]
+  → candidate: DatabricksExecutionContext.refreshDefaults
+
+?
+  → ?: registers DatabricksExecutionContext
+  → [framework lifecycle unresolved]
+  → candidate: DatabricksExecutionContext.setDefaultCatalog
+
+Inferred boundaries
+───────────────────
+INFERRED · callable/domain · Databricks execution-context catalog lifecycle
+    The data-source lifecycle crosses into the specialized Databricks execution-context domain surface to construct contexts and initialize, read, refresh, or change their catalog state.
+    Evidence: The createExecutionContext source returns `new DatabricksExecutionContext(instance, type)` as a `JDBCExecutionContext`.; The established call edge `createExecutionContext` -> `DatabricksExecutionContext` is recorded in DatabricksDataSource.java at line 97.
+
+Inferred impact
+───────────────
+INFERRED · 0.66
+default catalog selection for new Databricks sessions
+
+Why:
+Changes to the execution-context constructor, together with changes to context creation and default-catalog methods, could alter which catalog is initially active when users open a new Databricks session.
+
+Static confirmation: unavailable
+
+CI
+──
+? the test suite could not run
+  No repository test command could be resolved
+
+What Sydes could not establish
+──────────────────────────────
+• 6 additional affected areas are not yet verification-modeled.
+• 1 changed symbol has unresolved impact paths.
+• An inferred impact could not be structurally confirmed.
+• The repository test suite could not run (No repository test command could be resolved).
+
+Verdict
+───────
+VERIFICATION INCOMPLETE
+
+Wrote verification result: /Users/ksnaik/StudioProjects/sydes/benchmarks/aacr/results/investigator-bdb08a3-first11-r1-2026-10-26/sydes/dbeaver__dbeaver@8224826.json
+
+--- stderr ---
+Preparing Sydes code intelligence...

@@ -1,0 +1,22 @@
+{
+  "instance_id": "browser-use__browser-use@72f1585",
+  "reviewer": "sydes",
+  "boundary": "code_findings",
+  "status": "completed",
+  "duration_seconds": 232.6,
+  "review": {
+    "comments": [
+      {
+        "path": "browser_use/llm/google/chat.py",
+        "start_line": 202,
+        "end_line": 202,
+        "content": "When ChatGoogle.thinking_budget is explicitly set to any non-None value other than -1, ainvoke sends -1 rather than the selected value in the request config.\nThe public dataclass field accepts an integer or None, but ainvoke only tests whether it is non-None and then writes the literal -1 instead of self.thinking_budget. That config is passed to generate_content. The change replaced the prior value-preserving expression with the literal -1, so it directly introduces this loss of caller configuration. Repository searches found no in-repository explicit caller, and the supplied evidence does not establish the Google SDK's behavioral semantics for -1, 0, or positive values; therefore no broader claim about actual latency, cost, or reasoning behavior is supported.\nImpact: Caused by the change: Before the change, the dictionary used self.thinking_budget; the changed line instead unconditionally stores -1 whenever line 201's non-None condition succeeds. The resulting config is then supplied to generate_content, so an explicit value such as 0 or a positive integer cannot reach the generated request unchanged.",
+        "severity": "P2"
+      }
+    ],
+    "summary": {
+      "input_tokens": 91529,
+      "output_tokens": 14581
+    }
+  }
+}

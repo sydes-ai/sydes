@@ -1,0 +1,162 @@
+{
+  "run": "investigator-bdb08a3-first11-r1-2026-10-26",
+  "metrics_file_level": {
+    "total_instances": 11,
+    "candidate_instances": 11,
+    "evaluated_instances": 10,
+    "missing_instances": 1,
+    "expected_notes": 56,
+    "generated_notes": 5,
+    "total_duration_seconds": 4563.7,
+    "avg_duration_seconds": 456.37,
+    "total_input_tokens": 1044810,
+    "total_output_tokens": 172797,
+    "total_tokens": 1217607,
+    "avg_input_tokens": 104481,
+    "avg_output_tokens": 17280,
+    "matched_generated_notes": 3,
+    "matched_file_semantic_notes": 3,
+    "file_semantic_match_rate": 0.6,
+    "file_semantic_recall_rate": 0.054,
+    "balanced_score": 0.099,
+    "derived_noise_rate": 0.4
+  },
+  "metrics_legacy": {
+    "total_instances": 11,
+    "candidate_instances": 11,
+    "evaluated_instances": 10,
+    "missing_instances": 1,
+    "expected_notes": 56,
+    "generated_notes": 5,
+    "total_duration_seconds": 4563.7,
+    "avg_duration_seconds": 456.37,
+    "total_input_tokens": 1044810,
+    "total_output_tokens": 172797,
+    "total_tokens": 1217607,
+    "avg_input_tokens": 104481,
+    "avg_output_tokens": 17280,
+    "matched_line_notes": 2,
+    "matched_semantic_notes": 2,
+    "semantic_match_rate": 0.4,
+    "line_match_rate": 0.4,
+    "semantic_recall_rate": 0.036,
+    "line_recall_rate": 0.036,
+    "semantic_f1": 0.066,
+    "line_f1": 0.066,
+    "derived_noise_rate": 0.6
+  },
+  "cases": [
+    {
+      "case_id": "browser-use__browser-use-1482",
+      "language": "Python",
+      "status": "completed",
+      "wall_seconds": 307.9,
+      "code_findings": 0,
+      "code_review_status": "completed"
+    },
+    {
+      "case_id": "browser-use__browser-use-3172",
+      "language": "Python",
+      "status": "completed",
+      "wall_seconds": 232.6,
+      "code_findings": 1,
+      "code_review_status": "completed"
+    },
+    {
+      "case_id": "cline__cline-1808",
+      "language": "TypeScript",
+      "status": "completed",
+      "wall_seconds": 295.6,
+      "code_findings": 0,
+      "code_review_status": "completed"
+    },
+    {
+      "case_id": "dbeaver__dbeaver-38915",
+      "language": "Java",
+      "status": "completed",
+      "wall_seconds": 620.4,
+      "code_findings": 0,
+      "code_review_status": "completed"
+    },
+    {
+      "case_id": "dbeaver__dbeaver-37564",
+      "language": "Java",
+      "status": "completed",
+      "wall_seconds": 638.4,
+      "code_findings": 0,
+      "code_review_status": "completed"
+    },
+    {
+      "case_id": "dbeaver__dbeaver-38239",
+      "language": "Java",
+      "status": "completed",
+      "wall_seconds": 523.0,
+      "code_findings": 0,
+      "code_review_status": "completed"
+    },
+    {
+      "case_id": "facebook__react-33059",
+      "language": "JavaScript",
+      "status": "completed",
+      "wall_seconds": 269.7,
+      "code_findings": 0,
+      "code_review_status": "completed"
+    },
+    {
+      "case_id": "gofr-dev__gofr-1325",
+      "language": "Go",
+      "status": "completed",
+      "wall_seconds": 344.9,
+      "code_findings": 2,
+      "code_review_status": "completed"
+    },
+    {
+      "case_id": "google-gemini__gemini-cli-8154",
+      "language": "TypeScript",
+      "status": "completed",
+      "wall_seconds": 508.7,
+      "code_findings": 2,
+      "code_review_status": "completed"
+    },
+    {
+      "case_id": "immich-app__immich-16893",
+      "language": "TypeScript",
+      "status": "completed",
+      "wall_seconds": 822.5,
+      "code_findings": 0,
+      "code_review_status": "completed"
+    }
+  ],
+  "per_pr": {
+    "wall_seconds": 456.4,
+    "llm_calls": 36.3,
+    "input_tokens": 104481,
+    "output_tokens": 17280,
+    "estimated_cost_usd": "unavailable (set SYDES_AACR_PRICE_IN/OUT)",
+    "llm_calls_by_purpose": {
+      "pr_semantic_analysis": 10,
+      "route_discovery": 10,
+      "impact_guide": 44,
+      "boundary_reasoning": 9,
+      "investigator": 160,
+      "ai_recovery": 130
+    }
+  },
+  "findings_submitted": 5,
+  "invalid_cases": [
+    {
+      "case_id": "facebook__react-32499",
+      "reasons": [
+        "1 LLM call error(s) in run_metrics",
+        "1 investigator error(s)"
+      ]
+    }
+  ],
+  "judge": {
+    "model": "gpt-5.2",
+    "calls": 6,
+    "errors": 0,
+    "input_tokens": 3962,
+    "output_tokens": 628
+  }
+}

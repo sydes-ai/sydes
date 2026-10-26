@@ -1,0 +1,88 @@
+{
+  "path_recovery": {
+    "status": "unresolved",
+    "paths": [
+      {
+        "entrypoint": "gemini CLI invocation",
+        "target_node": "loadSettings",
+        "status": "unresolved",
+        "root_boundary_status": "candidate_boundary",
+        "nodes": [
+          {
+            "symbol": "main",
+            "file": "packages/cli/src/gemini.ts",
+            "qualified_name": "packages.cli.src.gemini.main"
+          }
+        ],
+        "edges": [],
+        "unresolved_suffix": [
+          {
+            "from": {
+              "symbol": "main",
+              "file": "packages/cli/src/gemini.tsx",
+              "qualified_name": "packages.cli.src.gemini.main"
+            },
+            "to": {
+              "symbol": "loadSettings",
+              "file": "packages/cli/src/config/settings.ts",
+              "qualified_name": "packages.cli.src.config.settings.loadSettings"
+            },
+            "relationship": "no relationship found",
+            "rejection_reason": "no evidence is located in either entity's own declared file ('packages/cli/src/gemini.tsx' or 'packages/cli/src/config/settings.ts') -- possible wrong-file/wrong-module substitution"
+          }
+        ]
+      }
+    ],
+    "corrected_first_pass_claims": [],
+    "unresolved": []
+  },
+  "test_recovery": {
+    "status": "established",
+    "tests": [
+      {
+        "file": "packages/cli/src/utils/commentJson.test.ts",
+        "test": "updateSettingsFilePreservingFormat test suite",
+        "covers": "The suite directly imports and calls updateSettingsFilePreservingFormat, then reads the resulting settings file and asserts that comments/format-related content, environment-variable references, and nested updates are preserved correctly.",
+        "target": {
+          "symbol": "updateSettingsFilePreservingFormat",
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "qualified_name": null
+        },
+        "evidence": [
+          {
+            "file": "packages/cli/src/utils/commentJson.test.ts",
+            "line_start": 11,
+            "line_end": 14,
+            "fact": "The test imports updateSettingsFilePreservingFormat from ./commentJson.js, corresponding to packages/cli/src/utils/commentJson.ts."
+          },
+          {
+            "file": "packages/cli/src/utils/commentJson.test.ts",
+            "line_start": 44,
+            "line_end": 55,
+            "fact": "The test writes commented JSON, directly calls updateSettingsFilePreservingFormat, and asserts that comments, the changed model, and an unchanged nested setting remain in the output."
+          },
+          {
+            "file": "packages/cli/src/utils/commentJson.test.ts",
+            "line_start": 69,
+            "line_end": 95,
+            "fact": "The environment-variable test directly passes an envVarMappings entry to updateSettingsFilePreservingFormat and asserts that $API_KEY is restored while the resolved secret is absent."
+          },
+          {
+            "file": "packages/cli/src/utils/commentJson.test.ts",
+            "line_start": 106,
+            "line_end": 117,
+            "fact": "The nested-object test directly calls the target with a nested ui update and asserts both the changed nested value and retained sibling value."
+          },
+          {
+            "file": "packages/cli/src/utils/commentJson.test.ts",
+            "line_start": 126,
+            "line_end": 135,
+            "fact": "The new-field test calls the target and verifies that a field is added without losing the existing comment."
+          }
+        ],
+        "status": "accepted",
+        "rejection_reason": null
+      }
+    ]
+  }
+}

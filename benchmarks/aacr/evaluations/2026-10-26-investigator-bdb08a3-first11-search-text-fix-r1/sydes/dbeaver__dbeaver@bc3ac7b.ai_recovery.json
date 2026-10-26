@@ -1,0 +1,12 @@
+{
+  "path_recovery": {
+    "status": "unresolved",
+    "paths": [],
+    "corrected_first_pass_claims": [],
+    "unresolved": []
+  },
+  "test_recovery": {
+    "status": "unresolved",
+    "tests": []
+  }
+}

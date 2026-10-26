@@ -1,0 +1,3326 @@
+{
+  "version": "v3",
+  "kind": "sydes_change_verification",
+  "generated_at": "2026-10-26T18:51:50.108412+00:00",
+  "change": {
+    "base": "0f78c420bd314d078cb8d58e4fb55572d2b090aa",
+    "head": "ed40132dcb3c6ab5502056b7de0e47c0858ec016",
+    "merge_base": "0f78c420bd314d078cb8d58e4fb55572d2b090aa",
+    "repos": [
+      {
+        "name": "app",
+        "root": "/Users/ksnaik/.cache/sydes-aacr/repos/dbeaver__dbeaver"
+      }
+    ],
+    "includes_working_tree": false,
+    "files": [
+      {
+        "repo": "app",
+        "path": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/DBNDatabaseNode.java",
+        "old_path": null,
+        "change_type": "modified",
+        "role": "source_route_candidate",
+        "added_lines": 14,
+        "removed_lines": 3,
+        "hunks": [
+          {
+            "start_line": 726,
+            "end_line": 739
+          }
+        ],
+        "symbols": [
+          "app:plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/DBNDatabaseNode.java:DBNDatabaseNode.loadTreeItems"
+        ],
+        "binary": false
+      },
+      {
+        "repo": "app",
+        "path": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/struct/DBSObjectFilter.java",
+        "old_path": null,
+        "change_type": "modified",
+        "role": "source_route_candidate",
+        "added_lines": 9,
+        "removed_lines": 5,
+        "hunks": [
+          {
+            "start_line": 25,
+            "end_line": 25
+          },
+          {
+            "start_line": 153,
+            "end_line": 153
+          },
+          {
+            "start_line": 162,
+            "end_line": 162
+          },
+          {
+            "start_line": 165,
+            "end_line": 165
+          },
+          {
+            "start_line": 183,
+            "end_line": 183
+          },
+          {
+            "start_line": 185,
+            "end_line": 185
+          },
+          {
+            "start_line": 194,
+            "end_line": 198
+          }
+        ],
+        "symbols": [
+          "app:plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/struct/DBSObjectFilter.java:DBSObjectFilter.atLeastOneNameMatchesPattern",
+          "app:plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/struct/DBSObjectFilter.java:DBSObjectFilter.matches"
+        ],
+        "binary": false
+      }
+    ],
+    "symbols": [
+      {
+        "id": "app:plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/DBNDatabaseNode.java:DBNDatabaseNode.loadTreeItems",
+        "repo": "app",
+        "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/DBNDatabaseNode.java",
+        "name": "loadTreeItems",
+        "qualified_name": "DBNDatabaseNode.loadTreeItems",
+        "cbm_qualified_name": "Users-ksnaik-.cache-sydes-aacr-repos-dbeaver__dbeaver.plugins.org.jkiss.dbeaver.model.src.org.jkiss.dbeaver.model.navigator.DBNDatabaseNode.loadTreeItems",
+        "kind": "class_method",
+        "language": "java",
+        "start_line": 639,
+        "end_line": 794,
+        "change_type": "modified",
+        "changed_lines": 14,
+        "decorators": []
+      },
+      {
+        "id": "app:plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/struct/DBSObjectFilter.java:DBSObjectFilter.matches",
+        "repo": "app",
+        "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/struct/DBSObjectFilter.java",
+        "name": "matches",
+        "qualified_name": "DBSObjectFilter.matches",
+        "cbm_qualified_name": "Users-ksnaik-.cache-sydes-aacr-repos-dbeaver__dbeaver.plugins.org.jkiss.dbeaver.model.src.org.jkiss.dbeaver.model.struct.DBSObjectFilter.matches",
+        "kind": "class_method",
+        "language": "java",
+        "start_line": 153,
+        "end_line": 192,
+        "change_type": "modified",
+        "changed_lines": 5,
+        "decorators": []
+      },
+      {
+        "id": "app:plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/struct/DBSObjectFilter.java:DBSObjectFilter.atLeastOneNameMatchesPattern",
+        "repo": "app",
+        "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/struct/DBSObjectFilter.java",
+        "name": "atLeastOneNameMatchesPattern",
+        "qualified_name": "DBSObjectFilter.atLeastOneNameMatchesPattern",
+        "cbm_qualified_name": "Users-ksnaik-.cache-sydes-aacr-repos-dbeaver__dbeaver.plugins.org.jkiss.dbeaver.model.src.org.jkiss.dbeaver.model.struct.DBSObjectFilter.atLeastOneNameMatchesPattern",
+        "kind": "class_method",
+        "language": "java",
+        "start_line": 194,
+        "end_line": 197,
+        "change_type": "modified",
+        "changed_lines": 4,
+        "decorators": []
+      }
+    ],
+    "notes": []
+  },
+  "summary": {
+    "risk": "MEDIUM",
+    "verdict": "VERIFICATION INCOMPLETE",
+    "headline": "3 changed symbol(s); no route flow resolved to them.",
+    "counts": {
+      "changed_files": 2,
+      "changed_source_files": 2,
+      "changed_test_files": 0,
+      "changed_symbols": 3,
+      "affected_flows": 0,
+      "flows_partially_analyzed": 0,
+      "code_findings": 0,
+      "obligations": 0,
+      "obligations_introduced_by_change": 0,
+      "obligations_passed": 0,
+      "obligations_failed": 0,
+      "obligations_unverified": 0,
+      "obligations_unknown": 0,
+      "mapped_tests": 0,
+      "supporting_tests": 0,
+      "tests_exercising_flows": 0,
+      "tests_supporting_behavior": 0,
+      "tests_verifying_behavior": 0,
+      "changed_test_cases": 0,
+      "tests_executed": 0,
+      "verification_gaps": 0,
+      "runtime_dependencies": 0,
+      "cross_repo_impacts": 0,
+      "impacts_proven": 6,
+      "impacts_inferred": 1,
+      "impacts_not_modeled": 7,
+      "unresolved_changed_symbols": 1
+    },
+    "risk_reasons": [
+      "change could not be tied to any verifiable behavior"
+    ]
+  },
+  "code_review_status": "completed",
+  "code_findings": [],
+  "accepted_impacts": [
+    {
+      "id": "impact:app:Users-ksnaik-.cache-sydes-aacr-repos-dbeaver__dbeaver.plugins.org.jkiss.dbeaver.erd.model.src.org.jkiss.dbeaver.erd.model.ERDContentProviderDefault.fillEntityFromObject",
+      "label": "ERDContentProviderDefault.fillEntityFromObject",
+      "repo": "app",
+      "kind": "decorated",
+      "status": "proven",
+      "changed_symbols": [
+        "atLeastOneNameMatchesPattern",
+        "matches"
+      ],
+      "route_method": null,
+      "route_path": null,
+      "llm_confidence": null,
+      "llm_reason": null,
+      "llm_inference_type": null,
+      "llm_uncertainty": null,
+      "corroborated": null,
+      "behavior_label": "",
+      "verification_model_status": "unsupported_or_partial",
+      "provenance": "structural"
+    },
+    {
+      "id": "impact:app:Users-ksnaik-.cache-sydes-aacr-repos-dbeaver__dbeaver.plugins.org.jkiss.dbeaver.erd.ui.src.org.jkiss.dbeaver.erd.ui.navigator.DiagramCreateWizard.DiagramCreator.run",
+      "label": "DiagramCreator.run",
+      "repo": "app",
+      "kind": "decorated",
+      "status": "proven",
+      "changed_symbols": [
+        "atLeastOneNameMatchesPattern",
+        "matches"
+      ],
+      "route_method": null,
+      "route_path": null,
+      "llm_confidence": null,
+      "llm_reason": null,
+      "llm_inference_type": null,
+      "llm_uncertainty": null,
+      "corroborated": null,
+      "behavior_label": "",
+      "verification_model_status": "unsupported_or_partial",
+      "provenance": "structural"
+    },
+    {
+      "id": "impact:app:Users-ksnaik-.cache-sydes-aacr-repos-dbeaver__dbeaver.plugins.org.jkiss.dbeaver.ext.generic.src.org.jkiss.dbeaver.ext.generic.model.GenericCatalog.getSchemas",
+      "label": "GenericCatalog.getSchemas",
+      "repo": "app",
+      "kind": "decorated",
+      "status": "proven",
+      "changed_symbols": [
+        "atLeastOneNameMatchesPattern",
+        "matches"
+      ],
+      "route_method": null,
+      "route_path": null,
+      "llm_confidence": null,
+      "llm_reason": null,
+      "llm_inference_type": null,
+      "llm_uncertainty": null,
+      "corroborated": null,
+      "behavior_label": "",
+      "verification_model_status": "unsupported_or_partial",
+      "provenance": "structural"
+    },
+    {
+      "id": "impact:app:Users-ksnaik-.cache-sydes-aacr-repos-dbeaver__dbeaver.plugins.org.jkiss.dbeaver.ext.generic.src.org.jkiss.dbeaver.ext.generic.model.GenericDataSource.initialize",
+      "label": "GenericDataSource.initialize",
+      "repo": "app",
+      "kind": "decorated",
+      "status": "proven",
+      "changed_symbols": [
+        "atLeastOneNameMatchesPattern",
+        "matches"
+      ],
+      "route_method": null,
+      "route_path": null,
+      "llm_confidence": null,
+      "llm_reason": null,
+      "llm_inference_type": null,
+      "llm_uncertainty": null,
+      "corroborated": null,
+      "behavior_label": "",
+      "verification_model_status": "unsupported_or_partial",
+      "provenance": "structural"
+    },
+    {
+      "id": "impact:app:Users-ksnaik-.cache-sydes-aacr-repos-dbeaver__dbeaver.plugins.org.jkiss.dbeaver.ext.postgresql.src.org.jkiss.dbeaver.ext.postgresql.model.PostgreStructureAssistant.findObjectsByMask",
+      "label": "PostgreStructureAssistant.findObjectsByMask",
+      "repo": "app",
+      "kind": "decorated",
+      "status": "proven",
+      "changed_symbols": [
+        "atLeastOneNameMatchesPattern",
+        "matches"
+      ],
+      "route_method": null,
+      "route_path": null,
+      "llm_confidence": null,
+      "llm_reason": null,
+      "llm_inference_type": null,
+      "llm_uncertainty": null,
+      "corroborated": null,
+      "behavior_label": "",
+      "verification_model_status": "unsupported_or_partial",
+      "provenance": "structural"
+    },
+    {
+      "id": "impact:app:Users-ksnaik-.cache-sydes-aacr-repos-dbeaver__dbeaver.plugins.org.jkiss.dbeaver.ui.navigator.src.org.jkiss.dbeaver.ui.navigator.dialogs.GotoObjectDialog.fillContentProvider",
+      "label": "GotoObjectDialog.fillContentProvider",
+      "repo": "app",
+      "kind": "decorated",
+      "status": "proven",
+      "changed_symbols": [
+        "atLeastOneNameMatchesPattern",
+        "matches"
+      ],
+      "route_method": null,
+      "route_path": null,
+      "llm_confidence": null,
+      "llm_reason": null,
+      "llm_inference_type": null,
+      "llm_uncertainty": null,
+      "corroborated": null,
+      "behavior_label": "",
+      "verification_model_status": "unsupported_or_partial",
+      "provenance": "structural"
+    },
+    {
+      "id": "impact:app:loadTreeItems",
+      "label": "Filtered database tree results for overloaded objects",
+      "repo": "app",
+      "kind": "unknown",
+      "status": "inferred",
+      "changed_symbols": [
+        "(whole change)"
+      ],
+      "route_method": null,
+      "route_path": null,
+      "llm_confidence": 0.86,
+      "llm_reason": "When loading filtered tree contents, overloaded database objects are now matched using both their ordinary object name and overloaded name, so functions or procedures shown or omitted in filtered navigator-style views may differ.",
+      "llm_inference_type": "semantic_indirect_dependency",
+      "llm_uncertainty": "The supplied context does not identify the exact UI views that invoke this loader or define how the two-argument filter interprets overloaded names.",
+      "corroborated": false,
+      "behavior_label": "Filtered database tree results for overloaded objects",
+      "verification_model_status": "unsupported_or_partial",
+      "provenance": "structural"
+    }
+  ],
+  "pr_semantic_analysis": {
+    "origin": "llm_hypothesis",
+    "change_summary": "Object filtering now supports evaluating multiple names for one database object. During navigator tree loading, overloaded objects are filtered using both their ordinary object name and overloaded name; inclusion succeeds when either name matches, while exclusion rejects the object when either name matches.",
+    "behavior_changes": [
+      {
+        "description": "When tree items are filtered, an overloaded database object is now evaluated under both its normal name and its overloaded name. It remains visible only if the resulting multi-name filter evaluation accepts it; non-overloaded objects continue to be evaluated by their normal name alone.",
+        "changed_symbols": [
+          "DBNDatabaseNode.loadTreeItems",
+          "DBSObjectFilter.matches",
+          "DBSObjectFilter.atLeastOneNameMatchesPattern"
+        ],
+        "evidence": [
+          "The tree-loading path passes two names for DBPOverloadedObject instances and one name for other child items.",
+          "The filter helper tests each pattern against any supplied name."
+        ],
+        "confidence": 0.98,
+        "citations": [
+          {
+            "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/DBNDatabaseNode.java",
+            "line": 729,
+            "quoted_text": "if (childItem instanceof DBPOverloadedObject overloadedObject) {"
+          },
+          {
+            "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/DBNDatabaseNode.java",
+            "line": 730,
+            "quoted_text": "isMatchingFilter = filter.matches("
+          },
+          {
+            "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/DBNDatabaseNode.java",
+            "line": 732,
+            "quoted_text": "overloadedObject.getOverloadedName()"
+          },
+          {
+            "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/struct/DBSObjectFilter.java",
+            "line": 195,
+            "quoted_text": ".anyMatch(name -> matchesPattern(pattern, name));"
+          }
+        ],
+        "citations_verified": 4,
+        "citation_notes": [
+          "citation confirmed near plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/DBNDatabaseNode.java:729",
+          "citation confirmed near plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/DBNDatabaseNode.java:730",
+          "citation confirmed near plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/DBNDatabaseNode.java:732",
+          "citation confirmed near plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/struct/DBSObjectFilter.java:195"
+        ]
+      },
+      {
+        "description": "The filter contract now accepts multiple candidate names. An inclusion pattern may match any supplied name, but an exclusion pattern matching any supplied name rejects the candidate.",
+        "changed_symbols": [
+          "DBSObjectFilter.matches",
+          "DBSObjectFilter.atLeastOneNameMatchesPattern"
+        ],
+        "evidence": [
+          "The public matching method changed from a single name to a variable-length name list.",
+          "Both inclusion and exclusion checks use the same any-name matching helper."
+        ],
+        "confidence": 0.99,
+        "citations": [
+          {
+            "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/struct/DBSObjectFilter.java",
+            "line": 153,
+            "quoted_text": "public synchronized boolean matches(String... names) {"
+          },
+          {
+            "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/struct/DBSObjectFilter.java",
+            "line": 165,
+            "quoted_text": "if (atLeastOneNameMatchesPattern(pattern, names)) {"
+          },
+          {
+            "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/struct/DBSObjectFilter.java",
+            "line": 185,
+            "quoted_text": "if (atLeastOneNameMatchesPattern(pattern, names)) {"
+          }
+        ],
+        "citations_verified": 3,
+        "citation_notes": [
+          "citation confirmed near plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/struct/DBSObjectFilter.java:153",
+          "citation confirmed near plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/struct/DBSObjectFilter.java:165",
+          "citation confirmed near plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/struct/DBSObjectFilter.java:185"
+        ]
+      }
+    ],
+    "important_symbols": [
+      {
+        "repo": "app",
+        "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/DBNDatabaseNode.java",
+        "symbol": "DBNDatabaseNode.loadTreeItems",
+        "reason": "This is the changed consumption point that decides which loaded database objects survive navigator filtering and introduces the overloaded-object-specific behavior."
+      },
+      {
+        "repo": "app",
+        "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/struct/DBSObjectFilter.java",
+        "symbol": "DBSObjectFilter.matches",
+        "reason": "This public method's contract and matching semantics changed from one candidate name to multiple names, potentially affecting callers beyond the shown tree-loading path."
+      },
+      {
+        "repo": "app",
+        "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/struct/DBSObjectFilter.java",
+        "symbol": "DBSObjectFilter.atLeastOneNameMatchesPattern",
+        "reason": "This helper defines the new any-name behavior shared by inclusion and exclusion processing."
+      }
+    ],
+    "investigation_hints": [
+      {
+        "description": "Find every caller of DBSObjectFilter.matches and determine whether any callers rely on its former single-String binary signature or will begin supplying multiple aliases.",
+        "related_symbols": [
+          "DBSObjectFilter.matches"
+        ],
+        "concepts": [
+          "filter API compatibility",
+          "compiled plugin compatibility",
+          "single-name callers",
+          "alias matching"
+        ],
+        "likely_boundary_types": [
+          "callable"
+        ]
+      },
+      {
+        "description": "Trace which navigator-loading flows produce DBPOverloadedObject children and what overloaded names represent for each database implementation.",
+        "related_symbols": [
+          "DBNDatabaseNode.loadTreeItems"
+        ],
+        "concepts": [
+          "navigator tree population",
+          "overloaded database objects",
+          "database metadata",
+          "object naming"
+        ],
+        "likely_boundary_types": [
+          "callable",
+          "external"
+        ]
+      },
+      {
+        "description": "Check the intended precedence when inclusion matches one name but exclusion matches another, and whether overloaded names are guaranteed to be non-null.",
+        "related_symbols": [
+          "DBSObjectFilter.matches",
+          "DBSObjectFilter.atLeastOneNameMatchesPattern"
+        ],
+        "concepts": [
+          "include/exclude precedence",
+          "nullability contracts",
+          "pattern matching invariants"
+        ],
+        "likely_boundary_types": [
+          "callable",
+          "unknown"
+        ]
+      }
+    ],
+    "likely_boundary_types": [
+      "callable",
+      "external",
+      "unknown"
+    ],
+    "local_risks": [
+      {
+        "description": "The changed public Java signature is source-compatible for ordinary recompiled one-name calls but not binary-compatible with code already linked to matches(String). If separately compiled plugins or modules consume this method, they could fail at linkage until rebuilt.",
+        "severity": "P1",
+        "citations": [
+          {
+            "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/struct/DBSObjectFilter.java",
+            "line": 153,
+            "quoted_text": "public synchronized boolean matches(String... names) {"
+          }
+        ],
+        "citations_verified": 1,
+        "citation_notes": [
+          "citation confirmed near plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/struct/DBSObjectFilter.java:153"
+        ]
+      },
+      {
+        "description": "If an overloaded name can be null, the new second-name path can pass null into pattern matching without a visible guard; regex matching then dereferences that name and could abort filtering rather than merely rejecting the object.",
+        "severity": "P1",
+        "citations": [
+          {
+            "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/DBNDatabaseNode.java",
+            "line": 732,
+            "quoted_text": "overloadedObject.getOverloadedName()"
+          },
+          {
+            "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/struct/DBSObjectFilter.java",
+            "line": 195,
+            "quoted_text": ".anyMatch(name -> matchesPattern(pattern, name));"
+          },
+          {
+            "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/struct/DBSObjectFilter.java",
+            "line": 200,
+            "quoted_text": "return ((Pattern) pattern).matcher(name).matches();"
+          }
+        ],
+        "citations_verified": 3,
+        "citation_notes": [
+          "citation confirmed near plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/DBNDatabaseNode.java:732",
+          "citation confirmed near plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/struct/DBSObjectFilter.java:195",
+          "citation confirmed near plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/struct/DBSObjectFilter.java:200"
+        ]
+      },
+      {
+        "description": "Include and exclude patterns independently inspect every supplied name. Consequently, an object included through one name can still be rejected because another name matches an exclusion; reviewers should confirm that this cross-name precedence is the intended filtering invariant.",
+        "severity": "P2",
+        "citations": [
+          {
+            "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/struct/DBSObjectFilter.java",
+            "line": 165,
+            "quoted_text": "if (atLeastOneNameMatchesPattern(pattern, names)) {"
+          },
+          {
+            "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/struct/DBSObjectFilter.java",
+            "line": 185,
+            "quoted_text": "if (atLeastOneNameMatchesPattern(pattern, names)) {"
+          }
+        ],
+        "citations_verified": 2,
+        "citation_notes": [
+          "citation confirmed near plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/struct/DBSObjectFilter.java:165",
+          "citation confirmed near plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/struct/DBSObjectFilter.java:185"
+        ]
+      }
+    ],
+    "uncertainties": [
+      "The supplied context does not identify all callers of the public matches method or establish whether any caller other than the shown navigator-loading path supplies multiple names.",
+      "The observable effect depends on a non-null filter being active and the loaded child being a DBPOverloadedObject; the supplied diff does not establish how often those conditions occur in real installations.",
+      "The contract of DBPOverloadedObject.getOverloadedName, including whether it can return null and how it differs from the ordinary object name, is not shown.",
+      "It is not established whether DBSObjectFilter is consumed by separately compiled plugins or other binary clients for which the method descriptor change would be compatibility-sensitive.",
+      "Which database metadata providers expose overloaded objects, and what names those providers return at runtime, cannot be determined from the changed files."
+    ],
+    "uncertainty_items": [
+      {
+        "kind": "caller_reachability",
+        "text": "The supplied context does not identify all callers of the public matches method or establish whether any caller other than the shown navigator-loading path supplies multiple names.",
+        "symbols": [
+          "DBSObjectFilter.matches"
+        ],
+        "resolved_by": null,
+        "established_context": null,
+        "scoped_text": null
+      },
+      {
+        "kind": "runtime_condition",
+        "text": "The observable effect depends on a non-null filter being active and the loaded child being a DBPOverloadedObject; the supplied diff does not establish how often those conditions occur in real installations.",
+        "symbols": [
+          "DBNDatabaseNode.loadTreeItems"
+        ],
+        "resolved_by": null,
+        "established_context": null,
+        "scoped_text": null
+      },
+      {
+        "kind": "dependency_semantics",
+        "text": "The contract of DBPOverloadedObject.getOverloadedName, including whether it can return null and how it differs from the ordinary object name, is not shown.",
+        "symbols": [
+          "DBNDatabaseNode.loadTreeItems",
+          "DBSObjectFilter.atLeastOneNameMatchesPattern"
+        ],
+        "resolved_by": null,
+        "established_context": null,
+        "scoped_text": null
+      },
+      {
+        "kind": "boundary_identity",
+        "text": "It is not established whether DBSObjectFilter is consumed by separately compiled plugins or other binary clients for which the method descriptor change would be compatibility-sensitive.",
+        "symbols": [
+          "DBSObjectFilter.matches"
+        ],
+        "resolved_by": null,
+        "established_context": null,
+        "scoped_text": null
+      },
+      {
+        "kind": "external_state",
+        "text": "Which database metadata providers expose overloaded objects, and what names those providers return at runtime, cannot be determined from the changed files.",
+        "symbols": [
+          "DBNDatabaseNode.loadTreeItems"
+        ],
+        "resolved_by": null,
+        "established_context": null,
+        "scoped_text": null
+      }
+    ],
+    "verification_state": "verified",
+    "is_indeterminate": true,
+    "indeterminate_reason": "runtime_only_behavior",
+    "indeterminate_detail": "The mechanism is clear, but a real observable difference occurs only when filtering is active and runtime metadata contains overloaded objects whose ordinary and overloaded names interact differently with the configured patterns."
+  },
+  "affected_boundaries": [
+    {
+      "id": "boundary:inferred:callable:app:DBSObjectFilter.matches:0",
+      "kind": "callable",
+      "subtype": "domain",
+      "repo": "app",
+      "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/struct/DBSObjectFilter.java",
+      "symbol": "DBSObjectFilter.matches",
+      "label": "Shared database-object name filtering contract",
+      "changed_symbols": [
+        "DBSObjectFilter.matches",
+        "DBSObjectFilter.atLeastOneNameMatchesPattern"
+      ],
+      "evidence": [
+        "The change summary states that the DBSObjectFilter contract now accepts multiple candidate names and applies inclusion/exclusion patterns across them.",
+        "Established call edge: DiagramObjectCollector.collectTables calls DBSObjectFilter.matches in plugins/org.jkiss.dbeaver.erd.model/src/org/jkiss/dbeaver/erd/model/DiagramObjectCollector.java:102.",
+        "Established call edge: PostgreStructureAssistant.findObjectsByMask calls DBSObjectFilter.matches in plugins/org.jkiss.dbeaver.ext.postgresql/src/org/jkiss/dbeaver/ext/postgresql/model/PostgreStructureAssistant.java:110.",
+        "Established call edge: SQLCompletionAnalyzer.filterProposals calls DBSObjectFilter.matches in plugins/org.jkiss.dbeaver.model.sql/src/org/jkiss/dbeaver/model/sql/completion/SQLCompletionAnalyzer.java:631.",
+        "Established call edge: ERDContentProviderDefault.fillEntityFromObject calls DBSObjectFilter.matches in plugins/org.jkiss.dbeaver.erd.model/src/org/jkiss/dbeaver/erd/model/ERDContentProviderDefault.java:58."
+      ],
+      "distance": 0,
+      "evidence_strength": "medium",
+      "status": "inferred",
+      "reason": "Database-object candidate names cross from multiple consuming components into the shared filter domain operation, whose matching contract now evaluates multiple names.",
+      "uncertainty": "The supplied facts do not establish all consumers of matches, whether atLeastOneNameMatchesPattern is itself externally callable, or whether separately compiled plugins face binary-compatibility effects from the signature change; no established loadTreeItems-to-matches edge is supplied.",
+      "llm_confidence": 0.93
+    }
+  ],
+  "composed_dispatch_edges": [],
+  "run_metrics": {
+    "llm_by_purpose": {
+      "pr_semantic_analysis": {
+        "calls": 1,
+        "errors": 0,
+        "input_tokens": 3011,
+        "output_tokens": 3353,
+        "reasoning_tokens": 1537,
+        "models": [
+          "gpt-5.6-sol"
+        ]
+      },
+      "route_discovery": {
+        "calls": 1,
+        "errors": 0,
+        "input_tokens": 7096,
+        "output_tokens": 33,
+        "reasoning_tokens": 0,
+        "models": [
+          "gpt-5.6-sol"
+        ]
+      },
+      "impact_guide": {
+        "calls": 3,
+        "errors": 0,
+        "input_tokens": 9548,
+        "output_tokens": 713,
+        "reasoning_tokens": 351,
+        "models": [
+          "gpt-5.6-sol"
+        ]
+      },
+      "boundary_reasoning": {
+        "calls": 1,
+        "errors": 0,
+        "input_tokens": 4387,
+        "output_tokens": 837,
+        "reasoning_tokens": 446,
+        "models": [
+          "gpt-5.6-sol"
+        ]
+      },
+      "investigator": {
+        "calls": 6,
+        "errors": 0,
+        "input_tokens": 15289,
+        "output_tokens": 3113,
+        "reasoning_tokens": 2158,
+        "models": [
+          "gpt-5.6-sol"
+        ]
+      },
+      "ai_recovery": {
+        "calls": 6,
+        "errors": 0,
+        "input_tokens": 21213,
+        "output_tokens": 369,
+        "reasoning_tokens": 148,
+        "models": [
+          "gpt-5.6-sol"
+        ]
+      }
+    },
+    "llm_totals": {
+      "calls": 18,
+      "errors": 0,
+      "input_tokens": 60544,
+      "output_tokens": 8418,
+      "reasoning_tokens": 4640
+    },
+    "cbm": {
+      "calls": 192,
+      "errors": 2,
+      "by_operation": {
+        "index_repository": 2,
+        "query_graph": 50,
+        "search_graph": 113,
+        "get_graph_schema": 1,
+        "search_code": 24,
+        "trace_path": 2
+      },
+      "enrichment_requests": 31
+    },
+    "wall_seconds": 521.2,
+    "tests": {
+      "environments": [],
+      "mapped_executions": 0,
+      "mapped_outcomes": {},
+      "ci_suite": {
+        "status": "unknown",
+        "blocker": "framework_unsupported",
+        "passed": null,
+        "failed": null
+      }
+    }
+  },
+  "framework_boundary_candidates": [
+    {
+      "category": "callback_registration",
+      "status": "unresolved",
+      "source_symbol": "?",
+      "via": "?",
+      "targets": [
+        "ERDContentProviderDefault.fillEntityFromObject"
+      ],
+      "message_type": null,
+      "facts": [
+        {
+          "provenance": "cbm_entrypoint",
+          "fact": "ERDContentProviderDefault.fillEntityFromObject is a reached entrypoint with decorator metadata and no route",
+          "file": "plugins/org.jkiss.dbeaver.erd.model/src/org/jkiss/dbeaver/erd/model/ERDContentProviderDefault.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_inherits",
+          "fact": "ERDContentProviderDefault implements ERDContentProvider",
+          "file": "plugins/org.jkiss.dbeaver.erd.model/src/org/jkiss/dbeaver/erd/model/ERDContentProviderDefault.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_override",
+          "fact": "ERDContentProviderDefault.fillEntityFromObject overrides ERDContentProvider.fillEntityFromObject",
+          "file": "plugins/org.jkiss.dbeaver.erd.model/src/org/jkiss/dbeaver/erd/model/ERDContentProviderDefault.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "plugins/org.jkiss.dbeaver.erd.ui/src/org/jkiss/dbeaver/erd/ui/model/ERDContentProviderDecorated.java uses ERDContentProviderDefault",
+          "file": "plugins/org.jkiss.dbeaver.erd.ui/src/org/jkiss/dbeaver/erd/ui/model/ERDContentProviderDecorated.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_configures",
+          "fact": "CBM records no CONFIGURES relation for ERDContentProviderDefault (CBM emits CONFIGURES for configuration keys and environment access, not registrations)",
+          "file": null,
+          "line": null
+        }
+      ],
+      "checks": {},
+      "missing": [
+        "no repository code that hands ERDContentProviderDefault to the framework was found"
+      ],
+      "runtime_needed": null,
+      "resolved_by": null,
+      "queries": 31
+    },
+    {
+      "category": "callback_registration",
+      "status": "unresolved",
+      "source_symbol": "?",
+      "via": "?",
+      "targets": [
+        "DiagramCreator.run"
+      ],
+      "message_type": null,
+      "facts": [
+        {
+          "provenance": "cbm_entrypoint",
+          "fact": "DiagramCreator.run is a reached entrypoint with decorator metadata and no route",
+          "file": "plugins/org.jkiss.dbeaver.erd.ui/src/org/jkiss/dbeaver/erd/ui/navigator/DiagramCreateWizard.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_inherits",
+          "fact": "DiagramCreator implements DBRRunnableWithProgress",
+          "file": "plugins/org.jkiss.dbeaver.erd.ui/src/org/jkiss/dbeaver/erd/ui/navigator/DiagramCreateWizard.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_override",
+          "fact": "DiagramCreator.run overrides DBRRunnableWithProgress.run",
+          "file": "plugins/org.jkiss.dbeaver.erd.ui/src/org/jkiss/dbeaver/erd/ui/navigator/DiagramCreateWizard.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_configures",
+          "fact": "CBM records no CONFIGURES relation for DiagramCreator (CBM emits CONFIGURES for configuration keys and environment access, not registrations)",
+          "file": null,
+          "line": null
+        }
+      ],
+      "checks": {},
+      "missing": [
+        "no repository code that hands DiagramCreator to the framework was found"
+      ],
+      "runtime_needed": null,
+      "resolved_by": null,
+      "queries": 31
+    },
+    {
+      "category": "callback_registration",
+      "status": "unresolved",
+      "source_symbol": "DatabricksMetaModel.loadSchemas",
+      "via": "add(new DatabricksSchema(dataSource, …)",
+      "targets": [
+        "GenericCatalog.getSchemas"
+      ],
+      "message_type": null,
+      "facts": [
+        {
+          "provenance": "cbm_entrypoint",
+          "fact": "GenericCatalog.getSchemas is a reached entrypoint with decorator metadata and no route",
+          "file": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/GenericCatalog.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_inherits",
+          "fact": "GenericCatalog inherits GenericObjectContainer",
+          "file": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/GenericCatalog.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_inherits",
+          "fact": "GenericCatalog implements DBPSystemObject",
+          "file": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/GenericCatalog.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_inherits",
+          "fact": "GenericCatalog implements DBSCatalog",
+          "file": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/GenericCatalog.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "AltibaseMetaModel.createSchemaImpl uses GenericCatalog",
+          "file": "plugins/org.jkiss.dbeaver.ext.altibase/src/org/jkiss/dbeaver/ext/altibase/model/AltibaseMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "AltibasePackage.getCatalog uses GenericCatalog",
+          "file": "plugins/org.jkiss.dbeaver.ext.altibase/src/org/jkiss/dbeaver/ext/altibase/model/AltibasePackage.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "AltibaseProcedureBase.getCatalog uses GenericCatalog",
+          "file": "plugins/org.jkiss.dbeaver.ext.altibase/src/org/jkiss/dbeaver/ext/altibase/model/AltibaseProcedureBase.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "AltibaseSchema.AltibaseSchema uses GenericCatalog",
+          "file": "plugins/org.jkiss.dbeaver.ext.altibase/src/org/jkiss/dbeaver/ext/altibase/model/AltibaseSchema.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "plugins/org.jkiss.dbeaver.ext.clickhouse/src/org/jkiss/dbeaver/ext/clickhouse/model/ClickhouseCatalog.java uses GenericCatalog",
+          "file": "plugins/org.jkiss.dbeaver.ext.clickhouse/src/org/jkiss/dbeaver/ext/clickhouse/model/ClickhouseCatalog.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "ClickhouseMetaModel.createCatalogImpl uses GenericCatalog",
+          "file": "plugins/org.jkiss.dbeaver.ext.clickhouse/src/org/jkiss/dbeaver/ext/clickhouse/model/ClickhouseMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "ClickhouseMetaModel.createSchemaImpl uses GenericCatalog",
+          "file": "plugins/org.jkiss.dbeaver.ext.clickhouse/src/org/jkiss/dbeaver/ext/clickhouse/model/ClickhouseMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "ClickhouseMetaModel.getTableDDL uses GenericCatalog",
+          "file": "plugins/org.jkiss.dbeaver.ext.clickhouse/src/org/jkiss/dbeaver/ext/clickhouse/model/ClickhouseMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "ClickhouseSchema.ClickhouseSchema uses GenericCatalog",
+          "file": "plugins/org.jkiss.dbeaver.ext.clickhouse/src/org/jkiss/dbeaver/ext/clickhouse/model/ClickhouseSchema.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "CubridProcedure.getCatalog uses GenericCatalog",
+          "file": "plugins/org.jkiss.dbeaver.ext.cubrid/src/org/jkiss/dbeaver/ext/cubrid/model/CubridProcedure.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "CubridMetaModel.loadSchemas uses GenericCatalog",
+          "file": "plugins/org.jkiss.dbeaver.ext.cubrid/src/org/jkiss/dbeaver/ext/cubrid/model/meta/CubridMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "DamengMetaModel.createSchemaImpl uses GenericCatalog",
+          "file": "plugins/org.jkiss.dbeaver.ext.dameng/src/org/jkiss/dbeaver/ext/dameng/model/DamengMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "DatabendMetaModel.getTableDDL uses GenericCatalog",
+          "file": "plugins/org.jkiss.dbeaver.ext.databend/src/org/jkiss/dbeaver/ext/databend/model/DatabendMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "DatabricksMetaModel.createSchemaImpl uses GenericCatalog",
+          "file": "plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/model/DatabricksMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "DatabricksMetaModel.loadSchemas uses GenericCatalog",
+          "file": "plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/model/DatabricksMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "DatabricksSchema.DatabricksSchema uses GenericCatalog",
+          "file": "plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/model/DatabricksSchema.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "plugins/org.jkiss.dbeaver.ext.duckdb/src/org/jkiss/dbeaver/ext/duckdb/model/DuckDBGenericCatalog.java uses GenericCatalog",
+          "file": "plugins/org.jkiss.dbeaver.ext.duckdb/src/org/jkiss/dbeaver/ext/duckdb/model/DuckDBGenericCatalog.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "DuckMetaModel.createCatalogImpl uses GenericCatalog",
+          "file": "plugins/org.jkiss.dbeaver.ext.duckdb/src/org/jkiss/dbeaver/ext/duckdb/model/DuckMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "FireBirdProcedure.getCatalog uses GenericCatalog",
+          "file": "plugins/org.jkiss.dbeaver.ext.firebird/src/org/jkiss/dbeaver/ext/firebird/model/FireBirdProcedure.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "plugins/org.jkiss.dbeaver.ext.gbase8s/src/org/jkiss/dbeaver/ext/gbase8s/model/GBase8sCatalog.java uses GenericCatalog",
+          "file": "plugins/org.jkiss.dbeaver.ext.gbase8s/src/org/jkiss/dbeaver/ext/gbase8s/model/GBase8sCatalog.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "GBase8sProcedure.getCatalog uses GenericCatalog",
+          "file": "plugins/org.jkiss.dbeaver.ext.gbase8s/src/org/jkiss/dbeaver/ext/gbase8s/model/GBase8sProcedure.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "GBase8sSchema.GBase8sSchema uses GenericCatalog",
+          "file": "plugins/org.jkiss.dbeaver.ext.gbase8s/src/org/jkiss/dbeaver/ext/gbase8s/model/GBase8sSchema.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "GBase8sMetaModel.createCatalogImpl uses GenericCatalog",
+          "file": "plugins/org.jkiss.dbeaver.ext.gbase8s/src/org/jkiss/dbeaver/ext/gbase8s/model/meta/GBase8sMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "GBase8sMetaModel.createSchemaImpl uses GenericCatalog",
+          "file": "plugins/org.jkiss.dbeaver.ext.gbase8s/src/org/jkiss/dbeaver/ext/gbase8s/model/meta/GBase8sMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "GenericDataSource.findTable uses GenericCatalog",
+          "file": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/GenericDataSource.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "GenericDataSource.getCatalog uses GenericCatalog",
+          "file": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/GenericDataSource.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "GenericDataSource.getCatalogList uses GenericCatalog",
+          "file": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/GenericDataSource.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "GenericDataSource.getCatalogs uses GenericCatalog",
+          "file": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/GenericDataSource.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "GenericDataSource.getDefaultCatalog uses GenericCatalog",
+          "file": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/GenericDataSource.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "GenericDataSource.getPrimaryChildType uses GenericCatalog",
+          "file": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/GenericDataSource.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "GenericDataSource.initialize uses GenericCatalog",
+          "file": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/GenericDataSource.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "GenericDataSource.isChild uses GenericCatalog",
+          "file": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/GenericDataSource.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/GenericDataSource.java uses GenericCatalog",
+          "file": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/GenericDataSource.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "GenericDataSourceObjectContainer.getCatalog uses GenericCatalog",
+          "file": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/GenericDataSourceObjectContainer.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "GenericExecutionContext.getDefaultCatalog uses GenericCatalog",
+          "file": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/GenericExecutionContext.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "GenericExecutionContext.initDefaultsFrom uses GenericCatalog",
+          "file": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/GenericExecutionContext.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/GenericExecutionContext.java uses GenericCatalog",
+          "file": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/GenericExecutionContext.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "GenericExecutionContext.setDefaultCatalog uses GenericCatalog",
+          "file": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/GenericExecutionContext.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "GenericPackage.getCatalog uses GenericCatalog",
+          "file": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/GenericPackage.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "GenericProcedure.getCatalog uses GenericCatalog",
+          "file": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/GenericProcedure.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "GenericSchema.GenericSchema uses GenericCatalog",
+          "file": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/GenericSchema.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "GenericSchema.getCatalog uses GenericCatalog",
+          "file": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/GenericSchema.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/GenericSchema.java uses GenericCatalog",
+          "file": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/GenericSchema.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "GenericStructContainer.getCatalog uses GenericCatalog",
+          "file": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/GenericStructContainer.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "GenericStructureAssistant.findContainer uses GenericCatalog",
+          "file": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/GenericStructureAssistant.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "GenericStructureAssistant.findObjectsByMask uses GenericCatalog",
+          "file": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/GenericStructureAssistant.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "GenericStructureAssistant.findProceduresByMask uses GenericCatalog",
+          "file": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/GenericStructureAssistant.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "GenericStructureAssistant.findSchemasByMask uses GenericCatalog",
+          "file": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/GenericStructureAssistant.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "GenericStructureAssistant.findTablesByMask uses GenericCatalog",
+          "file": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/GenericStructureAssistant.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "GenericTableBase.getCatalog uses GenericCatalog",
+          "file": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/GenericTableBase.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "GenericTableBase.getSchema uses GenericCatalog",
+          "file": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/GenericTableBase.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "GenericMetaModel.createCatalogImpl calls GenericCatalog",
+          "file": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/meta/GenericMetaModel.java",
+          "line": 525
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "GenericMetaModel.createCatalogImpl uses GenericCatalog",
+          "file": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/meta/GenericMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "GenericMetaModel.createSchemaImpl uses GenericCatalog",
+          "file": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/meta/GenericMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "GenericMetaModel.loadSchemas uses GenericCatalog",
+          "file": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/meta/GenericMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "H2RoutineAlias.getCatalog uses GenericCatalog",
+          "file": "plugins/org.jkiss.dbeaver.ext.h2/src/org/jkiss/dbeaver/ext/h2/model/H2RoutineAlias.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "HANAMetaModel.createSchemaImpl uses GenericCatalog",
+          "file": "plugins/org.jkiss.dbeaver.ext.hana/src/org/jkiss/dbeaver/ext/hana/model/HANAMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "HANAMetaModel.loadSchemas uses GenericCatalog",
+          "file": "plugins/org.jkiss.dbeaver.ext.hana/src/org/jkiss/dbeaver/ext/hana/model/HANAMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "HANAProcedure.getCatalog uses GenericCatalog",
+          "file": "plugins/org.jkiss.dbeaver.ext.hana/src/org/jkiss/dbeaver/ext/hana/model/HANAProcedure.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "HANASchema.HANASchema uses GenericCatalog",
+          "file": "plugins/org.jkiss.dbeaver.ext.hana/src/org/jkiss/dbeaver/ext/hana/model/HANASchema.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "plugins/org.jkiss.dbeaver.ext.mssql/src/org/jkiss/dbeaver/ext/mssql/model/generic/SQLServerGenericDatabase.java uses GenericCatalog",
+          "file": "plugins/org.jkiss.dbeaver.ext.mssql/src/org/jkiss/dbeaver/ext/mssql/model/generic/SQLServerGenericDatabase.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "SQLServerGenericSchema.SQLServerGenericSchema uses GenericCatalog",
+          "file": "plugins/org.jkiss.dbeaver.ext.mssql/src/org/jkiss/dbeaver/ext/mssql/model/generic/SQLServerGenericSchema.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "SQLServerGenericSchema.collectObjectStatistics uses GenericCatalog",
+          "file": "plugins/org.jkiss.dbeaver.ext.mssql/src/org/jkiss/dbeaver/ext/mssql/model/generic/SQLServerGenericSchema.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "SQLServerGenericSynonym.getTargetObject uses GenericCatalog",
+          "file": "plugins/org.jkiss.dbeaver.ext.mssql/src/org/jkiss/dbeaver/ext/mssql/model/generic/SQLServerGenericSynonym.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "SQLServerMetaModel.createSchemaImpl uses GenericCatalog",
+          "file": "plugins/org.jkiss.dbeaver.ext.mssql/src/org/jkiss/dbeaver/ext/mssql/model/generic/SQLServerMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "SQLServerMetaModel.extractSource uses GenericCatalog",
+          "file": "plugins/org.jkiss.dbeaver.ext.mssql/src/org/jkiss/dbeaver/ext/mssql/model/generic/SQLServerMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "SQLServerMetaModel.loadSchemas uses GenericCatalog",
+          "file": "plugins/org.jkiss.dbeaver.ext.mssql/src/org/jkiss/dbeaver/ext/mssql/model/generic/SQLServerMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "NetezzaMetaModel.getViewDDL uses GenericCatalog",
+          "file": "plugins/org.jkiss.dbeaver.ext.netezza/src/org/jkiss/dbeaver/ext/netezza/model/NetezzaMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "SnowflakeDataSource.initializeContextState uses GenericCatalog",
+          "file": "plugins/org.jkiss.dbeaver.ext.snowflake/src/org/jkiss/dbeaver/ext/snowflake/model/SnowflakeDataSource.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "SnowflakeExecutionContext.getDefaultCatalog uses GenericCatalog",
+          "file": "plugins/org.jkiss.dbeaver.ext.snowflake/src/org/jkiss/dbeaver/ext/snowflake/model/SnowflakeExecutionContext.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "SnowflakeExecutionContext.getDefaultSchema uses GenericCatalog",
+          "file": "plugins/org.jkiss.dbeaver.ext.snowflake/src/org/jkiss/dbeaver/ext/snowflake/model/SnowflakeExecutionContext.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "SnowflakeExecutionContext.setDefaultCatalog uses GenericCatalog",
+          "file": "plugins/org.jkiss.dbeaver.ext.snowflake/src/org/jkiss/dbeaver/ext/snowflake/model/SnowflakeExecutionContext.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "VerticaMetaModel.createSchemaImpl uses GenericCatalog",
+          "file": "plugins/org.jkiss.dbeaver.ext.vertica/src/org/jkiss/dbeaver/ext/vertica/model/VerticaMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "VerticaSchema.VerticaSchema uses GenericCatalog",
+          "file": "plugins/org.jkiss.dbeaver.ext.vertica/src/org/jkiss/dbeaver/ext/vertica/model/VerticaSchema.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "VerticaUDF.getCatalog uses GenericCatalog",
+          "file": "plugins/org.jkiss.dbeaver.ext.vertica/src/org/jkiss/dbeaver/ext/vertica/model/VerticaUDF.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_configures",
+          "fact": "CBM records no CONFIGURES relation for GenericCatalog (CBM emits CONFIGURES for configuration keys and environment access, not registrations)",
+          "file": null,
+          "line": null
+        },
+        {
+          "provenance": "cbm_source",
+          "fact": "DatabricksMetaModel.loadSchemas passes GenericCatalog to schemas.add(new DatabricksSchema(dataSource, catalog, schemaName))",
+          "file": "plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/model/DatabricksMetaModel.java",
+          "line": 94
+        },
+        {
+          "provenance": "cbm_path",
+          "fact": "direct relation DatabricksMetaModel.loadSchemas → GenericCatalog.getSchemas: DatabricksMetaModel.loadSchemas -USAGE-> model.GenericCatalog",
+          "file": null,
+          "line": null
+        },
+        {
+          "provenance": "cbm_path",
+          "fact": "calls path DatabricksMetaModel.loadSchemas → GenericCatalog.getSchemas: none within 5 hops",
+          "file": null,
+          "line": null
+        }
+      ],
+      "checks": {
+        "direct_relation": "DatabricksMetaModel.loadSchemas -USAGE-> model.GenericCatalog",
+        "calls_path": "none within 5 hops"
+      },
+      "missing": [
+        "the framework's invocation of GenericCatalog.getSchemas (lifecycle, not a call in the source)"
+      ],
+      "runtime_needed": "GenericCatalog.getSchemas invoked by the framework after DatabricksMetaModel.loadSchemas registers it",
+      "resolved_by": null,
+      "queries": 31
+    },
+    {
+      "category": "callback_registration",
+      "status": "unresolved",
+      "source_symbol": "DamengTableManager.addObjectRenameActions",
+      "via": "getQuotedIdentifier(dataSource, …)",
+      "targets": [
+        "GenericDataSource.initialize"
+      ],
+      "message_type": null,
+      "facts": [
+        {
+          "provenance": "cbm_entrypoint",
+          "fact": "GenericDataSource.initialize is a reached entrypoint with decorator metadata and no route",
+          "file": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/GenericDataSource.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_decorator",
+          "fact": "GenericDataSource is decorated @ForTest (decorator sweep)",
+          "file": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/GenericDataSource.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_inherits",
+          "fact": "GenericDataSource implements GenericStructContainer",
+          "file": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/GenericDataSource.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_inherits",
+          "fact": "GenericDataSource inherits JDBCDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/GenericDataSource.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_inherits",
+          "fact": "GenericDataSource implements DBPAdaptable",
+          "file": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/GenericDataSource.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_inherits",
+          "fact": "GenericDataSource implements DBPTermProvider",
+          "file": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/GenericDataSource.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_override",
+          "fact": "GenericDataSource.initialize overrides JDBCDataSource.initialize",
+          "file": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/GenericDataSource.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "plugins/org.jkiss.dbeaver.ext.altibase/src/org/jkiss/dbeaver/ext/altibase/model/AltibaseDataSource.java uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.altibase/src/org/jkiss/dbeaver/ext/altibase/model/AltibaseDataSource.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "AltibaseMetaModel.createDataSourceImpl uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.altibase/src/org/jkiss/dbeaver/ext/altibase/model/AltibaseMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "AltibaseMetaModel.createSchemaImpl uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.altibase/src/org/jkiss/dbeaver/ext/altibase/model/AltibaseMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "AltibaseMetaModel.loadProcedures uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.altibase/src/org/jkiss/dbeaver/ext/altibase/model/AltibaseMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "AltibaseMetaModel.supportsDatabaseTriggers uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.altibase/src/org/jkiss/dbeaver/ext/altibase/model/AltibaseMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "AltibaseMetaModel.supportsSequences uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.altibase/src/org/jkiss/dbeaver/ext/altibase/model/AltibaseMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "AltibaseMetaModel.supportsSynonyms uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.altibase/src/org/jkiss/dbeaver/ext/altibase/model/AltibaseMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "AltibaseMetaModel.supportsTriggers uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.altibase/src/org/jkiss/dbeaver/ext/altibase/model/AltibaseMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "AltibaseSchema.AltibaseSchema uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.altibase/src/org/jkiss/dbeaver/ext/altibase/model/AltibaseSchema.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "plugins/org.jkiss.dbeaver.ext.athena/src/org/jkiss/dbeaver/ext/athena/model/AthenaDataSource.java uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.athena/src/org/jkiss/dbeaver/ext/athena/model/AthenaDataSource.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "plugins/org.jkiss.dbeaver.ext.bigquery/src/org/jkiss/dbeaver/ext/bigquery/model/BigQueryDataSource.java uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.bigquery/src/org/jkiss/dbeaver/ext/bigquery/model/BigQueryDataSource.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "BigQueryMetaModel.createDataSourceImpl uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.bigquery/src/org/jkiss/dbeaver/ext/bigquery/model/BigQueryMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "ClickhouseCatalog.ClickhouseCatalog uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.clickhouse/src/org/jkiss/dbeaver/ext/clickhouse/model/ClickhouseCatalog.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "plugins/org.jkiss.dbeaver.ext.clickhouse/src/org/jkiss/dbeaver/ext/clickhouse/model/ClickhouseDataSource.java uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.clickhouse/src/org/jkiss/dbeaver/ext/clickhouse/model/ClickhouseDataSource.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "ClickhouseMetaModel.createCatalogImpl uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.clickhouse/src/org/jkiss/dbeaver/ext/clickhouse/model/ClickhouseMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "ClickhouseMetaModel.createDataSourceImpl uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.clickhouse/src/org/jkiss/dbeaver/ext/clickhouse/model/ClickhouseMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "ClickhouseMetaModel.createSchemaImpl uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.clickhouse/src/org/jkiss/dbeaver/ext/clickhouse/model/ClickhouseMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "ClickhouseMetaModel.getTableDDL uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.clickhouse/src/org/jkiss/dbeaver/ext/clickhouse/model/ClickhouseMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "ClickhouseSchema.ClickhouseSchema uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.clickhouse/src/org/jkiss/dbeaver/ext/clickhouse/model/ClickhouseSchema.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "ClickhouseSchema.createTableCache uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.clickhouse/src/org/jkiss/dbeaver/ext/clickhouse/model/ClickhouseSchema.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "plugins/org.jkiss.dbeaver.ext.cubrid/src/org/jkiss/dbeaver/ext/cubrid/model/CubridDataSource.java uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.cubrid/src/org/jkiss/dbeaver/ext/cubrid/model/CubridDataSource.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "CubridTableCache.CubridTableCache uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.cubrid/src/org/jkiss/dbeaver/ext/cubrid/model/CubridUser.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "CubridUser.CubridUser uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.cubrid/src/org/jkiss/dbeaver/ext/cubrid/model/CubridUser.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "CubridUser.createTableCache uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.cubrid/src/org/jkiss/dbeaver/ext/cubrid/model/CubridUser.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "CubridMetaModel.getQueryPlanner uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.cubrid/src/org/jkiss/dbeaver/ext/cubrid/model/meta/CubridMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "CubridMetaModel.loadSchemas uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.cubrid/src/org/jkiss/dbeaver/ext/cubrid/model/meta/CubridMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "CubridMetaModel.supportsDatabaseTriggers uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.cubrid/src/org/jkiss/dbeaver/ext/cubrid/model/meta/CubridMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "CubridMetaModel.supportsTriggers uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.cubrid/src/org/jkiss/dbeaver/ext/cubrid/model/meta/CubridMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "DamengTableManager.addObjectRenameActions uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.dameng/src/org/jkiss/dbeaver/ext/dameng/edit/DamengTableManager.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "DamengDataSource.getDataKind uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.dameng/src/org/jkiss/dbeaver/ext/dameng/model/DamengDataSource.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "plugins/org.jkiss.dbeaver.ext.dameng/src/org/jkiss/dbeaver/ext/dameng/model/DamengDataSource.java uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.dameng/src/org/jkiss/dbeaver/ext/dameng/model/DamengDataSource.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "DamengMetaModel.createDataSourceImpl uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.dameng/src/org/jkiss/dbeaver/ext/dameng/model/DamengMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "DamengMetaModel.createSchemaImpl uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.dameng/src/org/jkiss/dbeaver/ext/dameng/model/DamengMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "DamengMetaModel.loadProcedures uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.dameng/src/org/jkiss/dbeaver/ext/dameng/model/DamengMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "DamengMetaModel.supportsDatabaseTriggers uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.dameng/src/org/jkiss/dbeaver/ext/dameng/model/DamengMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "DamengMetaModel.supportsSequences uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.dameng/src/org/jkiss/dbeaver/ext/dameng/model/DamengMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "DamengMetaModel.supportsTriggers uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.dameng/src/org/jkiss/dbeaver/ext/dameng/model/DamengMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "DamengSchema.DamengSchema uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.dameng/src/org/jkiss/dbeaver/ext/dameng/model/DamengSchema.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "plugins/org.jkiss.dbeaver.ext.databend/src/org/jkiss/dbeaver/ext/databend/model/DatabendDataSource.java uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.databend/src/org/jkiss/dbeaver/ext/databend/model/DatabendDataSource.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksDataSource.java uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksDataSource.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "DatabricksMetaModel.createDataSourceImpl uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/model/DatabricksMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "DatabricksMetaModel.createSchemaImpl uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/model/DatabricksMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "DatabricksMetaModel.getTableDDL uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/model/DatabricksMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "DatabricksMetaModel.loadSchemas uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/model/DatabricksMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "DatabricksSchema.DatabricksSchema uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/model/DatabricksSchema.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "DB2ITableManager.addObjectRenameActions uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.db2.i/src/org/jkiss/dbeaver/ext/db2/i/edit/DB2ITableManager.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "plugins/org.jkiss.dbeaver.ext.db2.i/src/org/jkiss/dbeaver/ext/db2/i/model/DB2IDataSource.java uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.db2.i/src/org/jkiss/dbeaver/ext/db2/i/model/DB2IDataSource.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "DB2IMetaModel.createDataSourceImpl uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.db2.i/src/org/jkiss/dbeaver/ext/db2/i/model/DB2IMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "DB2IMetaModel.getProcedureDDL uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.db2.i/src/org/jkiss/dbeaver/ext/db2/i/model/DB2IMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "DB2IMetaModel.getViewDDL uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.db2.i/src/org/jkiss/dbeaver/ext/db2/i/model/DB2IMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "DB2IMetaModel.supportsSequences uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.db2.i/src/org/jkiss/dbeaver/ext/db2/i/model/DB2IMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "plugins/org.jkiss.dbeaver.ext.db2.zos/src/org/jkiss/dbeaver/ext/db2/zos/model/DB2ZOSDataSource.java uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.db2.zos/src/org/jkiss/dbeaver/ext/db2/zos/model/DB2ZOSDataSource.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "DB2ZOSMetaModel.createDataSourceImpl uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.db2.zos/src/org/jkiss/dbeaver/ext/db2/zos/model/DB2ZOSMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "DB2ZOSMetaModel.getViewDDL uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.db2.zos/src/org/jkiss/dbeaver/ext/db2/zos/model/DB2ZOSMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "plugins/org.jkiss.dbeaver.ext.denodo/src/org/jkiss/dbeaver/ext/denodo/model/DenodoDataSource.java uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.denodo/src/org/jkiss/dbeaver/ext/denodo/model/DenodoDataSource.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "DenodoMetaModel.createDataSourceImpl uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.denodo/src/org/jkiss/dbeaver/ext/denodo/model/DenodoMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "DenodoMetaModel.getProcedureDDL uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.denodo/src/org/jkiss/dbeaver/ext/denodo/model/DenodoMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "DenodoMetaModel.getViewDDL uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.denodo/src/org/jkiss/dbeaver/ext/denodo/model/DenodoMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "plugins/org.jkiss.dbeaver.ext.derby/src/org/jkiss/dbeaver/ext/derby/model/DerbyDataSource.java uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.derby/src/org/jkiss/dbeaver/ext/derby/model/DerbyDataSource.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "DerbyMetaModel.createDataSourceImpl uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.derby/src/org/jkiss/dbeaver/ext/derby/model/DerbyMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "DerbyMetaModel.supportsSequences uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.derby/src/org/jkiss/dbeaver/ext/derby/model/DerbyMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "plugins/org.jkiss.dbeaver.ext.duckdb/src/org/jkiss/dbeaver/ext/duckdb/model/DuckDBDataSource.java uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.duckdb/src/org/jkiss/dbeaver/ext/duckdb/model/DuckDBDataSource.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "DuckDBGenericCatalog.DuckDBGenericCatalog uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.duckdb/src/org/jkiss/dbeaver/ext/duckdb/model/DuckDBGenericCatalog.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "DuckMetaModel.createCatalogImpl uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.duckdb/src/org/jkiss/dbeaver/ext/duckdb/model/DuckMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "DuckMetaModel.createDataSourceImpl uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.duckdb/src/org/jkiss/dbeaver/ext/duckdb/model/DuckMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "DuckMetaModel.getObjectDDL uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.duckdb/src/org/jkiss/dbeaver/ext/duckdb/model/DuckMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "DuckMetaModel.supportsSequences uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.duckdb/src/org/jkiss/dbeaver/ext/duckdb/model/DuckMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "FireBirdUtils.addProcedureType uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.firebird/src/org/jkiss/dbeaver/ext/firebird/FireBirdUtils.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "plugins/org.jkiss.dbeaver.ext.firebird/src/org/jkiss/dbeaver/ext/firebird/model/FireBirdDataSource.java uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.firebird/src/org/jkiss/dbeaver/ext/firebird/model/FireBirdDataSource.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "FireBirdMetaModel.createDataSourceImpl uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.firebird/src/org/jkiss/dbeaver/ext/firebird/model/FireBirdMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "FireBirdMetaModel.getAutoIncrementClause uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.firebird/src/org/jkiss/dbeaver/ext/firebird/model/FireBirdMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "FireBirdMetaModel.supportsDatabaseTriggers uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.firebird/src/org/jkiss/dbeaver/ext/firebird/model/FireBirdMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "FireBirdMetaModel.supportsSequences uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.firebird/src/org/jkiss/dbeaver/ext/firebird/model/FireBirdMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "FireBirdMetaModel.supportsTriggers uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.firebird/src/org/jkiss/dbeaver/ext/firebird/model/FireBirdMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "GBase8sUtils.getSource uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.gbase8s/src/org/jkiss/dbeaver/ext/gbase8s/GBase8sUtils.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "GBase8sTableManager.addObjectRenameActions uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.gbase8s/src/org/jkiss/dbeaver/ext/gbase8s/edit/GBase8sTableManager.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "GBase8sCatalog.GBase8sCatalog uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.gbase8s/src/org/jkiss/dbeaver/ext/gbase8s/model/GBase8sCatalog.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "plugins/org.jkiss.dbeaver.ext.gbase8s/src/org/jkiss/dbeaver/ext/gbase8s/model/GBase8sDataSource.java uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.gbase8s/src/org/jkiss/dbeaver/ext/gbase8s/model/GBase8sDataSource.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "GBase8sSchema.GBase8sSchema uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.gbase8s/src/org/jkiss/dbeaver/ext/gbase8s/model/GBase8sSchema.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "GBase8sMetaModel.createCatalogImpl uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.gbase8s/src/org/jkiss/dbeaver/ext/gbase8s/model/meta/GBase8sMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "GBase8sMetaModel.createSchemaImpl uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.gbase8s/src/org/jkiss/dbeaver/ext/gbase8s/model/meta/GBase8sMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "GBase8sMetaModel.loadProcedures uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.gbase8s/src/org/jkiss/dbeaver/ext/gbase8s/model/meta/GBase8sMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "GBase8sMetaModel.supportsSynonyms uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.gbase8s/src/org/jkiss/dbeaver/ext/gbase8s/model/meta/GBase8sMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "GBase8sMetaModel.supportsTriggers uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.gbase8s/src/org/jkiss/dbeaver/ext/gbase8s/model/meta/GBase8sMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "GenericTimestampValueHandler.GenericTimestampValueHandler uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/data/GenericTimestampValueHandler.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/data/GenericTimestampValueHandler.java uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/data/GenericTimestampValueHandler.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "GenericValueHandlerProvider.getValueHandler uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/data/GenericValueHandlerProvider.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "GenericViewManager.canCreateObject uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/edit/GenericViewManager.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "GenericCatalog.GenericCatalog uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/GenericCatalog.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "GenericDataSourceObjectContainer.GenericDataSourceObjectContainer uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/GenericDataSourceObjectContainer.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/GenericDataSourceObjectContainer.java uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/GenericDataSourceObjectContainer.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "GenericDataType.getDataKind uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/GenericDataType.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "GenericExecutionContext.determineSelectedEntity uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/GenericExecutionContext.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "GenericExecutionContext.getDataSource uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/GenericExecutionContext.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "GenericExecutionContext.getDefaultCatalog uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/GenericExecutionContext.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "GenericExecutionContext.getDefaultCatalogCached uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/GenericExecutionContext.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "GenericExecutionContext.getDefaultObject uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/GenericExecutionContext.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "GenericExecutionContext.getDefaultSchema uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/GenericExecutionContext.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "GenericExecutionContext.getDefaultSchemaCached uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/GenericExecutionContext.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "GenericExecutionContext.initDefaultsFrom uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/GenericExecutionContext.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "GenericExecutionContext.setDefaultCatalog uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/GenericExecutionContext.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "GenericExecutionContext.setDefaultSchema uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/GenericExecutionContext.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "GenericExecutionContext.supportsCatalogChange uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/GenericExecutionContext.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "GenericExecutionContext.supportsSchemaChange uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/GenericExecutionContext.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "GenericObjectContainer.GenericObjectContainer uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/GenericObjectContainer.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "GenericObjectContainer.createTableCache uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/GenericObjectContainer.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "GenericObjectContainer.getDataSource uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/GenericObjectContainer.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/GenericObjectContainer.java uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/GenericObjectContainer.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/GenericProcedure.java uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/GenericProcedure.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "GenericProcedureParameter.getDataSource uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/GenericProcedureParameter.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "GenericSQLDialect.initDriverSettings uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/GenericSQLDialect.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "GenericSchema.GenericSchema uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/GenericSchema.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "GenericSequence.getDataSource uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/GenericSequence.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "GenericStructContainer.getDataSource uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/GenericStructContainer.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "GenericStructureAssistant.GenericStructureAssistant uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/GenericStructureAssistant.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "GenericStructureAssistant.findObjectsByMask uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/GenericStructureAssistant.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "GenericStructureAssistant.getDataSource uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/GenericStructureAssistant.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/GenericStructureAssistant.java uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/GenericStructureAssistant.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "GenericSynonym.getDataSource uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/GenericSynonym.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/GenericTableBase.java uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/GenericTableBase.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "GenericTableColumn.getDataSource uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/GenericTableColumn.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "GenericTableConstraint.getDataSource uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/GenericTableConstraint.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "GenericTableConstraintColumn.getDataSource uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/GenericTableConstraintColumn.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "GenericTableForeignKey.getDataSource uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/GenericTableForeignKey.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "GenericTableIndex.getDataSource uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/GenericTableIndex.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "GenericTableIndexColumn.getDataSource uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/GenericTableIndexColumn.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "GenericTableType.GenericTableType uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/GenericTableType.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/GenericTableType.java uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/GenericTableType.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "GenericTrigger.getDataSource uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/GenericTrigger.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "GenericUtils.getColumn uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/GenericUtils.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "TableCache.TableCache uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/TableCache.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "TableCache.getDataSource uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/TableCache.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/TableCache.java uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/TableCache.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "GenericMetaModel.createCatalogImpl uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/meta/GenericMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "GenericMetaModel.createDataSourceImpl calls GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/meta/GenericMetaModel.java",
+          "line": 92
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "GenericMetaModel.createDataSourceImpl uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/meta/GenericMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "GenericMetaModel.createSchemaImpl uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/meta/GenericMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "GenericMetaModel.createTableImpl uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/meta/GenericMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "GenericMetaModel.getPackageName uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/meta/GenericMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "GenericMetaModel.getQueryPlanner uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/meta/GenericMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "GenericMetaModel.loadProcedures uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/meta/GenericMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "GenericMetaModel.loadSchemas uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/meta/GenericMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "GenericMetaModel.supportsDatabaseTriggers uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/meta/GenericMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "GenericMetaModel.supportsSequences uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/meta/GenericMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "GenericMetaModel.supportsSynonyms uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/meta/GenericMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "GenericMetaModel.supportsTriggers uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/meta/GenericMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "GenericMetaModel.supportsViews uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/meta/GenericMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "H2TableManager.addObjectRenameActions uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.h2/src/org/jkiss/dbeaver/ext/h2/edit/H2TableManager.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "plugins/org.jkiss.dbeaver.ext.h2/src/org/jkiss/dbeaver/ext/h2/model/H2DataSource.java uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.h2/src/org/jkiss/dbeaver/ext/h2/model/H2DataSource.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "H2MetaModel.createConstraintColumnsImpl uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.h2/src/org/jkiss/dbeaver/ext/h2/model/H2MetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "H2MetaModel.createDataSourceImpl uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.h2/src/org/jkiss/dbeaver/ext/h2/model/H2MetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "H2MetaModel.findConstraintColumns uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.h2/src/org/jkiss/dbeaver/ext/h2/model/H2MetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "H2MetaModel.getViewDDL uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.h2/src/org/jkiss/dbeaver/ext/h2/model/H2MetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "H2MetaModel.supportsSequences uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.h2/src/org/jkiss/dbeaver/ext/h2/model/H2MetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "HANASchemaManager.addObjectRenameActions uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.hana/src/org/jkiss/dbeaver/ext/hana/edit/HANASchemaManager.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "plugins/org.jkiss.dbeaver.ext.hana/src/org/jkiss/dbeaver/ext/hana/model/HANADataSource.java uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.hana/src/org/jkiss/dbeaver/ext/hana/model/HANADataSource.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "HANADependency.getBaseObject uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.hana/src/org/jkiss/dbeaver/ext/hana/model/HANADependency.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "HANADependency.getBaseObjectSchema uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.hana/src/org/jkiss/dbeaver/ext/hana/model/HANADependency.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "HANAMetaModel.createDataSourceImpl uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.hana/src/org/jkiss/dbeaver/ext/hana/model/HANAMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "HANAMetaModel.createSchemaImpl uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.hana/src/org/jkiss/dbeaver/ext/hana/model/HANAMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "HANAMetaModel.getProcedureDDL uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.hana/src/org/jkiss/dbeaver/ext/hana/model/HANAMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "HANAMetaModel.getTriggerDDL uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.hana/src/org/jkiss/dbeaver/ext/hana/model/HANAMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "HANAMetaModel.getViewDDL uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.hana/src/org/jkiss/dbeaver/ext/hana/model/HANAMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "HANAMetaModel.loadSchemas uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.hana/src/org/jkiss/dbeaver/ext/hana/model/HANAMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "HANAMetaModel.supportsSequences uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.hana/src/org/jkiss/dbeaver/ext/hana/model/HANAMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "HANAMetaModel.supportsSynonyms uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.hana/src/org/jkiss/dbeaver/ext/hana/model/HANAMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "HANAMetaModel.supportsTriggers uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.hana/src/org/jkiss/dbeaver/ext/hana/model/HANAMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "HANASchema.HANASchema uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.hana/src/org/jkiss/dbeaver/ext/hana/model/HANASchema.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "plugins/org.jkiss.dbeaver.ext.hive/src/org/jkiss/dbeaver/ext/hive/model/HiveDataSource.java uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.hive/src/org/jkiss/dbeaver/ext/hive/model/HiveDataSource.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "HiveMetaModel.createDataSourceImpl uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.hive/src/org/jkiss/dbeaver/ext/hive/model/HiveMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "HiveMetaModel.getTableDDL uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.hive/src/org/jkiss/dbeaver/ext/hive/model/HiveMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "plugins/org.jkiss.dbeaver.ext.hsqldb/src/org/jkiss/dbeaver/ext/hsqldb/model/HSQLDataSource.java uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.hsqldb/src/org/jkiss/dbeaver/ext/hsqldb/model/HSQLDataSource.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "HSQLMetaModel.createDataSourceImpl uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.hsqldb/src/org/jkiss/dbeaver/ext/hsqldb/model/HSQLMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "HSQLMetaModel.getProcedureDDL uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.hsqldb/src/org/jkiss/dbeaver/ext/hsqldb/model/HSQLMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "HSQLMetaModel.getQueryPlanner uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.hsqldb/src/org/jkiss/dbeaver/ext/hsqldb/model/HSQLMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "HSQLMetaModel.getViewDDL uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.hsqldb/src/org/jkiss/dbeaver/ext/hsqldb/model/HSQLMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "HSQLMetaModel.loadProcedures uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.hsqldb/src/org/jkiss/dbeaver/ext/hsqldb/model/HSQLMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "HSQLMetaModel.supportsSequences uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.hsqldb/src/org/jkiss/dbeaver/ext/hsqldb/model/HSQLMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "HSQLMetaModel.supportsSynonyms uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.hsqldb/src/org/jkiss/dbeaver/ext/hsqldb/model/HSQLMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "HSQLMetaModel.supportsTriggers uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.hsqldb/src/org/jkiss/dbeaver/ext/hsqldb/model/HSQLMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "InformixUtils.getSource uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.informix/src/org/jkiss/dbeaver/ext/informix/InformixUtils.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "InformixMetaModel.supportsTriggers uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.informix/src/org/jkiss/dbeaver/ext/informix/model/InformixMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "plugins/org.jkiss.dbeaver.ext.mssql/src/org/jkiss/dbeaver/ext/mssql/model/generic/SQLServerGenericDataSource.java uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.mssql/src/org/jkiss/dbeaver/ext/mssql/model/generic/SQLServerGenericDataSource.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "SQLServerGenericDatabase.SQLServerGenericDatabase uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.mssql/src/org/jkiss/dbeaver/ext/mssql/model/generic/SQLServerGenericDatabase.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "SQLServerGenericSchema.SQLServerGenericSchema uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.mssql/src/org/jkiss/dbeaver/ext/mssql/model/generic/SQLServerGenericSchema.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "SQLServerMetaModel.createCatalogImpl uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.mssql/src/org/jkiss/dbeaver/ext/mssql/model/generic/SQLServerMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "SQLServerMetaModel.createSchemaImpl uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.mssql/src/org/jkiss/dbeaver/ext/mssql/model/generic/SQLServerMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "SQLServerMetaModel.extractSource uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.mssql/src/org/jkiss/dbeaver/ext/mssql/model/generic/SQLServerMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "SQLServerMetaModel.getProcedureDDL uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.mssql/src/org/jkiss/dbeaver/ext/mssql/model/generic/SQLServerMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "SQLServerMetaModel.isSapIQ uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.mssql/src/org/jkiss/dbeaver/ext/mssql/model/generic/SQLServerMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "SQLServerMetaModel.loadProcedures uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.mssql/src/org/jkiss/dbeaver/ext/mssql/model/generic/SQLServerMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "SQLServerMetaModel.loadSchemas uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.mssql/src/org/jkiss/dbeaver/ext/mssql/model/generic/SQLServerMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "SQLServerMetaModel.supportsSequences uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.mssql/src/org/jkiss/dbeaver/ext/mssql/model/generic/SQLServerMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "SQLServerMetaModel.supportsSynonyms uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.mssql/src/org/jkiss/dbeaver/ext/mssql/model/generic/SQLServerMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "SQLServerMetaModel.supportsTriggers uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.mssql/src/org/jkiss/dbeaver/ext/mssql/model/generic/SQLServerMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "plugins/org.jkiss.dbeaver.ext.netezza/src/org/jkiss/dbeaver/ext/netezza/model/NetezzaDataSource.java uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.netezza/src/org/jkiss/dbeaver/ext/netezza/model/NetezzaDataSource.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "NetezzaMetaModel.createDataSourceImpl uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.netezza/src/org/jkiss/dbeaver/ext/netezza/model/NetezzaMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "NetezzaMetaModel.getProcedureDDL uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.netezza/src/org/jkiss/dbeaver/ext/netezza/model/NetezzaMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "NetezzaMetaModel.getViewDDL uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.netezza/src/org/jkiss/dbeaver/ext/netezza/model/NetezzaMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "plugins/org.jkiss.dbeaver.ext.ocient/src/org/jkiss/dbeaver/ext/ocient/model/OcientDataSource.java uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.ocient/src/org/jkiss/dbeaver/ext/ocient/model/OcientDataSource.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "OcientMetaModel.getObjectDDL uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.ocient/src/org/jkiss/dbeaver/ext/ocient/model/OcientMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "plugins/org.jkiss.dbeaver.ext.phoenix/src/org/jkiss/dbeaver/ext/phoenix/model/PhoenixDataSource.java uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.phoenix/src/org/jkiss/dbeaver/ext/phoenix/model/PhoenixDataSource.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "PhoenixMetaModel.createDataSourceImpl uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.phoenix/src/org/jkiss/dbeaver/ext/phoenix/model/PhoenixMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "plugins/org.jkiss.dbeaver.ext.postgresql/src/org/jkiss/dbeaver/ext/postgresql/model/PostgreGenericDataSource.java uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.postgresql/src/org/jkiss/dbeaver/ext/postgresql/model/PostgreGenericDataSource.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "PostgreGenericQueryPlaner.PostgreGenericQueryPlaner uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.postgresql/src/org/jkiss/dbeaver/ext/postgresql/model/generic/PostgreGenericQueryPlaner.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "PostgreGenericQueryPlaner.getDataSource uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.postgresql/src/org/jkiss/dbeaver/ext/postgresql/model/generic/PostgreGenericQueryPlaner.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "plugins/org.jkiss.dbeaver.ext.postgresql/src/org/jkiss/dbeaver/ext/postgresql/model/generic/PostgreGenericQueryPlaner.java uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.postgresql/src/org/jkiss/dbeaver/ext/postgresql/model/generic/PostgreGenericQueryPlaner.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "PostgreMetaModel.createDataSourceImpl uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.postgresql/src/org/jkiss/dbeaver/ext/postgresql/model/generic/PostgreMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "PostgreMetaModel.getQueryPlanner uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.postgresql/src/org/jkiss/dbeaver/ext/postgresql/model/generic/PostgreMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "PostgreMetaModel.supportsSequences uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.postgresql/src/org/jkiss/dbeaver/ext/postgresql/model/generic/PostgreMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "PostgreMetaModel.supportsTriggers uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.postgresql/src/org/jkiss/dbeaver/ext/postgresql/model/generic/PostgreMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "plugins/org.jkiss.dbeaver.ext.snowflake/src/org/jkiss/dbeaver/ext/snowflake/model/SnowflakeDataSource.java uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.snowflake/src/org/jkiss/dbeaver/ext/snowflake/model/SnowflakeDataSource.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "SnowflakeMetaModel.createDataSourceImpl uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.snowflake/src/org/jkiss/dbeaver/ext/snowflake/model/SnowflakeMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "SnowflakeMetaModel.getProcedureDDL uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.snowflake/src/org/jkiss/dbeaver/ext/snowflake/model/SnowflakeMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "SnowflakeMetaModel.getTableDDL uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.snowflake/src/org/jkiss/dbeaver/ext/snowflake/model/SnowflakeMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "plugins/org.jkiss.dbeaver.ext.spanner/src/org/jkiss/dbeaver/ext/spanner/model/SpannerDataSource.java uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.spanner/src/org/jkiss/dbeaver/ext/spanner/model/SpannerDataSource.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "SQLiteTableManager.addObjectRenameActions uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.sqlite/src/org/jkiss/dbeaver/ext/sqlite/edit/SQLiteTableManager.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "plugins/org.jkiss.dbeaver.ext.sqlite/src/org/jkiss/dbeaver/ext/sqlite/model/SQLiteDataSource.java uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.sqlite/src/org/jkiss/dbeaver/ext/sqlite/model/SQLiteDataSource.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "SQLiteMetaModel.createDataSourceImpl uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.sqlite/src/org/jkiss/dbeaver/ext/sqlite/model/SQLiteMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "SQLiteMetaModel.supportsDatabaseTriggers uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.sqlite/src/org/jkiss/dbeaver/ext/sqlite/model/SQLiteMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "SQLiteMetaModel.supportsSequences uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.sqlite/src/org/jkiss/dbeaver/ext/sqlite/model/SQLiteMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "SQLiteMetaModel.supportsTriggers uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.sqlite/src/org/jkiss/dbeaver/ext/sqlite/model/SQLiteMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "TeradataMetaModel.createDataSourceImpl calls GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.teradata/src/org/jkiss/dbeaver/ext/teradata/model/TeradataMetaModel.java",
+          "line": 61
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "TeradataMetaModel.createDataSourceImpl uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.teradata/src/org/jkiss/dbeaver/ext/teradata/model/TeradataMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "TeradataMetaModel.getProcedureDDL uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.teradata/src/org/jkiss/dbeaver/ext/teradata/model/TeradataMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "TeradataMetaModel.getTableDDL uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.teradata/src/org/jkiss/dbeaver/ext/teradata/model/TeradataMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "TeradataMetaModel.supportsTriggers uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.teradata/src/org/jkiss/dbeaver/ext/teradata/model/TeradataMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "plugins/org.jkiss.dbeaver.ext.trino/src/org/jkiss/dbeaver/ext/trino/model/TrinoDataSource.java uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.trino/src/org/jkiss/dbeaver/ext/trino/model/TrinoDataSource.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "TrinoMetaModel.createDataSourceImpl uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.trino/src/org/jkiss/dbeaver/ext/trino/model/TrinoMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "TrinoMetaModel.getTableDDL uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.trino/src/org/jkiss/dbeaver/ext/trino/model/TrinoMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "TrinoMetaModel.getViewDDL uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.trino/src/org/jkiss/dbeaver/ext/trino/model/TrinoMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "VerticaUtils.getObjectDDL uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.vertica/src/org/jkiss/dbeaver/ext/vertica/VerticaUtils.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "VerticaUtils.readTableAndColumnsDescriptions uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.vertica/src/org/jkiss/dbeaver/ext/vertica/VerticaUtils.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "plugins/org.jkiss.dbeaver.ext.vertica/src/org/jkiss/dbeaver/ext/vertica/model/VerticaDataSource.java uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.vertica/src/org/jkiss/dbeaver/ext/vertica/model/VerticaDataSource.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "VerticaMetaModel.createDataSourceImpl uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.vertica/src/org/jkiss/dbeaver/ext/vertica/model/VerticaMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "VerticaMetaModel.createSchemaImpl uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.vertica/src/org/jkiss/dbeaver/ext/vertica/model/VerticaMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "VerticaMetaModel.getProcedureDDL uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.vertica/src/org/jkiss/dbeaver/ext/vertica/model/VerticaMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "VerticaMetaModel.getTableDDL uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.vertica/src/org/jkiss/dbeaver/ext/vertica/model/VerticaMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "VerticaMetaModel.supportsSequences uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.vertica/src/org/jkiss/dbeaver/ext/vertica/model/VerticaMetaModel.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "VerticaObjectType.findObject uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.vertica/src/org/jkiss/dbeaver/ext/vertica/model/VerticaObjectType.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "VerticaSchema.VerticaSchema uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.vertica/src/org/jkiss/dbeaver/ext/vertica/model/VerticaSchema.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "plugins/org.jkiss.dbeaver.ext.vertica/src/org/jkiss/dbeaver/ext/vertica/model/VerticaUDF.java uses GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.vertica/src/org/jkiss/dbeaver/ext/vertica/model/VerticaUDF.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_configures",
+          "fact": "CBM records no CONFIGURES relation for GenericDataSource (CBM emits CONFIGURES for configuration keys and environment access, not registrations)",
+          "file": null,
+          "line": null
+        },
+        {
+          "provenance": "source_fallback",
+          "fact": "DamengTableManager.addObjectRenameActions passes GenericDataSource to DBUtils.getQuotedIdentifier(dataSource, command.getObject().getSchema().getName()) (CBM source search unavailable)",
+          "file": "plugins/org.jkiss.dbeaver.ext.dameng/src/org/jkiss/dbeaver/ext/dameng/edit/DamengTableManager.java",
+          "line": 68
+        },
+        {
+          "provenance": "cbm_path",
+          "fact": "direct relation DamengTableManager.addObjectRenameActions → GenericDataSource.initialize: DamengTableManager.addObjectRenameActions -USAGE-> model.GenericDataSource",
+          "file": null,
+          "line": null
+        },
+        {
+          "provenance": "cbm_path",
+          "fact": "calls path DamengTableManager.addObjectRenameActions → GenericDataSource.initialize: none within 5 hops",
+          "file": null,
+          "line": null
+        }
+      ],
+      "checks": {
+        "direct_relation": "DamengTableManager.addObjectRenameActions -USAGE-> model.GenericDataSource",
+        "calls_path": "none within 5 hops"
+      },
+      "missing": [
+        "the framework's invocation of GenericDataSource.initialize (lifecycle, not a call in the source)"
+      ],
+      "runtime_needed": "GenericDataSource.initialize invoked by the framework after DamengTableManager.addObjectRenameActions registers it",
+      "resolved_by": null,
+      "queries": 31
+    },
+    {
+      "category": "callback_registration",
+      "status": "unresolved",
+      "source_symbol": "?",
+      "via": "?",
+      "targets": [
+        "PostgreStructureAssistant.findObjectsByMask"
+      ],
+      "message_type": null,
+      "facts": [
+        {
+          "provenance": "cbm_entrypoint",
+          "fact": "PostgreStructureAssistant.findObjectsByMask is a reached entrypoint with decorator metadata and no route",
+          "file": "plugins/org.jkiss.dbeaver.ext.postgresql/src/org/jkiss/dbeaver/ext/postgresql/model/PostgreStructureAssistant.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_inherits",
+          "fact": "PostgreStructureAssistant implements DBSStructureAssistant",
+          "file": "plugins/org.jkiss.dbeaver.ext.postgresql/src/org/jkiss/dbeaver/ext/postgresql/model/PostgreStructureAssistant.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_override",
+          "fact": "PostgreStructureAssistant.findObjectsByMask overrides DBSStructureAssistant.findObjectsByMask",
+          "file": "plugins/org.jkiss.dbeaver.ext.postgresql/src/org/jkiss/dbeaver/ext/postgresql/model/PostgreStructureAssistant.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "PostgreDataSource.getAdapter calls PostgreStructureAssistant",
+          "file": "plugins/org.jkiss.dbeaver.ext.postgresql/src/org/jkiss/dbeaver/ext/postgresql/model/PostgreDataSource.java",
+          "line": 611
+        },
+        {
+          "provenance": "cbm_configures",
+          "fact": "CBM records no CONFIGURES relation for PostgreStructureAssistant (CBM emits CONFIGURES for configuration keys and environment access, not registrations)",
+          "file": null,
+          "line": null
+        },
+        {
+          "provenance": "cbm_decorator",
+          "fact": "PostgreDataSource is decorated @ForTest (decorator sweep)",
+          "file": "plugins/org.jkiss.dbeaver.ext.postgresql/src/org/jkiss/dbeaver/ext/postgresql/model/PostgreDataSource.java",
+          "line": null
+        }
+      ],
+      "checks": {},
+      "missing": [
+        "no repository code that hands PostgreStructureAssistant to the framework was found"
+      ],
+      "runtime_needed": null,
+      "resolved_by": null,
+      "queries": 31
+    },
+    {
+      "category": "callback_registration",
+      "status": "unresolved",
+      "source_symbol": "?",
+      "via": "?",
+      "targets": [
+        "GotoObjectDialog.fillContentProvider"
+      ],
+      "message_type": null,
+      "facts": [
+        {
+          "provenance": "cbm_entrypoint",
+          "fact": "GotoObjectDialog.fillContentProvider is a reached entrypoint with decorator metadata and no route",
+          "file": "plugins/org.jkiss.dbeaver.ui.navigator/src/org/jkiss/dbeaver/ui/navigator/dialogs/GotoObjectDialog.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "NavigatorHandlerObjectGoto.execute uses GotoObjectDialog",
+          "file": "plugins/org.jkiss.dbeaver.ui.navigator/src/org/jkiss/dbeaver/ui/navigator/actions/NavigatorHandlerObjectGoto.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_configures",
+          "fact": "CBM records no CONFIGURES relation for GotoObjectDialog (CBM emits CONFIGURES for configuration keys and environment access, not registrations)",
+          "file": null,
+          "line": null
+        }
+      ],
+      "checks": {},
+      "missing": [
+        "no repository code that hands GotoObjectDialog to the framework was found"
+      ],
+      "runtime_needed": null,
+      "resolved_by": null,
+      "queries": 31
+    }
+  ],
+  "affected_flows": [],
+  "unresolved_changed_symbols": 1,
+  "unresolved_changed_symbol_names": [
+    "loadTreeItems"
+  ],
+  "analysis_status": "partial",
+  "analysis_notes": [
+    "Route composition is unresolved in app; some routes may be missing.",
+    "Structural exploration was bounded for this change (calls hop 2 filled a full page); boundaries beyond the explored neighborhood are not established either way.",
+    "1 changed symbol(s) have no established impact path to any entrypoint (an AI-inferred candidate may still exist for one — see AFFECTED BEHAVIOR — but that is not the same as resolved impact coverage).",
+    "No discovered route declaration reaches the changed symbols."
+  ],
+  "test_executions": [],
+  "ci_suite": {
+    "command": [],
+    "source": "",
+    "working_dir": ".",
+    "framework": "",
+    "status": "unknown",
+    "blocker": "framework_unsupported",
+    "reason": "No repository test command could be resolved",
+    "exit_code": null,
+    "duration_ms": null,
+    "tests_passed": null,
+    "tests_failed": null,
+    "summary_line": null,
+    "failed_test_ids": [],
+    "stdout_excerpt": null,
+    "stderr_excerpt": null,
+    "output_truncated": false,
+    "evidence": []
+  },
+  "verification_gaps": [],
+  "runtime_dependencies": [],
+  "cross_repo_impacts": [],
+  "notes": [
+    "test_execution=whole_suite_fallback reason=no_mapped_tests",
+    "AI recovery (experimental, provenance=ai_recovery, run-local, not merged into structural results): path recovery could not establish a source-backed path beyond the first pass; test recovery recovered no verified tests.",
+    "Saved change verification artifact: /Users/ksnaik/.sydes/workspaces/611c27dfad7f53d1/artifacts/20261026T190031Z-1ef3e205/change_verification.json"
+  ],
+  "diagnostics": [
+    "code_intelligence_effective_backend=cbm selected_by=default",
+    "code_intelligence_backend=cbm transport=persistent_mcp_stdio cbm_server_version=0.11.0 cbm_executable=/Users/ksnaik/.cache/uv/archive-v0/VHN9zLCDciAGKPuuofk9f/bin/codebase-memory-mcp",
+    "cbm_session_start_ms=1351.3 cbm_calls=153 cbm_mean_call_ms=1993.1",
+    "cbm_index_ms=10826.0 cbm_query_ms=294446.0 sydes_route_semantics_ms=9627.8 total_ms=316275.6",
+    "cbm_supplied=symbols,spans,imports,exports,call_edges,usage_edges,entrypoints  sydes_semantics=route_index,route_graph,repo_map",
+    "route_derived_entrypoints_added=0",
+    "cbm_gap: route composition is computed by Sydes, not CBM: CBM reports uncomposed route paths and models no persistence sinks",
+    "cbm_gap: CALLS/USAGE edges deferred: they are fetched as a bounded neighborhood around the changed symbols instead of a repository-wide sweep",
+    "handler_symbol_index: exports=45690, files_indexed=6527, imports=39004, symbols=106229",
+    "pr_semantic_analysis_prompt_chars=13091",
+    "reverse_reach_candidate_files=2",
+    "app: deterministic_routes_found=12, deterministic_frameworks=express_mount_graph,spring",
+    "app: discovery_coverage=moderate score=0.7",
+    "app: discovery_coverage_reasons=deterministic route extraction produced grounded routes; route graph composition produced mounted routes; some mount edges could not be resolved; route composition is unresolved: 1 of 1 route containers have no resolvable mount or declared prefix, so route paths may be incomplete",
+    "app: route_graph_containers=4, route_graph_declarations=1, route_graph_mount_edges=2, route_graph_composed_routes=1, route_graph_unresolved_mounts=2",
+    "app: deterministic_routes=12, llm_routes=0, merged_routes=12, rejected_routes=0, final_routes=12",
+    "app: merged_llm_routes=0",
+    "java_field_bridge_edges_added=4090",
+    "interface_bridge_edges_added=6",
+    "graph_slice_seeds: changed=3 routes=0 dropped_auxiliary=0 total=3",
+    "graph_slice: used=True seeds=3 canonical_seeds=3 unresolved_seeds=0 unresolved_changed=0 unresolved_auxiliary=0 graph_calls=4 nodes=400 call_edges=446 usage_edges=23 truncated=True fell_back=False",
+    "impact_interpreter: affected_entrypoints=7, ambiguous_edges=0, boundary_budget_exhausted=False, boundary_emitted=0, boundary_expansions=18, boundary_frontier_considered=18, boundary_rejected_weak_evidence=0, call_edges=452, changed_symbols=3, evidence_confirmed=0, guide_actions={'infer_impact': 2, 'stop_unresolved': 1}, guide_budget_exhausted=False, guide_calls=3, guide_error_details=[], guide_errors=0, guide_latency_ms=16328.25916679576, guide_no_progress=0, guide_triggered=True, http_entrypoints=0, known_entrypoints=25455, llm_candidates=2, llm_candidates_accepted=1, llm_candidates_corroborated=0, llm_candidates_missing_reason=0, llm_candidates_self_referential=0, llm_candidates_uncorroborated=2, llm_candidates_ungrounded=1, llm_candidates_whole_change_unanchored=0, llm_new_entrypoints=1, llm_no_candidate_turns=0, unresolved_after=1, unresolved_before=1, unresolved_symbols=1, usage_edges=23",
+    "repo_profile: rebuilt (0 package(s), 0 framework(s))",
+    "boundary_reasoning: candidates=7 inferred=1",
+    "app: test_files_found=74",
+    "app: test_cases_found=424",
+    "test_frameworks_detected=none",
+    "ci_suite=unresolved reason=No repository test command could be resolved",
+    "structural_enrichment: triggered=[callback_registration: 6 callback entrypoint(s); route_container_registration: 1 unresolved changed symbol(s)] cbm_requests=31 (calls_path:2,direct:2,relations:2,schema:1,search:24) cache_hits=(relations:1) errors=0 truncated=0 families=[CALLS,IMPLEMENTS,INHERITS,OVERRIDE,USAGE,calls_path,direct_relation,search_code] candidates=6 unresolved=6",
+    "structural_enrichment: structural enrichment skipped relations of 83 symbol(s) over the 80-seed cap",
+    "structural_enrichment: source search budget (24) reached; `GenericDataSource` not looked up",
+    "structural_enrichment: source search budget (24) reached; `GenericDataSource` not looked up",
+    "structural_enrichment: source search budget (24) reached; `GenericDataSource` not looked up",
+    "structural_enrichment: source search budget (24) reached; `GenericDataSource` not looked up",
+    "structural_enrichment: source search budget (24) reached; `GenericDataSource` not looked up",
+    "structural_enrichment: source search budget (24) reached; `GenericDataSource` not looked up",
+    "structural_enrichment: source search budget (24) reached; `GenericDataSource` not looked up",
+    "structural_enrichment: source search budget (24) reached; `GenericDataSource` not looked up",
+    "structural_enrichment: source search budget (24) reached; `GenericDataSource` not looked up",
+    "structural_enrichment: source search budget (24) reached; `GenericDataSource` not looked up",
+    "structural_enrichment: source search budget (24) reached; `GenericDataSource` not looked up",
+    "structural_enrichment: source search budget (24) reached; `GenericDataSource` not looked up",
+    "structural_enrichment: source search budget (24) reached; `PostgreStructureAssistant` not looked up",
+    "structural_enrichment: source search budget (24) reached; `GotoObjectDialog` not looked up",
+    "code_review_context_added: plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/DBPOverloadedObject.java:getOverloadedName -- loadTreeItems calls getOverloadedName at plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/DBNDatabaseNode.java:732 (a changed line)",
+    "code_review_context_added: plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/struct/DBSObjectFilter.java:matchesPattern -- atLeastOneNameMatchesPattern calls matchesPattern at plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/struct/DBSObjectFilter.java:196 (a changed line)",
+    "code_review_context_added: plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/exec/DBCStatistics.java:isEmpty -- loadTreeItems calls isEmpty at plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/DBNDatabaseNode.java:743 (4 line(s) from a changed line)",
+    "code_review_context_added: plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/struct/DBSDataManipulator.java:add -- matches calls add at plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/struct/DBSObjectFilter.java:158 (4 line(s) from a changed line)",
+    "code_review_context_added: plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/struct/DBSObjectFilter.java:isCaseSensitive -- matches calls isCaseSensitive at plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/struct/DBSObjectFilter.java:179 (4 line(s) from a changed line)",
+    "code_review_context_added: plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/struct/DBSObjectFilter.java:isEmpty -- matches calls isEmpty at plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/struct/DBSObjectFilter.java:157 (4 line(s) from a changed line)",
+    "code_review_context_added: plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/struct/DBSObjectFilter.java:makePattern -- matches calls makePattern at plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/struct/DBSObjectFilter.java:158 (4 line(s) from a changed line)",
+    "code_review_context_added: plugins/org.jkiss.dbeaver.model.sql/src/org/jkiss/dbeaver/model/sql/semantics/OffsetKeyedTreeMap.java:hasNext -- loadTreeItems calls hasNext at plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/DBNDatabaseNode.java:745 (6 line(s) from a changed line)",
+    "code_review_context_added: plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/DBNDatabaseNode.java:loadChildren -- loadChildren calls the changed loadTreeItems",
+    "code_review_context_added: plugins/org.jkiss.dbeaver.erd.model/src/org/jkiss/dbeaver/erd/model/DiagramObjectCollector.java:collectTables -- collectTables calls the changed matches",
+    "code_review_context_added: plugins/org.jkiss.dbeaver.erd.model/src/org/jkiss/dbeaver/erd/model/ERDContentProviderDefault.java:fillEntityFromObject -- fillEntityFromObject calls the changed matches",
+    "code_review_context_related=11",
+    "code_review_questions=10",
+    "investigator: hypotheses=1 lookups=4/12 confirmed=0 refuted=0 unknown=1 findings=0 llm_calls=6 errors=0",
+    "investigation_artifact=/Users/ksnaik/StudioProjects/sydes/benchmarks/aacr/results/investigator-bdb08a3-first11-r1-2026-10-26/sydes/dbeaver__dbeaver@ed40132.investigation.json",
+    "run_metrics: wall_seconds=521.2 llm_calls=18 (ai_recovery:6,boundary_reasoning:1,impact_guide:3,investigator:6,pr_semantic_analysis:1,route_discovery:1) llm_errors=0 input_tokens=60544 output_tokens=8418 estimated_cost_usd=unavailable (set SYDES_LLM_PRICE_PER_MTOK) cbm_requests=192 cbm_enrichment_requests=31 test_executions=0 test_outcomes={}"
+  ],
+  "behavioral": null,
+  "known_routes": [
+    {
+      "method": "GET",
+      "path": "/",
+      "handler": "ping",
+      "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/app/DBPPingController.java",
+      "repo": "app",
+      "service": null,
+      "evidence": [
+        {
+          "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/app/DBPPingController.java",
+          "symbol": "ping",
+          "label": "@RequestMapping",
+          "snippet": "@RequestMapping\nString ping() throws DBException;"
+        },
+        {
+          "file": "plugins/org.jkiss.dbeaver.osgi.test.runner/src/org/jkiss/junit/osgi/OSGITestRunner.java",
+          "symbol": null,
+          "label": "route_declaration",
+          "snippet": "Path workPath = Paths.get(\"\").toAbsolutePath();"
+        }
+      ],
+      "confidence": 1.0,
+      "status": "deterministic",
+      "kind": "http",
+      "impact_status": null
+    },
+    {
+      "method": "GET",
+      "path": "/bringToFront",
+      "handler": "bringToFront",
+      "file": "plugins/org.jkiss.dbeaver.ui.app.standalone/src/org/jkiss/dbeaver/ui/app/standalone/rpc/IInstanceController.java",
+      "repo": "app",
+      "service": null,
+      "evidence": [
+        {
+          "file": "plugins/org.jkiss.dbeaver.ui.app.standalone/src/org/jkiss/dbeaver/ui/app/standalone/rpc/IInstanceController.java",
+          "symbol": "bringToFront",
+          "label": "@RequestMapping(\"bringToFront\")",
+          "snippet": "@RequestMapping(\"bringToFront\")\nvoid bringToFront();"
+        }
+      ],
+      "confidence": 1.0,
+      "status": "deterministic",
+      "kind": "http",
+      "impact_status": null
+    },
+    {
+      "method": "GET",
+      "path": "/closeEditors",
+      "handler": "closeAllEditors",
+      "file": "plugins/org.jkiss.dbeaver.ui.app.standalone/src/org/jkiss/dbeaver/ui/app/standalone/rpc/IInstanceController.java",
+      "repo": "app",
+      "service": null,
+      "evidence": [
+        {
+          "file": "plugins/org.jkiss.dbeaver.ui.app.standalone/src/org/jkiss/dbeaver/ui/app/standalone/rpc/IInstanceController.java",
+          "symbol": "closeAllEditors",
+          "label": "@RequestMapping(\"closeEditors\")",
+          "snippet": "@RequestMapping(\"closeEditors\")\nvoid closeAllEditors();"
+        }
+      ],
+      "confidence": 1.0,
+      "status": "deterministic",
+      "kind": "http",
+      "impact_status": null
+    },
+    {
+      "method": "GET",
+      "path": "/executeCommand",
+      "handler": "executeWorkbenchCommand",
+      "file": "plugins/org.jkiss.dbeaver.ui.app.standalone/src/org/jkiss/dbeaver/ui/app/standalone/rpc/IInstanceController.java",
+      "repo": "app",
+      "service": null,
+      "evidence": [
+        {
+          "file": "plugins/org.jkiss.dbeaver.ui.app.standalone/src/org/jkiss/dbeaver/ui/app/standalone/rpc/IInstanceController.java",
+          "symbol": "executeWorkbenchCommand",
+          "label": "@RequestMapping(\"executeCommand\")",
+          "snippet": "@RequestMapping(\"executeCommand\")\nvoid executeWorkbenchCommand("
+        }
+      ],
+      "confidence": 1.0,
+      "status": "deterministic",
+      "kind": "http",
+      "impact_status": null
+    },
+    {
+      "method": "GET",
+      "path": "/fireEvent",
+      "handler": "fireGlobalEvent",
+      "file": "plugins/org.jkiss.dbeaver.ui.app.standalone/src/org/jkiss/dbeaver/ui/app/standalone/rpc/IInstanceController.java",
+      "repo": "app",
+      "service": null,
+      "evidence": [
+        {
+          "file": "plugins/org.jkiss.dbeaver.ui.app.standalone/src/org/jkiss/dbeaver/ui/app/standalone/rpc/IInstanceController.java",
+          "symbol": "fireGlobalEvent",
+          "label": "@RequestMapping(\"fireEvent\")",
+          "snippet": "@RequestMapping(\"fireEvent\")\nvoid fireGlobalEvent("
+        }
+      ],
+      "confidence": 1.0,
+      "status": "deterministic",
+      "kind": "http",
+      "impact_status": null
+    },
+    {
+      "method": "GET",
+      "path": "/handleCommandLine",
+      "handler": "handleCommandLine",
+      "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/cli/ApplicationInstanceController.java",
+      "repo": "app",
+      "service": null,
+      "evidence": [
+        {
+          "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/cli/ApplicationInstanceController.java",
+          "symbol": "handleCommandLine",
+          "label": "@RequestMapping(value = \"handleCommandLine\")",
+          "snippet": "@RequestMapping(value = \"handleCommandLine\")\nCmdProcessResult handleCommandLine(@RequestParameter(\"args\") @NotNull String[] args);"
+        }
+      ],
+      "confidence": 1.0,
+      "status": "deterministic",
+      "kind": "http",
+      "impact_status": null
+    },
+    {
+      "method": "GET",
+      "path": "/openConnection",
+      "handler": "openDatabaseConnection",
+      "file": "plugins/org.jkiss.dbeaver.ui.app.standalone/src/org/jkiss/dbeaver/ui/app/standalone/rpc/IInstanceController.java",
+      "repo": "app",
+      "service": null,
+      "evidence": [
+        {
+          "file": "plugins/org.jkiss.dbeaver.ui.app.standalone/src/org/jkiss/dbeaver/ui/app/standalone/rpc/IInstanceController.java",
+          "symbol": "openDatabaseConnection",
+          "label": "@RequestMapping(\"openConnection\")",
+          "snippet": "@RequestMapping(\"openConnection\")\nvoid openDatabaseConnection("
+        }
+      ],
+      "confidence": 1.0,
+      "status": "deterministic",
+      "kind": "http",
+      "impact_status": null
+    },
+    {
+      "method": "GET",
+      "path": "/openFiles",
+      "handler": "openExternalFiles",
+      "file": "plugins/org.jkiss.dbeaver.ui.app.standalone/src/org/jkiss/dbeaver/ui/app/standalone/rpc/IInstanceController.java",
+      "repo": "app",
+      "service": null,
+      "evidence": [
+        {
+          "file": "plugins/org.jkiss.dbeaver.ui.app.standalone/src/org/jkiss/dbeaver/ui/app/standalone/rpc/IInstanceController.java",
+          "symbol": "openExternalFiles",
+          "label": "@RequestMapping(\"openFiles\")",
+          "snippet": "@RequestMapping(\"openFiles\")\nvoid openExternalFiles("
+        }
+      ],
+      "confidence": 1.0,
+      "status": "deterministic",
+      "kind": "http",
+      "impact_status": null
+    },
+    {
+      "method": "GET",
+      "path": "/ping",
+      "handler": "ping",
+      "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/cli/ApplicationInstanceController.java",
+      "repo": "app",
+      "service": null,
+      "evidence": [
+        {
+          "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/cli/ApplicationInstanceController.java",
+          "symbol": "ping",
+          "label": "@RequestMapping(value = \"ping\", timeout = 5)",
+          "snippet": "@RequestMapping(value = \"ping\", timeout = 5)\nlong ping(@RequestParameter(\"payload\") long payload);"
+        }
+      ],
+      "confidence": 1.0,
+      "status": "deterministic",
+      "kind": "http",
+      "impact_status": null
+    },
+    {
+      "method": "GET",
+      "path": "/quit",
+      "handler": "quit",
+      "file": "plugins/org.jkiss.dbeaver.ui.app.standalone/src/org/jkiss/dbeaver/ui/app/standalone/rpc/IInstanceController.java",
+      "repo": "app",
+      "service": null,
+      "evidence": [
+        {
+          "file": "plugins/org.jkiss.dbeaver.ui.app.standalone/src/org/jkiss/dbeaver/ui/app/standalone/rpc/IInstanceController.java",
+          "symbol": "quit",
+          "label": "@RequestMapping(\"quit\")",
+          "snippet": "@RequestMapping(\"quit\")\nvoid quit();"
+        }
+      ],
+      "confidence": 1.0,
+      "status": "deterministic",
+      "kind": "http",
+      "impact_status": null
+    },
+    {
+      "method": "GET",
+      "path": "/threadDump",
+      "handler": "getThreadDump",
+      "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/cli/ApplicationInstanceController.java",
+      "repo": "app",
+      "service": null,
+      "evidence": [
+        {
+          "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/cli/ApplicationInstanceController.java",
+          "symbol": "getThreadDump",
+          "label": "@RequestMapping(\"threadDump\")",
+          "snippet": "@RequestMapping(\"threadDump\")\nString getThreadDump();"
+        }
+      ],
+      "confidence": 1.0,
+      "status": "deterministic",
+      "kind": "http",
+      "impact_status": null
+    },
+    {
+      "method": "GET",
+      "path": "/version",
+      "handler": "getVersion",
+      "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/cli/ApplicationInstanceController.java",
+      "repo": "app",
+      "service": null,
+      "evidence": [
+        {
+          "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/cli/ApplicationInstanceController.java",
+          "symbol": "getVersion",
+          "label": "@RequestMapping(\"version\")",
+          "snippet": "@RequestMapping(\"version\")\nString getVersion();"
+        }
+      ],
+      "confidence": 1.0,
+      "status": "deterministic",
+      "kind": "http",
+      "impact_status": null
+    }
+  ],
+  "unattached_evidence": []
+}

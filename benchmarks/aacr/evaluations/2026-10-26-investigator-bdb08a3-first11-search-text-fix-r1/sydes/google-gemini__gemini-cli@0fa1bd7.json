@@ -1,0 +1,1268 @@
+{
+  "version": "v3",
+  "kind": "sydes_change_verification",
+  "generated_at": "2026-10-26T19:28:07.065198+00:00",
+  "change": {
+    "base": "bd0f085ae896e97373b451180f70ff551142fd7e",
+    "head": "0fa1bd7ac417366f321ed2554caeaef550321959",
+    "merge_base": "bd0f085ae896e97373b451180f70ff551142fd7e",
+    "repos": [
+      {
+        "name": "app",
+        "root": "/Users/ksnaik/.cache/sydes-aacr/repos/google-gemini__gemini-cli"
+      }
+    ],
+    "includes_working_tree": false,
+    "files": [
+      {
+        "repo": "app",
+        "path": "package-lock.json",
+        "old_path": null,
+        "change_type": "modified",
+        "role": "unknown",
+        "added_lines": 47,
+        "removed_lines": 1,
+        "hunks": [
+          {
+            "start_line": 5235,
+            "end_line": 5240
+          },
+          {
+            "start_line": 6333,
+            "end_line": 6348
+          },
+          {
+            "start_line": 6454,
+            "end_line": 6459
+          },
+          {
+            "start_line": 7740,
+            "end_line": 7740
+          },
+          {
+            "start_line": 8994,
+            "end_line": 9002
+          },
+          {
+            "start_line": 12775,
+            "end_line": 12783
+          },
+          {
+            "start_line": 16380,
+            "end_line": 16380
+          }
+        ],
+        "symbols": [],
+        "binary": false
+      },
+      {
+        "repo": "app",
+        "path": "packages/cli/package.json",
+        "old_path": null,
+        "change_type": "modified",
+        "role": "unknown",
+        "added_lines": 1,
+        "removed_lines": 0,
+        "hunks": [
+          {
+            "start_line": 37,
+            "end_line": 37
+          }
+        ],
+        "symbols": [],
+        "binary": false
+      },
+      {
+        "repo": "app",
+        "path": "packages/cli/src/config/settings.ts",
+        "old_path": null,
+        "change_type": "modified",
+        "role": "source_route_candidate",
+        "added_lines": 48,
+        "removed_lines": 6,
+        "hunks": [
+          {
+            "start_line": 32,
+            "end_line": 35
+          },
+          {
+            "start_line": 360,
+            "end_line": 363
+          },
+          {
+            "start_line": 371,
+            "end_line": 371
+          },
+          {
+            "start_line": 381,
+            "end_line": 384
+          },
+          {
+            "start_line": 421,
+            "end_line": 422
+          },
+          {
+            "start_line": 534,
+            "end_line": 537
+          },
+          {
+            "start_line": 661,
+            "end_line": 666
+          },
+          {
+            "start_line": 671,
+            "end_line": 684
+          },
+          {
+            "start_line": 715,
+            "end_line": 715
+          },
+          {
+            "start_line": 719,
+            "end_line": 722
+          },
+          {
+            "start_line": 737,
+            "end_line": 738
+          },
+          {
+            "start_line": 740,
+            "end_line": 741
+          }
+        ],
+        "symbols": [
+          "app:packages/cli/src/config/settings.ts:loadSettings",
+          "app:packages/cli/src/config/settings.ts:saveSettings",
+          "app:packages/cli/src/config/settings.ts:LoadedSettings.constructor",
+          "app:packages/cli/src/config/settings.ts:LoadedSettings.setValue"
+        ],
+        "binary": false
+      },
+      {
+        "repo": "app",
+        "path": "packages/cli/src/utils/commentJson.test.ts",
+        "old_path": null,
+        "change_type": "added",
+        "role": "test_usage_candidate",
+        "added_lines": 337,
+        "removed_lines": 0,
+        "hunks": [
+          {
+            "start_line": 1,
+            "end_line": 337
+          }
+        ],
+        "symbols": [],
+        "binary": false
+      },
+      {
+        "repo": "app",
+        "path": "packages/cli/src/utils/commentJson.ts",
+        "old_path": null,
+        "change_type": "added",
+        "role": "source_route_candidate",
+        "added_lines": 173,
+        "removed_lines": 0,
+        "hunks": [
+          {
+            "start_line": 1,
+            "end_line": 173
+          }
+        ],
+        "symbols": [
+          "app:packages/cli/src/utils/commentJson.ts:applyUpdates",
+          "app:packages/cli/src/utils/commentJson.ts:restoreEnvVarReferences",
+          "app:packages/cli/src/utils/commentJson.ts:restoreEnvVarsRecursive",
+          "app:packages/cli/src/utils/commentJson.ts:trackEnvVarMappings",
+          "app:packages/cli/src/utils/commentJson.ts:updateSettingsFilePreservingFormat"
+        ],
+        "binary": false
+      }
+    ],
+    "symbols": [
+      {
+        "id": "app:packages/cli/src/config/settings.ts:LoadedSettings.constructor",
+        "repo": "app",
+        "file": "packages/cli/src/config/settings.ts",
+        "name": "constructor",
+        "qualified_name": "LoadedSettings.constructor",
+        "cbm_qualified_name": "Users-ksnaik-.cache-sydes-aacr-repos-google-gemini__gemini-cli.packages.cli.src.config.settings.LoadedSettings.constructor",
+        "kind": "class_method",
+        "language": "typescript",
+        "start_line": 353,
+        "end_line": 373,
+        "change_type": "modified",
+        "changed_lines": 5,
+        "decorators": []
+      },
+      {
+        "id": "app:packages/cli/src/config/settings.ts:LoadedSettings.setValue",
+        "repo": "app",
+        "file": "packages/cli/src/config/settings.ts",
+        "name": "setValue",
+        "qualified_name": "LoadedSettings.setValue",
+        "cbm_qualified_name": "Users-ksnaik-.cache-sydes-aacr-repos-google-gemini__gemini-cli.packages.cli.src.config.settings.LoadedSettings.setValue",
+        "kind": "class_method",
+        "language": "typescript",
+        "start_line": 417,
+        "end_line": 423,
+        "change_type": "modified",
+        "changed_lines": 2,
+        "decorators": []
+      },
+      {
+        "id": "app:packages/cli/src/config/settings.ts:loadSettings",
+        "repo": "app",
+        "file": "packages/cli/src/config/settings.ts",
+        "name": "loadSettings",
+        "qualified_name": "loadSettings",
+        "cbm_qualified_name": "Users-ksnaik-.cache-sydes-aacr-repos-google-gemini__gemini-cli.packages.cli.src.config.settings.loadSettings",
+        "kind": "function",
+        "language": "typescript",
+        "start_line": 523,
+        "end_line": 717,
+        "change_type": "modified",
+        "changed_lines": 25,
+        "decorators": []
+      },
+      {
+        "id": "app:packages/cli/src/config/settings.ts:saveSettings",
+        "repo": "app",
+        "file": "packages/cli/src/config/settings.ts",
+        "name": "saveSettings",
+        "qualified_name": "saveSettings",
+        "cbm_qualified_name": "Users-ksnaik-.cache-sydes-aacr-repos-google-gemini__gemini-cli.packages.cli.src.config.settings.saveSettings",
+        "kind": "function",
+        "language": "typescript",
+        "start_line": 719,
+        "end_line": 746,
+        "change_type": "modified",
+        "changed_lines": 8,
+        "decorators": []
+      },
+      {
+        "id": "app:packages/cli/src/utils/commentJson.ts:updateSettingsFilePreservingFormat",
+        "repo": "app",
+        "file": "packages/cli/src/utils/commentJson.ts",
+        "name": "updateSettingsFilePreservingFormat",
+        "qualified_name": "updateSettingsFilePreservingFormat",
+        "cbm_qualified_name": "Users-ksnaik-.cache-sydes-aacr-repos-google-gemini__gemini-cli.packages.cli.src.utils.commentJson.updateSettingsFilePreservingFormat",
+        "kind": "function",
+        "language": "typescript",
+        "start_line": 19,
+        "end_line": 50,
+        "change_type": "added",
+        "changed_lines": 32,
+        "decorators": []
+      },
+      {
+        "id": "app:packages/cli/src/utils/commentJson.ts:applyUpdates",
+        "repo": "app",
+        "file": "packages/cli/src/utils/commentJson.ts",
+        "name": "applyUpdates",
+        "qualified_name": "applyUpdates",
+        "cbm_qualified_name": "Users-ksnaik-.cache-sydes-aacr-repos-google-gemini__gemini-cli.packages.cli.src.utils.commentJson.applyUpdates",
+        "kind": "function",
+        "language": "typescript",
+        "start_line": 52,
+        "end_line": 81,
+        "change_type": "added",
+        "changed_lines": 30,
+        "decorators": []
+      },
+      {
+        "id": "app:packages/cli/src/utils/commentJson.ts:restoreEnvVarReferences",
+        "repo": "app",
+        "file": "packages/cli/src/utils/commentJson.ts",
+        "name": "restoreEnvVarReferences",
+        "qualified_name": "restoreEnvVarReferences",
+        "cbm_qualified_name": "Users-ksnaik-.cache-sydes-aacr-repos-google-gemini__gemini-cli.packages.cli.src.utils.commentJson.restoreEnvVarReferences",
+        "kind": "function",
+        "language": "typescript",
+        "start_line": 83,
+        "end_line": 99,
+        "change_type": "added",
+        "changed_lines": 17,
+        "decorators": []
+      },
+      {
+        "id": "app:packages/cli/src/utils/commentJson.ts:restoreEnvVarsRecursive",
+        "repo": "app",
+        "file": "packages/cli/src/utils/commentJson.ts",
+        "name": "restoreEnvVarsRecursive",
+        "qualified_name": "restoreEnvVarsRecursive",
+        "cbm_qualified_name": "Users-ksnaik-.cache-sydes-aacr-repos-google-gemini__gemini-cli.packages.cli.src.utils.commentJson.restoreEnvVarsRecursive",
+        "kind": "function",
+        "language": "typescript",
+        "start_line": 101,
+        "end_line": 125,
+        "change_type": "added",
+        "changed_lines": 25,
+        "decorators": []
+      },
+      {
+        "id": "app:packages/cli/src/utils/commentJson.ts:trackEnvVarMappings",
+        "repo": "app",
+        "file": "packages/cli/src/utils/commentJson.ts",
+        "name": "trackEnvVarMappings",
+        "qualified_name": "trackEnvVarMappings",
+        "cbm_qualified_name": "Users-ksnaik-.cache-sydes-aacr-repos-google-gemini__gemini-cli.packages.cli.src.utils.commentJson.trackEnvVarMappings",
+        "kind": "function",
+        "language": "typescript",
+        "start_line": 130,
+        "end_line": 173,
+        "change_type": "added",
+        "changed_lines": 44,
+        "decorators": []
+      }
+    ],
+    "notes": []
+  },
+  "summary": {
+    "risk": "MEDIUM",
+    "verdict": "VERIFICATION INCOMPLETE",
+    "headline": "9 changed symbol(s); no route flow resolved to them.",
+    "counts": {
+      "changed_files": 5,
+      "changed_source_files": 2,
+      "changed_test_files": 1,
+      "changed_symbols": 9,
+      "affected_flows": 0,
+      "flows_partially_analyzed": 0,
+      "code_findings": 2,
+      "obligations": 0,
+      "obligations_introduced_by_change": 0,
+      "obligations_passed": 0,
+      "obligations_failed": 0,
+      "obligations_unverified": 0,
+      "obligations_unknown": 0,
+      "mapped_tests": 1,
+      "supporting_tests": 0,
+      "tests_exercising_flows": 1,
+      "tests_supporting_behavior": 0,
+      "tests_verifying_behavior": 1,
+      "changed_test_cases": 11,
+      "tests_executed": 0,
+      "verification_gaps": 0,
+      "runtime_dependencies": 0,
+      "cross_repo_impacts": 0,
+      "impacts_proven": 0,
+      "impacts_inferred": 3,
+      "impacts_not_modeled": 3,
+      "unresolved_changed_symbols": 9
+    },
+    "risk_reasons": [
+      "change could not be tied to any verifiable behavior"
+    ]
+  },
+  "code_review_status": "completed",
+  "code_findings": [
+    {
+      "id": "investigator-H1",
+      "severity": "P2",
+      "title": "For an existing settings file, when LoadedSettings.setValue replaces a string at a tracked environment-variable path with another string and that path is not altered by migration, the save writes the ",
+      "file": "packages/cli/src/utils/commentJson.ts",
+      "line": 113,
+      "repo": null,
+      "explanation": "Loading records each resolved environment-backed string by path and retains its original reference. setValue changes the in-memory setting but passes the unchanged mapping to saveSettings. applyUpdates first places the new literal into the parsed file structure, but restoreEnvVarsRecursive then looks up only the path and replaces any string there with the original reference. Although mappings contain resolvedValue, restoration never compares the current value with it. The resulting file is explicitly written after this replacement, so the new literal does not persist.",
+      "impact": "Caused by the change: This change introduced persistent load-time mappings and made setValue pass them into the new format-preserving save path. Because the restoration map retains only mapping.originalValue keyed by path, the newly assigned literal is overwritten at that path before serialization. The stored resolvedValue is not consulted, so restoration cannot distinguish an unchanged resolved secret from an intentional replacement literal.",
+      "suggested_fix": null,
+      "source": "investigator",
+      "evidence": [
+        {
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "symbol": null,
+          "label": "verified_quote:114",
+          "snippet": "    const envVarReference = envVarMap.get(pathStr);"
+        },
+        {
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "symbol": null,
+          "label": "verified_quote:115",
+          "snippet": "    if (envVarReference && typeof value === 'string') {"
+        },
+        {
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "symbol": null,
+          "label": "verified_quote:116",
+          "snippet": "      (obj as Record<string, unknown>)[key] = envVarReference;"
+        },
+        {
+          "file": "packages/cli/src/config/settings.ts",
+          "symbol": null,
+          "label": "verified_quote:421",
+          "snippet": "    const envMappings = this.envVarMappings.get(scope) || [];"
+        }
+      ]
+    },
+    {
+      "id": "investigator-H5",
+      "severity": "P2",
+      "title": "For MCP configurations containing both a server named `foo.headers` with header `API` and a server named `foo` with header `headers.API`, distinct environment-reference paths flatten to the same map k",
+      "file": "packages/cli/src/utils/commentJson.ts",
+      "line": 93,
+      "repo": null,
+      "explanation": "The MCP add path stores server names and header names directly as object keys, so dotted names can coexist: `foo.headers` and `foo` are distinct server keys, while `API` and `headers.API` are valid header keys. Their component paths are respectively `['mcpServers','foo.headers','headers','API']` and `['mcpServers','foo','headers','headers.API']`, but both join to `mcpServers.foo.headers.headers.API`. The changed restoration code inserts mappings into a Map under this joined string, so one mapping overwrites the other. Recursive restoration constructs the same joined key for both leaves and therefore applies the surviving reference to both. If the original references differ, such as `$A` and `$B`, at least one field is restored incorrectly.",
+      "impact": "Caused by the change: This change introduces environment-reference restoration keyed by dot-joined paths. The supported MCP keys produce two distinct component paths with the same joined representation; Map insertion discards one mapping, and recursive lookup then uses the remaining reference for both settings. The prior direct save did not perform this ambiguous restoration.",
+      "suggested_fix": null,
+      "source": "investigator",
+      "evidence": [
+        {
+          "file": "packages/cli/src/commands/mcp/add.ts",
+          "symbol": null,
+          "label": "verified_quote:50",
+          "snippet": "acc[key.trim()] = value;"
+        },
+        {
+          "file": "packages/cli/src/commands/mcp/add.ts",
+          "symbol": null,
+          "label": "verified_quote:116",
+          "snippet": "mcpServers[name] = newServer as MCPServerConfig;"
+        },
+        {
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "symbol": null,
+          "label": "verified_quote:112",
+          "snippet": "const pathStr = fullPath.join('.');"
+        },
+        {
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "symbol": null,
+          "label": "verified_quote:93",
+          "snippet": "const pathStr = mapping.path.join('.');"
+        }
+      ]
+    }
+  ],
+  "accepted_impacts": [
+    {
+      "id": "impact:app:loadSettings",
+      "label": "extension lifecycle settings retain environment-variable references",
+      "repo": "app",
+      "kind": "unknown",
+      "status": "inferred",
+      "changed_symbols": [
+        "trackEnvVarMappings"
+      ],
+      "route_method": null,
+      "route_path": null,
+      "llm_confidence": 0.76,
+      "llm_reason": "Extension install, update, enable, and uninstall flows call loadSettings, so mappings captured during loading can affect whether their subsequent settings edits preserve environment-variable references rather than persisting resolved values.",
+      "llm_inference_type": "semantic_indirect_dependency",
+      "llm_uncertainty": "The truncated traversal does not directly show which extension operations subsequently invoke saveSettings or updateSettingsFilePreservingFormat with these mappings.",
+      "corroborated": false,
+      "behavior_label": "extension lifecycle settings retain environment-variable references",
+      "verification_model_status": "unsupported_or_partial",
+      "provenance": "structural"
+    },
+    {
+      "id": "impact:app:persisted settings edits preserve environment-variable references and file formatting",
+      "label": "persisted settings edits preserve environment-variable references and file formatting",
+      "repo": "app",
+      "kind": "unknown",
+      "status": "inferred",
+      "changed_symbols": [
+        "(whole change)"
+      ],
+      "route_method": null,
+      "route_path": null,
+      "llm_confidence": 0.91,
+      "llm_reason": "Settings updates now carry tracked environment-variable mappings into format-preserving persistence, so editing a setting could retain existing comments and variable references instead of rewriting the file with resolved values or normalized formatting.",
+      "llm_inference_type": "semantic_pr_wide_theme",
+      "llm_uncertainty": "The supplied context does not identify which user-facing commands or API operations invoke these settings writes, nor the exact formatting constructs preserved.",
+      "corroborated": false,
+      "behavior_label": "persisted settings edits preserve environment-variable references and file formatting",
+      "verification_model_status": "unsupported_or_partial",
+      "provenance": "structural"
+    },
+    {
+      "id": "impact:app:saveSettings",
+      "label": "CLI settings writes resist prototype pollution",
+      "repo": "app",
+      "kind": "unknown",
+      "status": "inferred",
+      "changed_symbols": [
+        "applyUpdates"
+      ],
+      "route_method": null,
+      "route_path": null,
+      "llm_confidence": 0.93,
+      "llm_reason": "Settings edits persisted through saveSettings reach applyUpdates, which now skips __proto__, constructor, and prototype keys, so extension, authentication, and other settings operations can no longer use those update keys to mutate object prototypes.",
+      "llm_inference_type": "semantic_indirect_dependency",
+      "llm_uncertainty": "The supplied paths establish the settings-write chain but do not show which callers can receive attacker-controlled update keys.",
+      "corroborated": false,
+      "behavior_label": "CLI settings writes resist prototype pollution",
+      "verification_model_status": "unsupported_or_partial",
+      "provenance": "structural"
+    }
+  ],
+  "pr_semantic_analysis": {
+    "origin": "llm_hypothesis",
+    "change_summary": "CLI settings persistence now parses and rewrites existing settings through comment-json, retaining comments and existing document structure while restoring tracked environment-variable references instead of always replacing the file with plain JSON. Loading now records environment substitutions per settings scope so later writes can avoid persisting resolved values.",
+    "behavior_changes": [
+      {
+        "description": "When an existing valid settings file is saved, it is parsed, updated in place, and serialized through comment-json. This is intended to retain comments; keys not represented in the supplied update also remain in the document rather than being removed by a full-file replacement.",
+        "changed_symbols": [
+          "saveSettings",
+          "updateSettingsFilePreservingFormat",
+          "applyUpdates"
+        ],
+        "evidence": [
+          "saveSettings delegates persistence to the new format-preserving updater.",
+          "The updater starts from the parsed existing document and applies only entries present in the update object.",
+          "The added test expects existing comments to remain after an update."
+        ],
+        "confidence": 0.97,
+        "citations": [
+          {
+            "file": "packages/cli/src/config/settings.ts",
+            "line": 734,
+            "quoted_text": "    updateSettingsFilePreservingFormat("
+          },
+          {
+            "file": "packages/cli/src/utils/commentJson.ts",
+            "line": 33,
+            "quoted_text": "    parsed = parse(originalContent) as Record<string, unknown>;"
+          },
+          {
+            "file": "packages/cli/src/utils/commentJson.ts",
+            "line": 56,
+            "quoted_text": "  const result = current;"
+          },
+          {
+            "file": "packages/cli/src/utils/commentJson.test.ts",
+            "line": 53,
+            "quoted_text": "      expect(updatedContent).toContain('// Model configuration');"
+          }
+        ],
+        "citations_verified": 4,
+        "citation_notes": [
+          "citation confirmed near packages/cli/src/config/settings.ts:734",
+          "citation confirmed near packages/cli/src/utils/commentJson.ts:33",
+          "citation confirmed near packages/cli/src/utils/commentJson.ts:56",
+          "citation confirmed near packages/cli/src/utils/commentJson.test.ts:53"
+        ]
+      },
+      {
+        "description": "Settings originally expressed as a single environment-variable reference are tracked during loading and changed back to that reference when the corresponding scope is saved, avoiding persistence of the resolved string value in the ordinary case.",
+        "changed_symbols": [
+          "loadSettings",
+          "LoadedSettings.constructor",
+          "LoadedSettings.setValue",
+          "saveSettings",
+          "trackEnvVarMappings",
+          "restoreEnvVarReferences"
+        ],
+        "evidence": [
+          "Loading clones each scope before environment resolution and records differences matching environment-reference syntax.",
+          "LoadedSettings carries the per-scope mappings into saveSettings.",
+          "The writer replaces string values at mapped paths with the original reference before serialization."
+        ],
+        "confidence": 0.98,
+        "citations": [
+          {
+            "file": "packages/cli/src/config/settings.ts",
+            "line": 658,
+            "quoted_text": "  // Now that the environment is loaded, track and resolve variables in the settings."
+          },
+          {
+            "file": "packages/cli/src/config/settings.ts",
+            "line": 421,
+            "quoted_text": "    const envMappings = this.envVarMappings.get(scope) || [];"
+          },
+          {
+            "file": "packages/cli/src/config/settings.ts",
+            "line": 422,
+            "quoted_text": "    saveSettings(settingsFile, envMappings);"
+          },
+          {
+            "file": "packages/cli/src/utils/commentJson.ts",
+            "line": 152,
+            "quoted_text": "      const envVarPattern = /^\\$(?:(\\w+)|{([^}]+)})$/;"
+          },
+          {
+            "file": "packages/cli/src/utils/commentJson.ts",
+            "line": 115,
+            "quoted_text": "    if (envVarReference && typeof value === 'string') {"
+          }
+        ],
+        "citations_verified": 5,
+        "citation_notes": [
+          "citation confirmed near packages/cli/src/config/settings.ts:658",
+          "citation confirmed near packages/cli/src/config/settings.ts:421",
+          "citation confirmed near packages/cli/src/config/settings.ts:422",
+          "citation confirmed near packages/cli/src/utils/commentJson.ts:152",
+          "citation confirmed near packages/cli/src/utils/commentJson.ts:115"
+        ]
+      },
+      {
+        "description": "If an existing settings file cannot be parsed, a save now reports the parse problem and leaves the file unchanged instead of overwriting it with the current settings snapshot.",
+        "changed_symbols": [
+          "updateSettingsFilePreservingFormat",
+          "saveSettings"
+        ],
+        "evidence": [
+          "The parser error is caught inside the updater.",
+          "The function returns before applying updates or writing the file.",
+          "The new test verifies that corrupted content remains unchanged."
+        ],
+        "confidence": 0.99,
+        "citations": [
+          {
+            "file": "packages/cli/src/utils/commentJson.ts",
+            "line": 35,
+            "quoted_text": "    console.error('Error parsing settings file:', error);"
+          },
+          {
+            "file": "packages/cli/src/utils/commentJson.test.ts",
+            "line": 222,
+            "quoted_text": "      expect(unchangedContent).toBe(corruptedContent);"
+          }
+        ],
+        "citations_verified": 2,
+        "citation_notes": [
+          "citation confirmed near packages/cli/src/utils/commentJson.ts:35",
+          "citation recovered near packages/cli/src/utils/commentJson.test.ts:224-234 (model cited line 222; the real text was located there instead)"
+        ]
+      }
+    ],
+    "important_symbols": [
+      {
+        "repo": "app",
+        "file": "packages/cli/src/config/settings.ts",
+        "symbol": "loadSettings",
+        "reason": "Captures each settings scope before environment expansion and establishes the mappings that control subsequent persistence."
+      },
+      {
+        "repo": "app",
+        "file": "packages/cli/src/config/settings.ts",
+        "symbol": "LoadedSettings.setValue",
+        "reason": "Connects runtime setting mutations to scope-specific environment mappings and is the clearest changed write path."
+      },
+      {
+        "repo": "app",
+        "file": "packages/cli/src/config/settings.ts",
+        "symbol": "saveSettings",
+        "reason": "Changes the persistence contract from complete JSON replacement to parsed, format-aware updating."
+      },
+      {
+        "repo": "app",
+        "file": "packages/cli/src/utils/commentJson.ts",
+        "symbol": "updateSettingsFilePreservingFormat",
+        "reason": "Owns filesystem parsing, merge behavior, environment-reference restoration, serialization, and malformed-file handling."
+      },
+      {
+        "repo": "app",
+        "file": "packages/cli/src/utils/commentJson.ts",
+        "symbol": "trackEnvVarMappings",
+        "reason": "Defines which original strings are regarded as environment references and which paths are later restored."
+      }
+    ],
+    "investigation_hints": [
+      {
+        "description": "Trace every caller that saves or mutates settings, especially migrations, reset/remove operations, and callers that expect the persisted object to be a complete replacement rather than a patch.",
+        "related_symbols": [
+          "LoadedSettings.setValue",
+          "saveSettings",
+          "updateSettingsFilePreservingFormat",
+          "applyUpdates"
+        ],
+        "concepts": [
+          "settings deletion",
+          "migration cleanup",
+          "scope persistence",
+          "snapshot versus patch semantics"
+        ],
+        "likely_boundary_types": [
+          "callable",
+          "external"
+        ]
+      },
+      {
+        "description": "Inspect environment substitution across objects, arrays, dotted property names, and user edits made after loading; compare the mapping lifetime with the lifetime of a LoadedSettings instance.",
+        "related_symbols": [
+          "loadSettings",
+          "trackEnvVarMappings",
+          "restoreEnvVarReferences",
+          "restoreEnvVarsRecursive"
+        ],
+        "concepts": [
+          "secret persistence",
+          "environment expansion",
+          "path identity",
+          "stale mappings",
+          "nested collections"
+        ],
+        "likely_boundary_types": [
+          "callable",
+          "external"
+        ]
+      },
+      {
+        "description": "Verify the concrete comment-json behavior for comments, ordering, duplicate keys, trailing commas, formatting, and parser failures against all settings-file syntax accepted elsewhere in the CLI.",
+        "related_symbols": [
+          "updateSettingsFilePreservingFormat",
+          "saveSettings"
+        ],
+        "concepts": [
+          "configuration syntax",
+          "comment retention",
+          "serialization compatibility",
+          "filesystem writes"
+        ],
+        "likely_boundary_types": [
+          "external"
+        ]
+      },
+      {
+        "description": "Identify the system, user, and workspace file boundaries, including trust checks, symlinks, concurrent writers, and whether writes need atomic replacement.",
+        "related_symbols": [
+          "loadSettings",
+          "saveSettings",
+          "LoadedSettings.setValue"
+        ],
+        "concepts": [
+          "settings scopes",
+          "workspace trust",
+          "filesystem concurrency",
+          "canonical paths"
+        ],
+        "likely_boundary_types": [
+          "callable",
+          "external"
+        ]
+      }
+    ],
+    "likely_boundary_types": [
+      "callable",
+      "external"
+    ],
+    "local_risks": [
+      {
+        "description": "A setting that was an environment reference when loaded cannot reliably be changed to a new literal string through setValue: the saved value is passed with the old scope mapping, and restoration replaces any string at that path with the original reference without checking whether it still equals the previously resolved value. The in-memory setting can therefore differ from what is persisted.",
+        "severity": "P1",
+        "citations": [
+          {
+            "file": "packages/cli/src/config/settings.ts",
+            "line": 419,
+            "quoted_text": "    setNestedProperty(settingsFile.settings, key, value);"
+          },
+          {
+            "file": "packages/cli/src/config/settings.ts",
+            "line": 421,
+            "quoted_text": "    const envMappings = this.envVarMappings.get(scope) || [];"
+          },
+          {
+            "file": "packages/cli/src/utils/commentJson.ts",
+            "line": 114,
+            "quoted_text": "    const envVarReference = envVarMap.get(pathStr);"
+          },
+          {
+            "file": "packages/cli/src/utils/commentJson.ts",
+            "line": 116,
+            "quoted_text": "      (obj as Record<string, unknown>)[key] = envVarReference;"
+          }
+        ],
+        "citations_verified": 4,
+        "citation_notes": [
+          "citation confirmed near packages/cli/src/config/settings.ts:419",
+          "citation confirmed near packages/cli/src/config/settings.ts:421",
+          "citation confirmed near packages/cli/src/utils/commentJson.ts:114",
+          "citation confirmed near packages/cli/src/utils/commentJson.ts:116"
+        ]
+      },
+      {
+        "description": "Environment references nested inside arrays can be tracked but not restored. Tracking descends into every non-null object, including arrays, while restoration explicitly declines to recurse into array values; if such a reference resolves to a secret, saving can write the resolved value to disk.",
+        "severity": "P1",
+        "citations": [
+          {
+            "file": "packages/cli/src/utils/commentJson.ts",
+            "line": 162,
+            "quoted_text": "    } else if (typeof value === 'object' && value !== null) {"
+          },
+          {
+            "file": "packages/cli/src/utils/commentJson.ts",
+            "line": 120,
+            "quoted_text": "      !Array.isArray(value)"
+          },
+          {
+            "file": "packages/cli/src/utils/commentJson.ts",
+            "line": 122,
+            "quoted_text": "      restoreEnvVarsRecursive(value, fullPath, envVarMap);"
+          }
+        ],
+        "citations_verified": 3,
+        "citation_notes": [
+          "citation confirmed near packages/cli/src/utils/commentJson.ts:162",
+          "citation confirmed near packages/cli/src/utils/commentJson.ts:120",
+          "citation confirmed near packages/cli/src/utils/commentJson.ts:122"
+        ]
+      },
+      {
+        "description": "The new updater never removes an existing key merely because it is absent from settingsToSave; it mutates the parsed document by iterating only supplied entries. If saveSettings supplies the desired complete snapshot, setting removal or migration cleanup will not be persisted and stale configuration can remain active.",
+        "severity": "P1",
+        "citations": [
+          {
+            "file": "packages/cli/src/utils/commentJson.ts",
+            "line": 56,
+            "quoted_text": "  const result = current;"
+          },
+          {
+            "file": "packages/cli/src/utils/commentJson.ts",
+            "line": 58,
+            "quoted_text": "  for (const [key, value] of Object.entries(updates)) {"
+          },
+          {
+            "file": "packages/cli/src/utils/commentJson.ts",
+            "line": 80,
+            "quoted_text": "  return result;"
+          }
+        ],
+        "citations_verified": 3,
+        "citation_notes": [
+          "citation confirmed near packages/cli/src/utils/commentJson.ts:56",
+          "citation confirmed near packages/cli/src/utils/commentJson.ts:58",
+          "citation confirmed near packages/cli/src/utils/commentJson.ts:80"
+        ]
+      }
+    ],
+    "uncertainties": [
+      "The supplied context does not establish which CLI commands or other callers invoke LoadedSettings.setValue or call saveSettings directly, so the user-facing reach of the new persistence behavior needs call-graph investigation.",
+      "The concrete system, user, and workspace paths, their ownership and trust rules, and whether other processes write the same files are not shown.",
+      "Whether deployed settings contain environment references inside arrays is unknown; that runtime content determines whether the array restoration gap can expose resolved values.",
+      "Whether real settings files contain comments, malformed syntax, or keys omitted by later settings snapshots is unknown, so the observable frequency of the preservation and retention behavior cannot be established here.",
+      "The exact preservation of comment placement, property ordering, accepted JSON extensions, and formatting depends on comment-json behavior beyond what the supplied implementation and tests establish.",
+      "The intended contract of settingsToSave is not shown: if it is a complete persisted snapshot, retaining absent keys is likely incorrect; if it is deliberately a patch, that retention is expected."
+    ],
+    "uncertainty_items": [
+      {
+        "kind": "caller_reachability",
+        "text": "The supplied context does not establish which CLI commands or other callers invoke LoadedSettings.setValue or call saveSettings directly, so the user-facing reach of the new persistence behavior needs call-graph investigation.",
+        "symbols": [
+          "LoadedSettings.setValue",
+          "saveSettings"
+        ],
+        "resolved_by": null,
+        "established_context": null,
+        "scoped_text": null
+      },
+      {
+        "kind": "boundary_identity",
+        "text": "The concrete system, user, and workspace paths, their ownership and trust rules, and whether other processes write the same files are not shown.",
+        "symbols": [
+          "loadSettings",
+          "saveSettings",
+          "updateSettingsFilePreservingFormat"
+        ],
+        "resolved_by": null,
+        "established_context": null,
+        "scoped_text": null
+      },
+      {
+        "kind": "runtime_condition",
+        "text": "Whether deployed settings contain environment references inside arrays is unknown; that runtime content determines whether the array restoration gap can expose resolved values.",
+        "symbols": [
+          "trackEnvVarMappings",
+          "restoreEnvVarsRecursive"
+        ],
+        "resolved_by": null,
+        "established_context": null,
+        "scoped_text": null
+      },
+      {
+        "kind": "runtime_condition",
+        "text": "Whether real settings files contain comments, malformed syntax, or keys omitted by later settings snapshots is unknown, so the observable frequency of the preservation and retention behavior cannot be established here.",
+        "symbols": [
+          "updateSettingsFilePreservingFormat",
+          "applyUpdates",
+          "saveSettings"
+        ],
+        "resolved_by": null,
+        "established_context": null,
+        "scoped_text": null
+      },
+      {
+        "kind": "dependency_semantics",
+        "text": "The exact preservation of comment placement, property ordering, accepted JSON extensions, and formatting depends on comment-json behavior beyond what the supplied implementation and tests establish.",
+        "symbols": [
+          "updateSettingsFilePreservingFormat"
+        ],
+        "resolved_by": null,
+        "established_context": null,
+        "scoped_text": null
+      },
+      {
+        "kind": "other",
+        "text": "The intended contract of settingsToSave is not shown: if it is a complete persisted snapshot, retaining absent keys is likely incorrect; if it is deliberately a patch, that retention is expected.",
+        "symbols": [
+          "saveSettings",
+          "applyUpdates"
+        ],
+        "resolved_by": null,
+        "established_context": null,
+        "scoped_text": null
+      }
+    ],
+    "verification_state": "verified",
+    "is_indeterminate": true,
+    "indeterminate_reason": "runtime_only_behavior",
+    "indeterminate_detail": "The mechanisms are clear, but their real observable effects depend on which save paths execute and on runtime file contents—particularly comments, malformed JSON, omitted keys, and environment-variable references. Those conditions cannot be determined from this diff alone."
+  },
+  "affected_boundaries": [
+    {
+      "id": "boundary:inferred:callable:app:loadSettings / LoadedSettings.setValue:0",
+      "kind": "callable",
+      "subtype": "service",
+      "repo": "app",
+      "file": "packages/cli/src/config/settings.ts",
+      "symbol": "loadSettings / LoadedSettings.setValue",
+      "label": "CLI settings loading and persistence service",
+      "changed_symbols": [
+        "loadSettings",
+        "LoadedSettings.setValue",
+        "saveSettings",
+        "LoadedSettings.constructor",
+        "trackEnvVarMappings",
+        "updateSettingsFilePreservingFormat"
+      ],
+      "evidence": [
+        "Established call edge: addMcpServer -> loadSettings in packages/cli/src/commands/mcp/add.ts:12.",
+        "Established call edge: addMcpServer -> setValue in packages/cli/src/commands/mcp/add.ts:12.",
+        "Established call edges: disableExtension -> loadSettings and disableExtension -> setValue in packages/cli/src/config/extension.ts:605.",
+        "Established call edge: LoadedSettings.setValue -> saveSettings in packages/cli/src/config/settings.ts:417.",
+        "Established call edge: loadSettings -> trackEnvVarMappings in packages/cli/src/config/settings.ts:523.",
+        "Changed production symbols loadSettings, LoadedSettings.setValue, and saveSettings are all in packages/cli/src/config/settings.ts."
+      ],
+      "distance": 0,
+      "evidence_strength": "medium",
+      "status": "inferred",
+      "reason": "CLI command and extension components cross into the settings service through loadSettings and LoadedSettings.setValue, which now carry environment-reference tracking into the save path and formatting-preserving file updates.",
+      "uncertainty": "No direct external caller of saveSettings is established; its reach is supported only through the proven setValue -> saveSettings edge. The evidence does not establish a CLI command-registration, HTTP, or asynchronous boundary, and the visibility contract of these callables is not shown.",
+      "llm_confidence": 0.94
+    }
+  ],
+  "composed_dispatch_edges": [],
+  "run_metrics": {
+    "llm_by_purpose": {
+      "pr_semantic_analysis": {
+        "calls": 1,
+        "errors": 0,
+        "input_tokens": 9929,
+        "output_tokens": 5168,
+        "reasoning_tokens": 2885,
+        "models": [
+          "gpt-5.6-sol"
+        ]
+      },
+      "route_discovery": {
+        "calls": 1,
+        "errors": 0,
+        "input_tokens": 6464,
+        "output_tokens": 35,
+        "reasoning_tokens": 0,
+        "models": [
+          "gpt-5.6-sol"
+        ]
+      },
+      "impact_guide": {
+        "calls": 8,
+        "errors": 0,
+        "input_tokens": 27019,
+        "output_tokens": 2783,
+        "reasoning_tokens": 1783,
+        "models": [
+          "gpt-5.6-sol"
+        ]
+      },
+      "boundary_reasoning": {
+        "calls": 1,
+        "errors": 0,
+        "input_tokens": 2941,
+        "output_tokens": 865,
+        "reasoning_tokens": 512,
+        "models": [
+          "gpt-5.6-sol"
+        ]
+      },
+      "investigator": {
+        "calls": 18,
+        "errors": 0,
+        "input_tokens": 75012,
+        "output_tokens": 18173,
+        "reasoning_tokens": 13422,
+        "models": [
+          "gpt-5.6-sol"
+        ]
+      },
+      "ai_recovery": {
+        "calls": 24,
+        "errors": 0,
+        "input_tokens": 72905,
+        "output_tokens": 2064,
+        "reasoning_tokens": 335,
+        "models": [
+          "gpt-5.6-sol"
+        ]
+      }
+    },
+    "llm_totals": {
+      "calls": 53,
+      "errors": 0,
+      "input_tokens": 194270,
+      "output_tokens": 29088,
+      "reasoning_tokens": 18937
+    },
+    "cbm": {
+      "calls": 26,
+      "errors": 0,
+      "by_operation": {
+        "index_repository": 2,
+        "query_graph": 14,
+        "search_graph": 5,
+        "get_graph_schema": 1,
+        "trace_path": 4
+      },
+      "enrichment_requests": 4
+    },
+    "wall_seconds": 507.2,
+    "tests": {
+      "environments": [],
+      "mapped_executions": 0,
+      "mapped_outcomes": {},
+      "ci_suite": {
+        "status": "unknown",
+        "blocker": "framework_unsupported",
+        "passed": null,
+        "failed": null
+      }
+    }
+  },
+  "framework_boundary_candidates": [],
+  "affected_flows": [],
+  "unresolved_changed_symbols": 9,
+  "unresolved_changed_symbol_names": [
+    "applyUpdates",
+    "constructor",
+    "loadSettings",
+    "restoreEnvVarReferences",
+    "restoreEnvVarsRecursive",
+    "saveSettings",
+    "setValue",
+    "trackEnvVarMappings",
+    "updateSettingsFilePreservingFormat"
+  ],
+  "analysis_status": "partial",
+  "analysis_notes": [
+    "Route composition is unresolved in app; some routes may be missing.",
+    "Structural exploration was bounded for this change (max_depth reached with unexplored frontier); boundaries beyond the explored neighborhood are not established either way.",
+    "Impact analysis traversal was truncated by its bounds; some reachable entrypoints may not be listed.",
+    "9 changed symbol(s) have no established impact path to any entrypoint (an AI-inferred candidate may still exist for one — see AFFECTED BEHAVIOR — but that is not the same as resolved impact coverage).",
+    "No discovered route declaration reaches the changed symbols."
+  ],
+  "test_executions": [],
+  "ci_suite": {
+    "command": [],
+    "source": "",
+    "working_dir": ".",
+    "framework": "",
+    "status": "unknown",
+    "blocker": "framework_unsupported",
+    "reason": "No repository test command could be resolved",
+    "exit_code": null,
+    "duration_ms": null,
+    "tests_passed": null,
+    "tests_failed": null,
+    "summary_line": null,
+    "failed_test_ids": [],
+    "stdout_excerpt": null,
+    "stderr_excerpt": null,
+    "output_truncated": false,
+    "evidence": []
+  },
+  "verification_gaps": [],
+  "runtime_dependencies": [],
+  "cross_repo_impacts": [],
+  "notes": [
+    "test_execution=whole_suite_fallback reason=no_mapped_tests",
+    "AI recovery (experimental, provenance=ai_recovery, run-local, merged into structural results): path recovery could not establish a source-backed path beyond the first pass; test recovery recovered 1 verified test(s).",
+    "Saved change verification artifact: /Users/ksnaik/.sydes/workspaces/6dfc744f9bd29962/artifacts/20261026T193634Z-1542872f/change_verification.json"
+  ],
+  "diagnostics": [
+    "code_intelligence_effective_backend=cbm selected_by=default",
+    "code_intelligence_backend=cbm transport=persistent_mcp_stdio cbm_server_version=0.11.0 cbm_executable=/Users/ksnaik/.cache/uv/archive-v0/KZKP4joN0d1qom0IAC0f3/bin/codebase-memory-mcp",
+    "cbm_session_start_ms=1346.4 cbm_calls=11 cbm_mean_call_ms=157.9",
+    "cbm_index_ms=1536.8 cbm_query_ms=207.7 sydes_route_semantics_ms=644.0 total_ms=3736.4",
+    "cbm_supplied=symbols,spans,imports,exports,call_edges,usage_edges,entrypoints  sydes_semantics=route_index,route_graph,repo_map",
+    "route_derived_entrypoints_added=1",
+    "cbm_gap: route composition is computed by Sydes, not CBM: CBM reports uncomposed route paths and models no persistence sinks",
+    "cbm_gap: app: route composition is unresolved for some containers; route-derived entrypoint paths from this repo may be incomplete",
+    "cbm_gap: CALLS/USAGE edges deferred: they are fetched as a bounded neighborhood around the changed symbols instead of a repository-wide sweep",
+    "handler_symbol_index: exports=2446, files_indexed=440, imports=1614, symbols=2729",
+    "pr_semantic_analysis_prompt_chars=34872",
+    "reverse_reach_candidate_files=155",
+    "app: deterministic_routes_found=5, deterministic_frameworks=express_mount_graph",
+    "app: discovery_coverage=moderate score=0.7",
+    "app: discovery_coverage_reasons=deterministic route extraction produced grounded routes; route graph composition produced mounted routes; route composition is unresolved: 2 of 2 route containers have no resolvable mount or declared prefix, so route paths may be incomplete",
+    "app: route_graph_containers=2, route_graph_declarations=5, route_graph_mount_edges=0, route_graph_composed_routes=5, route_graph_unresolved_mounts=0",
+    "app: deterministic_routes=5, llm_routes=0, merged_routes=5, rejected_routes=0, final_routes=5",
+    "app: merged_llm_routes=0",
+    "member_call_bridge_edges_added=52",
+    "graph_slice_seeds: changed=9 routes=0 dropped_auxiliary=0 total=9",
+    "graph_slice: used=True seeds=9 canonical_seeds=9 unresolved_seeds=0 unresolved_changed=0 unresolved_auxiliary=0 graph_calls=4 nodes=384 call_edges=152 usage_edges=440 truncated=True fell_back=False",
+    "impact_interpreter: affected_entrypoints=3, ambiguous_edges=0, boundary_budget_exhausted=False, boundary_emitted=0, boundary_expansions=40, boundary_frontier_considered=40, boundary_rejected_weak_evidence=0, call_edges=152, changed_symbols=9, evidence_confirmed=2, guide_actions={'infer_impact': 4, 'trace_callers': 2, 'stop_unresolved': 2}, guide_budget_exhausted=True, guide_calls=8, guide_error_details=[], guide_errors=0, guide_latency_ms=54915.35145812668, guide_no_progress=0, guide_triggered=True, http_entrypoints=0, known_entrypoints=1, llm_candidates=5, llm_candidates_accepted=3, llm_candidates_corroborated=0, llm_candidates_missing_reason=0, llm_candidates_self_referential=0, llm_candidates_uncorroborated=5, llm_candidates_ungrounded=2, llm_candidates_whole_change_unanchored=0, llm_new_entrypoints=3, llm_no_candidate_turns=0, unresolved_after=9, unresolved_before=9, unresolved_symbols=9, usage_edges=440",
+    "impact_note: traversal hit a bound (depth 4, 5000 nodes); reachable entrypoints beyond it are not listed",
+    "repo_profile: reused persisted profile",
+    "boundary_reasoning: candidates=10 inferred=1",
+    "app: test_files_found=263",
+    "app: test_cases_found=3920",
+    "changed_test_cases_found: ['packages/cli/src/utils/commentJson.test.ts::should add new fields while preserving existing structure', 'packages/cli/src/utils/commentJson.test.ts::should create file if it does not exist', 'packages/cli/src/utils/commentJson.test.ts::should handle complex real-world scenario', 'packages/cli/src/utils/commentJson.test.ts::should handle corrupted JSON files gracefully', 'packages/cli/src/utils/commentJson.test.ts::should handle nested object updates', 'packages/cli/src/utils/commentJson.test.ts::should handle nested objects', 'packages/cli/src/utils/commentJson.test.ts::should not track non-environment variable values', 'packages/cli/src/utils/commentJson.test.ts::should preserve comments when updating settings', 'packages/cli/src/utils/commentJson.test.ts::should preserve environment variable references', 'packages/cli/src/utils/commentJson.test.ts::should prevent prototype pollution attacks', 'packages/cli/src/utils/commentJson.test.ts::should track environment variable mappings']",
+    "test_frameworks_detected=none",
+    "ci_suite=unresolved reason=No repository test command could be resolved",
+    "structural_enrichment: triggered=[route_container_registration: 9 unresolved changed symbol(s)] cbm_requests=4 (relations:3,schema:1) cache_hits=(relations:5) errors=0 truncated=0 families=[CALLS,CALL_REFERENCE,USAGE] candidates=0 unresolved=0",
+    "code_review_context_added: packages/cli/src/config/settings.ts:computeMergedSettings -- constructor calls computeMergedSettings at packages/cli/src/config/settings.ts:372 (1 line(s) from a changed line)",
+    "code_review_context_added: packages/cli/src/config/settings.ts:getSystemDefaultsPath -- loadSettings calls getSystemDefaultsPath at packages/cli/src/config/settings.ts:532 (2 line(s) from a changed line)",
+    "code_review_context_added: packages/cli/src/config/settings.ts:setNestedProperty -- setValue calls setNestedProperty at packages/cli/src/config/settings.ts:419 (2 line(s) from a changed line)",
+    "code_review_context_added: packages/cli/src/config/settings.ts:loadEnvironment -- loadSettings calls loadEnvironment at packages/cli/src/config/settings.ts:659 (2 line(s) from a changed line)",
+    "code_review_context_added: packages/cli/src/utils/envVarResolver.ts:resolveEnvVarsInObject -- loadSettings calls resolveEnvVarsInObject at packages/cli/src/config/settings.ts:669 (2 line(s) from a changed line)",
+    "code_review_context_added: packages/cli/src/config/settings.ts:getSystemSettingsPath -- loadSettings calls getSystemSettingsPath at packages/cli/src/config/settings.ts:531 (3 line(s) from a changed line)",
+    "code_review_context_added: packages/cli/src/config/settings.ts:forScope -- setValue calls forScope at packages/cli/src/config/settings.ts:418 (3 line(s) from a changed line)",
+    "code_review_context_added: packages/cli/src/config/settings.ts:migrateSettingsToV1 -- saveSettings calls migrateSettingsToV1 at packages/cli/src/config/settings.ts:732 (5 line(s) from a changed line)",
+    "code_review_context_added: packages/cli/src/commands/mcp/add.ts:addMcpServer -- addMcpServer calls the changed setValue",
+    "code_review_context_added: packages/cli/src/commands/mcp/remove.ts:removeMcpServer -- removeMcpServer calls the changed setValue",
+    "code_review_context_added: packages/cli/src/config/extension.ts:disableExtension -- disableExtension calls the changed setValue",
+    "code_review_context_related=11",
+    "code_review_questions=10",
+    "investigator: hypotheses=5 lookups=12/12 confirmed=2 refuted=0 unknown=3 findings=2 llm_calls=18 errors=0",
+    "investigation_artifact=/Users/ksnaik/StudioProjects/sydes/benchmarks/aacr/results/investigator-bdb08a3-first11-r1-2026-10-26/sydes/google-gemini__gemini-cli@0fa1bd7.investigation.json",
+    "run_metrics: wall_seconds=507.2 llm_calls=53 (ai_recovery:24,boundary_reasoning:1,impact_guide:8,investigator:18,pr_semantic_analysis:1,route_discovery:1) llm_errors=0 input_tokens=194270 output_tokens=29088 estimated_cost_usd=unavailable (set SYDES_LLM_PRICE_PER_MTOK) cbm_requests=26 cbm_enrichment_requests=4 test_executions=0 test_outcomes={}"
+  ],
+  "behavioral": null,
+  "known_routes": [
+    {
+      "method": "GET",
+      "path": "/mcp",
+      "handler": "handleSessionRequest",
+      "file": "packages/vscode-ide-companion/src/ide-server.ts",
+      "repo": "app",
+      "service": null,
+      "evidence": [
+        {
+          "file": "packages/vscode-ide-companion/src/ide-server.ts",
+          "symbol": "handleSessionRequest",
+          "label": "route_declaration",
+          "snippet": "app.get('/mcp', handleSessionRequest);"
+        }
+      ],
+      "confidence": 1.0,
+      "status": "deterministic_composed",
+      "kind": "http",
+      "impact_status": null
+    },
+    {
+      "method": "GET",
+      "path": "/tasks/metadata",
+      "handler": null,
+      "file": "packages/a2a-server/src/http/app.ts",
+      "repo": "app",
+      "service": null,
+      "evidence": [
+        {
+          "file": "packages/a2a-server/src/http/app.ts",
+          "symbol": null,
+          "label": "route_declaration",
+          "snippet": "expressApp.get('/tasks/metadata', async (req, res) => { // This endpoint is only meaningful if the task store is in-memory. if (!(taskStoreForExecutor instanceof InMemoryTaskStore)) { res.status(501).send({ error: 'Listing all task metadata is only supported when using InMemoryTaskStore.', }); } ..."
+        }
+      ],
+      "confidence": 1.0,
+      "status": "deterministic_composed",
+      "kind": "http",
+      "impact_status": null
+    },
+    {
+      "method": "GET",
+      "path": "/tasks/{taskId}/metadata",
+      "handler": null,
+      "file": "packages/a2a-server/src/http/app.ts",
+      "repo": "app",
+      "service": null,
+      "evidence": [
+        {
+          "file": "packages/a2a-server/src/http/app.ts",
+          "symbol": null,
+          "label": "route_declaration",
+          "snippet": "expressApp.get('/tasks/:taskId/metadata', async (req, res) => { const taskId = req.params.taskId; let wrapper = agentExecutor.getTask(taskId); if (!wrapper) { const sdkTask = await taskStoreForExecutor.load(taskId); if (sdkTask) { wrapper = await agentExecutor.reconstruct(sdkTask); } }"
+        }
+      ],
+      "confidence": 1.0,
+      "status": "deterministic_composed",
+      "kind": "http",
+      "impact_status": null
+    },
+    {
+      "method": "POST",
+      "path": "/mcp",
+      "handler": null,
+      "file": "packages/vscode-ide-companion/src/ide-server.ts",
+      "repo": "app",
+      "service": null,
+      "evidence": [
+        {
+          "file": "packages/vscode-ide-companion/src/ide-server.ts",
+          "symbol": null,
+          "label": "route_declaration",
+          "snippet": "app.post('/mcp', async (req: Request, res: Response) => { const sessionId = req.headers[MCP_SESSION_ID_HEADER] as | string | undefined; let transport: StreamableHTTPServerTransport; if (sessionId && this.transports[sessionId]) { transport = this.transports[sessionId]; } else if (!sessionId && isI..."
+        }
+      ],
+      "confidence": 1.0,
+      "status": "deterministic_composed",
+      "kind": "http",
+      "impact_status": null
+    },
+    {
+      "method": "POST",
+      "path": "/tasks",
+      "handler": null,
+      "file": "packages/a2a-server/src/http/app.ts",
+      "repo": "app",
+      "service": null,
+      "evidence": [
+        {
+          "file": "packages/a2a-server/src/http/app.ts",
+          "symbol": null,
+          "label": "route_declaration",
+          "snippet": "expressApp.post('/tasks', async (req, res) => { try { const taskId = uuidv4(); const agentSettings = req.body.agentSettings as | AgentSettings | undefined; const contextId = req.body.contextId || uuidv4(); const wrapper = await agentExecutor.createTask( taskId,"
+        }
+      ],
+      "confidence": 1.0,
+      "status": "deterministic_composed",
+      "kind": "http",
+      "impact_status": null
+    }
+  ],
+  "unattached_evidence": [
+    {
+      "scope": "symbol",
+      "target_symbol": "updateSettingsFilePreservingFormat",
+      "target_file": "packages/cli/src/utils/commentJson.ts",
+      "mapped_tests": [
+        {
+          "id": "ai_recovery:packages/cli/src/utils/commentJson.test.ts:updateSettingsFilePreservingFormat test suite",
+          "name": "updateSettingsFilePreservingFormat test suite",
+          "case_name": "updateSettingsFilePreservingFormat test suite",
+          "repo": null,
+          "file": "packages/cli/src/utils/commentJson.test.ts",
+          "line": null,
+          "suite": null,
+          "match_rule": "The suite directly imports and calls updateSettingsFilePreservingFormat, then reads the resulting settings file and asserts that comments/format-related content, environment-variable references, and nested updates are preserved correctly.",
+          "evidence_tier": "A_direct_invocation",
+          "source_refs": [
+            "ai_recovery:packages/cli/src/utils/commentJson.test.ts:updateSettingsFilePreservingFormat test suite"
+          ],
+          "changed_in_diff": false,
+          "evidence": []
+        }
+      ],
+      "provenance": "ai_recovery"
+    }
+  ]
+}

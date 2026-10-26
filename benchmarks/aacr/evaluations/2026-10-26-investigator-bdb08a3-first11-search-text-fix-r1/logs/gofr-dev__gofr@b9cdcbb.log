@@ -1,0 +1,108 @@
+AI recovery (experimental): triggered (a structural boundary was found but no complete route/entrypoint flow reaches it; the first pass reported route composition as unresolved in this repository; no relevant test was mapped even though this diff changed a test file (pkg/gofr/http/responder_test.go); 2 changed symbol(s) reach no entrypoint the first pass found)
+AI recovery (experimental): path=unresolved test=unresolved turns=8 llm_calls=9 tokens=23571+920 edge_retries_attempted=0 edge_retries_succeeded=0 graph_paths_proposed=0 graph_paths_established=0 graph_paths_established_unverified_boundary=0 explicit_relation_edges=0
+Wrote AI recovery result: /Users/ksnaik/StudioProjects/sydes/benchmarks/aacr/results/investigator-bdb08a3-first11-r1-2026-10-26/sydes/gofr-dev__gofr@b9cdcbb.ai_recovery.json
+SYDES VERIFICATION
+
+MEDIUM RISK · 3 AFFECTED BEHAVIORS
+
+Changed
+───────
+pkg/gofr/handler.go:55 — handler.ServeHTTP
+pkg/gofr/http/responder.go:24 — Responder.Respond
+
+CHANGE ANALYSIS (citations verified, indeterminate)
+───────────────────────────────────────────────────
+Cannot be established from this repository alone: depends on state only known at runtime (e.g. feature flags, request data).
+The serialization mechanism is clear, but observable deployment impact requires a real request path whose handler returns response.Response; whether such handlers exist or supply metadata is not shown.
+
+HTTP responses returned as response.Response are now preserved through handler processing and serialized as a structured envelope containing data and metadata, while custom headers are still applied. When metadata is absent, the current tested output includes "metadata": null, which conflicts with the updated documentation's claim that the field is omitted.
+
+Likely behavioral changes
+  • A handler result whose concrete type is response.Response is now passed to the responder as that type and encoded into an HTTP response envelope containing its Data and Metadata values, rather than exposing only the payload data.
+  • For a response.Response with no metadata value, the tested wire representation now contains an explicit metadata:null member alongside data instead of omitting metadata.
+
+Investigate
+  • Trace response.Response values from handler return sites through ServeHTTP into Responder.Respond, including whether pointer forms or wrappers can be returned and whether they receive the same metadata and header treatment.
+  • Inspect API schemas, compatibility tests, and consumers for assumptions that successful responses contain only data or that absent metadata is omitted rather than encoded as null.
+  • Review status-code and error handling when a response.Response and an error are supplied together, since the new branch places both metadata/data and the computed error object into the same internal envelope.
+
+Uncertain
+  • The supplied evidence does not identify which registered HTTP routes return response.Response and therefore expose the changed response envelope.
+  • It is not established whether every call to Responder.Respond is reached through handler.ServeHTTP or whether other callers can pass response.Response values directly.
+  • Whether any real request exercises the new metadata path depends on handlers returning the concrete response.Response value and on the Metadata values they populate.
+  • The affected client schemas and consumers, including whether they require metadata to be absent rather than null, are not shown.
+  • The surrounding Respond implementation is incomplete here, so the final body and status semantics when response.Response is accompanied by a non-nil error cannot be established.
+
+System impact
+─────────────
+No structural propagation path was established.
+
+Inferred boundaries
+───────────────────
+INFERRED · api/http · HTTP handler response envelope processing
+    An HTTP request crosses into handler.ServeHTTP, which passes the handler result to Responder.Respond for HTTP header, status, and body serialization.
+    Evidence: The changed production symbol handler.ServeHTTP is in pkg/gofr/handler.go.; The established production call edge ServeHTTP -> Respond occurs in pkg/gofr/handler.go at line 55.
+    Uncertain: No registered route or concrete method/path is identified, and the evidence does not establish which real handlers return response.Response or whether Responder.Respond has additional production entry paths.
+
+Inferred impact
+───────────────
+INFERRED · 0.92
+custom headers returned to HTTP clients for typed responses
+
+Why:
+Requests dispatched through the HTTP handler may now include custom response headers because typed response results have their headers applied to the response writer before completion.
+
+Static confirmation: unavailable
+
+INFERRED · 0.87
+HTTP delivery of typed handler results
+
+Why:
+HTTP clients may receive different status, headers, or body content because Respond converts raw, structured-response, and file result types into the outbound HTTP response.
+
+Static confirmation: unavailable
+
+INFERRED · 0.78
+HTTP response headers and body formatting for typed handler results
+
+Why:
+Existing HTTP endpoints whose handlers return Response, Raw, or File values may emit different custom headers, payload envelopes, content types, or status handling because ServeHTTP and Respond jointly interpret those typed results when writing the response.
+
+Static confirmation: unavailable
+
+Code review (advisory; excluded from the verdict)
+─────────────────────────────────────────────────
+[P2] On the resTypes.Response path, a nil Metadata map is serialized as an explicit "metadata":null member, contrary to the newly added documentation stating that omitted metadata produces a response conta
+  pkg/gofr/http/responder.go:96
+  Why: The changed documentation specifies omission when metadata is absent. The changed responder copies v.Metadata, whose declared type is map[string]any, into an interface{} field tagged omitempty. When the map is nil, that assignment creates an interface containing a typed nil map; the interface itself is non-nil, so omitempty does not remove the field, and en…
+  Impact: Caused by the change: This change introduces the resTypes.Response conversion and assigns its nil map Metadata value to the internal response.Metadata interface field. Because that interface contains the map's dynamic type even when the map is nil, omitempty does not consider the interface empty; JSON encoding therefore emits metadata:null. Previously the h…
+
+[P2] For a successful POST handler returning a value response.Response with nil Data—including a header-only Response with nil Metadata—this change alters the selected status from 202 Accepted to 201 Creat
+  pkg/gofr/handler.go:102
+  Why: Status selection occurs before the responder unwraps or serializes a Response. For POST, handleSuccess returns 201 whenever its data interface is non-nil and 202 only when it is nil. Previously ServeHTTP replaced a Response with resp.Data, so nil Data reached handleSuccess as nil. The change deletes that replacement, leaving the concrete Response struct in …
+  Impact: Caused by the change: The quoted `result = resp.Data` assignment was removed. Consequently, a successful POST returning Response{Data:nil, Metadata:nil, Headers:...} now passes the non-nil Response value to Respond and then getStatusCode, causing handleSuccess's `data != nil` branch to select 201. Before the deletion, nil resp.Data was passed and the same b…
+
+CI
+──
+? go test could not run
+  The runner exited with code 1 without a usable result
+
+What Sydes could not establish
+──────────────────────────────
+• 3 additional affected areas are not yet verification-modeled.
+• 2 changed symbols have unresolved impact paths.
+• 3 inferred impacts could not be structurally confirmed.
+• The repository test suite could not run (The runner exited with code 1 without a usable result).
+
+Full verification requires
+──────────────────────────
+MySQL · Kafka · Tracer service · Redis
+
+Verdict
+───────
+VERIFICATION INCOMPLETE
+
+Wrote verification result: /Users/ksnaik/StudioProjects/sydes/benchmarks/aacr/results/investigator-bdb08a3-first11-r1-2026-10-26/sydes/gofr-dev__gofr@b9cdcbb.json
+
+--- stderr ---
+Preparing Sydes code intelligence...
