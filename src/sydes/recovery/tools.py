@@ -45,6 +45,48 @@ class ToolCallRecord:
     ok: bool
 
 
+def _split_top_level(text: str, sep: str) -> list[str]:
+    """Split on `sep` outside `{...}`."""
+    parts, depth, start = [], 0, 0
+    for i, ch in enumerate(text):
+        if ch == "{":
+            depth += 1
+        elif ch == "}" and depth:
+            depth -= 1
+        elif ch == sep and depth == 0:
+            parts.append(text[start:i])
+            start = i + 1
+    parts.append(text[start:])
+    return parts
+
+
+def expand_glob(glob: str) -> list[str]:
+    """Expand what `pathlib.Path.glob` doesn't support: `|` alternatives and
+    (nested) `{a,b}` braces, so `src/**/*.{ts,tsx}` becomes `src/**/*.ts` and
+    `src/**/*.tsx` instead of silently matching no files. A glob with neither
+    comes back unchanged; an unbalanced brace is left literal."""
+    alternatives = [part.strip() for part in _split_top_level(glob, "|") if part.strip()]
+    if len(alternatives) > 1:
+        return list(dict.fromkeys(g for part in alternatives for g in expand_glob(part)))
+
+    for open_at, ch in enumerate(glob):
+        if ch != "{":
+            continue
+        depth = 0
+        for close_at in range(open_at, len(glob)):
+            depth += {"{": 1, "}": -1}.get(glob[close_at], 0)
+            if depth == 0:
+                break
+        else:
+            continue  # unbalanced: keep this brace literal, try the next one
+        prefix, body, suffix = glob[:open_at], glob[open_at + 1:close_at], glob[close_at + 1:]
+        options = _split_top_level(body, ",")
+        if len(options) < 2:
+            continue  # `{x}` is not an alternative
+        return list(dict.fromkeys(g for option in options for g in expand_glob(prefix + option + suffix)))
+    return [glob]
+
+
 def _resolve_within_repo(repo_root: Path, rel_path: str) -> Path:
     candidate = (repo_root / rel_path).resolve()
     repo_resolved = repo_root.resolve()
@@ -101,12 +143,16 @@ class RepoTools:
             self.calls.append(ToolCallRecord("search_text", {"pattern": pattern}, 0, False))
             return f"ERROR: invalid pattern: {exc}"
 
-        glob = path_glob or "**/*"
         matches: list[str] = []
+        files_seen = 0
         try:
-            for candidate in sorted(self._repo_root.glob(glob)):
+            candidates: set[Path] = set()
+            for glob in expand_glob(path_glob or "**/*"):
+                candidates.update(self._repo_root.glob(glob))
+            for candidate in sorted(candidates):
                 if not candidate.is_file():
                     continue
+                files_seen += 1
                 if len(matches) >= _MAX_GREP_MATCHES:
                     break
                 try:
@@ -123,7 +169,13 @@ class RepoTools:
             self.calls.append(ToolCallRecord("search_text", {"pattern": pattern}, 0, False))
             return f"ERROR: {exc}"
 
-        out = "\n".join(matches) if matches else "(no matches)"
+        if matches:
+            out = "\n".join(matches)
+        elif path_glob and not files_seen:
+            # Not "(no matches)": nothing was searched, so absence is not established.
+            out = f"(no files match path_glob {path_glob!r}; nothing was searched)"
+        else:
+            out = "(no matches)"
         self.calls.append(
             ToolCallRecord("search_text", {"pattern": pattern, "path_glob": path_glob}, len(out), True)
         )
