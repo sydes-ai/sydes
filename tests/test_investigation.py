@@ -212,3 +212,78 @@ def test_the_artifact_serialises_with_its_required_fields(repo: Path, tmp_path: 
 def test_without_the_flag_code_review_is_unchanged() -> None:
     options = VerifyChangeOptions()
     assert options.investigator is False and options.investigation_out is None and options.code_review is False
+
+
+# ----------------------------------------------------------------------------- allocation experiment
+
+READ = {"tool": "read_source", "args": {"path": "app/stream.py", "start_line": 1, "end_line": 6}, "why": "SECRET-INVESTIGATOR-REASON"}
+UNKNOWN = {"status": "UNKNOWN", "missing": ["m"]}
+
+
+def _per_hypothesis(artifact: dict) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for record in artifact["lookups"]:
+        counts[record["hypothesis"]] = counts.get(record["hypothesis"], 0) + 1
+    return counts
+
+
+def test_two_round_gives_every_hypothesis_two_lookups_before_any_gets_more(repo: Path) -> None:
+    client = Scripted({"hypotheses": [hypothesis(n) for n in range(5)]}, investigator=[READ] * 40,
+                      verifier=[UNKNOWN] * 10)
+    _, artifact, _ = run(repo, client, allocation="two_round")
+    assert _per_hypothesis(artifact) == {"H1": 4, "H2": 2, "H3": 2, "H4": 2, "H5": 2}
+    assert artifact["budget"]["used_lookups"] == 12 and artifact["budget"]["allocation"] == "two_round"
+    h1 = next(o for o in artifact["outcomes"] if o["hypothesis"] == "H1")
+    assert [r["round"] for r in h1["rounds"]] == [1, 2] and h1["rounds"][1]["verified_again"]
+    assert h1["rounds"][1]["new_nonempty_lookups"] == ["L11", "L12"]
+    assert not any("SECRET-INVESTIGATOR-REASON" in p for p in client.prompts if p.startswith("{"))
+
+
+def test_two_round_skips_decided_hypotheses_and_caps_each_at_six(repo: Path) -> None:
+    client = Scripted({"hypotheses": [hypothesis(1), hypothesis(2)]}, investigator=[READ] * 40,
+                      verifier=[CONFIRM, UNKNOWN, UNKNOWN])
+    _, artifact, _ = run(repo, client, allocation="two_round")
+    assert _per_hypothesis(artifact) == {"H1": 2, "H2": 6}
+    assert [len(o["rounds"]) for o in artifact["outcomes"]] == [1, 2]
+    assert sum(1 for p in client.prompts if p.startswith("{")) == 3  # verifier prompts: H1, H2, H2 again
+
+
+def test_two_round_does_not_redraw_a_verdict_without_new_lookups(repo: Path) -> None:
+    final = {"final": {"summary": "nothing more to look up"}}
+    client = Scripted({"hypotheses": [hypothesis(1)]}, investigator=[READ, READ, final], verifier=[UNKNOWN, CONFIRM])
+    _, artifact, _ = run(repo, client, allocation="two_round")
+    outcome = artifact["outcomes"][0]
+    assert outcome["status"] == "UNKNOWN" and outcome["rounds"][1] == {
+        "round": 2, "lookups": [], "verified_again": False, "new_nonempty_lookups": [], "status": "UNKNOWN",
+        "status_changed": False, "missing": []}
+
+
+def test_sequential_is_the_default_and_leaves_the_artifact_unchanged(repo: Path) -> None:
+    client = Scripted({"hypotheses": [hypothesis(1)]}, investigator=[READ] * 8, verifier=[UNKNOWN])
+    _, artifact, _ = run(repo, client)
+    assert _per_hypothesis(artifact) == {"H1": 4}
+    assert "allocation" not in artifact["budget"] and "rounds" not in artifact["outcomes"][0] and "replay" not in artifact
+
+
+def test_snapshot_and_replay_investigate_the_same_hypotheses_without_the_finder(repo: Path, tmp_path: Path) -> None:
+    snapshot_path = tmp_path / "x.snapshot.json"
+    ctx = context(reference_comments=[{"text": "AACR-REFERENCE-SENTINEL"}])
+    first = Scripted({"hypotheses": [hypothesis(1), hypothesis(2)]}, verifier=[CONFIRM, UNKNOWN])
+    run(repo, first, ctx=ctx, snapshot_out=snapshot_path)
+    text = snapshot_path.read_text()
+    snapshot = json.loads(text)
+    assert "SENTINEL" not in text and [h["id"] for h in snapshot["hypotheses"]] == ["H1", "H2"]
+    assert any(e["kind"] == "diff" and "writer.close()" in e["text"] for e in snapshot["packet"])
+
+    again = Scripted({"hypotheses": [hypothesis(9)]}, investigator=[READ] * 20, verifier=[CONFIRM, UNKNOWN, UNKNOWN])
+    findings, artifact, _ = inv.replay(snapshot, repo_root=repo, llm_client=again, tools=RepoTools(repo),
+                                       allocation="two_round")
+    assert again.queues["FINDER"] and [h["claim"] for h in artifact["hypotheses"]] == ["claim 1", "claim 2"]
+    assert artifact["replay"]["allocation"] == "two_round" and [f.line for f in findings] == [6]
+
+
+def test_a_finder_failure_in_the_snapshot_stays_an_error_of_the_replay(repo: Path) -> None:
+    snapshot = {"version": inv.SNAPSHOT_VERSION, "packet": [], "hypotheses": [], "changed_ranges": {},
+                "finder_errors": ["finder: Request timed out."]}
+    _, artifact, _ = inv.replay(snapshot, repo_root=repo, llm_client=Scripted({"hypotheses": []}), tools=RepoTools(repo))
+    assert artifact["errors"] == ["finder: Request timed out."]

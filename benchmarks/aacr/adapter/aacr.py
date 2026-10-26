@@ -9,6 +9,7 @@ Stages (run from the Sydes repository root):
     ... aacr.py review    --cases benchmarks/aacr/cases/dev-smoke-supported.json --run <run-id>
     ... aacr.py eval      --cases <same file> --run <run-id>
     ... aacr.py summarize --run <run-id>
+    ... aacr.py replay    --cases <file> --run <id> --source-run <snapshot run> --allocation two_round --sydes-ref <ref>
     ... aacr.py variance  --runs <id-1> <id-2> <id-3>
 
 Leakage rule: `review` reads only repository, PR number and commits from the
@@ -210,6 +211,84 @@ def review(cases_file: Path, run: str, only: list[str] | None = None, sydes_ref:
         tele = telemetry(case, base, base_info, status, elapsed, sydes)
         tele["invalid_reasons"] = invalid
         if art is not None:  # written by `--investigator`; summarised here, kept in full beside the result
+            tele["investigation"] = {"hypotheses": len(art.get("hypotheses") or []), "lookups": len(art.get("lookups") or []),
+                                     "confirmed": len(art.get("confirmed") or []), "refuted": len(art.get("refuted") or []),
+                                     "unknown": len(art.get("unknown") or []), "usage": art.get("usage")}
+        (out / "telemetry" / f"{sid}.json").write_text(json.dumps(tele, indent=2) + "\n")
+        print(f"  {status} in {elapsed:.0f}s, {len((sydes or {}).get('code_findings') or [])} finding(s)"
+              + (f" -- excluded: {'; '.join(invalid)}" if invalid else ""))
+
+
+def replay(cases_file: Path, run: str, source_run: str, allocation: str, sydes_ref: str,
+           only: list[str] | None = None) -> None:
+    """Allocation experiment: the Investigator -> Verifier again, under `allocation`, on the
+    packet + hypotheses snapshot a `review --sydes-arg=--investigator-snapshot` run wrote.
+    Same checkout, same model, same output layout, so `eval` and `summarize` run unchanged.
+    A case invalid in the source run is invalid here too."""
+    if not os.environ.get("OPENAI_API_KEY"):
+        raise SystemExit("OPENAI_API_KEY is required")
+    cases = json.loads(cases_file.read_text())["cases"]
+    source, out = RESULTS / source_run, RESULTS / run
+    for sub in ("sydes", "aacr", "telemetry", "logs"):
+        (out / sub).mkdir(parents=True, exist_ok=True)
+    s = dict(CONFIG["sydes"])
+    s["package"], s["git_commit"] = sydes_build(sydes_ref)
+    s["git_ref"] = sydes_ref
+    (out / "run.json").write_text(json.dumps({
+        "run": run, "cases_file": str(cases_file.resolve().relative_to(ROOT.parent.parent)), "sydes": s,
+        "replay": {"source_run": source_run, "allocation": allocation},
+        "aacr_commit": CONFIG["aacr"]["commit"], "boundary": "code_findings", "started_at": time.strftime("%FT%TZ", time.gmtime()),
+    }, indent=2) + "\n")
+    env = {k: v for k, v in os.environ.items() if k not in ("VIRTUAL_ENV", "PYTHONPATH", "UV_PROJECT_ENVIRONMENT")}
+    for case in cases:
+        if only and case["case_id"] not in only:
+            continue
+        sid = safe_id(case["instance_id"])
+        if (out / "aacr" / f"{sid}.json").exists():
+            print(f"skip {case['case_id']} (done)")
+            continue
+        (out / "invalid" / f"{sid}.json").unlink(missing_ok=True)
+        snapshot = source / "sydes" / f"{sid}.snapshot.json"
+        source_tele = source / "telemetry" / f"{sid}.json"
+        source_invalid = (json.loads(source_tele.read_text()).get("invalid_reasons") or []) if source_tele.exists() else ["no source telemetry"]
+        if not snapshot.exists():
+            source_invalid = [*source_invalid, "no snapshot in the source run"]
+        path = repo_checkout(case)
+        base, base_info = review_base(path, case["base_commit"], case["head_commit"])
+        result_json = out / "sydes" / f"{sid}.json"
+        print(f"replay {case['case_id']} ({allocation}) ...", flush=True)
+        started, log, sydes, art = time.monotonic(), "", None, None
+        if snapshot.exists():
+            clean(path)
+            sh("git", "-c", "advice.detachedHead=false", "checkout", "-q", "--force", "--detach", case["head_commit"], cwd=path)
+            command = ["uv", "run", "--no-project", "--quiet", "--with", s["package"], "python", "-m",
+                       "sydes.verify.investigation_replay", "--snapshot", str(snapshot.resolve()), "--allocation", allocation,
+                       "--model", s["model"], "--json", str(result_json.resolve())]
+            try:
+                proc = subprocess.run(command, cwd=path, env=env, text=True, capture_output=True, check=False, timeout=s["timeout_minutes"] * 60)
+                status = "completed" if proc.returncode == 0 and result_json.exists() else f"failed(exit {proc.returncode})"
+                log = proc.stdout + "\n--- stderr ---\n" + proc.stderr
+            except subprocess.TimeoutExpired as exc:
+                status, log = "failed(timeout)", f"{exc.stdout or ''}\n--- stderr ---\n{exc.stderr or ''}"
+            clean(path)
+            sydes = json.loads(result_json.read_text()) if result_json.exists() else None
+            sidecar = result_json.with_name(result_json.stem + ".investigation.json")
+            art = json.loads(sidecar.read_text()) if sidecar.exists() else None
+        else:
+            status = "failed(no snapshot)"
+        elapsed = time.monotonic() - started
+        (out / "logs" / f"{sid}.log").write_text(log if isinstance(log, str) else str(log))
+        invalid = [*(f"source run: {r}" for r in source_invalid), *provider_errors(sydes, art)]
+        if invalid:
+            status = "INVALID(provider errors)"
+        target = out / ("invalid" if invalid else "aacr")
+        target.mkdir(parents=True, exist_ok=True)
+        (target / f"{sid}.json").write_text(json.dumps(
+            to_aacr_result(case["instance_id"], sydes, duration_seconds=elapsed, status=status), indent=2) + "\n")
+        tele = telemetry(case, base, base_info, status, elapsed, sydes)
+        tele["invalid_reasons"] = invalid
+        tele["replay"] = {"source_run": source_run, "allocation": allocation}
+        if art is not None:
             tele["investigation"] = {"hypotheses": len(art.get("hypotheses") or []), "lookups": len(art.get("lookups") or []),
                                      "confirmed": len(art.get("confirmed") or []), "refuted": len(art.get("refuted") or []),
                                      "unknown": len(art.get("unknown") or []), "usage": art.get("usage")}
@@ -436,6 +515,13 @@ def main() -> None:
             p.add_argument("--sydes-arg", action="append", default=[], help="extra verify-change argument (repeatable)")
         else:
             p.add_argument("--rounds", type=int, default=CONFIG["aacr"]["eval_rounds"])
+    r = sub.add_parser("replay", help="allocation experiment: re-investigate a snapshot run's hypotheses")
+    r.add_argument("--cases", type=Path, required=True)
+    r.add_argument("--run", required=True)
+    r.add_argument("--source-run", required=True, help="a review run made with --sydes-arg=--investigator-snapshot")
+    r.add_argument("--allocation", choices=["sequential", "two_round"], required=True)
+    r.add_argument("--sydes-ref", required=True)
+    r.add_argument("--only", nargs="*")
     v = sub.add_parser("validate")
     v.add_argument("--cases", type=Path, required=True)
     v.add_argument("--run")
@@ -446,6 +532,8 @@ def main() -> None:
         prepare()
     elif args.stage == "review":
         review(args.cases, args.run, args.only, args.sydes_ref, args.sydes_arg)
+    elif args.stage == "replay":
+        replay(args.cases, args.run, args.source_run, args.allocation, args.sydes_ref, args.only)
     elif args.stage == "eval":
         evaluate(args.cases, args.run, args.rounds)
     elif args.stage == "validate":

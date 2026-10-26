@@ -121,6 +121,16 @@ def verify_change_command(
             ),
         ),
     ] = False,
+    investigator_allocation: Annotated[
+        Literal["sequential", "two_round"],
+        typer.Option("--investigator-allocation", hidden=True,
+                     help="Experiment only: the Investigator's lookup allocation."),
+    ] = "sequential",
+    investigator_snapshot: Annotated[
+        bool,
+        typer.Option("--investigator-snapshot", hidden=True,
+                     help="Experiment only: with --json, also write <name>.snapshot.json for replay."),
+    ] = False,
     llm_policy: Annotated[
         Literal["auto", "never"],
         typer.Option(
@@ -463,6 +473,9 @@ def verify_change_command(
         investigator=investigator,
         investigation_out=(json_output.with_name(json_output.stem + ".investigation.json")
                            if investigator and json_output is not None else None),
+        investigator_allocation=investigator_allocation,
+        investigation_snapshot_out=(json_output.with_name(json_output.stem + ".snapshot.json")
+                                    if investigator and investigator_snapshot and json_output is not None else None),
         llm_policy=llm_policy,
         model_spec=model,
         run_tests=not no_run_tests,

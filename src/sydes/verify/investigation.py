@@ -49,6 +49,15 @@ VERSION = "sydes-investigation/1"
 MAX_HYPOTHESES = 5
 MAX_LOOKUPS = 12
 MAX_LOOKUPS_PER_HYPOTHESIS = 4
+#: Lookup allocation (experiment, `benchmarks/aacr/evaluations/investigator-lookup-allocation-design.md`).
+#: `sequential`: Finder order, up to MAX_LOOKUPS_PER_HYPOTHESIS each until the budget is spent.
+#: `two_round`: every hypothesis gets up to ROUND1_LOOKUPS, then a verdict; what is left goes to the
+#: still-UNKNOWN ones in Finder order, up to MAX_LOOKUPS_PER_HYPOTHESIS_TWO_ROUND in all, and a
+#: hypothesis is verified again only if it got new lookups. Same total budget either way.
+ALLOCATIONS = ("sequential", "two_round")
+ROUND1_LOOKUPS = 2
+MAX_LOOKUPS_PER_HYPOTHESIS_TWO_ROUND = 6
+SNAPSHOT_VERSION = "sydes-investigation-snapshot/1"
 DEFAULT_REASONING_EFFORT = "high"
 _ITEM_CHARS = 2_500
 _PACKET_CHARS = 60_000
@@ -331,18 +340,27 @@ def find(packet: list[Evidence], *, client: LLMClient, stats: Stats) -> list[dic
     return out
 
 
-def investigate_one(hypothesis: dict[str, Any], lookups: Lookups, *, client: LLMClient, stats: Stats) -> list[tuple[dict, str]]:
-    """Bounded lookups for one hypothesis; returns (record, observation) pairs."""
-    gathered: list[tuple[dict, str]] = []
+def _transcript_turn(record: dict[str, Any], observation: str) -> str:
+    return f"\n\nLOOKUP {record['id']} {record['tool']}({record['args']}) because: {record['why']}\nRESULT:\n{observation}"
+
+
+def investigate_one(hypothesis: dict[str, Any], lookups: Lookups, *, client: LLMClient, stats: Stats,
+                    quota: int = MAX_LOOKUPS_PER_HYPOTHESIS,
+                    gathered: list[tuple[dict, str]] | None = None) -> list[tuple[dict, str]]:
+    """Up to `quota` more bounded lookups for one hypothesis, resuming after `gathered` (its
+    earlier lookups, replayed into the same transcript); returns all (record, observation) pairs."""
+    gathered = list(gathered or [])
     transcript = json.dumps({k: hypothesis[k] for k in ("id", "claim", "file", "line", "questions_to_resolve")}, indent=1)
-    for _ in range(min(MAX_LOOKUPS_PER_HYPOTHESIS, lookups.left)):
+    for record, observation in gathered:
+        transcript += _transcript_turn(record, observation)
+    for _ in range(min(quota, lookups.left)):
         turn = _json(_call(client, stats, "investigator", system=INVESTIGATOR_SYSTEM,
                            prompt=f"Hypothesis:\n{transcript}\n\nLookups left in the run: {lookups.left}"))
         if "final" in turn or not turn.get("tool"):
             break
         observation, record = lookups.run(hypothesis["id"], str(turn["tool"]), turn.get("args") or {}, str(turn.get("why") or ""))
         gathered.append((record, observation))
-        transcript += f"\n\nLOOKUP {record['id']} {record['tool']}({record['args']}) because: {record['why']}\nRESULT:\n{observation}"
+        transcript += _transcript_turn(record, observation)
     return gathered
 
 
@@ -415,14 +433,84 @@ def check_confirmation(outcome: dict[str, Any], hypothesis: dict[str, Any], *, r
 # ----------------------------------------------------------------------------- run
 
 
-def run(*, context: dict[str, Any], result: Any, repo_root: Path, model_spec: str | None = None,
-        llm_client: LLMClient | None = None, tools: RepoTools | None = None,
-        max_lookups: int = MAX_LOOKUPS) -> tuple[list[CodeFinding], dict[str, Any], list[str]]:
-    """The whole protocol. Returns the findings (CONFIRMED only), the investigation
-    artifact and diagnostics notes."""
+def _error_outcome(exc: Exception) -> dict[str, Any]:
+    return {"status": STATUS_UNKNOWN, "supported_claim": "", "reasoning": "", "defect_evidence": [],
+            "changed_evidence": [], "causal_link": "", "refuting": [], "missing": [f"provider error: {exc}"],
+            "verified_defect_evidence": [], "verified_changed_evidence": []}
+
+
+def _empty_observation(observation: str) -> bool:
+    """A lookup that returned nothing to reason from (no match, no such item, an error)."""
+    text = observation.strip()
+    return not text or text.startswith(("ERROR", "(no ", "no "))
+
+
+def _investigate_sequential(hypotheses: list[dict[str, Any]], decide: Callable, lookups: Lookups, *,
+                            client: LLMClient, stats: Stats, errors: list[str]) -> list[dict[str, Any]]:
+    outcomes = []
+    for hypothesis in hypotheses:
+        try:
+            gathered = investigate_one(hypothesis, lookups, client=client, stats=stats) if lookups.left else []
+            outcome = decide(hypothesis, gathered)
+        except LLMClientError as exc:
+            errors.append(f"{hypothesis['id']}: {exc}")
+            gathered, outcome = [], _error_outcome(exc)
+        outcomes.append({"hypothesis": hypothesis["id"], "lookups": [r["id"] for r, _ in gathered], **outcome})
+    return outcomes
+
+
+def _investigate_two_round(hypotheses: list[dict[str, Any]], decide: Callable, lookups: Lookups, *,
+                           client: LLMClient, stats: Stats, errors: list[str]) -> list[dict[str, Any]]:
+    state = []  # per hypothesis: gathered lookups, current outcome, round records, provider failure
+    for hypothesis in hypotheses:
+        failed = False
+        try:
+            gathered = (investigate_one(hypothesis, lookups, client=client, stats=stats, quota=ROUND1_LOOKUPS)
+                        if lookups.left else [])
+            outcome = decide(hypothesis, gathered)
+        except LLMClientError as exc:
+            errors.append(f"{hypothesis['id']}: {exc}")
+            gathered, outcome, failed = [], _error_outcome(exc), True
+        rounds = [{"round": 1, "lookups": [r["id"] for r, _ in gathered], "status": outcome["status"],
+                   "missing": outcome["missing"]}]
+        state.append([hypothesis, gathered, outcome, rounds, failed])
+    for entry in state:
+        hypothesis, gathered, outcome, rounds, failed = entry
+        room = min(MAX_LOOKUPS_PER_HYPOTHESIS_TWO_ROUND - len(gathered), lookups.left)
+        if failed or outcome["status"] != STATUS_UNKNOWN or room <= 0:
+            continue
+        try:
+            more = investigate_one(hypothesis, lookups, client=client, stats=stats, quota=room, gathered=gathered)
+            new = more[len(gathered):]
+            # Same evidence would only redraw the verdict: re-verify only on new lookups.
+            if new:
+                outcome = decide(hypothesis, more)
+        except LLMClientError as exc:
+            errors.append(f"{hypothesis['id']} round 2: {exc}")
+            more, new, outcome = gathered, [], _error_outcome(exc)
+        rounds.append({"round": 2, "lookups": [r["id"] for r, _ in new], "verified_again": bool(new),
+                       "new_nonempty_lookups": [r["id"] for r, obs in new if not _empty_observation(obs)],
+                       "status": outcome["status"], "status_changed": outcome["status"] != rounds[0]["status"],
+                       "missing": outcome["missing"] if new else []})
+        entry[1], entry[2] = more, outcome
+    return [{"hypothesis": h["id"], "lookups": [r["id"] for r, _ in gathered], **outcome, "rounds": rounds}
+            for h, gathered, outcome, rounds, _ in state]
+
+
+def _client(model_spec: str | None, llm_client: LLMClient | None) -> LLMClient:
     effort = os.environ.get("SYDES_INVESTIGATOR_REASONING_EFFORT", DEFAULT_REASONING_EFFORT).strip() or None
-    client = llm_client or with_reasoning_effort(
+    return llm_client or with_reasoning_effort(
         create_default_llm_client(model_spec=model_spec, temperature=None, stage="investigator"), effort)
+
+
+def _investigate(*, packet: list[Evidence], hypotheses: list[dict[str, Any]] | None,
+                 ranges: dict[str, list[tuple[int, int]]], repo_root: Path, client: LLMClient,
+                 tools: RepoTools | None, max_lookups: int, allocation: str, errors: list[str],
+                 on_hypotheses: Callable[[list[dict[str, Any]], Stats], None] | None = None,
+                 ) -> tuple[list[CodeFinding], dict[str, Any], list[str]]:
+    """Finder (unless `hypotheses` are given) -> Investigator -> Verifier, and the artifact."""
+    if allocation not in ALLOCATIONS:
+        raise ValueError(f"unknown lookup allocation {allocation!r}; expected one of {ALLOCATIONS}")
     stats = Stats()
     graph = None
     if tools is None:
@@ -432,28 +520,25 @@ def run(*, context: dict[str, Any], result: Any, repo_root: Path, model_spec: st
         except Exception:  # noqa: BLE001 - the graph is optional; source reads still work
             graph = None
         tools = RepoTools(repo_root, graph=graph)
-    packet = build_packet(context, result)
     by_id = {e.id: e for e in packet}
     lookups = Lookups(tools, packet, max_lookups=max_lookups)
-    ranges = changed_ranges(context)
-    hypotheses, outcomes, errors = [], [], []
+
+    def decide(hypothesis: dict[str, Any], gathered: list[tuple[dict, str]]) -> dict[str, Any]:
+        return check_confirmation(verify(hypothesis, by_id, gathered, client=client, stats=stats), hypothesis,
+                                  repo_root=repo_root, ranges=ranges)
+
+    outcomes: list[dict[str, Any]] = []
     try:
-        try:
-            hypotheses = find(packet, client=client, stats=stats)
-        except LLMClientError as exc:
-            errors.append(f"finder: {exc}")
-        for hypothesis in hypotheses:
+        if hypotheses is None:
+            hypotheses = []
             try:
-                gathered = investigate_one(hypothesis, lookups, client=client, stats=stats) if lookups.left else []
-                outcome = check_confirmation(verify(hypothesis, by_id, gathered, client=client, stats=stats), hypothesis,
-                                             repo_root=repo_root, ranges=ranges)
+                hypotheses = find(packet, client=client, stats=stats)
             except LLMClientError as exc:
-                errors.append(f"{hypothesis['id']}: {exc}")
-                gathered, outcome = [], {"status": STATUS_UNKNOWN, "supported_claim": "", "reasoning": "",
-                                         "defect_evidence": [], "changed_evidence": [], "causal_link": "",
-                                         "refuting": [], "missing": [f"provider error: {exc}"],
-                                         "verified_defect_evidence": [], "verified_changed_evidence": []}
-            outcomes.append({"hypothesis": hypothesis["id"], "lookups": [r["id"] for r, _ in gathered], **outcome})
+                errors.append(f"finder: {exc}")
+            if on_hypotheses is not None:
+                on_hypotheses(hypotheses, stats)
+        investigate_all = _investigate_two_round if allocation == "two_round" else _investigate_sequential
+        outcomes = investigate_all(hypotheses, decide, lookups, client=client, stats=stats, errors=errors)
     finally:
         if graph is not None:
             graph.close()
@@ -474,6 +559,11 @@ def run(*, context: dict[str, Any], result: Any, repo_root: Path, model_spec: st
                       for q in quotes[:4]],
         ))
     findings.sort(key=lambda f: _SEVERITIES.index(f.severity))
+    budget = {"max_hypotheses": MAX_HYPOTHESES, "max_lookups": max_lookups, "used_lookups": len(lookups.records),
+              "max_lookups_per_hypothesis": MAX_LOOKUPS_PER_HYPOTHESIS}
+    if allocation != "sequential":  # the default artifact stays exactly as it was
+        budget.update(allocation=allocation, round1_lookups=ROUND1_LOOKUPS,
+                      max_lookups_per_hypothesis=MAX_LOOKUPS_PER_HYPOTHESIS_TWO_ROUND)
     artifact = {
         "version": VERSION,
         "packet": [{"id": e.id, "kind": e.kind, "ref": e.ref, "chars": len(e.text)} for e in packet],
@@ -484,8 +574,7 @@ def run(*, context: dict[str, Any], result: Any, repo_root: Path, model_spec: st
         "refuted": [o["hypothesis"] for o in outcomes if o["status"] == STATUS_REFUTED],
         "unknown": [o["hypothesis"] for o in outcomes if o["status"] == STATUS_UNKNOWN],
         "findings": [f.id for f in findings],
-        "budget": {"max_hypotheses": MAX_HYPOTHESES, "max_lookups": max_lookups, "used_lookups": len(lookups.records),
-                   "max_lookups_per_hypothesis": MAX_LOOKUPS_PER_HYPOTHESIS},
+        "budget": budget,
         "usage": {"llm_calls": stats.llm_calls, "by_stage": stats.by_stage, "prompt_tokens": stats.prompt_tokens,
                   "completion_tokens": stats.completion_tokens, "reasoning_tokens": stats.reasoning_tokens,
                   "llm_seconds": round(stats.seconds, 1)},
@@ -494,4 +583,48 @@ def run(*, context: dict[str, Any], result: Any, repo_root: Path, model_spec: st
     notes = [(f"investigator: hypotheses={len(hypotheses)} lookups={len(lookups.records)}/{max_lookups} "
               f"confirmed={len(artifact['confirmed'])} refuted={len(artifact['refuted'])} unknown={len(artifact['unknown'])} "
               f"findings={len(findings)} llm_calls={stats.llm_calls} errors={len(errors)}")]
+    return findings, artifact, notes
+
+
+def run(*, context: dict[str, Any], result: Any, repo_root: Path, model_spec: str | None = None,
+        llm_client: LLMClient | None = None, tools: RepoTools | None = None,
+        max_lookups: int = MAX_LOOKUPS, allocation: str = "sequential",
+        snapshot_out: Path | None = None) -> tuple[list[CodeFinding], dict[str, Any], list[str]]:
+    """The whole protocol. Returns the findings (CONFIRMED only), the investigation
+    artifact and diagnostics notes. With `snapshot_out`, the full packet and the Finder's
+    hypotheses are written there, so `replay` can investigate the same hypotheses again."""
+    packet = build_packet(context, result)
+    ranges = changed_ranges(context)
+    errors: list[str] = []
+
+    def write_snapshot(hypotheses: list[dict[str, Any]], stats: Stats) -> None:
+        if snapshot_out is None:
+            return
+        snapshot_out.write_text(json.dumps({
+            "version": SNAPSHOT_VERSION, "packet": [e.to_dict() for e in packet], "hypotheses": hypotheses,
+            "changed_ranges": ranges, "finder_errors": list(errors),
+            "finder_usage": {"llm_calls": stats.llm_calls, "prompt_tokens": stats.prompt_tokens,
+                             "completion_tokens": stats.completion_tokens, "reasoning_tokens": stats.reasoning_tokens},
+        }, indent=2) + "\n", encoding="utf-8")
+
+    return _investigate(packet=packet, hypotheses=None, ranges=ranges, repo_root=repo_root,
+                        client=_client(model_spec, llm_client), tools=tools, max_lookups=max_lookups,
+                        allocation=allocation, errors=errors, on_hypotheses=write_snapshot)
+
+
+def replay(snapshot: dict[str, Any], *, repo_root: Path, model_spec: str | None = None,
+           llm_client: LLMClient | None = None, tools: RepoTools | None = None,
+           max_lookups: int = MAX_LOOKUPS, allocation: str = "sequential",
+           ) -> tuple[list[CodeFinding], dict[str, Any], list[str]]:
+    """Investigator -> Verifier again on a snapshot's packet and hypotheses; the Finder does
+    not run. A Finder failure recorded in the snapshot stays an error of the replay."""
+    if snapshot.get("version") != SNAPSHOT_VERSION:
+        raise ValueError(f"not a {SNAPSHOT_VERSION} snapshot")
+    packet = [Evidence(e["id"], e["kind"], e["ref"], e["text"]) for e in snapshot["packet"]]
+    ranges = {path: [(int(a), int(b)) for a, b in pairs] for path, pairs in (snapshot.get("changed_ranges") or {}).items()}
+    findings, artifact, notes = _investigate(
+        packet=packet, hypotheses=list(snapshot.get("hypotheses") or []), ranges=ranges, repo_root=repo_root,
+        client=_client(model_spec, llm_client), tools=tools, max_lookups=max_lookups, allocation=allocation,
+        errors=list(snapshot.get("finder_errors") or []))
+    artifact["replay"] = {"snapshot_version": SNAPSHOT_VERSION, "allocation": allocation}
     return findings, artifact, notes
