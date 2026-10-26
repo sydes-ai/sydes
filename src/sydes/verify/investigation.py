@@ -5,16 +5,17 @@ A prototype of a review protocol, opt-in behind `--investigator`:
     existing Sydes evidence (packet) -> Finder: <= MAX_HYPOTHESES falsifiable hypotheses
       -> Investigator: bounded, recorded lookups (<= MAX_LOOKUPS per PR)
       -> Verifier: an independent pass per hypothesis -> CONFIRMED | REFUTED | UNKNOWN
-      -> only CONFIRMED, source-verified, change-anchored claims become Code Review findings
+      -> only CONFIRMED claims, source-verified and causally tied to the change, become findings
 
 The packet is what Sydes already established for the change -- diff, changed symbols,
 structural relations, route flows, mapped and executed tests, runtime evidence, open
 gaps, the change analysis -- each item carrying its provenance. Nothing is recomputed.
 
-Claim discipline: a CONFIRMED status must cite source text that `verify_citation`
-finds in the repository near the cited line, and the verifier states the claim at the
-scope its evidence supports (`supported_claim`); that narrower claim, not the finder's,
-is what a finding says. Anything else is UNKNOWN, never a warning.
+Claim discipline: a CONFIRMED status needs (1) defect evidence -- source text
+`verify_citation` finds in the repository, on any line of any file -- and (2) the change's
+own part in it -- verified quotes of the changed lines plus a stated causal link -- with
+the claim stated at the scope its evidence supports (`supported_claim`); that narrower
+claim, not the finder's, is what a finding says. Anything else is UNKNOWN, never a warning.
 
 Every hypothesis keeps its trace -- why it was proposed, what was looked up and why,
 what decided it -- in a language-neutral artifact (`investigation.json`). No bug
@@ -48,7 +49,6 @@ VERSION = "sydes-investigation/1"
 MAX_HYPOTHESES = 5
 MAX_LOOKUPS = 12
 MAX_LOOKUPS_PER_HYPOTHESIS = 4
-ANCHOR_SLACK_LINES = 5
 DEFAULT_REASONING_EFFORT = "high"
 _ITEM_CHARS = 2_500
 _PACKET_CHARS = 60_000
@@ -195,18 +195,23 @@ INVESTIGATOR_SYSTEM = (
 
 VERIFIER_SYSTEM = (
     "You are the VERIFIER. You did not propose this hypothesis and have no stake in it. Using ONLY "
-    "the evidence given (packet items and lookup results), look explicitly for: evidence that "
-    "confirms it, evidence that refutes it, and facts whose absence prevents a conclusion. Then "
-    "give exactly one status:\n"
-    "- CONFIRMED: the failure follows from the evidence; cite the source text that shows it;\n"
-    "- REFUTED: the evidence shows it cannot happen or misreads the code; say which evidence;\n"
+    "the evidence given (the change, packet items and lookup results), look explicitly for: evidence "
+    "that confirms it, evidence that refutes it, and facts whose absence prevents a conclusion. A "
+    "defect may manifest anywhere -- on an unchanged line or in an unchanged file -- but it counts "
+    "only if THIS change causes it: confirm only when you can establish both (1) the defect from "
+    "evidence and (2) why the changed code introduces, exposes or materially changes that behavior. "
+    "A pre-existing defect the change does not affect is not confirmed. Give exactly one status:\n"
+    "- CONFIRMED: both hold; quote the defect evidence, quote the changed code that causes it "
+    "(lines inside the change), and state the causal link;\n"
+    "- REFUTED: the evidence shows it cannot happen, misreads the code, or the change does not affect it; say which evidence;\n"
     "- UNKNOWN: the evidence decides neither way; say precisely what could not be established.\n"
     "Do not confirm on plausibility. State `supported_claim` no broader than its evidence: if the "
     "evidence covers one path, the claim is about that path, not all paths.\n"
     'Reply with exactly one JSON object: {"status": "CONFIRMED|REFUTED|UNKNOWN", '
-    '"supported_claim": "...", "reasoning": "...", "confirming": [{"source": "E3 or L2", "file": '
-    '"path", "line": int, "quote": "verbatim code"}], "refuting": [{"source": "...", "explanation": '
-    '"..."}], "missing": ["..."]}'
+    '"supported_claim": "...", "reasoning": "...", "defect_evidence": [{"source": "E3 or L2", "file": '
+    '"path", "line": int, "quote": "verbatim code"}], "changed_evidence": [{"source": "...", "file": '
+    '"path", "line": int, "quote": "verbatim changed code"}], "causal_link": "...", "refuting": '
+    '[{"source": "...", "explanation": "..."}], "missing": ["..."]}'
 )
 
 
@@ -345,8 +350,11 @@ def verify(hypothesis: dict[str, Any], packet: dict[str, Evidence], gathered: li
            client: LLMClient, stats: Stats) -> dict[str, Any]:
     """Independent: sees the claim, the cited packet items and the raw lookup results --
     not the investigator's reasons or summary."""
+    diff_items = [e for e in packet.values() if e.kind == "diff"]
     shown = {"hypothesis": {k: hypothesis[k] for k in ("claim", "file", "line", "questions_to_resolve")},
-             "packet_evidence": [packet[i].to_dict() for i in hypothesis["initial_evidence"] if i in packet],
+             "change": {"diffs": {e.ref: e.text for e in diff_items}},
+             "packet_evidence": [packet[i].to_dict() for i in hypothesis["initial_evidence"]
+                                 if i in packet and packet[i].kind != "diff"],
              "lookup_results": [{"id": r["id"], "tool": r["tool"], "args": r["args"], "provenance": r["provenance"],
                                  "result": obs} for r, obs in gathered]}
     raw = _json(_call(client, stats, "verifier", system=VERIFIER_SYSTEM, prompt=json.dumps(shown, indent=1)))
@@ -354,36 +362,54 @@ def verify(hypothesis: dict[str, Any], packet: dict[str, Evidence], gathered: li
     return {"status": status if status in (STATUS_CONFIRMED, STATUS_REFUTED, STATUS_UNKNOWN) else STATUS_UNKNOWN,
             "supported_claim": str(raw.get("supported_claim") or "").strip(),
             "reasoning": str(raw.get("reasoning") or "").strip(),
-            "confirming": [c for c in raw.get("confirming") or [] if isinstance(c, dict)],
+            # `confirming` is accepted as an older name for the defect evidence
+            "defect_evidence": [c for c in raw.get("defect_evidence") or raw.get("confirming") or [] if isinstance(c, dict)],
+            "changed_evidence": [c for c in raw.get("changed_evidence") or [] if isinstance(c, dict)],
+            "causal_link": str(raw.get("causal_link") or "").strip(),
             "refuting": [c for c in raw.get("refuting") or [] if isinstance(c, dict)],
             "missing": [str(m) for m in raw.get("missing") or []]}
 
 
-def check_confirmation(outcome: dict[str, Any], hypothesis: dict[str, Any], *, repo_root: Path,
-                       ranges: dict[str, list[tuple[int, int]]]) -> dict[str, Any]:
-    """Claim discipline: CONFIRMED stands only with source text verified in the repository,
-    a stated supported claim, and an anchor on the change. Otherwise it is UNKNOWN."""
-    if outcome["status"] != STATUS_CONFIRMED:
-        return {**outcome, "verified_quotes": []}
-    verified = []
-    for item in outcome["confirming"]:
-        ok, reason = verify_citation(file=str(item.get("file") or ""), line=item.get("line") if isinstance(item.get("line"), int) else 0,
+def _verified_quotes(items: list[dict[str, Any]], repo_root: Path) -> list[dict[str, Any]]:
+    out = []
+    for item in items:
+        line = item.get("line") if isinstance(item.get("line"), int) else 0
+        ok, reason = verify_citation(file=str(item.get("file") or ""), line=line,
                                      citation_text=str(item.get("quote") or ""), repo_root=repo_root)
         if ok:
-            verified.append({**item, "verification": reason})
+            out.append({**item, "verification": reason})
+    return out
+
+
+def _on_change(item: dict[str, Any], ranges: dict[str, list[tuple[int, int]]]) -> bool:
+    line = item.get("line")
+    return isinstance(line, int) and any(low - 1 <= line <= high + 1 for low, high in ranges.get(str(item.get("file")), []))
+
+
+def check_confirmation(outcome: dict[str, Any], hypothesis: dict[str, Any], *, repo_root: Path,
+                       ranges: dict[str, list[tuple[int, int]]]) -> dict[str, Any]:
+    """Claim discipline. CONFIRMED stands only when the defect is shown by source text
+    verified in the repository (anywhere: changed or unchanged lines, any file), the PR is
+    tied to it by verified quotes of the change itself, a causal link is stated, and the
+    claim is stated at the scope of its evidence. Otherwise it is UNKNOWN."""
+    defect = _verified_quotes(outcome["defect_evidence"], repo_root)
+    changed = [q for q in _verified_quotes(outcome["changed_evidence"], repo_root) if _on_change(q, ranges)]
+    if outcome["status"] != STATUS_CONFIRMED:
+        return {**outcome, "verified_defect_evidence": defect, "verified_changed_evidence": changed}
     problems = []
-    if not verified:
-        problems.append("no cited source text could be verified in the repository")
+    if not defect:
+        problems.append("no defect evidence could be verified in the repository")
+    if not changed:
+        problems.append("no verified quote of the changed code ties the defect to this change")
+    if not outcome["causal_link"]:
+        problems.append("no causal link from the change to the defect was stated")
     if not outcome["supported_claim"]:
         problems.append("no supported_claim was stated")
-    file_ranges = ranges.get(hypothesis["file"], [])
-    line = hypothesis["line"]
-    if not (line and any(low - ANCHOR_SLACK_LINES <= line <= high + ANCHOR_SLACK_LINES for low, high in file_ranges)):
-        problems.append(f"not anchored on the change ({hypothesis['file']}:{line})")
+    result = {**outcome, "verified_defect_evidence": defect, "verified_changed_evidence": changed}
     if problems:
-        return {**outcome, "status": STATUS_UNKNOWN, "verified_quotes": verified,
+        return {**result, "status": STATUS_UNKNOWN,
                 "missing": outcome["missing"] + [f"downgraded from CONFIRMED: {p}" for p in problems]}
-    return {**outcome, "verified_quotes": verified}
+    return result
 
 
 # ----------------------------------------------------------------------------- run
@@ -424,8 +450,9 @@ def run(*, context: dict[str, Any], result: Any, repo_root: Path, model_spec: st
             except LLMClientError as exc:
                 errors.append(f"{hypothesis['id']}: {exc}")
                 gathered, outcome = [], {"status": STATUS_UNKNOWN, "supported_claim": "", "reasoning": "",
-                                         "confirming": [], "refuting": [], "missing": [f"provider error: {exc}"],
-                                         "verified_quotes": []}
+                                         "defect_evidence": [], "changed_evidence": [], "causal_link": "",
+                                         "refuting": [], "missing": [f"provider error: {exc}"],
+                                         "verified_defect_evidence": [], "verified_changed_evidence": []}
             outcomes.append({"hypothesis": hypothesis["id"], "lookups": [r["id"] for r, _ in gathered], **outcome})
     finally:
         if graph is not None:
@@ -435,11 +462,14 @@ def run(*, context: dict[str, Any], result: Any, repo_root: Path, model_spec: st
     for hypothesis, outcome in zip(hypotheses, outcomes):
         if outcome["status"] != STATUS_CONFIRMED:
             continue
-        quotes = outcome["verified_quotes"]
+        quotes = outcome["verified_defect_evidence"][:3] + outcome["verified_changed_evidence"][:1]
+        anchor = outcome["verified_defect_evidence"][0]
         findings.append(CodeFinding(
             id=f"investigator-{hypothesis['id']}", severity=hypothesis["severity"],
-            title=outcome["supported_claim"][:200], file=hypothesis["file"], line=hypothesis["line"],
-            explanation=outcome["reasoning"] or None, impact=hypothesis["why_suspected"] or None, source="investigator",
+            title=outcome["supported_claim"][:200], file=hypothesis["file"] or str(anchor.get("file")),
+            line=hypothesis["line"] or anchor.get("line"),
+            explanation=outcome["reasoning"] or None, impact=f"Caused by the change: {outcome['causal_link']}",
+            source="investigator",
             evidence=[EvidenceRef(file=str(q.get("file")), label=f"verified_quote:{q.get('line')}", snippet=str(q.get("quote"))[:300])
                       for q in quotes[:4]],
         ))

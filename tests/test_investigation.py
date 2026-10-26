@@ -40,10 +40,24 @@ diff --git a/app/stream.py b/app/stream.py
 """
 
 
+CONSUMER = """\
+def consume(gen):
+    for item in gen:
+        return item
+"""
+HELPER = """\
+
+
+def helper():
+    return compute_total(1)
+"""
+
+
 @pytest.fixture
 def repo(tmp_path: Path) -> Path:
     (tmp_path / "app").mkdir()
-    (tmp_path / "app" / "stream.py").write_text(SOURCE)
+    (tmp_path / "app" / "stream.py").write_text(SOURCE + HELPER)  # lines 2-6 changed, 1 and 7+ unchanged
+    (tmp_path / "app" / "consumer.py").write_text(CONSUMER)      # unchanged file
     return tmp_path
 
 
@@ -80,8 +94,9 @@ def hypothesis(n: int, line: int = 6) -> dict:
 
 REAL = {"source": "L1", "file": "app/stream.py", "line": 6, "quote": "writer.close()"}
 INVENTED = {"source": "L1", "file": "app/stream.py", "line": 6, "quote": "writer.flush_and_release(force=True)"}
+CHANGED = {"source": "E1", "file": "app/stream.py", "line": 3, "quote": "for chunk in source:"}
 CONFIRM = {"status": "CONFIRMED", "supported_claim": "the writer closes only on exhaustion", "reasoning": "r",
-           "confirming": [REAL]}
+           "defect_evidence": [REAL], "changed_evidence": [CHANGED], "causal_link": "the change moved close into finally"}
 
 
 def run(repo: Path, client: Scripted, **kwargs):
@@ -111,20 +126,54 @@ def test_lookups_are_capped_per_pr_and_recorded_with_reason_and_provenance(repo:
 
 
 def test_only_a_confirmed_source_verified_anchored_claim_becomes_a_finding(repo: Path) -> None:
-    client = Scripted({"hypotheses": [hypothesis(1), hypothesis(2), hypothesis(3), hypothesis(4, line=40)]},
+    client = Scripted({"hypotheses": [hypothesis(1), hypothesis(2), hypothesis(3)]},
                       verifier=[CONFIRM,
                                 {"status": "REFUTED", "reasoning": "callers exhaust it", "refuting": [{"source": "E1"}]},
-                                {"status": "CONFIRMED", "supported_claim": "s", "confirming": [INVENTED]},
-                                CONFIRM])
+                                {**CONFIRM, "defect_evidence": [INVENTED]}])
     findings, artifact, notes = run(repo, client)
     assert [(f.file, f.line, f.title, f.source) for f in findings] == [
         ("app/stream.py", 6, "the writer closes only on exhaustion", "investigator")]
-    assert artifact["confirmed"] == ["H1"] and artifact["refuted"] == ["H2"] and artifact["unknown"] == ["H3", "H4"]
+    assert artifact["confirmed"] == ["H1"] and artifact["refuted"] == ["H2"] and artifact["unknown"] == ["H3"]
     by_id = {o["hypothesis"]: o for o in artifact["outcomes"]}
-    assert any("no cited source text could be verified" in m for m in by_id["H3"]["missing"])
-    assert any("not anchored on the change" in m for m in by_id["H4"]["missing"])
-    assert by_id["H1"]["verified_quotes"][0]["quote"] == "writer.close()"
-    assert "confirmed=1 refuted=1 unknown=2 findings=1" in notes[0]
+    assert any("no defect evidence could be verified" in m for m in by_id["H3"]["missing"])
+    assert by_id["H1"]["verified_defect_evidence"][0]["quote"] == "writer.close()"
+    assert by_id["H1"]["causal_link"] == "the change moved close into finally"
+    assert "confirmed=1 refuted=1 unknown=1 findings=1" in notes[0]
+
+
+def _single(repo: Path, verdict: dict, *, file: str = "app/stream.py", line: int = 6):
+    client = Scripted({"hypotheses": [{**hypothesis(1), "file": file, "line": line}]}, verifier=[verdict])
+    return run(repo, client)
+
+
+def test_a_defect_on_a_changed_line_is_confirmed(repo: Path) -> None:
+    findings, artifact, _ = _single(repo, CONFIRM)
+    assert artifact["confirmed"] == ["H1"] and [(f.file, f.line) for f in findings] == [("app/stream.py", 6)]
+
+
+def test_a_defect_on_an_unchanged_adjacent_line_caused_by_changed_code_is_confirmed(repo: Path) -> None:
+    unchanged = {"source": "L1", "file": "app/stream.py", "line": 1, "quote": "def stream(writer, source):"}
+    findings, artifact, _ = _single(repo, {**CONFIRM, "defect_evidence": [unchanged]}, line=1)
+    assert artifact["confirmed"] == ["H1"] and [(f.file, f.line) for f in findings] == [("app/stream.py", 1)]
+
+
+def test_a_defect_in_an_unchanged_consumer_file_caused_by_the_change_is_confirmed(repo: Path) -> None:
+    consumer = {"source": "L2", "file": "app/consumer.py", "line": 3, "quote": "return item"}
+    findings, artifact, _ = _single(repo, {**CONFIRM, "defect_evidence": [consumer]}, file="app/consumer.py", line=3)
+    assert artifact["confirmed"] == ["H1"] and [(f.file, f.line) for f in findings] == [("app/consumer.py", 3)]
+    assert findings[0].impact == "Caused by the change: the change moved close into finally"
+
+
+@pytest.mark.parametrize("tie", [
+    {"changed_evidence": []},  # nothing from the change
+    {"changed_evidence": [{"source": "L3", "file": "app/stream.py", "line": 10, "quote": "return compute_total(1)"}]},
+    {"causal_link": ""},       # change quoted, but no causal link stated
+])
+def test_an_unrelated_pre_existing_defect_in_unchanged_code_is_not_confirmed(repo: Path, tie: dict) -> None:
+    consumer = {"source": "L2", "file": "app/consumer.py", "line": 3, "quote": "return item"}
+    findings, artifact, _ = _single(repo, {**CONFIRM, "defect_evidence": [consumer], **tie}, file="app/consumer.py", line=3)
+    assert findings == [] and artifact["unknown"] == ["H1"]
+    assert any(m.startswith("downgraded from CONFIRMED") for m in artifact["outcomes"][0]["missing"])
 
 
 def test_unknown_is_never_turned_into_a_finding(repo: Path) -> None:
