@@ -114,7 +114,7 @@ def test_a_confirmed_candidate_with_a_real_quote_becomes_a_finding(repo: Path) -
 
 def test_candidates_without_a_real_quote_or_off_the_changed_lines_never_reach_the_verifier(repo: Path) -> None:
     client = Scripted(
-        finder=[{"final": {"candidates": [candidate("Invented evidence", 6, [INVENTED]),
+        finder=[{"tool": "read_file", "args": {"path": "app/stream.py"}}, {"final": {"candidates": [candidate("Invented evidence", 6, [INVENTED]),
                                           candidate("Unchanged code", 11, [{"file": "app/stream.py", "line": 11,
                                                                             "quote": "async for item in inner:"}])]}}],
         verifier=[],
@@ -131,7 +131,8 @@ def test_candidates_without_a_real_quote_or_off_the_changed_lines_never_reach_th
     {"verdict": "confirmed", "reason": "trust me", "evidence": [INVENTED]},  # confirmed without a real quote
 ])
 def test_only_a_quote_backed_confirmation_counts(repo: Path, verdict: dict) -> None:
-    client = Scripted(finder=[{"final": {"candidates": [candidate("Leak", 6, [REAL])]}}], verifier=[{"final": verdict}])
+    client = Scripted(finder=[{"tool": "read_file", "args": {"path": "app/stream.py"}}, {"final": {"candidates": [candidate("Leak", 6, [REAL])]}}],
+                      verifier=[{"final": verdict}])
     findings, notes = run(repo, client)
     assert findings == []
     assert any("investigator_verdict(" in n for n in notes)
@@ -155,3 +156,30 @@ def test_units_skip_test_and_deleted_files() -> None:
 
 def test_the_default_code_review_mode_is_the_single_pass() -> None:
     assert VerifyChangeOptions().code_review_mode == "single"
+
+
+def test_a_finder_that_concludes_without_investigating_is_asked_once_more(repo: Path) -> None:
+    client = Scripted(
+        finder=[{"final": {"candidates": []}},  # no tool call at all
+                {"tool": "read_file", "args": {"path": "app/stream.py"}},
+                {"final": {"candidates": [candidate("Writer closed only on exhaustion", 6, [REAL])]}}],
+        verifier=[{"final": {"verdict": "confirmed", "reason": "r",
+                             "evidence": [{"file": "app/stream.py", "line": 5, "quote": "finally:"}]}}],
+    )
+    findings, _ = run(repo, client)
+    assert client.calls["FINDER"] == 3 and [f.line for f in findings] == [6]
+
+
+def test_reasoning_effort_is_set_only_where_none_is_configured() -> None:
+    class Provider:
+        reasoning_effort = None
+
+    class Traced:
+        def __init__(self, inner):
+            self._inner = inner
+
+    assert inv.with_reasoning_effort(Traced(Provider()), "high")._inner.reasoning_effort == "high"
+    configured = Provider()
+    configured.reasoning_effort = "xhigh"
+    assert inv.with_reasoning_effort(configured, "high").reasoning_effort == "xhigh"
+    assert not hasattr(inv.with_reasoning_effort(object(), "high"), "reasoning_effort")

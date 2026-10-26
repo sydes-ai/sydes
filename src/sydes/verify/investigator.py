@@ -26,6 +26,7 @@ framework-specific text appears here.
 from __future__ import annotations
 
 import json
+import os
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -53,6 +54,15 @@ MIN_QUOTE_CHARS = 8
 _MAX_RESPONSE_CHARS = 2000
 _MAX_UNIT_DIFF_CHARS = 24_000
 _SEVERITIES = ("P0", "P1", "P2", "P3")
+#: Reasoning effort for Investigator sessions on reasoning models. Short tool-use turns
+#: otherwise run at the provider default, which was observed answering with almost no
+#: reasoning (6-25 tokens a turn). A run-wide SYDES_LLM_REASONING_EFFORT still wins.
+DEFAULT_REASONING_EFFORT = "high"
+_INVESTIGATE_FIRST = (
+    "You concluded without investigating. Before answering, read the changed function in full "
+    "and follow what the changed code produces (values, generators, resources) to the code that "
+    "consumes it, and check the callers whose contract the change affects. Then give your final answer."
+)
 
 
 def _defect_classes() -> str:
@@ -219,15 +229,31 @@ def _budget_left(stats: InvestigatorStats, turns: int) -> bool:
     return stats.llm_calls + turns + 1 <= MAX_LLM_CALLS
 
 
+def with_reasoning_effort(client: LLMClient, effort: str | None) -> LLMClient:
+    """Set the reasoning effort on the provider client (through a tracing wrapper),
+    unless one is already configured; clients without the setting are left alone."""
+    target = getattr(client, "_inner", client)
+    if effort and hasattr(target, "reasoning_effort") and not getattr(target, "reasoning_effort", None):
+        target.reasoning_effort = effort
+    return client
+
+
 def find(unit: dict[str, Any], *, client: LLMClient, tools: RepoTools, stats: InvestigatorStats,
          questions: list[dict[str, str]]) -> list[Candidate]:
     prompt = json.dumps({"unit_file": unit["file"], "changed_ranges": unit["changed_ranges"], "diff": unit["diff"],
                          "changed_regions": unit["regions"], "related_code": unit["related_code"],
                          "open_questions": questions[:8]}, indent=1)
-    final = run_react_loop(client=client, tools=tools, system_prompt=FINDER_SYSTEM,
-                           initial_prompt="Investigate this unit of the change:\n" + prompt,
+    initial = "Investigate this unit of the change:\n" + prompt
+    tool_calls_before = len(tools.calls)
+    final = run_react_loop(client=client, tools=tools, system_prompt=FINDER_SYSTEM, initial_prompt=initial,
                            max_turns=FINDER_TURNS, max_response_chars=_MAX_RESPONSE_CHARS,
                            stats=stats, parse_final=_parse_json)
+    if len(tools.calls) == tool_calls_before and _budget_left(stats, FINDER_TURNS):
+        # concluded without a single tool call: once more, told to investigate first
+        final = run_react_loop(client=client, tools=tools, system_prompt=FINDER_SYSTEM,
+                               initial_prompt=f"{initial}\n\n{_INVESTIGATE_FIRST}",
+                               max_turns=FINDER_TURNS, max_response_chars=_MAX_RESPONSE_CHARS,
+                               stats=stats, parse_final=_parse_json)
     out = []
     for raw in (final.get("candidates") or [])[:MAX_CANDIDATES_PER_UNIT]:
         if not isinstance(raw, dict) or not str(raw.get("title") or "").strip():
@@ -271,10 +297,11 @@ def investigate(*, context: dict[str, Any], repo_root: Path, model_spec: str | N
     Returns findings (only verifier-confirmed, quote-checked ones) and diagnostics."""
     notes: list[str] = []
     stats = InvestigatorStats()
-    finder_client = llm_client or create_default_llm_client(model_spec=model_spec, temperature=None,
-                                                           stage="investigator_finder")
-    verifier_client = llm_client or create_default_llm_client(model_spec=model_spec, temperature=None,
-                                                             stage="investigator_verifier")
+    effort = os.environ.get("SYDES_INVESTIGATOR_REASONING_EFFORT", DEFAULT_REASONING_EFFORT).strip() or None
+    finder_client = llm_client or with_reasoning_effort(
+        create_default_llm_client(model_spec=model_spec, temperature=None, stage="investigator_finder"), effort)
+    verifier_client = llm_client or with_reasoning_effort(
+        create_default_llm_client(model_spec=model_spec, temperature=None, stage="investigator_verifier"), effort)
     graph = None
     if tools is None:
         try:
