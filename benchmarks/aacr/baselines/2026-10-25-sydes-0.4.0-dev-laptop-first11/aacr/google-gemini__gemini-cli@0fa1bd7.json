@@ -1,0 +1,29 @@
+{
+  "instance_id": "google-gemini__gemini-cli@0fa1bd7",
+  "reviewer": "sydes",
+  "boundary": "code_findings",
+  "status": "completed",
+  "duration_seconds": 191.4,
+  "review": {
+    "comments": [
+      {
+        "path": "packages/cli/src/utils/commentJson.ts",
+        "start_line": 69,
+        "end_line": 69,
+        "content": "Removed settings remain in the persisted file\n`applyUpdates` recursively merges the complete settings object into the parsed file but never removes keys that are absent from the updates. This is incorrect for persistence operations such as `removeMcpServer`, which deletes a server from the in-memory `mcpServers` object and then saves that object as the desired state.\nImpact: When `removeMcpServer` deletes an existing server and calls `setValue`, the update contains `mcpServers` without that server. The recursive merge leaves the server from the parsed file untouched, so the command reports that it was removed while it remains configured on disk and returns after restart.\nFix: Reconcile object keys against the desired settings state, deleting keys absent from `updates`, or replace complete setting subtrees rather than recursively merging them.",
+        "severity": "P2"
+      },
+      {
+        "path": "packages/cli/src/utils/commentJson.ts",
+        "start_line": 115,
+        "end_line": 115,
+        "content": "Stale environment mapping discards updates to environment-backed values\nEnvironment restoration replaces every string at a previously mapped path with the old environment reference without checking whether the current value still equals `mapping.resolvedValue`. The mappings are captured at load time and remain unchanged after `LoadedSettings.setValue` modifies the setting.\nImpact: If a loaded MCP server header was `$API_KEY` and an update replaces that same header with a literal string, saving through the same `LoadedSettings` instance changes the literal back to `$API_KEY`. The requested value is therefore not persisted.\nFix: Restore a reference only when the value at the mapped path still equals that mapping's `resolvedValue`, and update or invalidate mappings when `setValue` changes a mapped path.",
+        "severity": "P2"
+      }
+    ],
+    "summary": {
+      "input_tokens": 108195,
+      "output_tokens": 11054
+    }
+  }
+}

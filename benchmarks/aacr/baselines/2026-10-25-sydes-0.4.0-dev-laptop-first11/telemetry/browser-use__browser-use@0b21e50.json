@@ -1,0 +1,49 @@
+{
+  "case_id": "browser-use__browser-use-1482",
+  "instance_id": "browser-use__browser-use@0b21e50",
+  "language": "Python",
+  "status": "completed",
+  "wall_seconds": 192.4,
+  "review_base": "b50bb2216721b82d81e0fda8fb50a31266e09ce4",
+  "review_base_info": {
+    "rule": "merge base (newest committer date, then smallest id)",
+    "merge_bases": [
+      "b50bb2216721b82d81e0fda8fb50a31266e09ce4"
+    ]
+  },
+  "code_review_status": "completed",
+  "code_findings": 2,
+  "not_submitted": {
+    "local_risks": 3,
+    "affected_flows": 0
+  },
+  "llm_totals": {
+    "calls": 25,
+    "errors": 0,
+    "input_tokens": 80990,
+    "output_tokens": 11387,
+    "reasoning_tokens": 6471
+  },
+  "llm_calls_by_purpose": {
+    "pr_semantic_analysis": 1,
+    "route_discovery": 1,
+    "impact_guide": 7,
+    "boundary_reasoning": 1,
+    "code_review": 1,
+    "ai_recovery": 14
+  },
+  "cbm": {
+    "calls": 42,
+    "errors": 0,
+    "by_operation": {
+      "index_repository": 2,
+      "query_graph": 12,
+      "search_graph": 3,
+      "get_graph_schema": 1,
+      "search_code": 24
+    },
+    "enrichment_requests": 27
+  },
+  "sydes_wall_seconds": 190.0,
+  "verdict": "VERIFICATION INCOMPLETE"
+}

@@ -1,0 +1,22 @@
+{
+  "instance_id": "immich-app__immich@d38f1f5",
+  "reviewer": "sydes",
+  "boundary": "code_findings",
+  "status": "completed",
+  "duration_seconds": 683.3,
+  "review": {
+    "comments": [
+      {
+        "path": "web/src/service-worker/index.ts",
+        "start_line": 58,
+        "end_line": 58,
+        "content": "Concurrent loads for the same URL corrupt cancellation tracking\nEach load stores its AbortController in a map keyed only by URL, overwriting any controller for an earlier concurrent load. Each load's unconditional `finally` deletion can then remove the entry belonging to a different in-flight load, and the cancellation handler can abort only whichever controller was most recently stored.\nImpact: When two cache-miss requests for the same asset overlap, the second replaces the first in `pendingLoads`. If the first completes, its `finally` removes the second request's entry, so a later cancel message does not abort the remaining request. If cancellation happens before that completion, it aborts the second request even when teardown originated from the first consumer, causing the active consumer to receive `Response.error()` while the canceled request continues.\nFix: Track controllers per request rather than one controller per URL, or maintain a set/reference count per URL. In `finally`, remove only the controller owned by that invocation; define cancellation so it either targets a request identity or deliberately aborts every controller associated with the URL.",
+        "severity": "P2"
+      }
+    ],
+    "summary": {
+      "input_tokens": 127677,
+      "output_tokens": 12477
+    }
+  }
+}

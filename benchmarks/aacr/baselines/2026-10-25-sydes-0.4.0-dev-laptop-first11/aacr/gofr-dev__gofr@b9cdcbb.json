@@ -1,0 +1,22 @@
+{
+  "instance_id": "gofr-dev__gofr@b9cdcbb",
+  "reviewer": "sydes",
+  "boundary": "code_findings",
+  "status": "completed",
+  "duration_seconds": 156.2,
+  "review": {
+    "comments": [
+      {
+        "path": "pkg/gofr/http/responder.go",
+        "start_line": 32,
+        "end_line": 32,
+        "content": "Nil metadata is serialized as `metadata:null` despite the documented omission contract\nThe new response conversion assigns `v.Metadata` (a nil map when metadata is omitted) to the internal `Metadata interface{}` field. That interface then contains a typed nil map and is not empty for `omitempty`, so it is serialized as `\"metadata\":null`. The added test confirms this output, while the changed public documentation explicitly guarantees that a response without metadata contains only `data`.\nImpact: Whenever a handler returns `resTypes.Response` without initializing `Metadata`, the observable JSON contains `metadata:null` instead of omitting the member as documented.\nFix: Make the internal metadata field `map[string]any` so `omitempty` recognizes a nil map, or only assign/include the metadata field when `v.Metadata` is non-nil. Update the test to expect the documented data-only response.",
+        "severity": "P2"
+      }
+    ],
+    "summary": {
+      "input_tokens": 78464,
+      "output_tokens": 7771
+    }
+  }
+}

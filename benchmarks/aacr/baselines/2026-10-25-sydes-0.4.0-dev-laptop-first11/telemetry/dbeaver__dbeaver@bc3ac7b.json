@@ -1,0 +1,49 @@
+{
+  "case_id": "dbeaver__dbeaver-37564",
+  "instance_id": "dbeaver__dbeaver@bc3ac7b",
+  "language": "Java",
+  "status": "completed",
+  "wall_seconds": 487.5,
+  "review_base": "2125ab9048023375ae49aa66f65be384f128d4a3",
+  "review_base_info": {
+    "rule": "merge base (newest committer date, then smallest id)",
+    "merge_bases": [
+      "2125ab9048023375ae49aa66f65be384f128d4a3"
+    ]
+  },
+  "code_review_status": "completed",
+  "code_findings": 0,
+  "not_submitted": {
+    "local_risks": 3,
+    "affected_flows": 0
+  },
+  "llm_totals": {
+    "calls": 23,
+    "errors": 0,
+    "input_tokens": 73110,
+    "output_tokens": 7812,
+    "reasoning_tokens": 3261
+  },
+  "llm_calls_by_purpose": {
+    "pr_semantic_analysis": 1,
+    "route_discovery": 1,
+    "boundary_reasoning": 1,
+    "code_review": 1,
+    "ai_recovery": 19
+  },
+  "cbm": {
+    "calls": 183,
+    "errors": 3,
+    "by_operation": {
+      "index_repository": 2,
+      "query_graph": 53,
+      "search_graph": 111,
+      "get_graph_schema": 1,
+      "search_code": 13,
+      "trace_path": 3
+    },
+    "enrichment_requests": 20
+  },
+  "sydes_wall_seconds": 482.6,
+  "verdict": "VERIFICATION INCOMPLETE"
+}

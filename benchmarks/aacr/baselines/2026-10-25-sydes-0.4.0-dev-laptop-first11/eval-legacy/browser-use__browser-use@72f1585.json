@@ -1,0 +1,22 @@
+{
+  "instance_id": "browser-use__browser-use@72f1585",
+  "reviewer": "sydes",
+  "boundary": "code_findings",
+  "status": "completed",
+  "duration_seconds": 138.6,
+  "review": {
+    "comments": [
+      {
+        "path": "browser_use/llm/google/chat.py",
+        "start_line": 202,
+        "end_line": 202,
+        "content": "Configured thinking budget is always replaced with -1\nThe changed assignment ignores `self.thinking_budget` and hard-codes `-1` whenever the field is non-None. This also affects the newly introduced default value of `0`, so neither the default nor any explicitly configured budget is passed to the provider.\nImpact: Constructing `ChatGoogle` with any non-None `thinking_budget`\u2014for example `0` or a positive limit\u2014causes `ainvoke` to send `{'thinking_budget': -1}` instead of the configured value, making the public configuration ineffective and producing provider behavior different from the requested budget.\nFix: Set `thinking_budget` to `self.thinking_budget`, as before: `{'thinking_budget': self.thinking_budget}`.",
+        "severity": "P2"
+      }
+    ],
+    "summary": {
+      "input_tokens": 71821,
+      "output_tokens": 8366
+    }
+  }
+}

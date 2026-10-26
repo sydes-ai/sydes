@@ -1,0 +1,45 @@
+{
+  "case_id": "facebook__react-33059",
+  "instance_id": "facebook__react@be58f26",
+  "language": "JavaScript",
+  "status": "completed",
+  "wall_seconds": 110.2,
+  "review_base": "8e9a5fc6c1a6252ca1727ab8fe0d4ee13f2568ec",
+  "review_base_info": {
+    "rule": "merge base (newest committer date, then smallest id)",
+    "merge_bases": [
+      "8e9a5fc6c1a6252ca1727ab8fe0d4ee13f2568ec"
+    ]
+  },
+  "code_review_status": "completed",
+  "code_findings": 0,
+  "not_submitted": {
+    "local_risks": 2,
+    "affected_flows": 0
+  },
+  "llm_totals": {
+    "calls": 25,
+    "errors": 0,
+    "input_tokens": 53051,
+    "output_tokens": 5264,
+    "reasoning_tokens": 2218
+  },
+  "llm_calls_by_purpose": {
+    "pr_semantic_analysis": 1,
+    "route_discovery": 1,
+    "code_review": 1,
+    "ai_recovery": 22
+  },
+  "cbm": {
+    "calls": 28,
+    "errors": 0,
+    "by_operation": {
+      "index_repository": 2,
+      "query_graph": 12,
+      "search_graph": 14
+    },
+    "enrichment_requests": 0
+  },
+  "sydes_wall_seconds": 108.3,
+  "verdict": "VERIFICATION INCOMPLETE"
+}
