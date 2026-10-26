@@ -119,14 +119,33 @@ def clean(path: Path) -> None:
 # ----------------------------------------------------------------------------- review
 
 
-def review(cases_file: Path, run: str, only: list[str] | None = None) -> None:
+def sydes_build(ref: str) -> tuple[str, str]:
+    """A git ref of this Sydes repository, exported with `git archive` (committed files
+    only, never the working tree), as a `uv tool run --from` source and its commit."""
+    repo = ROOT.parent.parent
+    commit = sh("git", "rev-parse", f"{ref}^{{commit}}", cwd=repo).stdout.strip()
+    target = CACHE / "sydes-builds" / commit
+    if not (target / "pyproject.toml").exists():
+        target.mkdir(parents=True, exist_ok=True)
+        archive = subprocess.run(["git", "archive", "--format=tar", commit], cwd=repo, check=True, capture_output=True)
+        subprocess.run(["tar", "-x", "-C", str(target)], input=archive.stdout, check=True)
+    return str(target), commit
+
+
+def review(cases_file: Path, run: str, only: list[str] | None = None, sydes_ref: str | None = None,
+           extra_args: list[str] | None = None) -> None:
     if not os.environ.get("OPENAI_API_KEY"):
         raise SystemExit("OPENAI_API_KEY is required")
     cases = json.loads(cases_file.read_text())["cases"]
     out = RESULTS / run
     for sub in ("sydes", "aacr", "telemetry", "logs"):
         (out / sub).mkdir(parents=True, exist_ok=True)
-    s = CONFIG["sydes"]
+    s = dict(CONFIG["sydes"])
+    if sydes_ref:
+        s["package"], s["git_commit"] = sydes_build(sydes_ref)
+        s["git_ref"] = sydes_ref
+    if extra_args:
+        s["args"] = [*s["args"], *extra_args]
     (out / "run.json").write_text(json.dumps({
         "run": run, "cases_file": str(cases_file.resolve().relative_to(ROOT.parent.parent)), "sydes": s,
         "aacr_commit": CONFIG["aacr"]["commit"], "boundary": "code_findings", "started_at": time.strftime("%FT%TZ", time.gmtime()),
@@ -377,6 +396,8 @@ def main() -> None:
         p.add_argument("--run", required=True)
         if name == "review":
             p.add_argument("--only", nargs="*", help="case ids to review (default: all in the file)")
+            p.add_argument("--sydes-ref", help="run this git ref of the Sydes repository instead of the released package")
+            p.add_argument("--sydes-arg", action="append", default=[], help="extra verify-change argument (repeatable)")
         else:
             p.add_argument("--rounds", type=int, default=CONFIG["aacr"]["eval_rounds"])
     v = sub.add_parser("validate")
@@ -388,7 +409,7 @@ def main() -> None:
     if args.stage == "prepare":
         prepare()
     elif args.stage == "review":
-        review(args.cases, args.run, args.only)
+        review(args.cases, args.run, args.only, args.sydes_ref, args.sydes_arg)
     elif args.stage == "eval":
         evaluate(args.cases, args.run, args.rounds)
     elif args.stage == "validate":
