@@ -111,6 +111,24 @@ def review_base(path: Path, base: str, head: str) -> tuple[str, dict]:
     return dated[0], {"rule": "merge base (newest committer date, then smallest id)", "merge_bases": bases}
 
 
+_PROVIDER_FAILURE = re.compile(r"insufficient_quota|credit_balance_exhausted|Error code: 429|rate.?limit", re.IGNORECASE)
+
+
+def provider_errors(sydes: dict | None, investigation: dict | None) -> list[str]:
+    """Why a case is not benchmark data: any LLM/provider failure in Sydes' own stages or
+    the Investigator. A degraded run (Sydes carries on without a stage) never counts."""
+    reasons = []
+    totals = (((sydes or {}).get("run_metrics") or {}).get("llm_totals")) or {}
+    if int(totals.get("errors") or 0) > 0:
+        reasons.append(f"{totals['errors']} LLM call error(s) in run_metrics")
+    if investigation and investigation.get("errors"):
+        reasons.append(f"{len(investigation['errors'])} investigator error(s)")
+    hits = [d for d in (sydes or {}).get("diagnostics") or [] if isinstance(d, str) and _PROVIDER_FAILURE.search(d)]
+    if hits:
+        reasons.append(f"provider failure in diagnostics: {hits[0][:160]}")
+    return reasons
+
+
 def clean(path: Path) -> None:
     sh("git", "reset", "-q", "--hard", cwd=path, check=False)
     sh("git", "clean", "-q", "-fdx", cwd=path, check=False)
@@ -159,6 +177,7 @@ def review(cases_file: Path, run: str, only: list[str] | None = None, sydes_ref:
         if (out / "aacr" / f"{sid}.json").exists():
             print(f"skip {case['case_id']} (done)")
             continue
+        (out / "invalid" / f"{sid}.json").unlink(missing_ok=True)  # an invalid case is reviewed again
         path = repo_checkout(case)
         base, base_info = review_base(path, case["base_commit"], case["head_commit"])
         clean(path)
@@ -178,17 +197,25 @@ def review(cases_file: Path, run: str, only: list[str] | None = None, sydes_ref:
         clean(path)
         (out / "logs" / f"{sid}.log").write_text(log if isinstance(log, str) else str(log))
         sydes = json.loads(result_json.read_text()) if result_json.exists() else None
-        (out / "aacr" / f"{sid}.json").write_text(json.dumps(
+        sidecar = result_json.with_name(result_json.stem + ".investigation.json")
+        art = json.loads(sidecar.read_text()) if sidecar.exists() else None
+        invalid = provider_errors(sydes, art)
+        if invalid:
+            # not benchmark data: kept for debugging under invalid/, never where the evaluator reads
+            status = "INVALID(provider errors)"
+        target = out / ("invalid" if invalid else "aacr")
+        target.mkdir(parents=True, exist_ok=True)
+        (target / f"{sid}.json").write_text(json.dumps(
             to_aacr_result(case["instance_id"], sydes, duration_seconds=elapsed, status=status), indent=2) + "\n")
         tele = telemetry(case, base, base_info, status, elapsed, sydes)
-        sidecar = result_json.with_name(result_json.stem + ".investigation.json")
-        if sidecar.exists():  # written by `--investigator`; summarised here, kept in full beside the result
-            art = json.loads(sidecar.read_text())
+        tele["invalid_reasons"] = invalid
+        if art is not None:  # written by `--investigator`; summarised here, kept in full beside the result
             tele["investigation"] = {"hypotheses": len(art.get("hypotheses") or []), "lookups": len(art.get("lookups") or []),
                                      "confirmed": len(art.get("confirmed") or []), "refuted": len(art.get("refuted") or []),
                                      "unknown": len(art.get("unknown") or []), "usage": art.get("usage")}
         (out / "telemetry" / f"{sid}.json").write_text(json.dumps(tele, indent=2) + "\n")
-        print(f"  {status} in {elapsed:.0f}s, {len((sydes or {}).get('code_findings') or [])} finding(s)")
+        print(f"  {status} in {elapsed:.0f}s, {len((sydes or {}).get('code_findings') or [])} finding(s)"
+              + (f" -- excluded: {'; '.join(invalid)}" if invalid else ""))
 
 
 def telemetry(case: dict, base: str, base_info: dict, status: str, elapsed: float, sydes: dict | None) -> dict:
@@ -307,7 +334,8 @@ def _metrics(folder: Path) -> dict:
 
 def summarize(run: str) -> dict:
     out = RESULTS / run
-    tele = [json.loads(p.read_text()) for p in sorted((out / "telemetry").glob("*.json"))]
+    every = [json.loads(p.read_text()) for p in sorted((out / "telemetry").glob("*.json"))]
+    tele = [t for t in every if not t.get("invalid_reasons")]
     n = len(tele) or 1
     tokens_in = sum((t.get("llm_totals") or {}).get("input_tokens", 0) for t in tele)
     tokens_out = sum((t.get("llm_totals") or {}).get("output_tokens", 0) for t in tele)
@@ -328,6 +356,7 @@ def summarize(run: str) -> dict:
             "llm_calls_by_purpose": dict(sum((Counter(t.get("llm_calls_by_purpose") or {}) for t in tele), Counter())),
         },
         "findings_submitted": sum(t["code_findings"] for t in tele),
+        "invalid_cases": [{"case_id": t["case_id"], "reasons": t["invalid_reasons"]} for t in every if t.get("invalid_reasons")],
         "judge": json.loads((out / "judge.json").read_text()) if (out / "judge.json").exists() else None,
     }
     (out / "summary.json").write_text(json.dumps(summary, indent=2) + "\n")
@@ -380,7 +409,8 @@ def variance(runs: list[str]) -> dict:
             "titles": [{"title": k["finding"]["content"].splitlines()[0][:90], "runs": sorted(k["runs"])} for k in clusters],
         }
     for r in runs:
-        tele = [json.loads(p.read_text()) for p in (RESULTS / r / "telemetry").glob("*.json")]
+        tele = [t for t in (json.loads(p.read_text()) for p in (RESULTS / r / "telemetry").glob("*.json"))
+                if not t.get("invalid_reasons")]
         report["metrics"][r] = {"file_level": _metrics(RESULTS / r / "eval-file_level"),
                                 "legacy": _metrics(RESULTS / r / "eval-legacy"),
                                 "input_tokens": sum((t.get("llm_totals") or {}).get("input_tokens", 0) for t in tele),
