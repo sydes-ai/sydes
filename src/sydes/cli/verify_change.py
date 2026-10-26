@@ -110,6 +110,17 @@ def verify_change_command(
             help="Run the advisory LLM code-findings pass (off by default; never affects the verdict).",
         ),
     ] = False,
+    code_review_mode: Annotated[
+        Literal["single", "investigator"],
+        typer.Option(
+            "--code-review-mode",
+            help=(
+                "How --code-review runs: `single` (default) is one bounded pass; `investigator` "
+                "(experimental) is a Finder/Verifier mode whose findings rest on quotes checked "
+                "against the code."
+            ),
+        ),
+    ] = "single",
     llm_policy: Annotated[
         Literal["auto", "never"],
         typer.Option(
@@ -449,6 +460,7 @@ def verify_change_command(
         base=base,
         include_working_tree=not no_working_tree,
         code_review=code_review,
+        code_review_mode=code_review_mode,
         llm_policy=llm_policy,
         model_spec=model,
         run_tests=not no_run_tests,

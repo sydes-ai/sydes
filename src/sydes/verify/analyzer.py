@@ -90,6 +90,7 @@ from sydes.trace.handler_resolver import canonicalize_proposed_handler, resolve_
 from sydes.trace.layered_contract import build_layered_trace_contract
 from sydes.trace.sinks import normalize_sink_candidates
 from sydes.verify.git_change import read_unified_diff, resolve_change_set
+from sydes.verify.investigator import investigate
 from sydes.verify.llm_findings import build_code_review_context, generate_code_findings
 from sydes.verify.models import (
     ANALYSIS_COMPLETE,
@@ -175,6 +176,10 @@ class VerifyChangeOptions:
     base: str = "main"
     include_working_tree: bool = True
     code_review: bool = False
+    #: How code review answers "does this patch introduce a defect?": `single` (default),
+    #: one bounded pass; `investigator`, the opt-in Finder/Verifier mode
+    #: (`sydes.verify.investigator`). Ignored unless `code_review` is set.
+    code_review_mode: str = "single"
     llm_policy: str = "auto"
     model_spec: str | None = None
     llm_client: LLMClient | None = None
@@ -1952,6 +1957,7 @@ def analyze_change(
             "base": options.base,
             "include_working_tree": options.include_working_tree,
             "code_review": options.code_review,
+            "code_review_mode": options.code_review_mode,
             "llm_policy": options.llm_policy,
             "model_spec": options.model_spec,
             "run_tests": options.run_tests,
@@ -2648,12 +2654,19 @@ def analyze_change(
                 related_code=related_code,
                 review_questions=questions,
             )
-            findings, finding_notes = generate_code_findings(
-                context=code_context,
-                model_spec=options.model_spec,
-                llm_client=options.llm_client,
-                checked_behavior_preamble=options.checked_behavior_preamble,
-            )
+            if options.code_review_mode == "investigator":
+                findings, finding_notes = investigate(
+                    context=code_context, repo_root=primary_root, model_spec=options.model_spec,
+                    llm_client=options.llm_client, program_source=is_program_source,
+                )
+            else:
+                findings, finding_notes = generate_code_findings(
+                    context=code_context,
+                    model_spec=options.model_spec,
+                    llm_client=options.llm_client,
+                    checked_behavior_preamble=options.checked_behavior_preamble,
+                )
+            result.diagnostics.append(f"code_review_mode={options.code_review_mode}")
             result.code_findings = findings
             result.code_review_status = CODE_REVIEW_COMPLETED
             result.diagnostics.extend(finding_notes)
