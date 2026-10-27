@@ -1,6 +1,6 @@
 # Experiment design: Investigator Verifier strictness (not implemented)
 
-Status: design only, 2026-10-27. Branch `feat/investigator-prototype` (product code `c54d97e`).
+Status: design frozen 2026-10-27, before any experimental call. Treatment wording corrected once before implementation (see below). Branch `feat/investigator-prototype` (product code `c54d97e`).
 Follows the NO-GO in [`2026-10-26-investigator-allocation-c54d97e-first11/`](2026-10-26-investigator-allocation-c54d97e-first11/README.md).
 
 ## Question
@@ -55,16 +55,33 @@ The treatment inserts the paragraph below after "Do not confirm on plausibility.
 
 > Standard of proof. The evidence decides when the repository's own code establishes the
 > mechanism: a concrete path through quoted code, reachable from code the change touches,
-> that produces the behavior; and the behavior is wrong by a standard the evidence itself
-> shows (the code's stated contract in names, docstrings, comments or tests; the
-> language's or test runner's own documented semantics; or an inconsistency between two
-> quoted pieces of the repository). When that holds, do not require a runtime
-> demonstration, an executed test, an observed failure, or a separately documented
-> requirement: lack of those alone is not a reason for UNKNOWN. The same standard decides
-> REFUTED: if quoted code shows the path cannot be taken or does not produce the behavior,
-> refute. Stay UNKNOWN when the deciding fact is outside the evidence: the behavior of an
-> external system, library or service that the evidence does not show; a reachability step
-> that no quoted code establishes; or intent that neither the code nor its tests state.
+> that produces the behavior; and the supplied evidence establishes why that behavior is
+> wrong (the code's stated contract in names, docstrings, comments or tests; language,
+> test-runner or library semantics only where those semantics are present in the supplied
+> evidence; or an inconsistency between two quoted pieces of the repository). When that
+> holds, do not require a runtime demonstration, an executed test, an observed failure, or a
+> separately documented requirement: lack of those alone is not a reason for UNKNOWN. Do not
+> use unstated or remembered external framework, library, language-runtime, test-runner or
+> service behavior to satisfy this standard; such semantics count only when they are present
+> in the supplied evidence. The same standard decides REFUTED: if quoted code shows the path
+> cannot be taken or does not produce the behavior, refute. Stay UNKNOWN when the deciding
+> fact is outside the evidence: the behavior of an external system, library or service that
+> the evidence does not show; a reachability step that no quoted code establishes; or intent
+> that neither the code nor its tests state.
+
+**Pre-implementation correction (2026-10-27, frozen before the first experimental call).** The first draft let
+"the language's or test runner's own documented semantics" establish why the behavior is wrong. That would let the
+Verifier use remembered external semantics as evidence. The frozen text now requires those semantics to be present in
+the supplied evidence, and adds an explicit sentence forbidding unstated or remembered framework, library,
+language-runtime, test-runner or service behavior. The resulting rule:
+- repository code may establish the mechanism;
+- supplied evidence must establish why the behavior is wrong;
+- no runtime reproduction is needed when the mechanism and the violated standard are already established;
+- no separately written requirement is needed when repository evidence establishes the standard;
+- external behavior absent from the evidence, unestablished reachability and unstated intent stay UNKNOWN.
+
+The control prompt is the current `VERIFIER_SYSTEM` at `c54d97e`, byte for byte. The treatment is that prompt with the
+paragraph above inserted directly after "Do not confirm on plausibility." and nothing else changed.
 
 **Why this wording:**
 - **Demonstration and intent are named as insufficient reasons for UNKNOWN only when the code already shows the mechanism.** "Do not confirm on plausibility" stays.
