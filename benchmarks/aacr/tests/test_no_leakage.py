@@ -90,7 +90,9 @@ def test_variance_treats_one_place_as_one_finding_whatever_the_wording() -> None
                       {"path": "x.py", "start_line": None, "content": "writer not closed on abort"})
 
 
-def test_replay_reads_only_the_case_file_the_source_run_and_its_own_outputs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.parametrize("mode", ["allocation", "freeze", "verifier"])
+def test_replay_reads_only_the_case_file_the_source_run_and_its_own_outputs(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mode: str) -> None:
     cases = tmp_path / "cases.json"
     case = {"case_id": "o__r-1", "instance_id": "o__r@abcdef1", "repo": "o/r", "pr": 1, "pr_url": "https://github.com/o/r/pull/1",
             "language": "Python", "base_commit": "b" * 40, "head_commit": "a" * 40, "change_line_count": 3}
@@ -99,6 +101,7 @@ def test_replay_reads_only_the_case_file_the_source_run_and_its_own_outputs(tmp_
     (results / "src" / "sydes").mkdir(parents=True)
     (results / "src" / "telemetry").mkdir()
     (results / "src" / "sydes" / "o__r@abcdef1.snapshot.json").write_text("{}")
+    (results / "src" / "sydes" / "o__r@abcdef1.verifier-input.json").write_text("{}")
     (results / "src" / "telemetry" / "o__r@abcdef1.json").write_text(json.dumps({"invalid_reasons": []}))
     (results / "src" / "dataset.jsonl").write_text("REFERENCE")  # must never be read
     checkout = tmp_path / "checkout"
@@ -133,11 +136,22 @@ def test_replay_reads_only_the_case_file_the_source_run_and_its_own_outputs(tmp_
 
     monkeypatch.setattr(builtins, "open", recording(real_open))
     monkeypatch.setattr(io, "open", recording(real_io_open))
-    aacr.replay(cases, "rep", "src", "two_round", "HEAD")
+    if mode == "verifier":
+        aacr.replay(cases, "rep", "src", "sequential", "HEAD", verifier_prompt="strict")
+    else:
+        aacr.replay(cases, "rep", "src", "two_round", "HEAD", freeze_verifier_input=mode == "freeze")
 
     allowed = (str(results / "src" / "sydes"), str(results / "src" / "telemetry"), str(results / "rep"))
     for path in reads:
         assert path == str(cases) or path.startswith(allowed), f"replay read {path}"
-    assert commands[0][commands[0].index("--allocation") + 1] == "two_round"
-    assert "sydes.verify.investigation_replay" in commands[0]
+    command = commands[0]
+    if mode == "verifier":
+        assert "sydes.verify.verifier_replay" in command and command[command.index("--prompt") + 1] == "strict"
+        assert command[command.index("--inputs") + 1].endswith("src/sydes/o__r@abcdef1.verifier-input.json")
+        assert "--allocation" not in command
+    else:
+        assert "sydes.verify.investigation_replay" in command and command[command.index("--allocation") + 1] == "two_round"
+        assert ("--verifier-input-out" in command) == (mode == "freeze")
+        if mode == "freeze":
+            assert command[command.index("--verifier-input-out") + 1].endswith("rep/sydes/o__r@abcdef1.verifier-input.json")
     assert (results / "rep" / "aacr" / "o__r@abcdef1.json").exists()

@@ -287,3 +287,114 @@ def test_a_finder_failure_in_the_snapshot_stays_an_error_of_the_replay(repo: Pat
                 "finder_errors": ["finder: Request timed out."]}
     _, artifact, _ = inv.replay(snapshot, repo_root=repo, llm_client=Scripted({"hypotheses": []}), tools=RepoTools(repo))
     assert artifact["errors"] == ["finder: Request timed out."]
+
+
+# ----------------------------------------------------------------------------- Verifier strictness (experiment)
+
+#: sha256 of VERIFIER_SYSTEM at c54d97e, before the strictness experiment.
+CONTROL_VERIFIER_SHA256 = "b58a341f9c78c45106cc8e62d860b08099087b28ae137f30e1204223be03daff"
+
+
+class Recording(Scripted):
+    """Scripted, also recording each request's system prompt with its user prompt."""
+
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self.requests: list[tuple[str, str]] = []
+
+    def generate(self, request):
+        self.requests.append((request.system or "", request.prompt))
+        return super().generate(request)
+
+    def verifier_requests(self) -> list[tuple[str, str]]:
+        return [(system, prompt) for system, prompt in self.requests if "You are the VERIFIER" in system]
+
+
+def test_the_default_verifier_prompt_is_byte_identical_to_the_control() -> None:
+    import hashlib
+    assert hashlib.sha256(inv.VERIFIER_SYSTEM.encode()).hexdigest() == CONTROL_VERIFIER_SHA256
+    assert inv.VERIFIER_PROMPTS["control"] is inv.VERIFIER_SYSTEM
+
+
+def test_the_strict_prompt_is_the_control_plus_only_the_frozen_paragraph() -> None:
+    strict = inv.VERIFIER_SYSTEM_STRICT
+    assert strict != inv.VERIFIER_SYSTEM
+    assert strict.replace(inv.VERIFIER_STANDARD_OF_PROOF + " ", "", 1) == inv.VERIFIER_SYSTEM
+    assert "Do not confirm on plausibility. Standard of proof." in strict
+    assert "count only when they are present in the supplied evidence" in inv.VERIFIER_STANDARD_OF_PROOF
+
+
+def test_the_strict_prompt_is_used_only_when_selected(repo: Path) -> None:
+    default = Recording({"hypotheses": [hypothesis(1)]}, verifier=[CONFIRM])
+    _, plain, _ = run(repo, default)
+    assert [s for s, _ in default.verifier_requests()] == [inv.VERIFIER_SYSTEM] and "verifier_prompt" not in plain
+    strict = Recording({"hypotheses": [hypothesis(1)]}, verifier=[CONFIRM])
+    _, artifact, _ = run(repo, strict, verifier_prompt="strict")
+    assert [s for s, _ in strict.verifier_requests()] == [inv.VERIFIER_SYSTEM_STRICT]
+    assert artifact["verifier_prompt"] == "strict"
+    assert VerifyChangeOptions().investigator_verifier_prompt == "control"
+    with pytest.raises(ValueError):
+        run(repo, Scripted({"hypotheses": []}), verifier_prompt="lenient")
+
+
+@pytest.mark.parametrize("prompt", ["control", "strict"])
+def test_check_confirmation_downgrades_an_unsupported_confirmed_under_either_prompt(repo: Path, prompt: str) -> None:
+    unsupported = [{**CONFIRM, "defect_evidence": [INVENTED]}, {**CONFIRM, "changed_evidence": []},
+                   {**CONFIRM, "causal_link": ""}, {**CONFIRM, "supported_claim": ""}]
+    client = Scripted({"hypotheses": [hypothesis(n) for n in range(1, 5)]}, verifier=unsupported)
+    findings, artifact, _ = run(repo, client, verifier_prompt=prompt)
+    assert findings == [] and artifact["unknown"] == ["H1", "H2", "H3", "H4"]
+    assert all(any(m.startswith("downgraded from CONFIRMED") for m in o["missing"]) for o in artifact["outcomes"])
+
+
+LONG = "".join(f"value_{n} = {n}  # padding so the lookup result is longer than its excerpt\n" for n in range(60))
+
+
+def test_frozen_verifier_inputs_replay_to_the_identical_verifier_request(repo: Path, tmp_path: Path) -> None:
+    (repo / "app" / "long.py").write_text(LONG)
+    read = {"tool": "read_source", "args": {"path": "app/long.py"}, "why": "SECRET-INVESTIGATOR-REASON"}
+    ctx = context(reference_comments=[{"text": "AACR-REFERENCE-SENTINEL"}])
+    live = Recording({"hypotheses": [hypothesis(1), hypothesis(2)]}, investigator=[read, read],
+                     verifier=[CONFIRM, {"status": "UNKNOWN", "missing": ["m"]}])
+    frozen_path = tmp_path / "x.verifier-input.json"
+    _, live_artifact, _ = run(repo, live, ctx=ctx, verifier_input_out=frozen_path)
+    text = frozen_path.read_text()
+    frozen = json.loads(text)
+    assert "SENTINEL" not in text and "SECRET-INVESTIGATOR-REASON" not in text
+    full = frozen["inputs"]["H1"]["lookup_results"][0]["result"]
+    assert "value_59 = 59" in full and len(full) > 600  # not the 600-character excerpt
+
+    again = Recording({"hypotheses": [hypothesis(9)]}, verifier=[CONFIRM, {"status": "UNKNOWN", "missing": ["m"]}])
+    findings, artifact, _ = inv.replay_verifier(frozen, repo_root=repo, llm_client=again)
+    assert again.verifier_requests() == live.verifier_requests()
+    assert [f.line for f in findings] == [6] and artifact["confirmed"] == ["H1"] and artifact["unknown"] == ["H2"]
+    assert [o["lookups"] for o in artifact["outcomes"]] == [o["lookups"] for o in live_artifact["outcomes"]]
+    assert artifact["verifier_replay"]["verifier_prompt"] == "control" and "verifier_prompt" not in artifact
+
+
+def test_verifier_replay_makes_no_finder_investigator_or_lookup_call(repo: Path, tmp_path: Path,
+                                                                     monkeypatch: pytest.MonkeyPatch) -> None:
+    frozen_path = tmp_path / "x.verifier-input.json"
+    run(repo, Scripted({"hypotheses": [hypothesis(1)]}, investigator=[READ], verifier=[CONFIRM]),
+        verifier_input_out=frozen_path)
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError("no lookup or tool during verifier replay")
+
+    monkeypatch.setattr(inv, "RepoTools", forbidden)
+    monkeypatch.setattr(inv.Lookups, "run", forbidden)
+    monkeypatch.setattr(inv, "investigate_one", forbidden)
+    monkeypatch.setattr(inv, "find", forbidden)
+    client = Recording({"hypotheses": [hypothesis(9)]}, investigator=[READ] * 5, verifier=[CONFIRM])
+    _, artifact, _ = inv.replay_verifier(json.loads(frozen_path.read_text()), repo_root=repo, llm_client=client,
+                                         verifier_prompt="strict")
+    assert artifact["usage"]["by_stage"] == {"verifier": 1} and artifact["verifier_prompt"] == "strict"
+    assert [s for s, _ in client.requests] == [inv.VERIFIER_SYSTEM_STRICT]
+
+
+def test_errors_recorded_at_the_freeze_stay_errors_of_the_verifier_replay(repo: Path) -> None:
+    frozen = {"version": inv.VERIFIER_INPUT_VERSION, "packet": [], "hypotheses": [hypothesis(1) | {"id": "H1"}],
+              "changed_ranges": {}, "lookups": [], "budget": {}, "outcome_lookups": {}, "inputs": {},
+              "errors": ["H1: Request timed out."]}
+    findings, artifact, _ = inv.replay_verifier(frozen, repo_root=repo, llm_client=Scripted({"hypotheses": []}))
+    assert findings == [] and artifact["errors"] == ["H1: Request timed out."] and artifact["unknown"] == ["H1"]

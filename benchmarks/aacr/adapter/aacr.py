@@ -10,6 +10,7 @@ Stages (run from the Sydes repository root):
     ... aacr.py eval      --cases <same file> --run <run-id>
     ... aacr.py summarize --run <run-id>
     ... aacr.py replay    --cases <file> --run <id> --source-run <snapshot run> --allocation two_round --sydes-ref <ref>
+    ... aacr.py verifier-replay --cases <file> --run <id> --source-run <freeze run> --prompt strict --sydes-ref <ref>
     ... aacr.py variance  --runs <id-1> <id-2> <id-3>
 
 Leakage rule: `review` reads only repository, PR number and commits from the
@@ -220,11 +221,20 @@ def review(cases_file: Path, run: str, only: list[str] | None = None, sydes_ref:
 
 
 def replay(cases_file: Path, run: str, source_run: str, allocation: str, sydes_ref: str,
-           only: list[str] | None = None) -> None:
+           only: list[str] | None = None, *, freeze_verifier_input: bool = False,
+           verifier_prompt: str | None = None) -> None:
     """Allocation experiment: the Investigator -> Verifier again, under `allocation`, on the
     packet + hypotheses snapshot a `review --sydes-arg=--investigator-snapshot` run wrote.
     Same checkout, same model, same output layout, so `eval` and `summarize` run unchanged.
-    A case invalid in the source run is invalid here too."""
+    A case invalid in the source run is invalid here too.
+
+    Verifier-strictness experiment: with `freeze_verifier_input`, each case also writes
+    `<id>.verifier-input.json`. With `verifier_prompt`, the source is such a freeze run and
+    only the Verifier runs again (`sydes.verify.verifier_replay`), under that prompt."""
+    verifier_only = verifier_prompt is not None
+    experiment = ({"source_run": source_run, "verifier_prompt": verifier_prompt} if verifier_only else
+                  {"source_run": source_run, "allocation": allocation,
+                   **({"freeze_verifier_input": True} if freeze_verifier_input else {})})
     if not os.environ.get("OPENAI_API_KEY"):
         raise SystemExit("OPENAI_API_KEY is required")
     cases = json.loads(cases_file.read_text())["cases"]
@@ -236,7 +246,7 @@ def replay(cases_file: Path, run: str, source_run: str, allocation: str, sydes_r
     s["git_ref"] = sydes_ref
     (out / "run.json").write_text(json.dumps({
         "run": run, "cases_file": str(cases_file.resolve().relative_to(ROOT.parent.parent)), "sydes": s,
-        "replay": {"source_run": source_run, "allocation": allocation},
+        "replay": experiment,
         "aacr_commit": CONFIG["aacr"]["commit"], "boundary": "code_findings", "started_at": time.strftime("%FT%TZ", time.gmtime()),
     }, indent=2) + "\n")
     env = {k: v for k, v in os.environ.items() if k not in ("VIRTUAL_ENV", "PYTHONPATH", "UV_PROJECT_ENVIRONMENT")}
@@ -248,22 +258,27 @@ def replay(cases_file: Path, run: str, source_run: str, allocation: str, sydes_r
             print(f"skip {case['case_id']} (done)")
             continue
         (out / "invalid" / f"{sid}.json").unlink(missing_ok=True)
-        snapshot = source / "sydes" / f"{sid}.snapshot.json"
+        snapshot = source / "sydes" / (f"{sid}.verifier-input.json" if verifier_only else f"{sid}.snapshot.json")
         source_tele = source / "telemetry" / f"{sid}.json"
         source_invalid = (json.loads(source_tele.read_text()).get("invalid_reasons") or []) if source_tele.exists() else ["no source telemetry"]
         if not snapshot.exists():
-            source_invalid = [*source_invalid, "no snapshot in the source run"]
+            source_invalid = [*source_invalid, f"no {snapshot.name} in the source run"]
         path = repo_checkout(case)
         base, base_info = review_base(path, case["base_commit"], case["head_commit"])
         result_json = out / "sydes" / f"{sid}.json"
-        print(f"replay {case['case_id']} ({allocation}) ...", flush=True)
+        print(f"replay {case['case_id']} ({verifier_prompt if verifier_only else allocation}) ...", flush=True)
         started, log, sydes, art = time.monotonic(), "", None, None
         if snapshot.exists():
             clean(path)
             sh("git", "-c", "advice.detachedHead=false", "checkout", "-q", "--force", "--detach", case["head_commit"], cwd=path)
-            command = ["uv", "run", "--no-project", "--quiet", "--with", s["package"], "python", "-m",
-                       "sydes.verify.investigation_replay", "--snapshot", str(snapshot.resolve()), "--allocation", allocation,
-                       "--model", s["model"], "--json", str(result_json.resolve())]
+            command = ["uv", "run", "--no-project", "--quiet", "--with", s["package"], "python", "-m"]
+            if verifier_only:
+                command += ["sydes.verify.verifier_replay", "--inputs", str(snapshot.resolve()), "--prompt", verifier_prompt]
+            else:
+                command += ["sydes.verify.investigation_replay", "--snapshot", str(snapshot.resolve()), "--allocation", allocation]
+                if freeze_verifier_input:
+                    command += ["--verifier-input-out", str(result_json.with_name(f"{sid}.verifier-input.json").resolve())]
+            command += ["--model", s["model"], "--json", str(result_json.resolve())]
             try:
                 proc = subprocess.run(command, cwd=path, env=env, text=True, capture_output=True, check=False, timeout=s["timeout_minutes"] * 60)
                 status = "completed" if proc.returncode == 0 and result_json.exists() else f"failed(exit {proc.returncode})"
@@ -287,7 +302,7 @@ def replay(cases_file: Path, run: str, source_run: str, allocation: str, sydes_r
             to_aacr_result(case["instance_id"], sydes, duration_seconds=elapsed, status=status), indent=2) + "\n")
         tele = telemetry(case, base, base_info, status, elapsed, sydes)
         tele["invalid_reasons"] = invalid
-        tele["replay"] = {"source_run": source_run, "allocation": allocation}
+        tele["replay"] = experiment
         if art is not None:
             tele["investigation"] = {"hypotheses": len(art.get("hypotheses") or []), "lookups": len(art.get("lookups") or []),
                                      "confirmed": len(art.get("confirmed") or []), "refuted": len(art.get("refuted") or []),
@@ -522,6 +537,14 @@ def main() -> None:
     r.add_argument("--allocation", choices=["sequential", "two_round"], required=True)
     r.add_argument("--sydes-ref", required=True)
     r.add_argument("--only", nargs="*")
+    r.add_argument("--freeze-verifier-input", action="store_true", help="also write <id>.verifier-input.json per case")
+    vr = sub.add_parser("verifier-replay", help="strictness experiment: decide a freeze run's Verifier inputs again")
+    vr.add_argument("--cases", type=Path, required=True)
+    vr.add_argument("--run", required=True)
+    vr.add_argument("--source-run", required=True, help="a replay run made with --freeze-verifier-input")
+    vr.add_argument("--prompt", choices=["control", "strict"], required=True)
+    vr.add_argument("--sydes-ref", required=True)
+    vr.add_argument("--only", nargs="*")
     v = sub.add_parser("validate")
     v.add_argument("--cases", type=Path, required=True)
     v.add_argument("--run")
@@ -533,7 +556,11 @@ def main() -> None:
     elif args.stage == "review":
         review(args.cases, args.run, args.only, args.sydes_ref, args.sydes_arg)
     elif args.stage == "replay":
-        replay(args.cases, args.run, args.source_run, args.allocation, args.sydes_ref, args.only)
+        replay(args.cases, args.run, args.source_run, args.allocation, args.sydes_ref, args.only,
+               freeze_verifier_input=args.freeze_verifier_input)
+    elif args.stage == "verifier-replay":
+        replay(args.cases, args.run, args.source_run, "sequential", args.sydes_ref, args.only,
+               verifier_prompt=args.prompt)
     elif args.stage == "eval":
         evaluate(args.cases, args.run, args.rounds)
     elif args.stage == "validate":

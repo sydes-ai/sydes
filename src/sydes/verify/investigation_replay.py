@@ -26,13 +26,18 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--model")
     parser.add_argument("--repo-root", type=Path, default=Path("."))
     parser.add_argument("--json", type=Path, required=True, dest="json_output")
+    parser.add_argument("--verifier-prompt", choices=tuple(investigation.VERIFIER_PROMPTS), default="control")
+    parser.add_argument("--verifier-input-out", type=Path,
+                        help="also write the Verifier's exact inputs here, for sydes.verify.verifier_replay")
     args = parser.parse_args(argv)
 
     snapshot = json.loads(args.snapshot.read_text(encoding="utf-8"))
     status = "completed"
     try:
         findings, artifact, notes = investigation.replay(snapshot, repo_root=args.repo_root.resolve(),
-                                                         model_spec=args.model, allocation=args.allocation)
+                                                         model_spec=args.model, allocation=args.allocation,
+                                                         verifier_prompt=args.verifier_prompt,
+                                                         verifier_input_out=args.verifier_input_out)
     except LLMClientError as exc:  # client construction; per-call failures land in artifact["errors"]
         findings, artifact, notes, status = [], {"errors": [f"replay: {exc}"]}, [f"code_review_unavailable: {exc}"], "unavailable"
     usage = artifact.get("usage") or {}

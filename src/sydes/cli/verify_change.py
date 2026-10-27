@@ -131,6 +131,11 @@ def verify_change_command(
         typer.Option("--investigator-snapshot", hidden=True,
                      help="Experiment only: with --json, also write <name>.snapshot.json for replay."),
     ] = False,
+    investigator_verifier_prompt: Annotated[
+        Literal["control", "strict"],
+        typer.Option("--investigator-verifier-prompt", hidden=True,
+                     help="Experiment only: the Investigator's Verifier prompt."),
+    ] = "control",
     llm_policy: Annotated[
         Literal["auto", "never"],
         typer.Option(
@@ -474,6 +479,7 @@ def verify_change_command(
         investigation_out=(json_output.with_name(json_output.stem + ".investigation.json")
                            if investigator and json_output is not None else None),
         investigator_allocation=investigator_allocation,
+        investigator_verifier_prompt=investigator_verifier_prompt,
         investigation_snapshot_out=(json_output.with_name(json_output.stem + ".snapshot.json")
                                     if investigator and investigator_snapshot and json_output is not None else None),
         llm_policy=llm_policy,

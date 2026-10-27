@@ -223,6 +223,32 @@ VERIFIER_SYSTEM = (
     '[{"source": "...", "explanation": "..."}], "missing": ["..."]}'
 )
 
+#: Experiment only (`benchmarks/aacr/evaluations/investigator-verifier-strictness-design.md`): the
+#: Verifier's standard of proof, frozen before the first experimental call. The treatment prompt
+#: is VERIFIER_SYSTEM with this paragraph inserted after "Do not confirm on plausibility."; nothing
+#: else differs, and VERIFIER_SYSTEM stays the default.
+VERIFIER_STANDARD_OF_PROOF = (
+    "Standard of proof. The evidence decides when the repository's own code establishes the "
+    "mechanism: a concrete path through quoted code, reachable from code the change touches, "
+    "that produces the behavior; and the supplied evidence establishes why that behavior is "
+    "wrong (the code's stated contract in names, docstrings, comments or tests; language, "
+    "test-runner or library semantics only where those semantics are present in the supplied "
+    "evidence; or an inconsistency between two quoted pieces of the repository). When that "
+    "holds, do not require a runtime demonstration, an executed test, an observed failure, or a "
+    "separately documented requirement: lack of those alone is not a reason for UNKNOWN. Do not "
+    "use unstated or remembered external framework, library, language-runtime, test-runner or "
+    "service behavior to satisfy this standard; such semantics count only when they are present "
+    "in the supplied evidence. The same standard decides REFUTED: if quoted code shows the path "
+    "cannot be taken or does not produce the behavior, refute. Stay UNKNOWN when the deciding "
+    "fact is outside the evidence: the behavior of an external system, library or service that "
+    "the evidence does not show; a reachability step that no quoted code establishes; or intent "
+    "that neither the code nor its tests state."
+)
+_PROOF_ANCHOR = "Do not confirm on plausibility. "
+VERIFIER_SYSTEM_STRICT = VERIFIER_SYSTEM.replace(_PROOF_ANCHOR, _PROOF_ANCHOR + VERIFIER_STANDARD_OF_PROOF + " ", 1)
+VERIFIER_PROMPTS = {"control": VERIFIER_SYSTEM, "strict": VERIFIER_SYSTEM_STRICT}
+VERIFIER_INPUT_VERSION = "sydes-verifier-input/1"
+
 
 # ----------------------------------------------------------------------------- run state
 
@@ -364,18 +390,28 @@ def investigate_one(hypothesis: dict[str, Any], lookups: Lookups, *, client: LLM
     return gathered
 
 
-def verify(hypothesis: dict[str, Any], packet: dict[str, Evidence], gathered: list[tuple[dict, str]], *,
-           client: LLMClient, stats: Stats) -> dict[str, Any]:
-    """Independent: sees the claim, the cited packet items and the raw lookup results --
-    not the investigator's reasons or summary."""
+def verifier_input(hypothesis: dict[str, Any], packet: dict[str, Evidence],
+                   gathered: list[tuple[dict, str]]) -> dict[str, Any]:
+    """Everything the Verifier sees: the claim, the change, the cited packet items and the
+    raw lookup results -- not the investigator's reasons or summary."""
     diff_items = [e for e in packet.values() if e.kind == "diff"]
-    shown = {"hypothesis": {k: hypothesis[k] for k in ("claim", "file", "line", "questions_to_resolve")},
-             "change": {"diffs": {e.ref: e.text for e in diff_items}},
-             "packet_evidence": [packet[i].to_dict() for i in hypothesis["initial_evidence"]
-                                 if i in packet and packet[i].kind != "diff"],
-             "lookup_results": [{"id": r["id"], "tool": r["tool"], "args": r["args"], "provenance": r["provenance"],
-                                 "result": obs} for r, obs in gathered]}
-    raw = _json(_call(client, stats, "verifier", system=VERIFIER_SYSTEM, prompt=json.dumps(shown, indent=1)))
+    return {"hypothesis": {k: hypothesis[k] for k in ("claim", "file", "line", "questions_to_resolve")},
+            "change": {"diffs": {e.ref: e.text for e in diff_items}},
+            "packet_evidence": [packet[i].to_dict() for i in hypothesis["initial_evidence"]
+                                if i in packet and packet[i].kind != "diff"],
+            "lookup_results": [{"id": r["id"], "tool": r["tool"], "args": r["args"], "provenance": r["provenance"],
+                                "result": obs} for r, obs in gathered]}
+
+
+def verify(hypothesis: dict[str, Any], packet: dict[str, Evidence], gathered: list[tuple[dict, str]], *,
+           client: LLMClient, stats: Stats, system: str = VERIFIER_SYSTEM) -> dict[str, Any]:
+    """Independent: an LLM pass over `verifier_input` only."""
+    return verify_input(verifier_input(hypothesis, packet, gathered), client=client, stats=stats, system=system)
+
+
+def verify_input(shown: dict[str, Any], *, client: LLMClient, stats: Stats,
+                 system: str = VERIFIER_SYSTEM) -> dict[str, Any]:
+    raw = _json(_call(client, stats, "verifier", system=system, prompt=json.dumps(shown, indent=1)))
     status = str(raw.get("status") or STATUS_UNKNOWN).upper()
     return {"status": status if status in (STATUS_CONFIRMED, STATUS_REFUTED, STATUS_UNKNOWN) else STATUS_UNKNOWN,
             "supported_claim": str(raw.get("supported_claim") or "").strip(),
@@ -507,10 +543,13 @@ def _investigate(*, packet: list[Evidence], hypotheses: list[dict[str, Any]] | N
                  ranges: dict[str, list[tuple[int, int]]], repo_root: Path, client: LLMClient,
                  tools: RepoTools | None, max_lookups: int, allocation: str, errors: list[str],
                  on_hypotheses: Callable[[list[dict[str, Any]], Stats], None] | None = None,
+                 verifier_prompt: str = "control", verifier_inputs: dict[str, Any] | None = None,
                  ) -> tuple[list[CodeFinding], dict[str, Any], list[str]]:
-    """Finder (unless `hypotheses` are given) -> Investigator -> Verifier, and the artifact."""
+    """Finder (unless `hypotheses` are given) -> Investigator -> Verifier, and the artifact.
+    With `verifier_inputs`, the exact input of each hypothesis' last verdict is kept there."""
     if allocation not in ALLOCATIONS:
         raise ValueError(f"unknown lookup allocation {allocation!r}; expected one of {ALLOCATIONS}")
+    system = _verifier_system(verifier_prompt)
     stats = Stats()
     graph = None
     if tools is None:
@@ -524,7 +563,10 @@ def _investigate(*, packet: list[Evidence], hypotheses: list[dict[str, Any]] | N
     lookups = Lookups(tools, packet, max_lookups=max_lookups)
 
     def decide(hypothesis: dict[str, Any], gathered: list[tuple[dict, str]]) -> dict[str, Any]:
-        return check_confirmation(verify(hypothesis, by_id, gathered, client=client, stats=stats), hypothesis,
+        shown = verifier_input(hypothesis, by_id, gathered)
+        if verifier_inputs is not None:
+            verifier_inputs[hypothesis["id"]] = shown
+        return check_confirmation(verify_input(shown, client=client, stats=stats, system=system), hypothesis,
                                   repo_root=repo_root, ranges=ranges)
 
     outcomes: list[dict[str, Any]] = []
@@ -543,6 +585,27 @@ def _investigate(*, packet: list[Evidence], hypotheses: list[dict[str, Any]] | N
         if graph is not None:
             graph.close()
 
+    budget = {"max_hypotheses": MAX_HYPOTHESES, "max_lookups": max_lookups, "used_lookups": len(lookups.records),
+              "max_lookups_per_hypothesis": MAX_LOOKUPS_PER_HYPOTHESIS}
+    if allocation != "sequential":  # the default artifact stays exactly as it was
+        budget.update(allocation=allocation, round1_lookups=ROUND1_LOOKUPS,
+                      max_lookups_per_hypothesis=MAX_LOOKUPS_PER_HYPOTHESIS_TWO_ROUND)
+    packet_meta = [{"id": e.id, "kind": e.kind, "ref": e.ref, "chars": len(e.text)} for e in packet]
+    return _assemble(packet_meta=packet_meta, hypotheses=hypotheses, lookup_records=lookups.records,
+                     outcomes=outcomes, budget=budget, stats=stats, errors=errors, verifier_prompt=verifier_prompt)
+
+
+def _verifier_system(verifier_prompt: str) -> str:
+    if verifier_prompt not in VERIFIER_PROMPTS:
+        raise ValueError(f"unknown verifier prompt {verifier_prompt!r}; expected one of {tuple(VERIFIER_PROMPTS)}")
+    return VERIFIER_PROMPTS[verifier_prompt]
+
+
+def _assemble(*, packet_meta: list[dict[str, Any]], hypotheses: list[dict[str, Any]],
+              lookup_records: list[dict[str, Any]], outcomes: list[dict[str, Any]], budget: dict[str, Any],
+              stats: Stats, errors: list[str], verifier_prompt: str,
+              ) -> tuple[list[CodeFinding], dict[str, Any], list[str]]:
+    """Findings (CONFIRMED only), the investigation artifact and the diagnostics notes."""
     findings = []
     for hypothesis, outcome in zip(hypotheses, outcomes):
         if outcome["status"] != STATUS_CONFIRMED:
@@ -559,16 +622,11 @@ def _investigate(*, packet: list[Evidence], hypotheses: list[dict[str, Any]] | N
                       for q in quotes[:4]],
         ))
     findings.sort(key=lambda f: _SEVERITIES.index(f.severity))
-    budget = {"max_hypotheses": MAX_HYPOTHESES, "max_lookups": max_lookups, "used_lookups": len(lookups.records),
-              "max_lookups_per_hypothesis": MAX_LOOKUPS_PER_HYPOTHESIS}
-    if allocation != "sequential":  # the default artifact stays exactly as it was
-        budget.update(allocation=allocation, round1_lookups=ROUND1_LOOKUPS,
-                      max_lookups_per_hypothesis=MAX_LOOKUPS_PER_HYPOTHESIS_TWO_ROUND)
     artifact = {
         "version": VERSION,
-        "packet": [{"id": e.id, "kind": e.kind, "ref": e.ref, "chars": len(e.text)} for e in packet],
+        "packet": packet_meta,
         "hypotheses": hypotheses,
-        "lookups": lookups.records,
+        "lookups": lookup_records,
         "outcomes": outcomes,
         "confirmed": [o["hypothesis"] for o in outcomes if o["status"] == STATUS_CONFIRMED],
         "refuted": [o["hypothesis"] for o in outcomes if o["status"] == STATUS_REFUTED],
@@ -580,7 +638,9 @@ def _investigate(*, packet: list[Evidence], hypotheses: list[dict[str, Any]] | N
                   "llm_seconds": round(stats.seconds, 1)},
         "errors": errors,
     }
-    notes = [(f"investigator: hypotheses={len(hypotheses)} lookups={len(lookups.records)}/{max_lookups} "
+    if verifier_prompt != "control":  # the default artifact stays exactly as it was
+        artifact["verifier_prompt"] = verifier_prompt
+    notes = [(f"investigator: hypotheses={len(hypotheses)} lookups={len(lookup_records)}/{budget.get('max_lookups')} "
               f"confirmed={len(artifact['confirmed'])} refuted={len(artifact['refuted'])} unknown={len(artifact['unknown'])} "
               f"findings={len(findings)} llm_calls={stats.llm_calls} errors={len(errors)}")]
     return findings, artifact, notes
@@ -589,10 +649,12 @@ def _investigate(*, packet: list[Evidence], hypotheses: list[dict[str, Any]] | N
 def run(*, context: dict[str, Any], result: Any, repo_root: Path, model_spec: str | None = None,
         llm_client: LLMClient | None = None, tools: RepoTools | None = None,
         max_lookups: int = MAX_LOOKUPS, allocation: str = "sequential",
-        snapshot_out: Path | None = None) -> tuple[list[CodeFinding], dict[str, Any], list[str]]:
+        snapshot_out: Path | None = None, verifier_prompt: str = "control",
+        verifier_input_out: Path | None = None) -> tuple[list[CodeFinding], dict[str, Any], list[str]]:
     """The whole protocol. Returns the findings (CONFIRMED only), the investigation
     artifact and diagnostics notes. With `snapshot_out`, the full packet and the Finder's
-    hypotheses are written there, so `replay` can investigate the same hypotheses again."""
+    hypotheses are written there, so `replay` can investigate the same hypotheses again.
+    With `verifier_input_out`, the Verifier's exact inputs are written there for `replay_verifier`."""
     packet = build_packet(context, result)
     ranges = changed_ranges(context)
     errors: list[str] = []
@@ -607,14 +669,20 @@ def run(*, context: dict[str, Any], result: Any, repo_root: Path, model_spec: st
                              "completion_tokens": stats.completion_tokens, "reasoning_tokens": stats.reasoning_tokens},
         }, indent=2) + "\n", encoding="utf-8")
 
-    return _investigate(packet=packet, hypotheses=None, ranges=ranges, repo_root=repo_root,
-                        client=_client(model_spec, llm_client), tools=tools, max_lookups=max_lookups,
-                        allocation=allocation, errors=errors, on_hypotheses=write_snapshot)
+    inputs: dict[str, Any] | None = {} if verifier_input_out is not None else None
+    findings, artifact, notes = _investigate(
+        packet=packet, hypotheses=None, ranges=ranges, repo_root=repo_root, client=_client(model_spec, llm_client),
+        tools=tools, max_lookups=max_lookups, allocation=allocation, errors=errors, on_hypotheses=write_snapshot,
+        verifier_prompt=verifier_prompt, verifier_inputs=inputs)
+    if verifier_input_out is not None:
+        write_verifier_inputs(verifier_input_out, artifact, ranges, inputs or {})
+    return findings, artifact, notes
 
 
 def replay(snapshot: dict[str, Any], *, repo_root: Path, model_spec: str | None = None,
            llm_client: LLMClient | None = None, tools: RepoTools | None = None,
-           max_lookups: int = MAX_LOOKUPS, allocation: str = "sequential",
+           max_lookups: int = MAX_LOOKUPS, allocation: str = "sequential", verifier_prompt: str = "control",
+           verifier_input_out: Path | None = None,
            ) -> tuple[list[CodeFinding], dict[str, Any], list[str]]:
     """Investigator -> Verifier again on a snapshot's packet and hypotheses; the Finder does
     not run. A Finder failure recorded in the snapshot stays an error of the replay."""
@@ -622,9 +690,61 @@ def replay(snapshot: dict[str, Any], *, repo_root: Path, model_spec: str | None 
         raise ValueError(f"not a {SNAPSHOT_VERSION} snapshot")
     packet = [Evidence(e["id"], e["kind"], e["ref"], e["text"]) for e in snapshot["packet"]]
     ranges = {path: [(int(a), int(b)) for a, b in pairs] for path, pairs in (snapshot.get("changed_ranges") or {}).items()}
+    inputs: dict[str, Any] | None = {} if verifier_input_out is not None else None
     findings, artifact, notes = _investigate(
         packet=packet, hypotheses=list(snapshot.get("hypotheses") or []), ranges=ranges, repo_root=repo_root,
         client=_client(model_spec, llm_client), tools=tools, max_lookups=max_lookups, allocation=allocation,
-        errors=list(snapshot.get("finder_errors") or []))
+        errors=list(snapshot.get("finder_errors") or []), verifier_prompt=verifier_prompt, verifier_inputs=inputs)
     artifact["replay"] = {"snapshot_version": SNAPSHOT_VERSION, "allocation": allocation}
+    if verifier_input_out is not None:
+        write_verifier_inputs(verifier_input_out, artifact, ranges, inputs or {})
+    return findings, artifact, notes
+
+
+def write_verifier_inputs(path: Path, artifact: dict[str, Any], ranges: dict[str, list[tuple[int, int]]],
+                          inputs: dict[str, Any]) -> None:
+    """The Verifier's exact input per hypothesis (full lookup results, no excerpts), plus what
+    `check_confirmation` and the findings need, so `replay_verifier` can decide them again."""
+    path.write_text(json.dumps({
+        "version": VERIFIER_INPUT_VERSION, "packet": artifact["packet"], "hypotheses": artifact["hypotheses"],
+        # lookup records without the Investigator's `why`: the Verifier never sees it either
+        "changed_ranges": ranges, "lookups": [{k: v for k, v in r.items() if k != "why"} for r in artifact["lookups"]],
+        "budget": artifact["budget"],
+        "outcome_lookups": {o["hypothesis"]: o["lookups"] for o in artifact["outcomes"]},
+        "errors": artifact["errors"], "inputs": inputs,
+    }, indent=2) + "\n", encoding="utf-8")
+
+
+def replay_verifier(frozen: dict[str, Any], *, repo_root: Path, model_spec: str | None = None,
+                    llm_client: LLMClient | None = None, verifier_prompt: str = "control",
+                    ) -> tuple[list[CodeFinding], dict[str, Any], list[str]]:
+    """Verifier -> `check_confirmation` -> findings again on frozen Verifier inputs. No Finder,
+    no Investigator, no lookups; `repo_root` is only read to verify quotes. Errors recorded
+    when the inputs were frozen stay errors of the replay."""
+    if frozen.get("version") != VERIFIER_INPUT_VERSION:
+        raise ValueError(f"not a {VERIFIER_INPUT_VERSION} file")
+    system = _verifier_system(verifier_prompt)
+    client = _client(model_spec, llm_client)
+    stats, errors = Stats(), list(frozen.get("errors") or [])
+    ranges = {path: [(int(a), int(b)) for a, b in pairs] for path, pairs in (frozen.get("changed_ranges") or {}).items()}
+    hypotheses = list(frozen.get("hypotheses") or [])
+    outcomes = []
+    for hypothesis in hypotheses:
+        shown = (frozen.get("inputs") or {}).get(hypothesis["id"])
+        if shown is None:
+            outcome = _error_outcome(RuntimeError("no frozen verifier input"))
+        else:
+            try:
+                outcome = check_confirmation(verify_input(shown, client=client, stats=stats, system=system),
+                                             hypothesis, repo_root=repo_root, ranges=ranges)
+            except LLMClientError as exc:
+                errors.append(f"{hypothesis['id']}: {exc}")
+                outcome = _error_outcome(exc)
+        outcomes.append({"hypothesis": hypothesis["id"],
+                         "lookups": list((frozen.get("outcome_lookups") or {}).get(hypothesis["id"]) or []), **outcome})
+    findings, artifact, notes = _assemble(
+        packet_meta=list(frozen.get("packet") or []), hypotheses=hypotheses, lookup_records=list(frozen.get("lookups") or []),
+        outcomes=outcomes, budget=dict(frozen.get("budget") or {}), stats=stats, errors=errors,
+        verifier_prompt=verifier_prompt)
+    artifact["verifier_replay"] = {"input_version": VERIFIER_INPUT_VERSION, "verifier_prompt": verifier_prompt}
     return findings, artifact, notes

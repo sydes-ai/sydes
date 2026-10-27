@@ -187,6 +187,8 @@ class VerifyChangeOptions:
     investigator_allocation: str = "sequential"
     #: Experiment only: where the packet + hypotheses snapshot for `investigation.replay` goes.
     investigation_snapshot_out: Path | None = None
+    #: Experiment only: the Verifier prompt (`investigation.VERIFIER_PROMPTS`); "control" is the default.
+    investigator_verifier_prompt: str = "control"
     llm_policy: str = "auto"
     model_spec: str | None = None
     llm_client: LLMClient | None = None
@@ -2665,6 +2667,7 @@ def analyze_change(
                     context=code_context, result=result, repo_root=primary_root,
                     model_spec=options.model_spec, llm_client=options.llm_client,
                     allocation=options.investigator_allocation, snapshot_out=options.investigation_snapshot_out,
+                    verifier_prompt=options.investigator_verifier_prompt,
                 )
                 if options.investigation_out is not None:
                     options.investigation_out.write_text(json.dumps(investigation, indent=2) + "\n", encoding="utf-8")
