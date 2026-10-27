@@ -1,0 +1,95 @@
+AI recovery (experimental): triggered (a structural boundary was found but no complete route/entrypoint flow reaches it; the first pass reported route composition as unresolved in this repository; no relevant test was mapped even though this diff changed a test file (pkg/gofr/http/responder_test.go); 2 changed symbol(s) reach no entrypoint the first pass found)
+AI recovery (experimental): path=unresolved test=unresolved turns=25 llm_calls=27 tokens=71546+2067 edge_retries_attempted=0 edge_retries_succeeded=0 graph_paths_proposed=0 graph_paths_established=0 graph_paths_established_unverified_boundary=0 explicit_relation_edges=0
+Wrote AI recovery result: /Users/ksnaik/StudioProjects/sydes/benchmarks/aacr/results/alloc-A1-snapshot-c54d97e-first11-2026-10-26/sydes/gofr-dev__gofr@b9cdcbb.ai_recovery.json
+SYDES VERIFICATION
+
+MEDIUM RISK · 2 AFFECTED BEHAVIORS
+
+Changed
+───────
+pkg/gofr/handler.go:55 — handler.ServeHTTP
+pkg/gofr/http/responder.go:24 — Responder.Respond
+
+CHANGE ANALYSIS (citations verified, indeterminate)
+───────────────────────────────────────────────────
+Cannot be established from this repository alone: the diff and surrounding context alone are not enough to say.
+The serialization mechanism is directly shown, but the supplied context does not establish that any production route or caller returns response.Response, nor whether deployed responses populate Metadata. Consequently, real-user exposure cannot be determined from this diff alone.
+
+HTTP handlers returning response.Response now preserve that value through the handler pipeline so the responder can serialize both its data and metadata, while custom headers continue to be applied. The resulting JSON includes a metadata property when populated, but currently emits metadata:null when Metadata is unset, contrary to the updated documentation's omission example.
+
+Likely behavioral changes
+  • A response.Response returned by a handler is now serialized as an HTTP envelope containing its Data and Metadata, rather than having only its Data forwarded for serialization. This makes caller-supplied metadata observable in the JSON response while retaining custom-header handling.
+  • When Responder.Respond receives a response.Response with no Metadata value, its JSON body includes "metadata":null rather than omitting the property.
+
+Investigate
+  • Trace registered handlers and other call sites that return response.Response values to determine which HTTP APIs acquire the metadata-capable envelope behavior.
+  • Inspect the complete response-writing path for status selection, error serialization, custom headers, and pointer-versus-value response handling.
+  • Assess API consumers and schema contracts for compatibility with the new metadata property, especially the distinction between an absent property and a null value.
+
+Uncertain
+  • The supplied context does not identify which registered HTTP routes, if any, return response.Response and therefore expose the changed JSON shape.
+  • It is not established which production handlers or non-route callers reach Responder.Respond with a response.Response value rather than another supported response type.
+  • The diff does not establish whether real handler executions populate Metadata; populated metadata depends on the response values constructed at runtime.
+  • The supplied files do not identify external clients, schemas, or middleware that depend on metadata being absent, null, or populated.
+  • The wider context is needed to determine whether pointer values such as *response.Response are supported elsewhere or bypass both the custom-header and metadata-specific type assertions shown here.
+
+System impact
+─────────────
+No structural propagation path was established.
+
+Inferred boundaries
+───────────────────
+INFERRED · api/http · HTTP handler response serialization
+    HTTP requests cross into handler.ServeHTTP, whose established call to Responder.Respond carries handler results into the HTTP response serialization surface changed by this work.
+    Evidence: Changed production symbol handler.ServeHTTP in pkg/gofr/handler.go.; Changed production symbol Responder.Respond in pkg/gofr/http/responder.go.
+    Uncertain: No concrete registered route, method, or path is supplied, and it is not established which production routes return response.Response or populate Metadata.
+
+Inferred impact
+───────────────
+INFERRED · 0.84
+custom headers on HTTP handler responses
+
+Why:
+HTTP endpoints whose handlers return a Response value may now emit its custom headers because ServeHTTP recognizes that result type and applies those headers to the response writer.
+
+Static confirmation: unavailable
+
+INFERRED · 0.70
+HTTP rendering of raw, structured, and file results
+
+Why:
+Existing endpoints may produce different response bodies, metadata/error envelopes, status handling, or file Content-Type headers because Respond dispatches rendering according to Raw, Response, and File result types.
+
+Static confirmation: unavailable
+
+Code review (advisory; excluded from the verdict)
+─────────────────────────────────────────────────
+[P2] For a handler returning a concrete response.Response with nonempty Data and nil Metadata, this change serializes the response with "metadata":null, while the updated documentation specifies that the m
+  pkg/gofr/http/responder.go:32
+  Why: The changed handler no longer replaces response.Response with its Data, so the concrete response reaches the responder. The new responder branch copies the nil map Metadata into the internal response.Metadata interface field. Because that interface contains a typed nil map, its `omitempty` tag does not omit the field; the added test records the resulting `"…
+  Impact: Caused by the change: Deleting `result = resp.Data` preserves the returned response.Response through the handler pipeline. The newly added responder case then assigns its nil `map[string]any` Metadata to an interface-typed field; that typed-nil interface is serialized as JSON null rather than removed by `omitempty`, producing the test's `"metadata":null` an…
+
+CI
+──
+? go test could not run
+  The runner exited with code 1 without a usable result
+
+What Sydes could not establish
+──────────────────────────────
+• 2 additional affected areas are not yet verification-modeled.
+• 2 changed symbols have unresolved impact paths.
+• 2 inferred impacts could not be structurally confirmed.
+• The repository test suite could not run (The runner exited with code 1 without a usable result).
+
+Full verification requires
+──────────────────────────
+MySQL · Kafka · Tracer service · Redis
+
+Verdict
+───────
+VERIFICATION INCOMPLETE
+
+Wrote verification result: /Users/ksnaik/StudioProjects/sydes/benchmarks/aacr/results/alloc-A1-snapshot-c54d97e-first11-2026-10-26/sydes/gofr-dev__gofr@b9cdcbb.json
+
+--- stderr ---
+Preparing Sydes code intelligence...

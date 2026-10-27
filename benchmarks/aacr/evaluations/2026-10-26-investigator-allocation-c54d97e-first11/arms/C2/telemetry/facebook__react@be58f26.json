@@ -1,0 +1,56 @@
+{
+  "case_id": "facebook__react-33059",
+  "instance_id": "facebook__react@be58f26",
+  "language": "JavaScript",
+  "status": "completed",
+  "wall_seconds": 93.3,
+  "review_base": "8e9a5fc6c1a6252ca1727ab8fe0d4ee13f2568ec",
+  "review_base_info": {
+    "rule": "merge base (newest committer date, then smallest id)",
+    "merge_bases": [
+      "8e9a5fc6c1a6252ca1727ab8fe0d4ee13f2568ec"
+    ]
+  },
+  "code_review_status": "completed",
+  "code_findings": 0,
+  "not_submitted": {
+    "local_risks": 0,
+    "affected_flows": 0
+  },
+  "llm_totals": {
+    "calls": 16,
+    "input_tokens": 36826,
+    "output_tokens": 5343,
+    "errors": 0
+  },
+  "llm_calls_by_purpose": {
+    "investigator": 12,
+    "verifier": 4
+  },
+  "cbm": null,
+  "sydes_wall_seconds": null,
+  "verdict": null,
+  "invalid_reasons": [],
+  "replay": {
+    "source_run": "alloc-A1-snapshot-c54d97e-first11-2026-10-26",
+    "allocation": "two_round"
+  },
+  "investigation": {
+    "hypotheses": 2,
+    "lookups": 11,
+    "confirmed": 0,
+    "refuted": 0,
+    "unknown": 2,
+    "usage": {
+      "llm_calls": 16,
+      "by_stage": {
+        "investigator": 12,
+        "verifier": 4
+      },
+      "prompt_tokens": 36826,
+      "completion_tokens": 5343,
+      "reasoning_tokens": 2586,
+      "llm_seconds": 87.9
+    }
+  }
+}

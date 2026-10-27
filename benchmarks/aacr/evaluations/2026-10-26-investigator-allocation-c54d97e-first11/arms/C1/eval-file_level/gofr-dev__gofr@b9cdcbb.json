@@ -1,0 +1,22 @@
+{
+  "instance_id": "gofr-dev__gofr@b9cdcbb",
+  "reviewer": "sydes",
+  "boundary": "code_findings",
+  "status": "completed",
+  "duration_seconds": 50.4,
+  "review": {
+    "comments": [
+      {
+        "path": "pkg/gofr/http/responder.go",
+        "start_line": 32,
+        "end_line": 32,
+        "content": "On the standard handler/responder path, a response.Response value whose Metadata map is unset (nil) is serialized with a \"metadata\":null property, contradicting the updated documentation\u2019s example tha\nThe updated documentation explicitly says that omitted metadata produces a JSON object containing only data. However, the added test expects \"metadata\":null for a Response with no Metadata, confirming the implemented wire shape. The new responder branch assigns v.Metadata, whose declared type is map[string]any, into the internal response.Metadata interface field. For an unset map, that produces an interface containing a typed nil map; it is therefore not omitted by the interface field's omitempty handling and is encoded as null. The handler change also stops replacing Response with resp.Data, exposing this newly added responder branch to handler returns.\nImpact: Caused by the change: Previously, ServeHTTP replaced a returned response.Response with resp.Data before responding. This change removes that replacement and adds the resTypes.Response branch that copies the nil map into an interface-typed Metadata field. That changed path serializes the typed nil map as null, producing the documented-contract violation shown by the new test expectation.",
+        "severity": "P2"
+      }
+    ],
+    "summary": {
+      "input_tokens": 6825,
+      "output_tokens": 3304
+    }
+  }
+}

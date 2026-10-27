@@ -1,0 +1,506 @@
+{
+  "version": "sydes-investigation-snapshot/1",
+  "packet": [
+    {
+      "id": "E1",
+      "kind": "diff",
+      "ref": "Makefile",
+      "text": "diff --git a/Makefile b/Makefile\nindex e15faa8051..1e7760ae68 100644\n--- a/Makefile\n+++ b/Makefile\n@@ -17,6 +17,9 @@ e2e:\n prod:\n \tdocker compose -f ./docker/docker-compose.prod.yml up --build -V --remove-orphans\n \n+prod-down:\n+\tdocker compose -f ./docker/docker-compose.prod.yml down --remove-orphans\n+\n prod-scale:\n \tdocker compose -f ./docker/docker-compose.prod.yml up --build -V --scale immich-server=3 --scale immich-microservices=3 --remove-orphans\n "
+    },
+    {
+      "id": "E2",
+      "kind": "diff",
+      "ref": "e2e/src/api/specs/oauth.e2e-spec.ts",
+      "text": "diff --git a/e2e/src/api/specs/oauth.e2e-spec.ts b/e2e/src/api/specs/oauth.e2e-spec.ts\nindex 3b1e75d3e5..9e4d64892e 100644\n--- a/e2e/src/api/specs/oauth.e2e-spec.ts\n+++ b/e2e/src/api/specs/oauth.e2e-spec.ts\n@@ -142,7 +142,7 @@ describe(`/oauth`, () => {\n     it(`should throw an error if the state mismatches`, async () => {\n       const callbackParams = await loginWithOAuth('oauth-auto-register');\n       const { state } = await loginWithOAuth('oauth-auto-register');\n-      const { status, body } = await request(app)\n+      const { status } = await request(app)\n         .post('/oauth/callback')\n         .send({ ...callbackParams, state });\n       expect(status).toBeGreaterThanOrEqual(400);"
+    },
+    {
+      "id": "E3",
+      "kind": "diff",
+      "ref": "e2e/src/web/specs/photo-viewer.e2e-spec.ts",
+      "text": "diff --git a/e2e/src/web/specs/photo-viewer.e2e-spec.ts b/e2e/src/web/specs/photo-viewer.e2e-spec.ts\nindex 4871e7522c..c8a9b42b2a 100644\n--- a/e2e/src/web/specs/photo-viewer.e2e-spec.ts\n+++ b/e2e/src/web/specs/photo-viewer.e2e-spec.ts\n@@ -21,23 +21,9 @@ test.describe('Photo Viewer', () => {\n   test.beforeEach(async ({ context, page }) => {\n     // before each test, login as user\n     await utils.setAuthCookies(context, admin.accessToken);\n-    await page.goto('/photos');\n     await page.waitForLoadState('networkidle');\n   });\n \n-  test('initially shows a loading spinner', async ({ page }) => {\n-    await page.route(`/api/assets/${asset.id}/thumbnail**`, async (route) => {\n-      // slow down the request for thumbnail, so spinner has chance to show up\n-      await new Promise((f) => setTimeout(f, 2000));\n-      await route.continue();\n-    });\n-    await page.goto(`/photos/${asset.id}`);\n-    await page.waitForLoadState('load');\n-    // this is the spinner\n-    await page.waitForSelector('svg[role=status]');\n-    await expect(page.getByTestId('loading-spinner')).toBeVisible();\n-  });\n-\n   test('loads original photo when zoomed', async ({ page }) => {\n     await page.goto(`/photos/${asset.id}`);\n     await expect.poll(async () => await imageLocator(page).getAttribute('src')).toContain('thumbnail');"
+    },
+    {
+      "id": "E4",
+      "kind": "diff",
+      "ref": "e2e/src/web/specs/shared-link.e2e-spec.ts",
+      "text": "diff --git a/e2e/src/web/specs/shared-link.e2e-spec.ts b/e2e/src/web/specs/shared-link.e2e-spec.ts\nindex 562a0b4e8c..aeddb86322 100644\n--- a/e2e/src/web/specs/shared-link.e2e-spec.ts\n+++ b/e2e/src/web/specs/shared-link.e2e-spec.ts\n@@ -55,7 +55,6 @@ test.describe('Shared Links', () => {\n     await page.goto(`/share/${sharedLink.key}`);\n     await page.getByRole('heading', { name: 'Test Album' }).waitFor();\n     await page.getByRole('button', { name: 'Download' }).click();\n-    await page.getByText('DOWNLOADING', { exact: true }).waitFor();\n     await page.waitForEvent('download');\n   });\n "
+    },
+    {
+      "id": "E5",
+      "kind": "diff",
+      "ref": "web/eslint.config.js",
+      "text": "diff --git a/web/eslint.config.js b/web/eslint.config.js\nindex 5c24cd1aeb..9ced619504 100644\n--- a/web/eslint.config.js\n+++ b/web/eslint.config.js\n@@ -58,6 +58,8 @@ export default typescriptEslint.config(\n       },\n     },\n \n+    ignores: ['**/service-worker/**'],\n+\n     rules: {\n       '@typescript-eslint/no-unused-vars': [\n         'warn',"
+    },
+    {
+      "id": "E6",
+      "kind": "diff",
+      "ref": "web/src/lib/components/asset-viewer/photo-viewer.svelte",
+      "text": "diff --git a/web/src/lib/components/asset-viewer/photo-viewer.svelte b/web/src/lib/components/asset-viewer/photo-viewer.svelte\nindex d3a9da3633..9d2933ecd0 100644\n--- a/web/src/lib/components/asset-viewer/photo-viewer.svelte\n+++ b/web/src/lib/components/asset-viewer/photo-viewer.svelte\n@@ -21,6 +21,7 @@\n   import FaceEditor from '$lib/components/asset-viewer/face-editor/face-editor.svelte';\n   import { photoViewerImgElement } from '$lib/stores/assets-store.svelte';\n   import { isFaceEditMode } from '$lib/stores/face-edit.svelte';\n+  import { cancelImageUrl, preloadImageUrl } from '$lib/utils/sw-messaging';\n \n   interface Props {\n     asset: AssetResponseDto;\n@@ -71,8 +72,7 @@\n   const preload = (targetSize: AssetMediaSize | 'original', preloadAssets?: AssetResponseDto[]) => {\n     for (const preloadAsset of preloadAssets || []) {\n       if (preloadAsset.type === AssetTypeEnum.Image) {\n-        let img = new Image();\n-        img.src = getAssetUrl(preloadAsset.id, targetSize, preloadAsset.thumbhash);\n+        preloadImageUrl(getAssetUrl(preloadAsset.id, targetSize, preloadAsset.thumbhash));\n       }\n     }\n   };\n@@ -168,6 +168,7 @@\n     return () => {\n       loader?.removeEventListener('load', onload);\n       loader?.removeEventListener('error', onerror);\n+      cancelImageUrl(imageLoaderUrl);\n     };\n   });\n "
+    },
+    {
+      "id": "E7",
+      "kind": "diff",
+      "ref": "web/src/lib/components/assets/thumbnail/image-thumbnail.svelte",
+      "text": "diff --git a/web/src/lib/components/assets/thumbnail/image-thumbnail.svelte b/web/src/lib/components/assets/thumbnail/image-thumbnail.svelte\nindex 55357abbc0..762a8d1417 100644\n--- a/web/src/lib/components/assets/thumbnail/image-thumbnail.svelte\n+++ b/web/src/lib/components/assets/thumbnail/image-thumbnail.svelte\n@@ -2,9 +2,11 @@\n   import { thumbhash } from '$lib/actions/thumbhash';\n   import BrokenAsset from '$lib/components/assets/broken-asset.svelte';\n   import Icon from '$lib/components/elements/icon.svelte';\n+  import { cancelImageUrl } from '$lib/utils/sw-messaging';\n   import { TUNABLES } from '$lib/utils/tunables';\n   import { mdiEyeOffOutline } from '@mdi/js';\n   import type { ClassValue } from 'svelte/elements';\n+  import type { ActionReturn } from 'svelte/action';\n   import { fade } from 'svelte/transition';\n \n   interface Props {\n@@ -59,11 +61,14 @@\n     onComplete?.(true);\n   };\n \n-  function mount(elem: HTMLImageElement) {\n+  function mount(elem: HTMLImageElement): ActionReturn {\n     if (elem.complete) {\n       loaded = true;\n       onComplete?.(false);\n     }\n+    return {\n+      destroy: () => cancelImageUrl(url),\n+    };\n   }\n \n   let optionalClasses = $derived("
+    },
+    {
+      "id": "E8",
+      "kind": "diff",
+      "ref": "web/src/lib/utils/sw-messaging.ts",
+      "text": "diff --git a/web/src/lib/utils/sw-messaging.ts b/web/src/lib/utils/sw-messaging.ts\nnew file mode 100644\nindex 0000000000..1a19d3c134\n--- /dev/null\n+++ b/web/src/lib/utils/sw-messaging.ts\n@@ -0,0 +1,8 @@\n+const broadcast = new BroadcastChannel('immich');\n+\n+export function cancelImageUrl(url: string) {\n+  broadcast.postMessage({ type: 'cancel', url });\n+}\n+export function preloadImageUrl(url: string) {\n+  broadcast.postMessage({ type: 'preload', url });\n+}"
+    },
+    {
+      "id": "E9",
+      "kind": "diff",
+      "ref": "web/src/service-worker/index.ts",
+      "text": "diff --git a/web/src/service-worker/index.ts b/web/src/service-worker/index.ts\nnew file mode 100644\nindex 0000000000..a0aa32c85d\n--- /dev/null\n+++ b/web/src/service-worker/index.ts\n@@ -0,0 +1,90 @@\n+/// <reference types=\"@sveltejs/kit\" />\n+/// <reference no-default-lib=\"true\"/>\n+/// <reference lib=\"esnext\" />\n+/// <reference lib=\"webworker\" />\n+import { version } from '$service-worker';\n+\n+const useCache = true;\n+const sw = globalThis as unknown as ServiceWorkerGlobalScope;\n+const pendingLoads = new Map<string, AbortController>();\n+\n+// Create a unique cache name for this deployment\n+const CACHE = `cache-${version}`;\n+\n+sw.addEventListener('install', (event) => {\n+  event.waitUntil(sw.skipWaiting());\n+});\n+\n+sw.addEventListener('activate', (event) => {\n+  event.waitUntil(sw.clients.claim());\n+  // Remove previous cached data from disk\n+  event.waitUntil(deleteOldCaches());\n+});\n+\n+sw.addEventListener('fetch', (event) => {\n+  // ignore POST requests etc\n+  if (event.request.method !== 'GET') {\n+    return;\n+  }\n+  const url = new URL(event.request.url);\n+  if (/^\\/api\\/assets\\/[a-f0-9-]+\\/(original|thumbnail)/.test(url.pathname)) {\n+    event.respondWith(immichAsset(url));\n+  }\n+});\n+\n+async function deleteOldCaches() {\n+  for (const key of await caches.keys()) {\n+    if (key !== CACHE) {\n+      await caches.delete(key);\n+    }\n+  }\n+}\n+\n+async function immichAsset(url: URL) {\n+  const cache = await caches.open(CACHE);\n+  let response = useCache ? await cache.match(url) : undefined;\n+  if (response) {\n+    return response;\n+  }\n+  try {\n+    const cancelToken = new AbortController();\n+    const request = fetch(url, {\n+      signal: cancelToken.signal,\n+    });\n+    pendingLoads.set(url.toString(), cancelToken);\n+    response = await request;\n+    if (!(response instanceof Response)) {\n+      throw new TypeError('invalid response from fetch');\n+    }\n+    if (response.status === 200) {\n+      cache.put(url, response.clone());\n+    }\n+    return response;\n+  } catch {\n+    return Response.error();\n+  } finally {\n+    pendingLoads.delete(url.toString());\n+  }\n+}\n+\n+const broadcast = new BroadcastChannel('immich');\n+// eslint-disable-next-line  unicorn/prefer-add-event-listener\n+broadcast.onmessage = (event) => {\n+  if (!event.data) {\n+    return;\n+  }\n+  if (event.data.type === 'cancel') {\n+    const urlstring = event.data.url;\n+    const url = new URL(urlstring, event.origin);\n+\n+    const pending = pendingLoads.get(url.toString());\n+    if (pending) {\n+    \u2026"
+    },
+    {
+      "id": "E10",
+      "kind": "changed_symbol",
+      "ref": "web/src/lib/utils/sw-messaging.ts:1-1",
+      "text": "variable broadcast\nconst broadcast = new BroadcastChannel('immich');"
+    },
+    {
+      "id": "E11",
+      "kind": "changed_symbol",
+      "ref": "web/src/lib/utils/sw-messaging.ts:3-5",
+      "text": "function cancelImageUrl\nexport function cancelImageUrl(url: string) { broadcast.postMessage({ type: 'cancel', url }); }"
+    },
+    {
+      "id": "E12",
+      "kind": "changed_symbol",
+      "ref": "web/src/lib/utils/sw-messaging.ts:6-8",
+      "text": "function preloadImageUrl\nexport function preloadImageUrl(url: string) { broadcast.postMessage({ type: 'preload', url }); }"
+    },
+    {
+      "id": "E13",
+      "kind": "changed_symbol",
+      "ref": "web/src/service-worker/index.ts:7-7",
+      "text": "variable useCache\nconst useCache = true;"
+    },
+    {
+      "id": "E14",
+      "kind": "changed_symbol",
+      "ref": "web/src/service-worker/index.ts:8-8",
+      "text": "variable sw\nconst sw = globalThis as unknown as ServiceWorkerGlobalScope;"
+    },
+    {
+      "id": "E15",
+      "kind": "changed_symbol",
+      "ref": "web/src/service-worker/index.ts:9-9",
+      "text": "variable pendingLoads\nconst pendingLoads = new Map<string, AbortController>();"
+    },
+    {
+      "id": "E16",
+      "kind": "changed_symbol",
+      "ref": "web/src/service-worker/index.ts:12-12",
+      "text": "variable CACHE\nconst CACHE = `cache-${version}`;"
+    },
+    {
+      "id": "E17",
+      "kind": "changed_symbol",
+      "ref": "web/src/service-worker/index.ts:35-41",
+      "text": "function deleteOldCaches\nasync function deleteOldCaches() { for (const key of await caches.keys()) { if (key !== CACHE) { await caches.delete(key); } } }"
+    },
+    {
+      "id": "E18",
+      "kind": "changed_symbol",
+      "ref": "web/src/service-worker/index.ts:43-68",
+      "text": "function immichAsset\nasync function immichAsset(url: URL) { const cache = await caches.open(CACHE); let response = useCache ? await cache.match(url) : undefined; if (response) { return response; } try { const cancelToken = new AbortController(); const request = fetch(url, { signal: cancelToken.signal, }); pendingLoads.set(url.toString(), cancelToken); response = await request; if (!(response instanceof Response)) { throw new TypeError('invalid response from fetch'); } if (response.status === 200) { cache.put(url, response.clone()); } return response; } catch { return Response.error(); } finally { pendingLoads.delete(url.toString()); } }"
+    },
+    {
+      "id": "E19",
+      "kind": "changed_symbol",
+      "ref": "web/src/service-worker/index.ts:70-70",
+      "text": "variable broadcast\nconst broadcast = new BroadcastChannel('immich');"
+    },
+    {
+      "id": "E20",
+      "kind": "changed_symbol",
+      "ref": "Makefile:17-20",
+      "text": "function prod\nprod: docker compose -f ./docker/docker-compose.prod.yml up --build -V --remove-orphans prod-down:"
+    },
+    {
+      "id": "E21",
+      "kind": "changed_symbol",
+      "ref": "Makefile:20-23",
+      "text": "function prod-down\nprod-down: docker compose -f ./docker/docker-compose.prod.yml down --remove-orphans prod-scale:"
+    },
+    {
+      "id": "E22",
+      "kind": "changed_symbol",
+      "ref": "web/src/lib/components/asset-viewer/photo-viewer.svelte:72-78",
+      "text": "function preload\n"
+    },
+    {
+      "id": "E23",
+      "kind": "changed_symbol",
+      "ref": "web/src/lib/components/assets/thumbnail/image-thumbnail.svelte:64-72",
+      "text": "function mount\n"
+    },
+    {
+      "id": "E24",
+      "kind": "changed_symbol",
+      "ref": "web/src/lib/components/assets/thumbnail/image-thumbnail.svelte:70-70",
+      "text": "function destroy\n"
+    },
+    {
+      "id": "E25",
+      "kind": "structural",
+      "ref": "mobile/lib/services/background.service.dart:641-641",
+      "text": "immichAsset calls fetch at web/src/service-worker/index.ts:51 (a changed line)\nenum IosBackgroundTask { fetch, processing }"
+    },
+    {
+      "id": "E26",
+      "kind": "structural",
+      "ref": "web/src/lib/components/asset-viewer/photo-viewer.svelte:80-88",
+      "text": "preload calls getAssetUrl at web/src/lib/components/asset-viewer/photo-viewer.svelte:75 (a changed line)\n  const getAssetUrl = (id: string, targetSize: AssetMediaSize | 'original', cacheKey: string | null) => {\n    if (sharedLink && (!sharedLink.allowDownload || !sharedLink.showMetadata)) {\n      return getAssetThumbnailUrl({ id, size: AssetMediaSize.Preview, cacheKey });\n    }\n\n    return targetSize === 'original'\n      ? getAssetOriginalUrl({ id, cacheKey })\n      : getAssetThumbnailUrl({ id, size: targetSize, cacheKey });\n  };"
+    },
+    {
+      "id": "E27",
+      "kind": "structural",
+      "ref": "web/src/lib/components/assets/thumbnail/image-thumbnail.svelte:30-46",
+      "text": "mount calls onComplete at web/src/lib/components/assets/thumbnail/image-thumbnail.svelte:67 (2 line(s) from a changed line)\n  let {\n    url,\n    altText,\n    title = null,\n    heightStyle = undefined,\n    widthStyle,\n    base64ThumbHash = null,\n    curve = false,\n    shadow = false,\n    circle = false,\n    hidden = false,\n    border = false,\n    hiddenIconClass = 'text-white',\n    onComplete = undefined,\n    class: imageClass = '',\n    brokenAssetClass = '',\n  }: Props = $props();"
+    },
+    {
+      "id": "E28",
+      "kind": "structural",
+      "ref": "mobile/lib/services/album.service.dart:73-73",
+      "text": "refreshDeviceAlbums calls the changed sw\n  Future<bool> refreshDeviceAlbums() async {"
+    },
+    {
+      "id": "E29",
+      "kind": "structural",
+      "ref": "mobile/lib/services/album.service.dart:165-165",
+      "text": "refreshRemoteAlbums calls the changed sw\n  Future<bool> refreshRemoteAlbums() async {"
+    },
+    {
+      "id": "E30",
+      "kind": "structural",
+      "ref": "mobile/lib/services/asset.service.dart:83-83",
+      "text": "refreshRemoteAssets calls the changed sw\n  Future<bool> refreshRemoteAssets() async {"
+    },
+    {
+      "id": "E31",
+      "kind": "test_execution",
+      "ref": "ci_suite",
+      "text": "unknown test execution unavailable: no runnable target-project environment found (uv project with no synced `.venv`; Sydes does not create or install environments)"
+    },
+    {
+      "id": "E32",
+      "kind": "gap",
+      "ref": "unresolved:CACHE",
+      "text": "changed symbol CACHE: no structural path to an entrypoint was established"
+    },
+    {
+      "id": "E33",
+      "kind": "gap",
+      "ref": "unresolved:broadcast",
+      "text": "changed symbol broadcast: no structural path to an entrypoint was established"
+    },
+    {
+      "id": "E34",
+      "kind": "gap",
+      "ref": "unresolved:cancelImageUrl",
+      "text": "changed symbol cancelImageUrl: no structural path to an entrypoint was established"
+    },
+    {
+      "id": "E35",
+      "kind": "gap",
+      "ref": "unresolved:deleteOldCaches",
+      "text": "changed symbol deleteOldCaches: no structural path to an entrypoint was established"
+    },
+    {
+      "id": "E36",
+      "kind": "gap",
+      "ref": "unresolved:destroy",
+      "text": "changed symbol destroy: no structural path to an entrypoint was established"
+    },
+    {
+      "id": "E37",
+      "kind": "gap",
+      "ref": "unresolved:immichAsset",
+      "text": "changed symbol immichAsset: no structural path to an entrypoint was established"
+    },
+    {
+      "id": "E38",
+      "kind": "gap",
+      "ref": "unresolved:mount",
+      "text": "changed symbol mount: no structural path to an entrypoint was established"
+    },
+    {
+      "id": "E39",
+      "kind": "gap",
+      "ref": "unresolved:pendingLoads",
+      "text": "changed symbol pendingLoads: no structural path to an entrypoint was established"
+    },
+    {
+      "id": "E40",
+      "kind": "gap",
+      "ref": "unresolved:preload",
+      "text": "changed symbol preload: no structural path to an entrypoint was established"
+    },
+    {
+      "id": "E41",
+      "kind": "gap",
+      "ref": "unresolved:preloadImageUrl",
+      "text": "changed symbol preloadImageUrl: no structural path to an entrypoint was established"
+    },
+    {
+      "id": "E42",
+      "kind": "gap",
+      "ref": "unresolved:prod",
+      "text": "changed symbol prod: no structural path to an entrypoint was established"
+    },
+    {
+      "id": "E43",
+      "kind": "gap",
+      "ref": "unresolved:prod-down",
+      "text": "changed symbol prod-down: no structural path to an entrypoint was established"
+    },
+    {
+      "id": "E44",
+      "kind": "change_analysis",
+      "ref": "summary",
+      "text": "The change introduces a browser service worker that intercepts image asset GETs, serves successful responses from a deployment-versioned cache, supports background preloading, and allows component teardown to cancel pending image fetches. It also adds a production Compose shutdown target. The supplied diff does not show service-worker registration, so whether these mechanisms affect a real installation cannot be established here."
+    },
+    {
+      "id": "E45",
+      "kind": "change_analysis",
+      "ref": "local_risk",
+      "text": "[inference, not verified] If asset responses are authorization-dependent while their URLs remain the same across users, caching and matching only by URL can return an image stored under a previous session to a later session. This would be a material cross-user data exposure unless another layer guarantees URL-level isolation or clears the cache on identity changes."
+    },
+    {
+      "id": "E46",
+      "kind": "change_analysis",
+      "ref": "local_risk",
+      "text": "[inference, not verified] Cancellation ownership is global per URL rather than per component or request. If multiple consumers load the same URL, a teardown from one consumer can abort the controller currently stored for another consumer; overlapping loads also overwrite each other's map entries."
+    },
+    {
+      "id": "E47",
+      "kind": "change_analysis",
+      "ref": "local_risk",
+      "text": "[inference, not verified] Activation cleanup deletes every origin cache other than the current service-worker cache. If any unrelated feature owns a differently named cache, an update will remove that feature's cached state as well."
+    },
+    {
+      "id": "E48",
+      "kind": "change_analysis",
+      "ref": "local_risk",
+      "text": "[inference, not verified] Cache population is started without awaiting its promise. A service-worker lifecycle termination or rejected cache write can therefore leave the request successful but the intended preload/cache entry unavailable."
+    },
+    {
+      "id": "E49",
+      "kind": "change_analysis",
+      "ref": "uncertainty",
+      "text": "The supplied files do not establish every HTTP/UI route that mounts the changed photo-viewer or thumbnail components and therefore emits preload or cancellation messages."
+    },
+    {
+      "id": "E50",
+      "kind": "change_analysis",
+      "ref": "uncertainty",
+      "text": "It is not shown whether there are additional callers of the messaging helpers or direct consumers of the service-worker asset-loading path beyond the changed components."
+    },
+    {
+      "id": "E51",
+      "kind": "change_analysis",
+      "ref": "uncertainty",
+      "text": "The diff does not show service-worker registration, successful installation, browser support, or whether a client is controlled when image requests occur."
+    },
+    {
+      "id": "E52",
+      "kind": "change_analysis",
+      "ref": "uncertainty",
+      "text": "The authorization and tenancy boundary of the intercepted asset URLs is not shown, so it is unknown whether cached responses are safely reusable across sessions for the same origin and URL."
+    },
+    {
+      "id": "E53",
+      "kind": "change_analysis",
+      "ref": "uncertainty",
+      "text": "The expected behavior for mutable assets, HTTP cache directives, failed Cache Storage writes, and service-worker lifetime around the unawaited cache.put operation is not established by the supplied context."
+    }
+  ],
+  "hypotheses": [
+    {
+      "id": "H1",
+      "claim": "Asset caching may violate authorization isolation: a successful response cached for an asset URL can be returned to a later session that is not authorized to access that asset, because cache lookup is keyed by URL and is not cleared when identity or permissions change.",
+      "why_suspected": "The service worker caches every successful matching asset response and later returns cache matches before contacting the server. The cache name changes only with deployments, while the evidence does not establish that asset URLs are user-specific or that logout and permission changes clear the cache.",
+      "file": "web/src/service-worker/index.ts",
+      "line": 46,
+      "severity": "P1",
+      "initial_evidence": [
+        "E13",
+        "E16",
+        "E18",
+        "E45",
+        "E52"
+      ],
+      "questions_to_resolve": [
+        "Can the same asset URL be requested by differently authorized users or before and after logout?",
+        "Are these caches cleared whenever authentication, sharing permissions, or asset access changes?"
+      ]
+    },
+    {
+      "id": "H2",
+      "claim": "Canceling an image load for one component may abort another component's concurrent load of the same URL, violating independent request ownership.",
+      "why_suspected": "All requests for a URL share one map key. A later request overwrites the earlier AbortController, and component teardown broadcasts cancellation using only the URL, so it can abort whichever request currently occupies that key; one request's finally block can also delete another request's entry.",
+      "file": "web/src/service-worker/index.ts",
+      "line": 55,
+      "severity": "P2",
+      "initial_evidence": [
+        "E6",
+        "E7",
+        "E11",
+        "E15",
+        "E18",
+        "E46"
+      ],
+      "questions_to_resolve": [
+        "Can multiple thumbnails, viewers, or preload operations request the same asset URL concurrently?",
+        "Does the cancellation handler distinguish the requesting component or individual fetch in any omitted code?"
+      ]
+    },
+    {
+      "id": "H3",
+      "claim": "Activating this service worker may delete Cache Storage entries owned by unrelated application features because cleanup removes every origin cache except the current asset cache.",
+      "why_suspected": "deleteOldCaches iterates all cache names and deletes every name unequal to CACHE, without restricting deletion to an Immich asset-cache namespace.",
+      "file": "web/src/service-worker/index.ts",
+      "line": 36,
+      "severity": "P2",
+      "initial_evidence": [
+        "E16",
+        "E17",
+        "E47"
+      ],
+      "questions_to_resolve": [
+        "Does any current or supported deployment sharing this origin use Cache Storage for another feature or application?",
+        "Is this service worker guaranteed exclusive ownership of every cache on the origin?"
+      ]
+    },
+    {
+      "id": "H4",
+      "claim": "A successful asset fetch or preload may fail to persist its response because cache.put is not awaited before immichAsset resolves, violating the new preloading and cache-reuse behavior.",
+      "why_suspected": "The service worker starts cache.put and immediately returns the network response. Once the fetch handler's response promise settles, service-worker termination can interrupt the outstanding write, and a rejected write is not observed.",
+      "file": "web/src/service-worker/index.ts",
+      "line": 61,
+      "severity": "P2",
+      "initial_evidence": [
+        "E12",
+        "E18",
+        "E22",
+        "E48",
+        "E53"
+      ],
+      "questions_to_resolve": [
+        "Is any surrounding event lifetime kept open until cache.put settles?",
+        "Is reliable cache population required for preload requests, which have no foreground response consumer?"
+      ]
+    },
+    {
+      "id": "H5",
+      "claim": "The cache-first path may serve obsolete asset content for the remainder of a deployment after an asset is edited or replaced, because cached responses have no expiry or revalidation.",
+      "why_suspected": "Once cache.match succeeds, the service worker returns that response without consulting the server or HTTP freshness directives. Entries persist under a deployment-versioned cache until a later deployment unless every content mutation changes the requested URL.",
+      "file": "web/src/service-worker/index.ts",
+      "line": 46,
+      "severity": "P2",
+      "initial_evidence": [
+        "E13",
+        "E16",
+        "E18",
+        "E26",
+        "E53"
+      ],
+      "questions_to_resolve": [
+        "Do all mutations that can change an original or thumbnail also change the cacheKey embedded in its URL?",
+        "Must server cache-control directives or asset replacement become visible without a new frontend deployment?"
+      ]
+    }
+  ],
+  "changed_ranges": {
+    "e2e/src/api/specs/oauth.e2e-spec.ts": [
+      [
+        145,
+        145
+      ]
+    ],
+    "e2e/src/web/specs/photo-viewer.e2e-spec.ts": [
+      [
+        23,
+        23
+      ],
+      [
+        26,
+        26
+      ]
+    ],
+    "e2e/src/web/specs/shared-link.e2e-spec.ts": [
+      [
+        57,
+        57
+      ]
+    ],
+    "web/eslint.config.js": [
+      [
+        61,
+        62
+      ]
+    ],
+    "web/src/lib/utils/sw-messaging.ts": [
+      [
+        1,
+        8
+      ]
+    ],
+    "web/src/service-worker/index.ts": [
+      [
+        1,
+        90
+      ]
+    ],
+    "Makefile": [
+      [
+        20,
+        22
+      ]
+    ],
+    "web/src/lib/components/asset-viewer/photo-viewer.svelte": [
+      [
+        24,
+        24
+      ],
+      [
+        75,
+        75
+      ],
+      [
+        171,
+        171
+      ]
+    ],
+    "web/src/lib/components/assets/thumbnail/image-thumbnail.svelte": [
+      [
+        5,
+        5
+      ],
+      [
+        9,
+        9
+      ],
+      [
+        64,
+        64
+      ],
+      [
+        69,
+        71
+      ]
+    ]
+  },
+  "finder_errors": [],
+  "finder_usage": {
+    "llm_calls": 1,
+    "prompt_tokens": 6352,
+    "completion_tokens": 2691,
+    "reasoning_tokens": 1832
+  }
+}

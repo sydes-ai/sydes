@@ -1,0 +1,56 @@
+{
+  "case_id": "gofr-dev__gofr-1325",
+  "instance_id": "gofr-dev__gofr@b9cdcbb",
+  "language": "Go",
+  "status": "completed",
+  "wall_seconds": 41.7,
+  "review_base": "567a9ca6e318ed76523533cdfc47c6199f1e5ac6",
+  "review_base_info": {
+    "rule": "merge base (newest committer date, then smallest id)",
+    "merge_bases": [
+      "567a9ca6e318ed76523533cdfc47c6199f1e5ac6"
+    ]
+  },
+  "code_review_status": "completed",
+  "code_findings": 1,
+  "not_submitted": {
+    "local_risks": 0,
+    "affected_flows": 0
+  },
+  "llm_totals": {
+    "calls": 5,
+    "input_tokens": 11212,
+    "output_tokens": 2375,
+    "errors": 0
+  },
+  "llm_calls_by_purpose": {
+    "investigator": 4,
+    "verifier": 1
+  },
+  "cbm": null,
+  "sydes_wall_seconds": null,
+  "verdict": null,
+  "invalid_reasons": [],
+  "replay": {
+    "source_run": "alloc-A1-snapshot-c54d97e-first11-2026-10-26",
+    "allocation": "sequential"
+  },
+  "investigation": {
+    "hypotheses": 1,
+    "lookups": 4,
+    "confirmed": 1,
+    "refuted": 0,
+    "unknown": 0,
+    "usage": {
+      "llm_calls": 5,
+      "by_stage": {
+        "investigator": 4,
+        "verifier": 1
+      },
+      "prompt_tokens": 11212,
+      "completion_tokens": 2375,
+      "reasoning_tokens": 1666,
+      "llm_seconds": 36.7
+    }
+  }
+}

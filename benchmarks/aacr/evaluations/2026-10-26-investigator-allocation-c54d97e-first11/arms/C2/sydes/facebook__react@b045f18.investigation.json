@@ -1,0 +1,299 @@
+{
+  "version": "sydes-investigation/1",
+  "packet": [
+    {
+      "id": "E1",
+      "kind": "diff",
+      "ref": "packages/react-devtools-shared/src/backend/fiber/renderer.js",
+      "chars": 2500
+    },
+    {
+      "id": "E2",
+      "kind": "diff",
+      "ref": "packages/react-devtools-shared/src/backend/types.js",
+      "chars": 472
+    },
+    {
+      "id": "E3",
+      "kind": "diff",
+      "ref": "packages/react-reconciler/src/ReactFiber.js",
+      "chars": 1684
+    },
+    {
+      "id": "E4",
+      "kind": "diff",
+      "ref": "packages/react-reconciler/src/ReactFiberBeginWork.js",
+      "chars": 2112
+    },
+    {
+      "id": "E5",
+      "kind": "diff",
+      "ref": "packages/react-reconciler/src/ReactFiberCompleteWork.js",
+      "chars": 704
+    },
+    {
+      "id": "E6",
+      "kind": "diff",
+      "ref": "packages/react-reconciler/src/ReactWorkTags.js",
+      "chars": 620
+    },
+    {
+      "id": "E7",
+      "kind": "diff",
+      "ref": "packages/react-reconciler/src/getComponentNameFromFiber.js",
+      "chars": 914
+    },
+    {
+      "id": "E8",
+      "kind": "diff",
+      "ref": "packages/react-server/src/ReactFizzServer.js",
+      "chars": 719
+    },
+    {
+      "id": "E9",
+      "kind": "diff",
+      "ref": "packages/react/src/ReactClient.js",
+      "chars": 791
+    },
+    {
+      "id": "E10",
+      "kind": "diff",
+      "ref": "packages/shared/ReactSymbols.js",
+      "chars": 648
+    },
+    {
+      "id": "E11",
+      "kind": "diff",
+      "ref": "packages/shared/isValidElementType.js",
+      "chars": 842
+    },
+    {
+      "id": "E12",
+      "kind": "changed_symbol",
+      "ref": "packages/react-devtools-shared/src/backend/fiber/renderer.js:299-759",
+      "chars": 1381
+    },
+    {
+      "id": "E13",
+      "kind": "changed_symbol",
+      "ref": "packages/react-devtools-shared/src/backend/fiber/renderer.js:599-750",
+      "chars": 237
+    },
+    {
+      "id": "E14",
+      "kind": "changed_symbol",
+      "ref": "packages/react-reconciler/src/ReactFiberBeginWork.js:871-909",
+      "chars": 1011
+    },
+    {
+      "id": "E15",
+      "kind": "changed_symbol",
+      "ref": "packages/react-reconciler/src/ReactFiberCompleteWork.js:945-1876",
+      "chars": 162
+    },
+    {
+      "id": "E16",
+      "kind": "changed_symbol",
+      "ref": "packages/react-reconciler/src/ReactWorkTags.js:73-73",
+      "chars": 63
+    },
+    {
+      "id": "E17",
+      "kind": "changed_symbol",
+      "ref": "packages/react-reconciler/src/getComponentNameFromFiber.js:86-194",
+      "chars": 290
+    },
+    {
+      "id": "E18",
+      "kind": "changed_symbol",
+      "ref": "packages/react-server/src/ReactFizzServer.js:1121-3288",
+      "chars": 244
+    },
+    {
+      "id": "E19",
+      "kind": "changed_symbol",
+      "ref": "packages/shared/ReactSymbols.js:37-37",
+      "chars": 101
+    },
+    {
+      "id": "E20",
+      "kind": "changed_symbol",
+      "ref": "packages/shared/isValidElementType.js:41-83",
+      "chars": 439
+    },
+    {
+      "id": "E21",
+      "kind": "structural",
+      "ref": "packages/react-reconciler/src/ReactFiberBeginWork.js:2422-2430",
+      "chars": 462
+    },
+    {
+      "id": "E22",
+      "kind": "structural",
+      "ref": "packages/react-reconciler/src/ReactFiberBeginWork.js:2432-2439",
+      "chars": 420
+    },
+    {
+      "id": "E23",
+      "kind": "structural",
+      "ref": "packages/react-devtools-shared/src/backend/fiber/renderer.js:1281-1309",
+      "chars": 918
+    },
+    {
+      "id": "E24",
+      "kind": "structural",
+      "ref": "packages/react-devtools-shared/src/backend/fiber/renderer.js:5635-5666",
+      "chars": 1060
+    },
+    {
+      "id": "E25",
+      "kind": "structural",
+      "ref": "packages/react-reconciler/src/ReactChildFiber.js:289-324",
+      "chars": 1173
+    },
+    {
+      "id": "E26",
+      "kind": "test_execution",
+      "ref": "ci_suite",
+      "chars": 76
+    },
+    {
+      "id": "E27",
+      "kind": "gap",
+      "ref": "unresolved:ActivityComponent",
+      "chars": 85
+    },
+    {
+      "id": "E28",
+      "kind": "gap",
+      "ref": "unresolved:REACT_ACTIVITY_TYPE",
+      "chars": 87
+    },
+    {
+      "id": "E29",
+      "kind": "gap",
+      "ref": "unresolved:completeWork",
+      "chars": 80
+    },
+    {
+      "id": "E30",
+      "kind": "gap",
+      "ref": "unresolved:getComponentNameFromFiber",
+      "chars": 93
+    },
+    {
+      "id": "E31",
+      "kind": "gap",
+      "ref": "unresolved:getDisplayNameForFiber",
+      "chars": 90
+    },
+    {
+      "id": "E32",
+      "kind": "gap",
+      "ref": "unresolved:getInternalReactConstants",
+      "chars": 93
+    },
+    {
+      "id": "E33",
+      "kind": "gap",
+      "ref": "unresolved:isValidElementType",
+      "chars": 86
+    },
+    {
+      "id": "E34",
+      "kind": "gap",
+      "ref": "unresolved:renderSuspenseBoundary",
+      "chars": 90
+    },
+    {
+      "id": "E35",
+      "kind": "gap",
+      "ref": "unresolved:updateActivityComponent",
+      "chars": 91
+    },
+    {
+      "id": "E36",
+      "kind": "change_analysis",
+      "ref": "summary",
+      "chars": 324
+    },
+    {
+      "id": "E37",
+      "kind": "change_analysis",
+      "ref": "local_risk",
+      "chars": 347
+    },
+    {
+      "id": "E38",
+      "kind": "change_analysis",
+      "ref": "local_risk",
+      "chars": 316
+    },
+    {
+      "id": "E39",
+      "kind": "change_analysis",
+      "ref": "local_risk",
+      "chars": 251
+    },
+    {
+      "id": "E40",
+      "kind": "change_analysis",
+      "ref": "uncertainty",
+      "chars": 147
+    },
+    {
+      "id": "E41",
+      "kind": "change_analysis",
+      "ref": "uncertainty",
+      "chars": 159
+    },
+    {
+      "id": "E42",
+      "kind": "change_analysis",
+      "ref": "uncertainty",
+      "chars": 210
+    },
+    {
+      "id": "E43",
+      "kind": "change_analysis",
+      "ref": "uncertainty",
+      "chars": 192
+    },
+    {
+      "id": "E44",
+      "kind": "change_analysis",
+      "ref": "uncertainty",
+      "chars": 169
+    }
+  ],
+  "hypotheses": [],
+  "lookups": [],
+  "outcomes": [],
+  "confirmed": [],
+  "refuted": [],
+  "unknown": [],
+  "findings": [],
+  "budget": {
+    "max_hypotheses": 5,
+    "max_lookups": 12,
+    "used_lookups": 0,
+    "max_lookups_per_hypothesis": 6,
+    "allocation": "two_round",
+    "round1_lookups": 2
+  },
+  "usage": {
+    "llm_calls": 0,
+    "by_stage": {},
+    "prompt_tokens": 0,
+    "completion_tokens": 0,
+    "reasoning_tokens": 0,
+    "llm_seconds": 0.0
+  },
+  "errors": [
+    "finder: OpenAI request failed for model 'gpt-5.6-sol': Request timed out."
+  ],
+  "replay": {
+    "snapshot_version": "sydes-investigation-snapshot/1",
+    "allocation": "two_round"
+  }
+}

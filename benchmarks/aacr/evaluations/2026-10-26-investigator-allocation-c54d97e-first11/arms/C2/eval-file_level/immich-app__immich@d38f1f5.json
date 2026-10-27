@@ -1,0 +1,14 @@
+{
+  "instance_id": "immich-app__immich@d38f1f5",
+  "reviewer": "sydes",
+  "boundary": "code_findings",
+  "status": "completed",
+  "duration_seconds": 123.4,
+  "review": {
+    "comments": [],
+    "summary": {
+      "input_tokens": 44145,
+      "output_tokens": 7305
+    }
+  }
+}

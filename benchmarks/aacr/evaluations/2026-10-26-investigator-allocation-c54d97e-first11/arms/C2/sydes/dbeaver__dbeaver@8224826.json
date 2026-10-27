@@ -1,0 +1,62 @@
+{
+  "code_findings": [
+    {
+      "id": "investigator-H1",
+      "severity": "P1",
+      "title": "On the inherited no-active-catalog-query failure path, the new Databricks override suppresses DBCException and returns normally while both the JDBC connection and activeCatalogName retain their previo",
+      "file": "plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksExecutionContext.java",
+      "line": 67,
+      "repo": null,
+      "explanation": "GenericExecutionContext explicitly throws DBCException when catalog selection is not API-based and no active-catalog query is configured. That throw occurs before the catalog-changing query and before selectedEntityName is updated, so this path leaves the prior catalog selected. The new Databricks override calls the inherited method inside a try block, catches DBCException without rethrowing it, and only assigns activeCatalogName after a successful inherited call. Thus the failure becomes normal completion with the old catalog still active. DBExecUtils.changeDefaultObject directly invokes setDefaultCatalog from a method declared to throw DBException, showing a caller path where propagation would abort the operation; the changed derived-context initialization also invokes it directly. E20 establishes that the change makes Databricks use this dedicated context.",
+      "impact": "Caused by the change: The change introduces and installs a Databricks-specific override that intercepts DBCException from the existing generic implementation. On the explicit pre-switch failure path, the inherited method performs no catalog switch and never reaches its state update; the override also skips activeCatalogName assignment but swallows the exception. Consequently callers receive normal completion instead of the failure that previously propagated and could abort their operation.",
+      "suggested_fix": null,
+      "source": "investigator",
+      "evidence": [
+        {
+          "file": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/GenericExecutionContext.java",
+          "symbol": null,
+          "label": "verified_quote:276",
+          "snippet": "} else {\n                if (CommonUtils.isEmpty(dataSource.getQuerySetActiveDB())) {\n                    throw new DBCException(\"Active catalog can't be changed for this kind of datasource!\");\n                }"
+        },
+        {
+          "file": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/GenericExecutionContext.java",
+          "symbol": null,
+          "label": "verified_quote:288",
+          "snippet": "String changeQuery = dataSource.getQuerySetActiveDB().replaceFirst(\"\\\\?\", Matcher.quoteReplacement(catalog.getName()));"
+        },
+        {
+          "file": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/GenericExecutionContext.java",
+          "symbol": null,
+          "label": "verified_quote:300",
+          "snippet": "selectedEntityName = catalog.getName();"
+        },
+        {
+          "file": "plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksExecutionContext.java",
+          "symbol": null,
+          "label": "verified_quote:65",
+          "snippet": "try {\n            super.setDefaultCatalog(monitor, catalog, schema);\n            activeCatalogName = catalog.getName();\n        } catch (DBCException e) {\n            log.debug(\"Error setting default catalog for Databricks\", e);\n        }"
+        }
+      ]
+    }
+  ],
+  "code_review_status": "completed",
+  "run_metrics": {
+    "llm_totals": {
+      "calls": 17,
+      "input_tokens": 52037,
+      "output_tokens": 8064,
+      "errors": 0
+    },
+    "llm_by_purpose": {
+      "investigator": {
+        "calls": 12
+      },
+      "verifier": {
+        "calls": 5
+      }
+    }
+  },
+  "diagnostics": [
+    "investigator: hypotheses=4 lookups=12/12 confirmed=1 refuted=0 unknown=3 findings=1 llm_calls=17 errors=0"
+  ]
+}

@@ -1,0 +1,818 @@
+{
+  "version": "sydes-investigation/1",
+  "packet": [
+    {
+      "id": "E1",
+      "kind": "diff",
+      "ref": "browser_use/agent/service.py",
+      "chars": 606
+    },
+    {
+      "id": "E2",
+      "kind": "diff",
+      "ref": "browser_use/browser/browser.py",
+      "chars": 2500
+    },
+    {
+      "id": "E3",
+      "kind": "diff",
+      "ref": "browser_use/browser/chrome.py",
+      "chars": 955
+    },
+    {
+      "id": "E4",
+      "kind": "diff",
+      "ref": "examples/custom-functions/file_upload.py",
+      "chars": 601
+    },
+    {
+      "id": "E5",
+      "kind": "diff",
+      "ref": "tests/test_browser.py",
+      "chars": 2500
+    },
+    {
+      "id": "E6",
+      "kind": "changed_symbol",
+      "ref": "browser_use/agent/service.py:1201-1250",
+      "chars": 406
+    },
+    {
+      "id": "E7",
+      "kind": "changed_symbol",
+      "ref": "browser_use/browser/browser.py:58-120",
+      "chars": 1210
+    },
+    {
+      "id": "E8",
+      "kind": "changed_symbol",
+      "ref": "browser_use/browser/browser.py:189-263",
+      "chars": 1630
+    },
+    {
+      "id": "E9",
+      "kind": "changed_symbol",
+      "ref": "browser_use/browser/browser.py:265-319",
+      "chars": 995
+    },
+    {
+      "id": "E10",
+      "kind": "changed_symbol",
+      "ref": "browser_use/browser/chrome.py:97-97",
+      "chars": 111
+    },
+    {
+      "id": "E11",
+      "kind": "changed_symbol",
+      "ref": "browser_use/browser/chrome.py:99-185",
+      "chars": 615
+    },
+    {
+      "id": "E12",
+      "kind": "changed_symbol",
+      "ref": "examples/custom-functions/file_upload.py:69-77",
+      "chars": 380
+    },
+    {
+      "id": "E13",
+      "kind": "changed_symbol",
+      "ref": "tests/test_browser.py:161-233",
+      "chars": 1682
+    },
+    {
+      "id": "E14",
+      "kind": "structural",
+      "ref": "browser_use/browser/utils/screen_resolution.py:34-41",
+      "chars": 434
+    },
+    {
+      "id": "E15",
+      "kind": "structural",
+      "ref": "browser_use/agent/views.py:103-110",
+      "chars": 406
+    },
+    {
+      "id": "E16",
+      "kind": "structural",
+      "ref": "browser_use/browser/utils/screen_resolution.py:4-31",
+      "chars": 1076
+    },
+    {
+      "id": "E17",
+      "kind": "structural",
+      "ref": "browser_use/agent/service.py:92-211",
+      "chars": 2500
+    },
+    {
+      "id": "E18",
+      "kind": "structural",
+      "ref": "browser_use/browser/browser.py:133-140",
+      "chars": 297
+    },
+    {
+      "id": "E19",
+      "kind": "structural",
+      "ref": "eval/service.py:705-824",
+      "chars": 2500
+    },
+    {
+      "id": "E20",
+      "kind": "test_execution",
+      "ref": "ci_suite",
+      "chars": 163
+    },
+    {
+      "id": "E21",
+      "kind": "gap",
+      "ref": "unresolved:CHROME_ARGS",
+      "chars": 79
+    },
+    {
+      "id": "E22",
+      "kind": "gap",
+      "ref": "unresolved:CHROME_DEBUGGING_ARG",
+      "chars": 88
+    },
+    {
+      "id": "E23",
+      "kind": "change_analysis",
+      "ref": "summary",
+      "chars": 415
+    },
+    {
+      "id": "E24",
+      "kind": "change_analysis",
+      "ref": "local_risk",
+      "chars": 296
+    },
+    {
+      "id": "E25",
+      "kind": "change_analysis",
+      "ref": "local_risk",
+      "chars": 383
+    },
+    {
+      "id": "E26",
+      "kind": "change_analysis",
+      "ref": "local_risk",
+      "chars": 296
+    },
+    {
+      "id": "E27",
+      "kind": "change_analysis",
+      "ref": "uncertainty",
+      "chars": 115
+    },
+    {
+      "id": "E28",
+      "kind": "change_analysis",
+      "ref": "uncertainty",
+      "chars": 160
+    },
+    {
+      "id": "E29",
+      "kind": "change_analysis",
+      "ref": "uncertainty",
+      "chars": 131
+    },
+    {
+      "id": "E30",
+      "kind": "change_analysis",
+      "ref": "uncertainty",
+      "chars": 165
+    },
+    {
+      "id": "E31",
+      "kind": "change_analysis",
+      "ref": "uncertainty",
+      "chars": 157
+    }
+  ],
+  "hypotheses": [
+    {
+      "id": "H1",
+      "claim": "BrowserConfig accepts chrome_remote_debugging_port=None, but both browser setup paths require a concrete port, so this accepted configuration can fail before browser launch instead of defaulting or disabling remote debugging.",
+      "why_suspected": "The new field is explicitly typed as int | None, while the user-provided path interpolates it into an HTTP URL and Chrome argument and the built-in path also passes it to socket.connect_ex; none of these paths handles None.",
+      "file": "browser_use/browser/browser.py",
+      "line": 109,
+      "severity": "P2",
+      "initial_evidence": [
+        "E7",
+        "E8",
+        "E9",
+        "E24"
+      ],
+      "questions_to_resolve": [
+        "Does BrowserConfig(chrome_remote_debugging_port=None) validate successfully?",
+        "What exception is raised by each setup path when the value is None, and is None intended to disable debugging or select the default?"
+      ]
+    },
+    {
+      "id": "H2",
+      "claim": "When extra_browser_args contains a different --remote-debugging-port value, the user-provided browser may launch on that competing port while the setup code only probes and connects to chrome_remote_debugging_port, causing startup failure.",
+      "why_suspected": "The generated port argument and caller-provided arguments are placed in an unordered set without removing conflicting remote-debugging-port options. Chrome can therefore receive two port flags in nondeterministic order, while all CDP probes remain fixed to the configured field.",
+      "file": "browser_use/browser/browser.py",
+      "line": 218,
+      "severity": "P2",
+      "initial_evidence": [
+        "E8",
+        "E23",
+        "E25"
+      ],
+      "questions_to_resolve": [
+        "Can existing callers supply remote-debugging-port through extra_browser_args?",
+        "Which duplicate flag Chrome honors, and can set iteration order place the caller-provided flag last?",
+        "Should the dedicated configuration field reject or override conflicting extra arguments?"
+      ]
+    },
+    {
+      "id": "H3",
+      "claim": "The new custom-port test does not isolate the implementation's initial HTTP probe, so it can skip the subprocess-launch assertion or fail depending on whether a real service is listening on localhost:9223.",
+      "why_suspected": "The test patches requests.get, but _setup_user_provided_browser performs its initial /json/version request with httpx.AsyncClient. A real Chrome endpoint on the selected port would take the reuse branch and never verify that the launch command contains the custom port.",
+      "file": "tests/test_browser.py",
+      "line": 179,
+      "severity": "P3",
+      "initial_evidence": [
+        "E8",
+        "E13",
+        "E26"
+      ],
+      "questions_to_resolve": [
+        "Does the test patch httpx.AsyncClient anywhere outside the supplied body?",
+        "Does the test pass without invoking dummy_create_subprocess_exec when localhost:9223 already hosts a CDP endpoint?"
+      ]
+    }
+  ],
+  "lookups": [
+    {
+      "n": 1,
+      "id": "L1",
+      "hypothesis": "H1",
+      "tool": "read_source",
+      "args": {
+        "path": "browser_use/browser/browser.py",
+        "start_line": 70,
+        "end_line": 150
+      },
+      "why": "Inspect BrowserConfig\u2019s field declaration and validators to determine whether chrome_remote_debugging_port=None is accepted and what semantics are documented.",
+      "provenance": "source_read",
+      "result_chars": 3567,
+      "result_excerpt": "70: \t\t\tExtra arguments to pass to the browser\n71: \n72: \t\twss_url: None\n73: \t\t\tConnect to a browser instance via WebSocket\n74: \n75: \t\tcdp_url: None\n76: \t\t\tConnect to a browser instance via CDP\n77: \n78: \t\tbrowser_binary_path: None\n79: \t\t\tPath to a Browser instance to use to connect to your normal browser\n80: \t\t\te.g. '/Applications/Google\\ Chrome.app/Contents/MacOS/Google\\ Chrome'\n81: \n82: \t\tchrome_remote_debugging_port: 9222\n83: \t\t\tChrome remote debugging port to use to when browser_binary_path is supplied.\n84: \t\t\tThis allows running multiple chrome browsers with same browser_binary_path but run"
+    },
+    {
+      "n": 2,
+      "id": "L2",
+      "hypothesis": "H1",
+      "tool": "search_text",
+      "args": {
+        "pattern": "chrome_remote_debugging_port",
+        "path_glob": "browser_use/**/*.py"
+      },
+      "why": "Locate both browser setup paths and every use of the optional port so we can identify their behavior and exceptions when it is None.",
+      "provenance": "source_search",
+      "result_chars": 1409,
+      "result_excerpt": "browser_use/browser/browser.py:82: chrome_remote_debugging_port: 9222\nbrowser_use/browser/browser.py:111: chrome_remote_debugging_port: int | None = CHROME_DEBUG_PORT\nbrowser_use/browser/browser.py:202: f'http://localhost:{self.config.chrome_remote_debugging_port}/json/version', timeout=2\nbrowser_use/browser/browser.py:206: f'\ud83d\udd0c  Reusing existing browser found running on http://localhost:{self.config.chrome_remote_debugging_port}'\nbrowser_use/browser/browser.py:210: endpoint_url=f'http://localhost:{self.config.chrome_remote_debugging_port}',\nbrowser_use/browser/browser.py:220: CHROME_DEBUGGING_"
+    },
+    {
+      "n": 3,
+      "id": "L3",
+      "hypothesis": "H1",
+      "tool": "read_source",
+      "args": {
+        "path": "browser_use/browser/browser.py",
+        "start_line": 149,
+        "end_line": 310
+      },
+      "why": "Inspect both setup paths and their control flow to determine the exact pre-launch operations involving None and the resulting exception types or fallback semantics.",
+      "provenance": "source_read",
+      "result_chars": 6000,
+      "result_excerpt": "149: \tasync def get_playwright_browser(self) -> PlaywrightBrowser:\n150: \t\t\"\"\"Get a browser context\"\"\"\n151: \t\tif self.playwright_browser is None:\n152: \t\t\treturn await self._init()\n153: \n154: \t\treturn self.playwright_browser\n155: \n156: \t@time_execution_async('--init (browser)')\n157: \tasync def _init(self):\n158: \t\t\"\"\"Initialize the browser session\"\"\"\n159: \t\tplaywright = await async_playwright().start()\n160: \t\tself.playwright = playwright\n161: \n162: \t\tbrowser = await self._setup_browser(playwright)\n163: \t\tself.playwright_browser = browser\n164: \n165: \t\treturn self.playwright_browser\n166: \n167: \tasy"
+    },
+    {
+      "n": 4,
+      "id": "L4",
+      "hypothesis": "H1",
+      "tool": "read_source",
+      "args": {
+        "path": "browser_use/browser/browser.py",
+        "start_line": 265,
+        "end_line": 340
+      },
+      "why": "Complete the builtin-browser setup path, especially the socket check at line 291, to identify the exact operation and exception when the configured port is None.",
+      "provenance": "source_read",
+      "result_chars": 3187,
+      "result_excerpt": "265: \tasync def _setup_builtin_browser(self, playwright: Playwright) -> PlaywrightBrowser:\n266: \t\t\"\"\"Sets up and returns a Playwright Browser instance with anti-detection measures.\"\"\"\n267: \t\tassert self.config.browser_binary_path is None, 'browser_binary_path should be None if trying to use the builtin browsers'\n268: \n269: \t\tif self.config.headless:\n270: \t\t\tscreen_size = {'width': 1920, 'height': 1080}\n271: \t\t\toffset_x, offset_y = 0, 0\n272: \t\telse:\n273: \t\t\tscreen_size = get_screen_resolution()\n274: \t\t\toffset_x, offset_y = get_window_adjustments()\n275: \n276: \t\tchrome_args = {\n277: \t\t\tCHROME_DEB"
+    },
+    {
+      "n": 5,
+      "id": "L5",
+      "hypothesis": "H2",
+      "tool": "read_source",
+      "args": {
+        "path": "browser_use/browser/browser.py",
+        "start_line": 170,
+        "end_line": 245
+      },
+      "why": "Inspect how chrome_remote_debugging_port and extra_browser_args are combined, including container type and ordering.",
+      "provenance": "source_read",
+      "result_chars": 3705,
+      "result_excerpt": "170: \t\t\traise ValueError(\n171: \t\t\t\t'CDP has been deprecated for firefox, check: https://fxdx.dev/deprecating-cdp-support-in-firefox-embracing-the-future-with-webdriver-bidi/'\n172: \t\t\t)\n173: \t\tif not self.config.cdp_url:\n174: \t\t\traise ValueError('CDP URL is required')\n175: \t\tlogger.info(f'\ud83d\udd0c  Connecting to remote browser via CDP {self.config.cdp_url}')\n176: \t\tbrowser_class = getattr(playwright, self.config.browser_class)\n177: \t\tbrowser = await browser_class.connect_over_cdp(self.config.cdp_url)\n178: \t\treturn browser\n179: \n180: \tasync def _setup_remote_wss_browser(self, playwright: Playwright) ->"
+    },
+    {
+      "n": 6,
+      "id": "L6",
+      "hypothesis": "H2",
+      "tool": "find_symbol",
+      "args": {
+        "name_pattern": "BrowserConfig"
+      },
+      "why": "Locate the configuration model to determine whether callers can provide extra_browser_args and whether conflicting remote-debugging flags are validated or normalized.",
+      "provenance": "structural_query",
+      "result_chars": 387,
+      "result_excerpt": "{\"qn_rule\":\"qn = qn_prefix == \\\"\\\" ? name : qn_prefix + \\\".\\\" + name\",\"cols\":[\"name\",\"label\",\"lines\",\"in\",\"out\"],\"groups\":[{\"qn_prefix\":\"Users-ksnaik-.cache-sydes-aacr-repos-browser-use__browser-use.browser_use.browser.browser\",\"file\":\"browser_use/browser/browser.py\",\"rows\":[[\"BrowserConfig\",\"Class\",\"58-120\",69,0]]}],\"total\":1,\"returned\":1,\"count\":1,\"has_more\":false,\"truncated\":false}"
+    },
+    {
+      "n": 7,
+      "id": "L7",
+      "hypothesis": "H2",
+      "tool": "read_source",
+      "args": {
+        "path": "browser_use/browser/browser.py",
+        "start_line": 1,
+        "end_line": 130
+      },
+      "why": "Determine the types/defaults for extra_browser_args and chrome_remote_debugging_port, and whether BrowserConfig validates or normalizes conflicting flags.",
+      "provenance": "source_read",
+      "result_chars": 4786,
+      "result_excerpt": "1: \"\"\"\n2: Playwright browser on steroids.\n3: \"\"\"\n4: \n5: import asyncio\n6: import gc\n7: import logging\n8: import os\n9: import socket\n10: import subprocess\n11: from typing import Literal\n12: \n13: import httpx\n14: import psutil\n15: from dotenv import load_dotenv\n16: from patchright.async_api import Browser as PlaywrightBrowser\n17: from patchright.async_api import Playwright, async_playwright\n18: from pydantic import AliasChoices, BaseModel, ConfigDict, Field\n19: \n20: load_dotenv()\n21: \n22: from browser_use.browser.chrome import (\n23: \tCHROME_ARGS,\n24: \tCHROME_DEBUG_PORT,\n25: \tCHROME_DEBUGGING_ARG"
+    },
+    {
+      "n": 8,
+      "id": "L8",
+      "hypothesis": "H2",
+      "tool": "search_text",
+      "args": {
+        "pattern": "extra_browser_args\\s*=|['\"]extra_browser_args['\"]|--remote-debugging-port",
+        "path_glob": "**/*.py"
+      },
+      "why": "Establish whether repository callers pass arbitrary extra_browser_args, especially --remote-debugging-port, and find tests or precedents for conflict handling.",
+      "provenance": "source_search",
+      "result_chars": 1516,
+      "result_excerpt": "browser_use/browser/browser.py:292: chrome_args.remove(f'--remote-debugging-port={self.config.chrome_remote_debugging_port}')\nbrowser_use/browser/chrome.py:97: CHROME_DEBUGGING_ARG = '--remote-debugging-port=%(chrome_remote_debugging_port)s'\nexamples/browser/using_cdp.py:7: - On Windows: `--remote-debugging-port=9222`\ntests/test_attach_chrome.py:10: # run in terminal: /Applications/Google\\ Chrome.app/Contents/MacOS/Google\\ Chrome --remote-debugging-port=9222 --no-first-run\ntests/test_browser.py:39: config = BrowserConfig(headless=True, disable_security=False, extra_browser_args=['--test'])\ntes"
+    },
+    {
+      "n": 9,
+      "id": "L9",
+      "hypothesis": "H3",
+      "tool": "read_source",
+      "args": {
+        "path": "tests/test_browser.py",
+        "start_line": 140,
+        "end_line": 215
+      },
+      "why": "Inspect the full custom-port test to see all patches, its assertions, and whether a live endpoint could bypass subprocess launch.",
+      "provenance": "source_read",
+      "result_chars": 2878,
+      "result_excerpt": "140: \n141: \tclass DummyPlaywright:\n142: \t\tdef __init__(self):\n143: \t\t\tself.chromium = DummyChromium()\n144: \n145: \t\tasync def stop(self):\n146: \t\t\tpass\n147: \n148: \tclass DummyAsyncPlaywrightContext:\n149: \t\tasync def start(self):\n150: \t\t\treturn DummyPlaywright()\n151: \n152: \tmonkeypatch.setattr('browser_use.browser.browser.async_playwright', lambda: DummyAsyncPlaywrightContext())\n153: \tconfig = BrowserConfig(browser_binary_path='dummy/chrome', extra_browser_args=['--dummy-arg'])\n154: \tbrowser_obj = Browser(config=config)\n155: \tresult_browser = await browser_obj.get_playwright_browser()\n156: \tasser"
+    },
+    {
+      "n": 10,
+      "id": "L10",
+      "hypothesis": "H3",
+      "tool": "search_text",
+      "args": {
+        "pattern": "AsyncClient|test_user_provided_browser_launch_on_custom_chrome_remote_debugging_port",
+        "path_glob": "tests/test_browser.py"
+      },
+      "why": "Determine whether this test or any surrounding fixture/module-level setup patches httpx.AsyncClient, which decides whether the implementation's initial async HTTP probe is isolated.",
+      "provenance": "source_search",
+      "result_chars": 123,
+      "result_excerpt": "tests/test_browser.py:161: async def test_user_provided_browser_launch_on_custom_chrome_remote_debugging_port(monkeypatch):"
+    },
+    {
+      "n": 11,
+      "id": "L11",
+      "hypothesis": "H3",
+      "tool": "find_symbol",
+      "args": {
+        "name_pattern": "_setup_user_provided_browser"
+      },
+      "why": "Locate the implementation to verify whether a successful initial httpx probe bypasses asyncio.create_subprocess_exec and still allows the test to pass.",
+      "provenance": "structural_query",
+      "result_chars": 411,
+      "result_excerpt": "{\"qn_rule\":\"qn = qn_prefix == \\\"\\\" ? name : qn_prefix + \\\".\\\" + name\",\"cols\":[\"name\",\"label\",\"lines\",\"in\",\"out\"],\"groups\":[{\"qn_prefix\":\"Users-ksnaik-.cache-sydes-aacr-repos-browser-use__browser-use.browser_use.browser.browser.Browser\",\"file\":\"browser_use/browser/browser.py\",\"rows\":[[\"_setup_user_provided_browser\",\"Method\",\"189-263\",1,5]]}],\"total\":1,\"returned\":1,\"count\":1,\"has_more\":false,\"truncated\":false}"
+    },
+    {
+      "n": 12,
+      "id": "L12",
+      "hypothesis": "H3",
+      "tool": "read_source",
+      "args": {
+        "path": "browser_use/browser/browser.py",
+        "start_line": 189,
+        "end_line": 263
+      },
+      "why": "Verify whether a successful initial HTTP probe skips asyncio.create_subprocess_exec and still proceeds to connect_over_cdp, deciding whether the test can pass without invoking the dummy subprocess assertion.",
+      "provenance": "source_read",
+      "result_chars": 3439,
+      "result_excerpt": "189: \tasync def _setup_user_provided_browser(self, playwright: Playwright) -> PlaywrightBrowser:\n190: \t\t\"\"\"Sets up and returns a Playwright Browser instance with anti-detection measures.\"\"\"\n191: \t\tif not self.config.browser_binary_path:\n192: \t\t\traise ValueError('A browser_binary_path is required')\n193: \n194: \t\tassert self.config.browser_class == 'chromium', (\n195: \t\t\t'browser_binary_path only supports chromium browsers (make sure browser_class=chromium)'\n196: \t\t)\n197: \n198: \t\ttry:\n199: \t\t\t# Check if browser is already running\n200: \t\t\tasync with httpx.AsyncClient() as client:\n201: \t\t\t\tresponse "
+    }
+  ],
+  "outcomes": [
+    {
+      "hypothesis": "H1",
+      "lookups": [
+        "L1",
+        "L2",
+        "L3",
+        "L4"
+      ],
+      "status": "CONFIRMED",
+      "supported_claim": "When neither cdp_url nor wss_url bypasses local setup, BrowserConfig accepts an explicit chrome_remote_debugging_port=None, but the user-provided-browser path raises httpx.InvalidURL while processing http://localhost:None before creating Chrome, and the built-in-browser path raises TypeError when passing None to socket.connect_ex before Playwright launches Chrome.",
+      "reasoning": "The nullable annotation permits explicit None and there is no validator or normalization before either setup path. In the user-provided path, None is interpolated as the nonnumeric URL port \"None\" in the first HTTPX request; HTTPX raises InvalidURL, which is not handled by the subsequent except httpx.RequestError, before create_subprocess_exec at line 229. In the built-in path, the code passes None directly as the AF_INET port to socket.connect_ex, causing TypeError before browser_class.launch at line 311. Thus the newly accepted value fails rather than selecting the documented default. The evidence does not establish whether disabling remote debugging was intended.",
+      "defect_evidence": [
+        {
+          "source": "L1",
+          "file": "browser_use/browser/browser.py",
+          "line": 111,
+          "quote": "\tchrome_remote_debugging_port: int | None = CHROME_DEBUG_PORT"
+        },
+        {
+          "source": "L3",
+          "file": "browser_use/browser/browser.py",
+          "line": 202,
+          "quote": "\t\t\t\t\tf'http://localhost:{self.config.chrome_remote_debugging_port}/json/version', timeout=2"
+        },
+        {
+          "source": "L3",
+          "file": "browser_use/browser/browser.py",
+          "line": 214,
+          "quote": "\t\texcept httpx.RequestError:"
+        },
+        {
+          "source": "L4",
+          "file": "browser_use/browser/browser.py",
+          "line": 291,
+          "quote": "\t\t\tif s.connect_ex(('localhost', self.config.chrome_remote_debugging_port)) == 0:"
+        }
+      ],
+      "changed_evidence": [
+        {
+          "source": "L1",
+          "file": "browser_use/browser/browser.py",
+          "line": 111,
+          "quote": "\tchrome_remote_debugging_port: int | None = CHROME_DEBUG_PORT"
+        },
+        {
+          "source": "L3",
+          "file": "browser_use/browser/browser.py",
+          "line": 202,
+          "quote": "\t\t\t\t\tf'http://localhost:{self.config.chrome_remote_debugging_port}/json/version', timeout=2"
+        },
+        {
+          "source": "L4",
+          "file": "browser_use/browser/browser.py",
+          "line": 277,
+          "quote": "\t\t\tCHROME_DEBUGGING_ARG % {'chrome_remote_debugging_port': self.config.chrome_remote_debugging_port},"
+        },
+        {
+          "source": "L4",
+          "file": "browser_use/browser/browser.py",
+          "line": 291,
+          "quote": "\t\t\tif s.connect_ex(('localhost', self.config.chrome_remote_debugging_port)) == 0:"
+        }
+      ],
+      "causal_link": "This change introduces a nullable port field and replaces the previous fixed debugging port with that field in URL, launch-argument, and socket operations. Therefore an explicit None, newly accepted by BrowserConfig, reaches APIs requiring a concrete numeric port and aborts both local setup branches before their respective Chrome launch calls.",
+      "refuting": [],
+      "missing": [
+        "No supplied documentation or test states whether explicit None was intended to disable remote debugging; the documented behavior only describes the 9222 default and concrete non-default ports."
+      ],
+      "verified_defect_evidence": [
+        {
+          "source": "L1",
+          "file": "browser_use/browser/browser.py",
+          "line": 111,
+          "quote": "\tchrome_remote_debugging_port: int | None = CHROME_DEBUG_PORT",
+          "verification": "citation confirmed near browser_use/browser/browser.py:111"
+        },
+        {
+          "source": "L3",
+          "file": "browser_use/browser/browser.py",
+          "line": 202,
+          "quote": "\t\t\t\t\tf'http://localhost:{self.config.chrome_remote_debugging_port}/json/version', timeout=2",
+          "verification": "citation confirmed near browser_use/browser/browser.py:202"
+        },
+        {
+          "source": "L3",
+          "file": "browser_use/browser/browser.py",
+          "line": 214,
+          "quote": "\t\texcept httpx.RequestError:",
+          "verification": "citation confirmed near browser_use/browser/browser.py:214"
+        },
+        {
+          "source": "L4",
+          "file": "browser_use/browser/browser.py",
+          "line": 291,
+          "quote": "\t\t\tif s.connect_ex(('localhost', self.config.chrome_remote_debugging_port)) == 0:",
+          "verification": "citation confirmed near browser_use/browser/browser.py:291"
+        }
+      ],
+      "verified_changed_evidence": [
+        {
+          "source": "L1",
+          "file": "browser_use/browser/browser.py",
+          "line": 111,
+          "quote": "\tchrome_remote_debugging_port: int | None = CHROME_DEBUG_PORT",
+          "verification": "citation confirmed near browser_use/browser/browser.py:111"
+        },
+        {
+          "source": "L3",
+          "file": "browser_use/browser/browser.py",
+          "line": 202,
+          "quote": "\t\t\t\t\tf'http://localhost:{self.config.chrome_remote_debugging_port}/json/version', timeout=2",
+          "verification": "citation confirmed near browser_use/browser/browser.py:202"
+        },
+        {
+          "source": "L4",
+          "file": "browser_use/browser/browser.py",
+          "line": 277,
+          "quote": "\t\t\tCHROME_DEBUGGING_ARG % {'chrome_remote_debugging_port': self.config.chrome_remote_debugging_port},",
+          "verification": "citation confirmed near browser_use/browser/browser.py:277"
+        },
+        {
+          "source": "L4",
+          "file": "browser_use/browser/browser.py",
+          "line": 291,
+          "quote": "\t\t\tif s.connect_ex(('localhost', self.config.chrome_remote_debugging_port)) == 0:",
+          "verification": "citation confirmed near browser_use/browser/browser.py:291"
+        }
+      ]
+    },
+    {
+      "hypothesis": "H2",
+      "lookups": [
+        "L5",
+        "L6",
+        "L7",
+        "L8"
+      ],
+      "status": "UNKNOWN",
+      "supported_claim": "The user-provided-browser path can pass a configured --remote-debugging-port argument together with arbitrary extra_browser_args while probing only chrome_remote_debugging_port, but the evidence does not establish that Chrome selects a conflicting extra argument or that startup fails.",
+      "reasoning": "BrowserConfig exposes unrestricted extra_browser_args, and the launch argument set includes both the generated configured-port argument and all caller-provided arguments. Distinct --remote-debugging-port strings would not be identical set elements. The subsequent HTTP check targets only chrome_remote_debugging_port. However, no supplied evidence establishes Chrome's precedence rule for duplicate remote-debugging-port flags, the resulting set iteration order, or an execution where Chrome listens on the extra argument's port. E25 explicitly marks this risk as an unverified inference. The evidence also does not fully establish causation for the default-port case, because chrome.py shows that the pre-change CHROME_ARGS already contained --remote-debugging-port=9222; the prior user-browser argument assembly and its handling of extra_browser_args are not supplied.",
+      "defect_evidence": [
+        {
+          "source": "L7",
+          "file": "browser_use/browser/browser.py",
+          "line": 112,
+          "quote": "\textra_browser_args: list[str] = Field(default_factory=list)"
+        },
+        {
+          "source": "L5",
+          "file": "browser_use/browser/browser.py",
+          "line": 226,
+          "quote": "\t\t\t\t*self.config.extra_browser_args,"
+        },
+        {
+          "source": "L5",
+          "file": "browser_use/browser/browser.py",
+          "line": 243,
+          "quote": "\t\t\t\t\t\tf'http://localhost:{self.config.chrome_remote_debugging_port}/json/version', timeout=2"
+        }
+      ],
+      "changed_evidence": [
+        {
+          "source": "L5",
+          "file": "browser_use/browser/browser.py",
+          "line": 202,
+          "quote": "\t\t\t\t\tf'http://localhost:{self.config.chrome_remote_debugging_port}/json/version', timeout=2"
+        },
+        {
+          "source": "L5",
+          "file": "browser_use/browser/browser.py",
+          "line": 220,
+          "quote": "\t\t\t\tCHROME_DEBUGGING_ARG % {'chrome_remote_debugging_port': self.config.chrome_remote_debugging_port},"
+        }
+      ],
+      "causal_link": "The change makes the dedicated port determine both the generated launch flag and the probed endpoint, while caller extras remain included. A failure would require Chrome to honor a conflicting extra flag instead, but that necessary behavior is not established by the evidence.",
+      "refuting": [
+        {
+          "source": "E25",
+          "explanation": "The packet itself labels the duplicate-argument failure mechanism as \"[inference, not verified]\" and says it is only plausible depending on Chrome's argument resolution."
+        },
+        {
+          "source": "L8",
+          "explanation": "The repository search finds no supplied Python caller that actually passes --remote-debugging-port through extra_browser_args, although the public list field permits an external caller to do so."
+        }
+      ],
+      "missing": [
+        "Evidence of which duplicate --remote-debugging-port argument Chrome honors.",
+        "Evidence of an actual set iteration order placing the conflicting caller argument in the effective position.",
+        "A runtime test or failure showing Chrome listening on the caller-provided port while setup probes the configured port.",
+        "The complete pre-change user-provided-browser launch assembly needed to determine whether the relevant conflict behavior was newly introduced rather than pre-existing."
+      ],
+      "verified_defect_evidence": [
+        {
+          "source": "L7",
+          "file": "browser_use/browser/browser.py",
+          "line": 112,
+          "quote": "\textra_browser_args: list[str] = Field(default_factory=list)",
+          "verification": "citation confirmed near browser_use/browser/browser.py:112"
+        },
+        {
+          "source": "L5",
+          "file": "browser_use/browser/browser.py",
+          "line": 226,
+          "quote": "\t\t\t\t*self.config.extra_browser_args,",
+          "verification": "citation confirmed near browser_use/browser/browser.py:226"
+        },
+        {
+          "source": "L5",
+          "file": "browser_use/browser/browser.py",
+          "line": 243,
+          "quote": "\t\t\t\t\t\tf'http://localhost:{self.config.chrome_remote_debugging_port}/json/version', timeout=2",
+          "verification": "citation confirmed near browser_use/browser/browser.py:243"
+        }
+      ],
+      "verified_changed_evidence": [
+        {
+          "source": "L5",
+          "file": "browser_use/browser/browser.py",
+          "line": 202,
+          "quote": "\t\t\t\t\tf'http://localhost:{self.config.chrome_remote_debugging_port}/json/version', timeout=2",
+          "verification": "citation confirmed near browser_use/browser/browser.py:202"
+        },
+        {
+          "source": "L5",
+          "file": "browser_use/browser/browser.py",
+          "line": 220,
+          "quote": "\t\t\t\tCHROME_DEBUGGING_ARG % {'chrome_remote_debugging_port': self.config.chrome_remote_debugging_port},",
+          "verification": "citation confirmed near browser_use/browser/browser.py:220"
+        }
+      ]
+    },
+    {
+      "hypothesis": "H3",
+      "lookups": [
+        "L9",
+        "L10",
+        "L11",
+        "L12"
+      ],
+      "status": "CONFIRMED",
+      "supported_claim": "The added test\u2019s own mocks do not isolate the initial HTTP probe. If the httpx probe of localhost:9223 returns status 200, the implementation returns a DummyBrowser before invoking dummy_create_subprocess_exec, so the assertion that Chrome was launched with the custom-port argument is skipped.",
+      "reasoning": "The test patches requests.get, but the implementation probes the endpoint with httpx.AsyncClient. The search of tests/test_browser.py finds no AsyncClient patch. On a 200 response, _setup_user_provided_browser connects through the test\u2019s DummyChromium, which returns DummyBrowser, and immediately returns before asyncio.create_subprocess_exec. Therefore the assertion inside dummy_create_subprocess_exec is not guaranteed to run. The supplied evidence does not establish the broader suggestion that the test will fail for any particular localhost service state.",
+      "defect_evidence": [
+        {
+          "source": "L12",
+          "file": "browser_use/browser/browser.py",
+          "line": 200,
+          "quote": "\t\t\tasync with httpx.AsyncClient() as client:"
+        },
+        {
+          "source": "L12",
+          "file": "browser_use/browser/browser.py",
+          "line": 204,
+          "quote": "\t\t\t\tif response.status_code == 200:"
+        },
+        {
+          "source": "L12",
+          "file": "browser_use/browser/browser.py",
+          "line": 213,
+          "quote": "\t\t\t\t\treturn browser"
+        },
+        {
+          "source": "L9",
+          "file": "tests/test_browser.py",
+          "line": 207,
+          "quote": "\t\t\treturn DummyBrowser()"
+        }
+      ],
+      "changed_evidence": [
+        {
+          "source": "L9",
+          "file": "tests/test_browser.py",
+          "line": 180,
+          "quote": "\tmonkeypatch.setattr(requests, 'get', dummy_get)"
+        },
+        {
+          "source": "L9",
+          "file": "tests/test_browser.py",
+          "line": 189,
+          "quote": "\tasync def dummy_create_subprocess_exec(browser_binary_path, *args, **kwargs):"
+        },
+        {
+          "source": "L9",
+          "file": "tests/test_browser.py",
+          "line": 190,
+          "quote": "\t\tassert f'--remote-debugging-port={custom_chrome_remote_debugging_port}' in args, ("
+        },
+        {
+          "source": "L9",
+          "file": "tests/test_browser.py",
+          "line": 196,
+          "quote": "\tmonkeypatch.setattr(asyncio, 'create_subprocess_exec', dummy_create_subprocess_exec)"
+        }
+      ],
+      "causal_link": "The newly added test patches requests.get rather than the httpx.AsyncClient used by the changed custom-port probe. Consequently, a real status-200 response from localhost:9223 takes the reuse branch and returns the mocked DummyBrowser before the subprocess call at browser.py:229, bypassing the new test\u2019s launch-argument assertion.",
+      "refuting": [],
+      "missing": [
+        "No evidence establishes that a particular real service on localhost:9223 would make the complete test fail; the confirmed behavior is the status-200 path skipping the subprocess assertion.",
+        "The supplied lookup does not inspect repository-wide pytest configuration or autouse fixtures outside tests/test_browser.py, although no AsyncClient patch exists in that test file."
+      ],
+      "verified_defect_evidence": [
+        {
+          "source": "L12",
+          "file": "browser_use/browser/browser.py",
+          "line": 200,
+          "quote": "\t\t\tasync with httpx.AsyncClient() as client:",
+          "verification": "citation confirmed near browser_use/browser/browser.py:200"
+        },
+        {
+          "source": "L12",
+          "file": "browser_use/browser/browser.py",
+          "line": 204,
+          "quote": "\t\t\t\tif response.status_code == 200:",
+          "verification": "citation confirmed near browser_use/browser/browser.py:204"
+        },
+        {
+          "source": "L12",
+          "file": "browser_use/browser/browser.py",
+          "line": 213,
+          "quote": "\t\t\t\t\treturn browser",
+          "verification": "citation confirmed near browser_use/browser/browser.py:213"
+        },
+        {
+          "source": "L9",
+          "file": "tests/test_browser.py",
+          "line": 207,
+          "quote": "\t\t\treturn DummyBrowser()",
+          "verification": "citation confirmed near tests/test_browser.py:207"
+        }
+      ],
+      "verified_changed_evidence": [
+        {
+          "source": "L9",
+          "file": "tests/test_browser.py",
+          "line": 180,
+          "quote": "\tmonkeypatch.setattr(requests, 'get', dummy_get)",
+          "verification": "citation confirmed near tests/test_browser.py:180"
+        },
+        {
+          "source": "L9",
+          "file": "tests/test_browser.py",
+          "line": 189,
+          "quote": "\tasync def dummy_create_subprocess_exec(browser_binary_path, *args, **kwargs):",
+          "verification": "citation confirmed near tests/test_browser.py:189"
+        },
+        {
+          "source": "L9",
+          "file": "tests/test_browser.py",
+          "line": 190,
+          "quote": "\t\tassert f'--remote-debugging-port={custom_chrome_remote_debugging_port}' in args, (",
+          "verification": "citation confirmed near tests/test_browser.py:190"
+        },
+        {
+          "source": "L9",
+          "file": "tests/test_browser.py",
+          "line": 196,
+          "quote": "\tmonkeypatch.setattr(asyncio, 'create_subprocess_exec', dummy_create_subprocess_exec)",
+          "verification": "citation confirmed near tests/test_browser.py:196"
+        }
+      ]
+    }
+  ],
+  "confirmed": [
+    "H1",
+    "H3"
+  ],
+  "refuted": [],
+  "unknown": [
+    "H2"
+  ],
+  "findings": [
+    "investigator-H1",
+    "investigator-H3"
+  ],
+  "budget": {
+    "max_hypotheses": 5,
+    "max_lookups": 12,
+    "used_lookups": 12,
+    "max_lookups_per_hypothesis": 4
+  },
+  "usage": {
+    "llm_calls": 15,
+    "by_stage": {
+      "investigator": 12,
+      "verifier": 3
+    },
+    "prompt_tokens": 39468,
+    "completion_tokens": 10138,
+    "reasoning_tokens": 7333,
+    "llm_seconds": 159.6
+  },
+  "errors": [],
+  "replay": {
+    "snapshot_version": "sydes-investigation-snapshot/1",
+    "allocation": "sequential"
+  }
+}

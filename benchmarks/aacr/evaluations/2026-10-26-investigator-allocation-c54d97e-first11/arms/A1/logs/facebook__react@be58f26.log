@@ -1,0 +1,75 @@
+AI recovery (experimental): triggered (no relevant test was mapped even though this diff changed a test file (packages/react-dom/src/__tests__/ReactDOMForm-test.js))
+AI recovery (experimental): path=established test=unresolved turns=8 llm_calls=9 tokens=17169+839 edge_retries_attempted=0 edge_retries_succeeded=0 graph_paths_proposed=0 graph_paths_established=0 graph_paths_established_unverified_boundary=0 explicit_relation_edges=1
+Wrote AI recovery result: /Users/ksnaik/StudioProjects/sydes/benchmarks/aacr/results/alloc-A1-snapshot-c54d97e-first11-2026-10-26/sydes/facebook__react@be58f26.ai_recovery.json
+SYDES VERIFICATION
+
+MEDIUM RISK · 1 AFFECTED BEHAVIOR
+
+Changed
+───────
+packages/react-dom/src/__tests__/ReactDOMForm-test.js
+packages/react-reconciler/src/ReactFiberHooks.js
+
+CHANGE ANALYSIS (citations verified, indeterminate)
+───────────────────────────────────────────────────
+Cannot be established from this repository alone: depends on state only known at runtime (e.g. feature flags, request data).
+The mechanism and regression scenario are clear, but an observable difference requires a particular hook-list state and overlapping submission timing. The supplied diff does not show whether or how often those runtime conditions occur in real applications.
+
+React's form-transition hook initialization now distinguishes a fully upgraded form fiber from one that merely has a single existing hook. The accompanying focused test targets two rapid submissions while the first asynchronous form action is still pending and expects both actions to run without an exception.
+
+Likely behavioral changes
+  • When a form fiber has one existing state hook but no following hook, it is no longer treated as already fully stateful. This is intended to let two closely spaced submissions of the same form both invoke the asynchronous form action without throwing; the regression test observes two action invocations.
+
+Investigate
+  • Trace every caller of the form-state upgrade helper and determine when a form fiber can already contain exactly one hook as opposed to the complete hook chain expected for a stateful form.
+  • Trace the public form-action and requestSubmit paths into host transitions, including how pending asynchronous actions and repeated submissions are scheduled and completed.
+
+Uncertain
+  • The supplied context does not show all callers of `ensureFormComponentIsStateful` or establish which React DOM operations besides the demonstrated form submission path can reach the changed condition.
+  • The remainder of `ensureFormComponentIsStateful` is not shown, so the exact hook-chain shape produced by continuing past the guard, and why two hooks prove that an upgrade is complete, cannot be established here.
+  • The diff does not establish how commonly a production form fiber has an existing first hook with `next === null`, nor whether real submission timing produces that state outside the constructed regression case.
+  • The supplied files demonstrate a React DOM form-action scenario but do not establish the complete set of public APIs, renderers, or host environments whose transitions share this reconciler helper.
+
+System impact
+─────────────
+No structural propagation path was established.
+
+Inferred impact
+───────────────
+INFERRED · ?.??
+ensureFormComponentIsStateful
+
+Why:
+DOM submit event on a React-managed <form action={...}>
+
+Static confirmation: unavailable
+
+Code review (advisory; excluded from the verdict)
+─────────────────────────────────────────────────
+[P2] When ReactDOMForm-test.js is run by the repository's Jest setup, the newly added focused case excludes the file's ordinary sibling tests from that run.
+  packages/react-dom/src/__tests__/ReactDOMForm-test.js:1673
+  Why: The change adds `it.only`, and repository evidence explicitly identifies `.only` as the mechanism for focusing a test. The focused-test helper delegates to `test.only`, while the ESLint rule that would reject focused tests is disabled. Thus this is not merely an ordinary added test: it selects the new case over non-focused sibling cases in ReactDOMForm-test…
+  Impact: Caused by the change: The changed line introduces the only focused marker in this file. The repository uses `.only` to focus tests and does not enable its no-focused-tests lint rule, so this new marker causes Jest to select this case rather than the file's ordinary `it` cases, reducing execution of the form regression suite.
+
+CI
+──
+? the test suite could not run
+  `jest` is declared in package.json but not installed in node_modules
+
+What Sydes could not establish
+──────────────────────────────
+• An inferred impact could not be structurally confirmed.
+• The repository test suite could not run (`jest` is declared in package.json but not installed in node_modules).
+
+Full verification requires
+──────────────────────────
+Redis
+
+Verdict
+───────
+VERIFICATION INCOMPLETE
+
+Wrote verification result: /Users/ksnaik/StudioProjects/sydes/benchmarks/aacr/results/alloc-A1-snapshot-c54d97e-first11-2026-10-26/sydes/facebook__react@be58f26.json
+
+--- stderr ---
+Preparing Sydes code intelligence...

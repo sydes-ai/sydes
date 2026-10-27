@@ -1,0 +1,70 @@
+{
+  "case_id": "browser-use__browser-use-1482",
+  "instance_id": "browser-use__browser-use@0b21e50",
+  "language": "Python",
+  "status": "completed",
+  "wall_seconds": 376.5,
+  "review_base": "b50bb2216721b82d81e0fda8fb50a31266e09ce4",
+  "review_base_info": {
+    "rule": "merge base (newest committer date, then smallest id)",
+    "merge_bases": [
+      "b50bb2216721b82d81e0fda8fb50a31266e09ce4"
+    ]
+  },
+  "code_review_status": "completed",
+  "code_findings": 0,
+  "not_submitted": {
+    "local_risks": 3,
+    "affected_flows": 0
+  },
+  "llm_totals": {
+    "calls": 34,
+    "errors": 0,
+    "input_tokens": 113050,
+    "output_tokens": 22293,
+    "reasoning_tokens": 15528
+  },
+  "llm_calls_by_purpose": {
+    "pr_semantic_analysis": 1,
+    "route_discovery": 1,
+    "impact_guide": 7,
+    "boundary_reasoning": 1,
+    "investigator": 16,
+    "ai_recovery": 8
+  },
+  "cbm": {
+    "calls": 44,
+    "errors": 1,
+    "by_operation": {
+      "index_repository": 3,
+      "query_graph": 12,
+      "search_graph": 3,
+      "get_graph_schema": 1,
+      "search_code": 24,
+      "trace_path": 1
+    },
+    "enrichment_requests": 27
+  },
+  "sydes_wall_seconds": 374.6,
+  "verdict": "VERIFICATION INCOMPLETE",
+  "invalid_reasons": [],
+  "investigation": {
+    "hypotheses": 3,
+    "lookups": 12,
+    "confirmed": 0,
+    "refuted": 0,
+    "unknown": 3,
+    "usage": {
+      "llm_calls": 16,
+      "by_stage": {
+        "finder": 1,
+        "investigator": 12,
+        "verifier": 3
+      },
+      "prompt_tokens": 53581,
+      "completion_tokens": 13573,
+      "reasoning_tokens": 10207,
+      "llm_seconds": 214.1
+    }
+  }
+}

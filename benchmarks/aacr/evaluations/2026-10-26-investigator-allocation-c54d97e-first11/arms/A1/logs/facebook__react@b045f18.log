@@ -1,0 +1,94 @@
+AI recovery (experimental): triggered (a structural boundary was found but no complete route/entrypoint flow reaches it; the first pass reported route composition as unresolved in this repository; 9 changed symbol(s) reach no entrypoint the first pass found)
+AI recovery (experimental): path=partial test=unresolved turns=11 llm_calls=11 tokens=16749+927 edge_retries_attempted=0 edge_retries_succeeded=0 graph_paths_proposed=0 graph_paths_established=0 graph_paths_established_unverified_boundary=0 explicit_relation_edges=2
+Wrote AI recovery result: /Users/ksnaik/StudioProjects/sydes/benchmarks/aacr/results/alloc-A1-snapshot-c54d97e-first11-2026-10-26/sydes/facebook__react@b045f18.ai_recovery.json
+SYDES VERIFICATION
+
+MEDIUM RISK · 5 AFFECTED BEHAVIORS
+
+Changed
+───────
+packages/react-reconciler/src/ReactFiberBeginWork.js:871 — updateActivityComponent
+packages/react-server/src/ReactFizzServer.js:1121 — renderSuspenseBoundary
+
+CHANGE ANALYSIS (partially verified, indeterminate)
+───────────────────────────────────────────────────
+Cannot be established from this repository alone: depends on state only known at runtime (e.g. feature flags, request data).
+The mechanism is explicit, but real observable impact requires an application to obtain and render unstable_Activity. The supplied diff contains no runtime usage or application data establishing that this occurs.
+
+The unstable Activity element is no longer an alias for the Offscreen element. It now has its own global React symbol and fiber work tag, while delegating its child rendering to Offscreen behavior. Server rendering recognizes it through the existing Offscreen path, and component naming/DevTools now expose it as "Activity".
+
+Likely behavioral changes (unverified hypotheses — see citations in --verbose)
+  • Callers importing unstable_Activity now receive the distinct react.activity element type instead of react.offscreen, and that new type is accepted as a valid React element type.
+  • When an Activity element reaches the client reconciler, it receives a dedicated Activity fiber whose children are processed through an Offscreen child fiber using the Activity props' mode and children; its ref is forwarded to that child fiber.
+  • Server rendering now recognizes react.activity elements and sends them through the same rendering implementation used for Offscreen elements.
+  • Fiber naming and DevTools can distinguish the new work tag and present it as Activity rather than treating it solely as an Offscreen fiber.
+
+Investigate
+  • Trace every package entry point and build channel that exposes unstable_Activity, including whether any consumers rely on its previous identity equality with Offscreen.
+  • Verify the lifecycle, scheduling, visibility, ref, and update semantics of the Activity wrapper relative to the Offscreen child it creates.
+  • Compare client, server, and hydration handling because the client retains a dedicated Activity fiber while the server reuses the Offscreen rendering path.
+  • Check renderer-version negotiation and filtering behavior for the newly assigned work tag in DevTools.
+
+Uncertain
+  • The supplied context does not show which product builds or package entry points actually expose and consume ReactClient's unstable_Activity export.
+  • Observable application impact depends on whether an application renders unstable_Activity and which mode, children, update sequence, and ref usage it supplies.
+  • The supported behavior for mixed versions of React, the reconciler, server renderer, and DevTools is not shown, so compatibility with producers or consumers that only know react.offscreen cannot be established.
+  • The diff does not show the protocol or integration boundary through which DevTools obtains renderer versions and numeric work tags, so the practical coverage of the new tag mapping is unknown.
+  • The accepted values and intended semantics of Activity's mode prop are not included, so equivalence to existing Offscreen modes and behavior cannot be fully established.
+
+System impact
+─────────────
+callable · cache-sydes-aacr-repos-facebook__react.packages.react-reconciler.src.ReactFiberCompleteWork.completeWork
+
+Inferred impact
+───────────────
+INFERRED · 0.86
+UI rendering of trees containing experimental Activity boundaries
+
+Why:
+Element-type validation and reconciler handling now jointly recognize Activity boundaries and process their children through offscreen-style mode props, so mounting or updating such trees may now change which UI is rendered and retained.
+
+Static confirmation: unavailable
+
+INFERRED · 0.86
+streamed server rendering of Suspense-wrapped Activity content
+
+Why:
+Changes to Suspense boundary rendering, alongside the PR's Activity-type support, could alter how Activity subtrees inside Suspense boundaries are emitted during server rendering.
+
+Static confirmation: unavailable
+
+INFERRED · 0.83
+client reconciliation after an Activity boundary changes mode or children
+
+Why:
+The function converts an Activity boundary's pending mode and children into Offscreen child properties, so updates to that boundary can alter how its existing child subtree is reconciled and presented.
+
+Static confirmation: unavailable
+
+… 2 more inferred impacts — use --verbose for the full list.
+
+CI
+──
+? the test suite could not run
+  `jest` is declared in package.json but not installed in node_modules
+
+What Sydes could not establish
+──────────────────────────────
+• 5 additional affected areas are not yet verification-modeled.
+• 9 changed symbols have unresolved impact paths.
+• 5 inferred impacts could not be structurally confirmed.
+• The repository test suite could not run (`jest` is declared in package.json but not installed in node_modules).
+
+Full verification requires
+──────────────────────────
+Redis
+
+Verdict
+───────
+VERIFICATION INCOMPLETE
+
+Wrote verification result: /Users/ksnaik/StudioProjects/sydes/benchmarks/aacr/results/alloc-A1-snapshot-c54d97e-first11-2026-10-26/sydes/facebook__react@b045f18.json
+
+--- stderr ---
+Preparing Sydes code intelligence...

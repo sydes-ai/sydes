@@ -1,0 +1,93 @@
+AI recovery (experimental): triggered (a structural boundary was found but no complete route/entrypoint flow reaches it; no relevant test was mapped even though this diff changed a test file (tests/test_browser.py); 2 changed symbol(s) reach no entrypoint the first pass found)
+AI recovery (experimental): path=unresolved test=unresolved turns=8 llm_calls=8 tokens=20587+695 edge_retries_attempted=0 edge_retries_succeeded=0 graph_paths_proposed=0 graph_paths_established=0 graph_paths_established_unverified_boundary=0 explicit_relation_edges=0
+Wrote AI recovery result: /Users/ksnaik/StudioProjects/sydes/benchmarks/aacr/results/alloc-A1-snapshot-c54d97e-first11-2026-10-26/sydes/browser-use__browser-use@0b21e50.ai_recovery.json
+SYDES VERIFICATION
+
+MEDIUM RISK · 4 AFFECTED BEHAVIORS
+
+Changed
+───────
+browser_use/agent/service.py:1201 — Agent._verify_llm_connection
+browser_use/browser/browser.py:189 — Browser._setup_user_provided_browser
+browser_use/browser/browser.py:265 — Browser._setup_builtin_browser
+examples/custom-functions/file_upload.py:69 — read_file
+
+CHANGE ANALYSIS (citations verified, indeterminate)
+───────────────────────────────────────────────────
+Cannot be established from this repository alone: depends on state only known at runtime (e.g. feature flags, request data).
+The configurable mechanism is explicit in the repository, but its observable effect requires runtime choices and state not shown here: which browser setup path is reached, the configured port value, and whether a compatible process is already listening on that port.
+
+Browser startup now supports a configurable Chrome remote-debugging port and applies it when probing, launching, and connecting to both user-provided and built-in browsers. User-provided Chrome is also launched with an executable-plus-argument process API. The agent and file-upload edits appear non-behavioral, while the new browser test documents the custom-port intent but does not fully isolate the HTTP checks.
+
+Likely behavioral changes
+  • Callers can select a Chrome remote-debugging port through BrowserConfig; user-provided browser setup uses that value to find an existing Chrome instance, launch Chrome with the matching argument, and connect over CDP at the matching endpoint.
+  • Built-in browser launches also receive the configured remote-debugging port, unless a listener is already present on that port, in which case the generated debugging argument is omitted to avoid a conflict.
+  • When a new user-provided Chrome instance is needed, the configured executable is now invoked directly, with Chrome options passed as separate process arguments.
+
+Investigate
+  • Trace how BrowserConfig is constructed and whether the new port can be supplied through public library calls, CLI options, environment-derived settings, or serialized configuration.
+  • Trace browser acquisition and shutdown paths to determine which callers select user-provided versus built-in setup and how launched subprocesses are owned and cleaned up.
+  • Examine localhost CDP discovery and launch coordination, especially multiple Browser instances using distinct or occupied ports.
+
+Uncertain
+  • The supplied code does not identify any HTTP route or endpoint that constructs or invokes the changed Browser code.
+  • It is not shown which production callers select the user-provided setup path versus the built-in setup path, or whether they expose the new configuration value.
+  • The configuration boundary through which chrome_remote_debugging_port reaches BrowserConfig is not present in the supplied context.
+  • Actual effects depend on whether browser_binary_path or a non-default port is configured and whether the selected localhost port is already occupied when setup runs.
+  • The diff cannot establish whether a listener discovered on the configured localhost port is a compatible Chrome CDP service rather than an unrelated process.
+
+System impact
+─────────────
+No structural propagation path was established.
+
+?
+  → ?: registers Agent
+  → [framework lifecycle unresolved]
+  → candidate: Agent.__init__
+
+Agent
+  → info('🌎 Restarting/reconnecting to browser...'): registers Browser
+  → [framework lifecycle unresolved]
+  → candidate: Browser._init
+
+Inferred boundaries
+───────────────────
+INFERRED · callable/public_callable · Browser startup configuration surface
+    Library callers cross the BrowserConfig callable surface to configure browser startup, and the supplied setup paths consume the changed remote-debugging behavior for user-provided and built-in Chrome.
+    Evidence: BrowserConfig is a changed class in browser_use/browser/browser.py, and the supplied behavior change states that callers select the Chrome remote-debugging port through BrowserConfig.; The established production edge run_task_with_semaphore -> BrowserConfig in eval/service.py shows a caller crossing into this configuration surface.
+    Uncertain: The supplied facts do not show BrowserConfig's exact export declaration or the concrete parameter declaration for chrome_remote_debugging_port, and they do not establish which production callers choose each setup branch; no HTTP or asynchronous ingress is shown.
+
+Inferred impact
+───────────────
+INFERRED · 0.78
+Automated Chrome startup and debugging connection
+
+Why:
+Browser initialization may launch Chrome with a different command-line configuration or debugging port argument, changing whether the automation runtime can start the browser and connect to its remote debugging interface.
+
+Static confirmation: unavailable
+
+CI
+──
+? the test suite could not run
+  test execution unavailable: no runnable target-project environment found (uv project with no synced `.venv`; Sydes does not create or install environments)
+
+What Sydes could not establish
+──────────────────────────────
+• 4 additional affected areas are not yet verification-modeled.
+• 2 changed symbols have unresolved impact paths.
+• An inferred impact could not be structurally confirmed.
+• The repository test suite could not run (test execution unavailable: no runnable target-project environment found (uv project with no synced `.venv`; Sydes does not create or install environments)).
+
+Full verification requires
+──────────────────────────
+Azure Openai service · AWS services
+
+Verdict
+───────
+VERIFICATION INCOMPLETE
+
+Wrote verification result: /Users/ksnaik/StudioProjects/sydes/benchmarks/aacr/results/alloc-A1-snapshot-c54d97e-first11-2026-10-26/sydes/browser-use__browser-use@0b21e50.json
+
+--- stderr ---
+Preparing Sydes code intelligence...

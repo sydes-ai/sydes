@@ -1,0 +1,350 @@
+{
+  "version": "sydes-investigation/1",
+  "packet": [
+    {
+      "id": "E1",
+      "kind": "diff",
+      "ref": "docs/advanced-guide/setting-custom-response-headers/page.md",
+      "chars": 2500
+    },
+    {
+      "id": "E2",
+      "kind": "diff",
+      "ref": "pkg/gofr/handler.go",
+      "chars": 421
+    },
+    {
+      "id": "E3",
+      "kind": "diff",
+      "ref": "pkg/gofr/http/responder.go",
+      "chars": 935
+    },
+    {
+      "id": "E4",
+      "kind": "diff",
+      "ref": "pkg/gofr/http/responder_test.go",
+      "chars": 2500
+    },
+    {
+      "id": "E5",
+      "kind": "diff",
+      "ref": "pkg/gofr/http/response/response.go",
+      "chars": 542
+    },
+    {
+      "id": "E6",
+      "kind": "changed_symbol",
+      "ref": "pkg/gofr/handler.go:55-106",
+      "chars": 228
+    },
+    {
+      "id": "E7",
+      "kind": "changed_symbol",
+      "ref": "pkg/gofr/http/responder.go:24-54",
+      "chars": 303
+    },
+    {
+      "id": "E8",
+      "kind": "changed_symbol",
+      "ref": "pkg/gofr/http/responder_test.go:15-81",
+      "chars": 980
+    },
+    {
+      "id": "E9",
+      "kind": "structural",
+      "ref": "pkg/gofr/http/response/response.go:13-17",
+      "chars": 213
+    },
+    {
+      "id": "E10",
+      "kind": "structural",
+      "ref": "pkg/gofr/migration/interface.go:15-15",
+      "chars": 184
+    },
+    {
+      "id": "E11",
+      "kind": "structural",
+      "ref": "pkg/gofr/responder.go:6-6",
+      "chars": 120
+    },
+    {
+      "id": "E12",
+      "kind": "structural",
+      "ref": "pkg/gofr/datasource/opentsdb/interface.go:13-13",
+      "chars": 120
+    },
+    {
+      "id": "E13",
+      "kind": "structural",
+      "ref": "pkg/gofr/http/responder.go:57-71",
+      "chars": 503
+    },
+    {
+      "id": "E14",
+      "kind": "structural",
+      "ref": "pkg/gofr/metrics/handler.go:21-35",
+      "chars": 568
+    },
+    {
+      "id": "E15",
+      "kind": "test_execution",
+      "ref": "ci_suite",
+      "chars": 61
+    },
+    {
+      "id": "E16",
+      "kind": "gap",
+      "ref": "unresolved:Respond",
+      "chars": 75
+    },
+    {
+      "id": "E17",
+      "kind": "gap",
+      "ref": "unresolved:ServeHTTP",
+      "chars": 77
+    },
+    {
+      "id": "E18",
+      "kind": "change_analysis",
+      "ref": "summary",
+      "chars": 378
+    },
+    {
+      "id": "E19",
+      "kind": "change_analysis",
+      "ref": "local_risk",
+      "chars": 351
+    },
+    {
+      "id": "E20",
+      "kind": "change_analysis",
+      "ref": "uncertainty",
+      "chars": 146
+    },
+    {
+      "id": "E21",
+      "kind": "change_analysis",
+      "ref": "uncertainty",
+      "chars": 168
+    },
+    {
+      "id": "E22",
+      "kind": "change_analysis",
+      "ref": "uncertainty",
+      "chars": 152
+    },
+    {
+      "id": "E23",
+      "kind": "change_analysis",
+      "ref": "uncertainty",
+      "chars": 133
+    },
+    {
+      "id": "E24",
+      "kind": "change_analysis",
+      "ref": "uncertainty",
+      "chars": 197
+    }
+  ],
+  "hypotheses": [
+    {
+      "id": "H1",
+      "claim": "When a handler returns response.Response with Metadata unset, the serialized JSON violates the documented optional-metadata contract by emitting \"metadata\":null instead of omitting the metadata property.",
+      "why_suspected": "Responder copies the nil map into an interface-typed response.Metadata field; that interface has a dynamic map type and is therefore not empty for encoding/json's omitempty handling. The new test explicitly expects metadata:null, while the updated documentation says the response contains only data when metadata is omitted.",
+      "file": "pkg/gofr/http/responder.go",
+      "line": 32,
+      "severity": "P2",
+      "initial_evidence": [
+        "E1",
+        "E3",
+        "E4",
+        "E5",
+        "E18",
+        "E19"
+      ],
+      "questions_to_resolve": [
+        "Does serializing response.Response{Data: \"x\"} currently produce {\"metadata\":null,\"data\":\"x\"}?",
+        "Is the documentation's absent metadata property the intended public wire contract?"
+      ]
+    }
+  ],
+  "lookups": [
+    {
+      "n": 1,
+      "id": "L1",
+      "hypothesis": "H1",
+      "tool": "read_source",
+      "args": {
+        "path": "pkg/gofr/http/responder.go",
+        "start_line": 1,
+        "end_line": 100
+      },
+      "why": "Inspect the response serialization path and determine whether it directly encodes a struct whose metadata field may lack omitempty.",
+      "provenance": "source_read",
+      "result_chars": 2917,
+      "result_excerpt": "1: package http\n2: \n3: import (\n4: \t\"encoding/json\"\n5: \t\"net/http\"\n6: \t\"reflect\"\n7: \n8: \tresTypes \"gofr.dev/pkg/gofr/http/response\"\n9: )\n10: \n11: // NewResponder creates a new Responder instance from the given http.ResponseWriter..\n12: func NewResponder(w http.ResponseWriter, method string) *Responder {\n13: \treturn &Responder{w: w, method: method}\n14: }\n15: \n16: // Responder encapsulates an http.ResponseWriter and is responsible for crafting structured responses.\n17: type Responder struct {\n18: \tw      http.ResponseWriter\n19: \tmethod string\n20: }\n21: \n22: // Respond sends a response with the g"
+    },
+    {
+      "n": 2,
+      "id": "L2",
+      "hypothesis": "H1",
+      "tool": "find_symbol",
+      "args": {
+        "name_pattern": "^Response$"
+      },
+      "why": "Determine the public response.Response field types and zero value; a typed nil assigned into interface{} may defeat omitempty and serialize as null.",
+      "provenance": "structural_query",
+      "result_chars": 2017,
+      "result_excerpt": "{\"qn_rule\":\"qn = qn_prefix == \\\"\\\" ? name : qn_prefix + \\\".\\\" + name\",\"cols\":[\"name\",\"label\",\"lines\",\"in\",\"out\"],\"groups\":[{\"qn_prefix\":\"Users-ksnaik-.cache-sydes-aacr-repos-gofr-dev__gofr.pkg.gofr.static.swagger-ui-bundle\",\"file\":\"pkg/gofr/static/swagger-ui-bundle.js\",\"rows\":[[\"Response\",\"Class\",\"2-2\",3,0]]},{\"qn_prefix\":\"Users-ksnaik-.cache-sydes-aacr-repos-gofr-dev__gofr.pkg.gofr.static.swagger-ui\",\"file\":\"pkg/gofr/static/swagger-ui.js\",\"rows\":[[\"Response\",\"Class\",\"1-1\",0,0]]},{\"qn_prefix\":\"Users-ksnaik-.cache-sydes-aacr-repos-gofr-dev__gofr.pkg.gofr.datasource.solr\",\"file\":\"pkg/gofr/dataso"
+    },
+    {
+      "n": 3,
+      "id": "L3",
+      "hypothesis": "H1",
+      "tool": "read_source",
+      "args": {
+        "path": "pkg/gofr/http/response/response.go",
+        "start_line": 1,
+        "end_line": 60
+      },
+      "why": "Determine Metadata's declared type and zero value, which decides whether assigning it to responder.response.Metadata creates a nil interface omitted by omitempty or a non-nil typed-nil interface serialized as null.",
+      "provenance": "source_read",
+      "result_chars": 400,
+      "result_excerpt": "1: package response\n2: \n3: import (\n4: \t\"net/http\"\n5: )\n6: \n7: type Response struct {\n8: \tData     any               `json:\"data\"`\n9: \tMetadata map[string]any    `json:\"metadata,omitempty\"`\n10: \tHeaders  map[string]string `json:\"-\"`\n11: }\n12: \n13: func (resp Response) SetCustomHeaders(w http.ResponseWriter) {\n14: \tfor key, value := range resp.Headers {\n15: \t\tw.Header().Set(key, value)\n16: \t}\n17: }"
+    },
+    {
+      "n": 4,
+      "id": "L4",
+      "hypothesis": "H1",
+      "tool": "search_text",
+      "args": {
+        "pattern": "metadata.*optional|optional.*metadata|\"metadata\"|Metadata",
+        "path_glob": "docs/**"
+      },
+      "why": "Find public documentation examples or schema language establishing whether metadata is intended to be absent when unset.",
+      "provenance": "source_search",
+      "result_chars": 771,
+      "result_excerpt": "docs/advanced-guide/setting-custom-response-headers/page.md:1: # Custom Response Headers and Metadata in GoFr\ndocs/advanced-guide/setting-custom-response-headers/page.md:15: 2. **Metadata**: Include optional contextual information like:\ndocs/advanced-guide/setting-custom-response-headers/page.md:26: \"metadata\": {}\ndocs/advanced-guide/setting-custom-response-headers/page.md:40: #### Adding Custom Headers and Metadata\ndocs/advanced-guide/setting-custom-response-headers/page.md:83: Metadata: metaData,\ndocs/advanced-guide/setting-custom-response-headers/page.md:90: #### Response with Metadata:\ndoc"
+    }
+  ],
+  "outcomes": [
+    {
+      "hypothesis": "H1",
+      "lookups": [
+        "L1",
+        "L2",
+        "L3",
+        "L4"
+      ],
+      "status": "CONFIRMED",
+      "supported_claim": "On the value-type response.Response handler path, leaving Metadata unset causes the HTTP responder to serialize \"metadata\":null, contrary to the newly documented response-without-metadata format, which omits the property.",
+      "reasoning": "The added test explicitly expects a response.Response with only Data set to produce a body containing \"metadata\":null. The updated documentation states that omitted metadata defaults to a JSON object containing only data. The new responder type-switch branch creates its internal response by assigning v.Metadata to an interface{} field; for the unset map this path is demonstrated by the test to encode as null despite the field's omitempty tag.",
+      "defect_evidence": [
+        {
+          "source": "change",
+          "file": "pkg/gofr/http/responder_test.go",
+          "line": 59,
+          "quote": "expectedBody: []byte(`{\"metadata\":null,\"data\":\"Hello World from new Server\"}`),"
+        },
+        {
+          "source": "change",
+          "file": "docs/advanced-guide/setting-custom-response-headers/page.md",
+          "line": 30,
+          "quote": "If metadata is omitted, the response defaults to:"
+        },
+        {
+          "source": "change",
+          "file": "docs/advanced-guide/setting-custom-response-headers/page.md",
+          "line": 33,
+          "quote": "{\n  \"data\": {}\n}"
+        }
+      ],
+      "changed_evidence": [
+        {
+          "source": "L1",
+          "file": "pkg/gofr/http/responder.go",
+          "line": 32,
+          "quote": "resp = response{Data: v.Data, Metadata: v.Metadata, Error: errorObj}"
+        },
+        {
+          "source": "L1",
+          "file": "pkg/gofr/http/responder.go",
+          "line": 97,
+          "quote": "Metadata interface{} `json:\"metadata,omitempty\"`"
+        }
+      ],
+      "causal_link": "This change adds the response.Response branch at responder.go:31-32 and copies the unset map-valued v.Metadata into the internal interface{} Metadata field. The added without-metadata test records the resulting wire body as \"metadata\":null. Previously the handler unwrapped response.Response to resp.Data, so this metadata serialization path did not exist; the change therefore introduces the documented-contract mismatch.",
+      "refuting": [],
+      "missing": [],
+      "verified_defect_evidence": [
+        {
+          "source": "change",
+          "file": "pkg/gofr/http/responder_test.go",
+          "line": 59,
+          "quote": "expectedBody: []byte(`{\"metadata\":null,\"data\":\"Hello World from new Server\"}`),",
+          "verification": "citation confirmed near pkg/gofr/http/responder_test.go:59"
+        },
+        {
+          "source": "change",
+          "file": "docs/advanced-guide/setting-custom-response-headers/page.md",
+          "line": 30,
+          "quote": "If metadata is omitted, the response defaults to:",
+          "verification": "citation confirmed near docs/advanced-guide/setting-custom-response-headers/page.md:30"
+        },
+        {
+          "source": "change",
+          "file": "docs/advanced-guide/setting-custom-response-headers/page.md",
+          "line": 33,
+          "quote": "{\n  \"data\": {}\n}",
+          "verification": "citation confirmed near docs/advanced-guide/setting-custom-response-headers/page.md:33"
+        }
+      ],
+      "verified_changed_evidence": [
+        {
+          "source": "L1",
+          "file": "pkg/gofr/http/responder.go",
+          "line": 32,
+          "quote": "resp = response{Data: v.Data, Metadata: v.Metadata, Error: errorObj}",
+          "verification": "citation confirmed near pkg/gofr/http/responder.go:32"
+        },
+        {
+          "source": "L1",
+          "file": "pkg/gofr/http/responder.go",
+          "line": 97,
+          "quote": "Metadata interface{} `json:\"metadata,omitempty\"`",
+          "verification": "citation confirmed near pkg/gofr/http/responder.go:97"
+        }
+      ]
+    }
+  ],
+  "confirmed": [
+    "H1"
+  ],
+  "refuted": [],
+  "unknown": [],
+  "findings": [
+    "investigator-H1"
+  ],
+  "budget": {
+    "max_hypotheses": 5,
+    "max_lookups": 12,
+    "used_lookups": 4,
+    "max_lookups_per_hypothesis": 4
+  },
+  "usage": {
+    "llm_calls": 5,
+    "by_stage": {
+      "investigator": 4,
+      "verifier": 1
+    },
+    "prompt_tokens": 11212,
+    "completion_tokens": 2375,
+    "reasoning_tokens": 1666,
+    "llm_seconds": 36.7
+  },
+  "errors": [],
+  "replay": {
+    "snapshot_version": "sydes-investigation-snapshot/1",
+    "allocation": "sequential"
+  }
+}

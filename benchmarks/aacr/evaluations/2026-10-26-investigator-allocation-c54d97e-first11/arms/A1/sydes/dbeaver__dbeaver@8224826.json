@@ -1,0 +1,1434 @@
+{
+  "version": "v3",
+  "kind": "sydes_change_verification",
+  "generated_at": "2026-10-27T00:19:24.297885+00:00",
+  "change": {
+    "base": "1faab74be397e7577708fa64f0ec6bc5c6057b78",
+    "head": "8224826969254a49e68e025cae82d3cf1574de38",
+    "merge_base": "1faab74be397e7577708fa64f0ec6bc5c6057b78",
+    "repos": [
+      {
+        "name": "app",
+        "root": "/Users/ksnaik/.cache/sydes-aacr/repos/dbeaver__dbeaver"
+      }
+    ],
+    "includes_working_tree": false,
+    "files": [
+      {
+        "repo": "app",
+        "path": "plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksDataSource.java",
+        "old_path": null,
+        "change_type": "modified",
+        "role": "source_route_candidate",
+        "added_lines": 24,
+        "removed_lines": 0,
+        "hunks": [
+          {
+            "start_line": 20,
+            "end_line": 20
+          },
+          {
+            "start_line": 23,
+            "end_line": 23
+          },
+          {
+            "start_line": 30,
+            "end_line": 30
+          },
+          {
+            "start_line": 80,
+            "end_line": 100
+          }
+        ],
+        "symbols": [
+          "app:plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksDataSource.java:DatabricksDataSource.createExecutionContext",
+          "app:plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksDataSource.java:DatabricksDataSource.initializeContextState"
+        ],
+        "binary": false
+      },
+      {
+        "repo": "app",
+        "path": "plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksExecutionContext.java",
+        "old_path": null,
+        "change_type": "added",
+        "role": "source_route_candidate",
+        "added_lines": 107,
+        "removed_lines": 0,
+        "hunks": [
+          {
+            "start_line": 1,
+            "end_line": 107
+          }
+        ],
+        "symbols": [
+          "app:plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksExecutionContext.java:DatabricksExecutionContext.DatabricksExecutionContext",
+          "app:plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksExecutionContext.java:DatabricksExecutionContext.getDefaultCatalog",
+          "app:plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksExecutionContext.java:DatabricksExecutionContext.refreshDefaults",
+          "app:plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksExecutionContext.java:DatabricksExecutionContext.setDefaultCatalog",
+          "app:plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksExecutionContext.java:activeCatalogName"
+        ],
+        "binary": false
+      }
+    ],
+    "symbols": [
+      {
+        "id": "app:plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksDataSource.java:DatabricksDataSource.initializeContextState",
+        "repo": "app",
+        "file": "plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksDataSource.java",
+        "name": "initializeContextState",
+        "qualified_name": "DatabricksDataSource.initializeContextState",
+        "cbm_qualified_name": "Users-ksnaik-.cache-sydes-aacr-repos-dbeaver__dbeaver.plugins.org.jkiss.dbeaver.ext.databricks.src.org.jkiss.dbeaver.ext.databricks.DatabricksDataSource.initializeContextState",
+        "kind": "class_method",
+        "language": "java",
+        "start_line": 81,
+        "end_line": 95,
+        "change_type": "modified",
+        "changed_lines": 15,
+        "decorators": []
+      },
+      {
+        "id": "app:plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksDataSource.java:DatabricksDataSource.createExecutionContext",
+        "repo": "app",
+        "file": "plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksDataSource.java",
+        "name": "createExecutionContext",
+        "qualified_name": "DatabricksDataSource.createExecutionContext",
+        "cbm_qualified_name": "Users-ksnaik-.cache-sydes-aacr-repos-dbeaver__dbeaver.plugins.org.jkiss.dbeaver.ext.databricks.src.org.jkiss.dbeaver.ext.databricks.DatabricksDataSource.createExecutionContext",
+        "kind": "class_method",
+        "language": "java",
+        "start_line": 97,
+        "end_line": 100,
+        "change_type": "modified",
+        "changed_lines": 4,
+        "decorators": []
+      },
+      {
+        "id": "app:plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksExecutionContext.java:activeCatalogName",
+        "repo": "app",
+        "file": "plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksExecutionContext.java",
+        "name": "activeCatalogName",
+        "qualified_name": "activeCatalogName",
+        "cbm_qualified_name": "Users-ksnaik-.cache-sydes-aacr-repos-dbeaver__dbeaver.plugins.org.jkiss.dbeaver.ext.databricks.src.org.jkiss.dbeaver.ext.databricks.activeCatalogName",
+        "kind": "variable",
+        "language": "java",
+        "start_line": 43,
+        "end_line": 44,
+        "change_type": "added",
+        "changed_lines": 2,
+        "decorators": []
+      },
+      {
+        "id": "app:plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksExecutionContext.java:DatabricksExecutionContext.DatabricksExecutionContext",
+        "repo": "app",
+        "file": "plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksExecutionContext.java",
+        "name": "DatabricksExecutionContext",
+        "qualified_name": "DatabricksExecutionContext.DatabricksExecutionContext",
+        "cbm_qualified_name": "Users-ksnaik-.cache-sydes-aacr-repos-dbeaver__dbeaver.plugins.org.jkiss.dbeaver.ext.databricks.src.org.jkiss.dbeaver.ext.databricks.DatabricksExecutionContext.DatabricksExecutionContext",
+        "kind": "class_method",
+        "language": "java",
+        "start_line": 46,
+        "end_line": 48,
+        "change_type": "added",
+        "changed_lines": 3,
+        "decorators": []
+      },
+      {
+        "id": "app:plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksExecutionContext.java:DatabricksExecutionContext.getDefaultCatalog",
+        "repo": "app",
+        "file": "plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksExecutionContext.java",
+        "name": "getDefaultCatalog",
+        "qualified_name": "DatabricksExecutionContext.getDefaultCatalog",
+        "cbm_qualified_name": "Users-ksnaik-.cache-sydes-aacr-repos-dbeaver__dbeaver.plugins.org.jkiss.dbeaver.ext.databricks.src.org.jkiss.dbeaver.ext.databricks.DatabricksExecutionContext.getDefaultCatalog",
+        "kind": "class_method",
+        "language": "java",
+        "start_line": 50,
+        "end_line": 57,
+        "change_type": "added",
+        "changed_lines": 8,
+        "decorators": []
+      },
+      {
+        "id": "app:plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksExecutionContext.java:DatabricksExecutionContext.setDefaultCatalog",
+        "repo": "app",
+        "file": "plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksExecutionContext.java",
+        "name": "setDefaultCatalog",
+        "qualified_name": "DatabricksExecutionContext.setDefaultCatalog",
+        "cbm_qualified_name": "Users-ksnaik-.cache-sydes-aacr-repos-dbeaver__dbeaver.plugins.org.jkiss.dbeaver.ext.databricks.src.org.jkiss.dbeaver.ext.databricks.DatabricksExecutionContext.setDefaultCatalog",
+        "kind": "class_method",
+        "language": "java",
+        "start_line": 59,
+        "end_line": 71,
+        "change_type": "added",
+        "changed_lines": 13,
+        "decorators": []
+      },
+      {
+        "id": "app:plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksExecutionContext.java:DatabricksExecutionContext.refreshDefaults",
+        "repo": "app",
+        "file": "plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksExecutionContext.java",
+        "name": "refreshDefaults",
+        "qualified_name": "DatabricksExecutionContext.refreshDefaults",
+        "cbm_qualified_name": "Users-ksnaik-.cache-sydes-aacr-repos-dbeaver__dbeaver.plugins.org.jkiss.dbeaver.ext.databricks.src.org.jkiss.dbeaver.ext.databricks.DatabricksExecutionContext.refreshDefaults",
+        "kind": "class_method",
+        "language": "java",
+        "start_line": 73,
+        "end_line": 106,
+        "change_type": "added",
+        "changed_lines": 34,
+        "decorators": []
+      }
+    ],
+    "notes": []
+  },
+  "summary": {
+    "risk": "MEDIUM",
+    "verdict": "VERIFICATION INCOMPLETE",
+    "headline": "7 changed symbol(s); no route flow resolved to them.",
+    "counts": {
+      "changed_files": 2,
+      "changed_source_files": 2,
+      "changed_test_files": 0,
+      "changed_symbols": 7,
+      "affected_flows": 0,
+      "flows_partially_analyzed": 0,
+      "code_findings": 0,
+      "obligations": 0,
+      "obligations_introduced_by_change": 0,
+      "obligations_passed": 0,
+      "obligations_failed": 0,
+      "obligations_unverified": 0,
+      "obligations_unknown": 0,
+      "mapped_tests": 0,
+      "supporting_tests": 0,
+      "tests_exercising_flows": 0,
+      "tests_supporting_behavior": 0,
+      "tests_verifying_behavior": 0,
+      "changed_test_cases": 0,
+      "tests_executed": 0,
+      "verification_gaps": 0,
+      "runtime_dependencies": 0,
+      "cross_repo_impacts": 0,
+      "impacts_proven": 5,
+      "impacts_inferred": 2,
+      "impacts_not_modeled": 7,
+      "unresolved_changed_symbols": 1
+    },
+    "risk_reasons": [
+      "change could not be tied to any verifiable behavior"
+    ]
+  },
+  "code_review_status": "completed",
+  "code_findings": [],
+  "accepted_impacts": [
+    {
+      "id": "impact:app:Users-ksnaik-.cache-sydes-aacr-repos-dbeaver__dbeaver.plugins.org.jkiss.dbeaver.ext.databricks.src.org.jkiss.dbeaver.ext.databricks.DatabricksDataSource.createExecutionContext",
+      "label": "DatabricksDataSource.createExecutionContext",
+      "repo": "app",
+      "kind": "decorated",
+      "status": "proven",
+      "changed_symbols": [
+        "createExecutionContext"
+      ],
+      "route_method": null,
+      "route_path": null,
+      "llm_confidence": null,
+      "llm_reason": null,
+      "llm_inference_type": null,
+      "llm_uncertainty": null,
+      "corroborated": null,
+      "behavior_label": "",
+      "verification_model_status": "unsupported_or_partial",
+      "provenance": "structural"
+    },
+    {
+      "id": "impact:app:Users-ksnaik-.cache-sydes-aacr-repos-dbeaver__dbeaver.plugins.org.jkiss.dbeaver.ext.databricks.src.org.jkiss.dbeaver.ext.databricks.DatabricksDataSource.initializeContextState",
+      "label": "DatabricksDataSource.initializeContextState",
+      "repo": "app",
+      "kind": "decorated",
+      "status": "proven",
+      "changed_symbols": [
+        "getDefaultCatalog",
+        "initializeContextState",
+        "refreshDefaults",
+        "setDefaultCatalog"
+      ],
+      "route_method": null,
+      "route_path": null,
+      "llm_confidence": null,
+      "llm_reason": null,
+      "llm_inference_type": null,
+      "llm_uncertainty": null,
+      "corroborated": null,
+      "behavior_label": "",
+      "verification_model_status": "unsupported_or_partial",
+      "provenance": "structural"
+    },
+    {
+      "id": "impact:app:Users-ksnaik-.cache-sydes-aacr-repos-dbeaver__dbeaver.plugins.org.jkiss.dbeaver.ext.databricks.src.org.jkiss.dbeaver.ext.databricks.DatabricksExecutionContext.getDefaultCatalog",
+      "label": "DatabricksExecutionContext.getDefaultCatalog",
+      "repo": "app",
+      "kind": "decorated",
+      "status": "proven",
+      "changed_symbols": [
+        "activeCatalogName",
+        "getDefaultCatalog"
+      ],
+      "route_method": null,
+      "route_path": null,
+      "llm_confidence": null,
+      "llm_reason": null,
+      "llm_inference_type": null,
+      "llm_uncertainty": null,
+      "corroborated": null,
+      "behavior_label": "",
+      "verification_model_status": "unsupported_or_partial",
+      "provenance": "structural"
+    },
+    {
+      "id": "impact:app:Users-ksnaik-.cache-sydes-aacr-repos-dbeaver__dbeaver.plugins.org.jkiss.dbeaver.ext.databricks.src.org.jkiss.dbeaver.ext.databricks.DatabricksExecutionContext.refreshDefaults",
+      "label": "DatabricksExecutionContext.refreshDefaults",
+      "repo": "app",
+      "kind": "decorated",
+      "status": "proven",
+      "changed_symbols": [
+        "activeCatalogName",
+        "refreshDefaults"
+      ],
+      "route_method": null,
+      "route_path": null,
+      "llm_confidence": null,
+      "llm_reason": null,
+      "llm_inference_type": null,
+      "llm_uncertainty": null,
+      "corroborated": null,
+      "behavior_label": "",
+      "verification_model_status": "unsupported_or_partial",
+      "provenance": "structural"
+    },
+    {
+      "id": "impact:app:Users-ksnaik-.cache-sydes-aacr-repos-dbeaver__dbeaver.plugins.org.jkiss.dbeaver.ext.databricks.src.org.jkiss.dbeaver.ext.databricks.DatabricksExecutionContext.setDefaultCatalog",
+      "label": "DatabricksExecutionContext.setDefaultCatalog",
+      "repo": "app",
+      "kind": "decorated",
+      "status": "proven",
+      "changed_symbols": [
+        "setDefaultCatalog"
+      ],
+      "route_method": null,
+      "route_path": null,
+      "llm_confidence": null,
+      "llm_reason": null,
+      "llm_inference_type": null,
+      "llm_uncertainty": null,
+      "corroborated": null,
+      "behavior_label": "",
+      "verification_model_status": "unsupported_or_partial",
+      "provenance": "structural"
+    },
+    {
+      "id": "impact:app:Databricks query resolution against the active default catalog",
+      "label": "Databricks query resolution against the active default catalog",
+      "repo": "app",
+      "kind": "unknown",
+      "status": "inferred",
+      "changed_symbols": [
+        "(whole change)"
+      ],
+      "route_method": null,
+      "route_path": null,
+      "llm_confidence": 0.78,
+      "llm_reason": "Creation and initialization of Databricks execution contexts flow through default-catalog retrieval, refresh, and update operations, so newly opened or catalog-switched contexts may resolve unqualified database objects against a different catalog.",
+      "llm_inference_type": "semantic_pr_wide_theme",
+      "llm_uncertainty": "The supplied context does not show the exact implementation change or the query-execution callers that consume the context's default catalog.",
+      "corroborated": false,
+      "behavior_label": "Databricks query resolution against the active default catalog",
+      "verification_model_status": "unsupported_or_partial",
+      "provenance": "structural"
+    },
+    {
+      "id": "impact:app:DatabricksExecutionContext",
+      "label": "Initial catalog selection for new Databricks query contexts",
+      "repo": "app",
+      "kind": "unknown",
+      "status": "inferred",
+      "changed_symbols": [
+        "DatabricksExecutionContext"
+      ],
+      "route_method": null,
+      "route_path": null,
+      "llm_confidence": 0.64,
+      "llm_reason": "The changed context constructor, together with changes to context creation, initialization, and default-catalog handling, may alter which catalog newly opened Databricks query contexts initially use for query resolution.",
+      "llm_inference_type": "semantic_indirect_dependency",
+      "llm_uncertainty": "The constructor source and caller path were not surfaced, so its exact role in applying the active or default catalog remains unclear.",
+      "corroborated": false,
+      "behavior_label": "Initial catalog selection for new Databricks query contexts",
+      "verification_model_status": "unsupported_or_partial",
+      "provenance": "structural"
+    }
+  ],
+  "pr_semantic_analysis": {
+    "origin": "llm_hypothesis",
+    "change_summary": "Databricks connections now use a dedicated execution context that discovers and tracks the server's current catalog, can seed an empty bootstrap catalog setting, and copies a default catalog into derived contexts. Catalog-selection failures are logged and suppressed rather than propagated.",
+    "behavior_changes": [
+      {
+        "description": "New Databricks execution contexts use the Databricks-specific implementation; an independently initialized context refreshes defaults, including querying the database for its current catalog.",
+        "changed_symbols": [
+          "DatabricksDataSource.createExecutionContext",
+          "DatabricksDataSource.initializeContextState",
+          "DatabricksExecutionContext.refreshDefaults"
+        ],
+        "evidence": [
+          "The execution-context factory now returns DatabricksExecutionContext.",
+          "Initialization without a source context calls refreshDefaults with bootstrap settings enabled.",
+          "refreshDefaults executes SELECT CURRENT_CATALOG()."
+        ],
+        "confidence": 0.98,
+        "citations": [
+          {
+            "file": "plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksDataSource.java",
+            "line": 99,
+            "quoted_text": "return new DatabricksExecutionContext(instance, type);"
+          },
+          {
+            "file": "plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksDataSource.java",
+            "line": 86,
+            "quoted_text": "executionContext.refreshDefaults(monitor, true);"
+          },
+          {
+            "file": "plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksExecutionContext.java",
+            "line": 79,
+            "quoted_text": "try (JDBCResultSet dbResult = dbStat.executeQuery(\"SELECT CURRENT_CATALOG()\")) {"
+          }
+        ],
+        "citations_verified": 3,
+        "citation_notes": [
+          "citation confirmed near plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksDataSource.java:99",
+          "citation confirmed near plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksDataSource.java:86",
+          "citation confirmed near plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksExecutionContext.java:79"
+        ]
+      },
+      {
+        "description": "When the current-catalog query returns a nonempty name, the context tracks that catalog and, when bootstrap settings are in use, fills an otherwise empty bootstrap default-catalog name. Default-catalog lookup then resolves the tracked name through the data source.",
+        "changed_symbols": [
+          "DatabricksExecutionContext.activeCatalogName",
+          "DatabricksExecutionContext.getDefaultCatalog",
+          "DatabricksExecutionContext.refreshDefaults"
+        ],
+        "evidence": [
+          "A nonempty query result updates activeCatalogName when it differs.",
+          "An empty bootstrap default is populated from the query result.",
+          "getDefaultCatalog resolves a nonempty activeCatalogName through the data source."
+        ],
+        "confidence": 0.97,
+        "citations": [
+          {
+            "file": "plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksExecutionContext.java",
+            "line": 85,
+            "quoted_text": "activeCatalogName = currentCatalog;"
+          },
+          {
+            "file": "plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksExecutionContext.java",
+            "line": 91,
+            "quoted_text": "bootstrap.setDefaultCatalogName(currentCatalog);"
+          },
+          {
+            "file": "plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksExecutionContext.java",
+            "line": 56,
+            "quoted_text": "return getDataSource().getCatalog(activeCatalogName);"
+          }
+        ],
+        "citations_verified": 3,
+        "citation_notes": [
+          "citation confirmed near plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksExecutionContext.java:85",
+          "citation confirmed near plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksExecutionContext.java:91",
+          "citation confirmed near plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksExecutionContext.java:56"
+        ]
+      },
+      {
+        "description": "A context initialized from another Databricks context attempts to select the source context's default catalog rather than independently refreshing the server defaults.",
+        "changed_symbols": [
+          "DatabricksDataSource.initializeContextState",
+          "DatabricksExecutionContext.getDefaultCatalog",
+          "DatabricksExecutionContext.setDefaultCatalog"
+        ],
+        "evidence": [
+          "The source context's default catalog is read and, when non-null, applied to the new context."
+        ],
+        "confidence": 0.97,
+        "citations": [
+          {
+            "file": "plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksDataSource.java",
+            "line": 91,
+            "quoted_text": "GenericCatalog defaultCatalog = executionMetaContext.getDefaultCatalog();"
+          },
+          {
+            "file": "plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksDataSource.java",
+            "line": 93,
+            "quoted_text": "executionContext.setDefaultCatalog(monitor, defaultCatalog, null);"
+          }
+        ],
+        "citations_verified": 2,
+        "citation_notes": [
+          "citation confirmed near plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksDataSource.java:91",
+          "citation confirmed near plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksDataSource.java:93"
+        ]
+      },
+      {
+        "description": "If the inherited catalog-selection operation throws DBCException, callers of the Databricks override no longer receive that failure; it is recorded only as a debug log, and the tracked catalog name is updated only after a successful superclass call.",
+        "changed_symbols": [
+          "DatabricksExecutionContext.setDefaultCatalog"
+        ],
+        "evidence": [
+          "The superclass catalog-selection call and state update are inside a try block whose DBCException handler only logs."
+        ],
+        "confidence": 0.99,
+        "citations": [
+          {
+            "file": "plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksExecutionContext.java",
+            "line": 66,
+            "quoted_text": "super.setDefaultCatalog(monitor, catalog, schema);"
+          },
+          {
+            "file": "plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksExecutionContext.java",
+            "line": 67,
+            "quoted_text": "activeCatalogName = catalog.getName();"
+          },
+          {
+            "file": "plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksExecutionContext.java",
+            "line": 69,
+            "quoted_text": "log.debug(\"Error setting default catalog for Databricks\", e);"
+          }
+        ],
+        "citations_verified": 3,
+        "citation_notes": [
+          "citation confirmed near plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksExecutionContext.java:66",
+          "citation confirmed near plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksExecutionContext.java:67",
+          "citation confirmed near plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksExecutionContext.java:69"
+        ]
+      }
+    ],
+    "important_symbols": [
+      {
+        "repo": "app",
+        "file": "plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksDataSource.java",
+        "symbol": "DatabricksDataSource.initializeContextState",
+        "reason": "Controls whether a context discovers defaults from the database or inherits a catalog from another context, and assumes both contexts are DatabricksExecutionContext instances."
+      },
+      {
+        "repo": "app",
+        "file": "plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksDataSource.java",
+        "symbol": "DatabricksDataSource.createExecutionContext",
+        "reason": "Routes newly created Databricks contexts to the new catalog-aware implementation."
+      },
+      {
+        "repo": "app",
+        "file": "plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksExecutionContext.java",
+        "symbol": "DatabricksExecutionContext.refreshDefaults",
+        "reason": "Introduces the database query, active-catalog synchronization, bootstrap-setting mutation, and failure-handling behavior."
+      },
+      {
+        "repo": "app",
+        "file": "plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksExecutionContext.java",
+        "symbol": "DatabricksExecutionContext.setDefaultCatalog",
+        "reason": "Defines catalog-switch state synchronization and suppresses catalog-selection exceptions."
+      },
+      {
+        "repo": "app",
+        "file": "plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksExecutionContext.java",
+        "symbol": "DatabricksExecutionContext.getDefaultCatalog",
+        "reason": "Changes the catalog reported to callers when a server-derived or explicitly selected active catalog name is present."
+      }
+    ],
+    "investigation_hints": [
+      {
+        "description": "Trace execution-context construction and initialization, including cloned, metadata, and auxiliary contexts, to verify the Databricks-specific type and source-context assumptions.",
+        "related_symbols": [
+          "DatabricksDataSource.createExecutionContext",
+          "DatabricksDataSource.initializeContextState"
+        ],
+        "concepts": [
+          "execution-context lifecycle",
+          "context cloning",
+          "runtime type invariants"
+        ],
+        "likely_boundary_types": [
+          "callable"
+        ]
+      },
+      {
+        "description": "Trace consumers of default-catalog state and bootstrap settings to determine whether the discovered catalog affects navigation, SQL qualification, reconnect behavior, or persisted connection settings.",
+        "related_symbols": [
+          "DatabricksExecutionContext.getDefaultCatalog",
+          "DatabricksExecutionContext.refreshDefaults",
+          "DatabricksExecutionContext.activeCatalogName"
+        ],
+        "concepts": [
+          "catalog selection",
+          "bootstrap defaults",
+          "metadata resolution",
+          "connection state"
+        ],
+        "likely_boundary_types": [
+          "callable",
+          "external"
+        ]
+      },
+      {
+        "description": "Inspect catalog-switch callers and framework contracts to determine whether suppressing DBCException can leave callers believing a catalog change succeeded.",
+        "related_symbols": [
+          "DatabricksExecutionContext.setDefaultCatalog",
+          "DatabricksDataSource.initializeContextState"
+        ],
+        "concepts": [
+          "error propagation",
+          "catalog consistency",
+          "context inheritance"
+        ],
+        "likely_boundary_types": [
+          "callable",
+          "external"
+        ]
+      }
+    ],
+    "likely_boundary_types": [
+      "callable",
+      "external"
+    ],
+    "local_risks": [
+      {
+        "description": "A failed catalog switch is suppressed, so a caller can continue after requesting a new catalog while the underlying connection and activeCatalogName remain on the previous catalog. If callers rely on the declared throwing contract to prevent further work, subsequent operations could target an unintended catalog.",
+        "severity": "P1",
+        "citations": [
+          {
+            "file": "plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksExecutionContext.java",
+            "line": 66,
+            "quoted_text": "super.setDefaultCatalog(monitor, catalog, schema);"
+          },
+          {
+            "file": "plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksExecutionContext.java",
+            "line": 67,
+            "quoted_text": "activeCatalogName = catalog.getName();"
+          },
+          {
+            "file": "plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksExecutionContext.java",
+            "line": 69,
+            "quoted_text": "log.debug(\"Error setting default catalog for Databricks\", e);"
+          }
+        ],
+        "citations_verified": 3,
+        "citation_notes": [
+          "citation confirmed near plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksExecutionContext.java:66",
+          "citation confirmed near plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksExecutionContext.java:67",
+          "citation confirmed near plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksExecutionContext.java:69"
+        ]
+      },
+      {
+        "description": "When activeCatalogName is nonempty, default-catalog lookup returns the data-source lookup result directly. If metadata has not loaded or cannot resolve that server-reported name, callers may receive null rather than the superclass default fallback.",
+        "severity": "P2",
+        "citations": [
+          {
+            "file": "plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksExecutionContext.java",
+            "line": 53,
+            "quoted_text": "if (CommonUtils.isEmpty(activeCatalogName)) {"
+          },
+          {
+            "file": "plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksExecutionContext.java",
+            "line": 54,
+            "quoted_text": "return super.getDefaultCatalog();"
+          },
+          {
+            "file": "plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksExecutionContext.java",
+            "line": 56,
+            "quoted_text": "return getDataSource().getCatalog(activeCatalogName);"
+          }
+        ],
+        "citations_verified": 3,
+        "citation_notes": [
+          "citation confirmed near plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksExecutionContext.java:53",
+          "citation confirmed near plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksExecutionContext.java:54",
+          "citation confirmed near plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksExecutionContext.java:56"
+        ]
+      }
+    ],
+    "uncertainties": [
+      "The supplied context does not show which lifecycle paths invoke createExecutionContext and initializeContextState, or which kinds of Databricks sessions receive the new behavior.",
+      "It is not established that every context and initFrom value reaching initializeContextState was created as DatabricksExecutionContext; inherited or alternate construction paths must be checked against the casts.",
+      "The diff does not establish how supported Databricks JDBC/server versions handle SELECT CURRENT_CATALOG(), nor whether failures or result shapes vary by driver or server version.",
+      "The ownership, persistence, and sharing semantics of the DBPConnectionBootstrap object returned by getBootstrapSettings are not shown, so it is unclear whether setting its default catalog is context-local, connection-wide, or persisted.",
+      "The actual server current-catalog value, whether it is nonempty, and whether the corresponding catalog is present in loaded metadata cannot be established from the diff."
+    ],
+    "uncertainty_items": [
+      {
+        "kind": "caller_reachability",
+        "text": "The supplied context does not show which lifecycle paths invoke createExecutionContext and initializeContextState, or which kinds of Databricks sessions receive the new behavior.",
+        "symbols": [
+          "DatabricksDataSource.createExecutionContext",
+          "DatabricksDataSource.initializeContextState"
+        ],
+        "resolved_by": null,
+        "established_context": null,
+        "scoped_text": null
+      },
+      {
+        "kind": "caller_reachability",
+        "text": "It is not established that every context and initFrom value reaching initializeContextState was created as DatabricksExecutionContext; inherited or alternate construction paths must be checked against the casts.",
+        "symbols": [
+          "DatabricksDataSource.initializeContextState",
+          "DatabricksExecutionContext.DatabricksExecutionContext"
+        ],
+        "resolved_by": null,
+        "established_context": null,
+        "scoped_text": null
+      },
+      {
+        "kind": "dependency_semantics",
+        "text": "The diff does not establish how supported Databricks JDBC/server versions handle SELECT CURRENT_CATALOG(), nor whether failures or result shapes vary by driver or server version.",
+        "symbols": [
+          "DatabricksExecutionContext.refreshDefaults"
+        ],
+        "resolved_by": null,
+        "established_context": null,
+        "scoped_text": null
+      },
+      {
+        "kind": "boundary_identity",
+        "text": "The ownership, persistence, and sharing semantics of the DBPConnectionBootstrap object returned by getBootstrapSettings are not shown, so it is unclear whether setting its default catalog is context-local, connection-wide, or persisted.",
+        "symbols": [
+          "DatabricksExecutionContext.refreshDefaults"
+        ],
+        "resolved_by": null,
+        "established_context": null,
+        "scoped_text": null
+      },
+      {
+        "kind": "external_state",
+        "text": "The actual server current-catalog value, whether it is nonempty, and whether the corresponding catalog is present in loaded metadata cannot be established from the diff.",
+        "symbols": [
+          "DatabricksExecutionContext.refreshDefaults",
+          "DatabricksExecutionContext.getDefaultCatalog"
+        ],
+        "resolved_by": null,
+        "established_context": null,
+        "scoped_text": null
+      }
+    ],
+    "verification_state": "verified",
+    "is_indeterminate": true,
+    "indeterminate_reason": "runtime_only_behavior",
+    "indeterminate_detail": "The mechanism is explicit, but its observable effect depends on runtime context initialization paths, the database response to CURRENT_CATALOG(), existing bootstrap settings, and whether the returned catalog can be resolved in loaded metadata."
+  },
+  "affected_boundaries": [
+    {
+      "id": "boundary:inferred:callable:app:DatabricksDataSource.initializeContextState:0",
+      "kind": "callable",
+      "subtype": "service",
+      "repo": "app",
+      "file": "plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksDataSource.java",
+      "symbol": "DatabricksDataSource.initializeContextState",
+      "label": "Databricks execution-context creation and catalog initialization",
+      "changed_symbols": [
+        "DatabricksDataSource.createExecutionContext",
+        "DatabricksDataSource.initializeContextState",
+        "DatabricksExecutionContext.DatabricksExecutionContext",
+        "DatabricksExecutionContext.getDefaultCatalog",
+        "DatabricksExecutionContext.setDefaultCatalog",
+        "DatabricksExecutionContext.refreshDefaults"
+      ],
+      "evidence": [
+        "The createExecutionContext source returns new DatabricksExecutionContext(instance, type), and the established call edge records createExecutionContext -> DatabricksExecutionContext at DatabricksDataSource.java:97.",
+        "The initializeContextState source casts the supplied context to DatabricksExecutionContext and invokes refreshDefaults when initFrom is null.",
+        "Established call edges record initializeContextState -> getDefaultCatalog, initializeContextState -> refreshDefaults, and initializeContextState -> setDefaultCatalog at DatabricksDataSource.java:81.",
+        "The refreshDefaults source opens a JDBC metadata session and executes a current-catalog query, while setDefaultCatalog delegates to the superclass and updates activeCatalogName only after successful completion."
+      ],
+      "distance": 0,
+      "evidence_strength": "medium",
+      "status": "inferred",
+      "reason": "The Databricks data-source lifecycle crosses into the specialized execution-context service to construct a context and initialize or inherit its active catalog state.",
+      "uncertainty": "The callers and lifecycle paths entering createExecutionContext and initializeContextState are not supplied, and alternate context-construction paths or non-Databricks values reaching the casts are not established.",
+      "llm_confidence": 0.9
+    }
+  ],
+  "composed_dispatch_edges": [],
+  "run_metrics": {
+    "llm_by_purpose": {
+      "pr_semantic_analysis": {
+        "calls": 1,
+        "errors": 0,
+        "input_tokens": 4215,
+        "output_tokens": 4652,
+        "reasoning_tokens": 2161,
+        "models": [
+          "gpt-5.6-sol"
+        ]
+      },
+      "route_discovery": {
+        "calls": 1,
+        "errors": 0,
+        "input_tokens": 5571,
+        "output_tokens": 33,
+        "reasoning_tokens": 0,
+        "models": [
+          "gpt-5.6-sol"
+        ]
+      },
+      "impact_guide": {
+        "calls": 4,
+        "errors": 0,
+        "input_tokens": 12294,
+        "output_tokens": 1208,
+        "reasoning_tokens": 737,
+        "models": [
+          "gpt-5.6-sol"
+        ]
+      },
+      "boundary_reasoning": {
+        "calls": 1,
+        "errors": 0,
+        "input_tokens": 4041,
+        "output_tokens": 1265,
+        "reasoning_tokens": 898,
+        "models": [
+          "gpt-5.6-sol"
+        ]
+      },
+      "investigator": {
+        "calls": 17,
+        "errors": 0,
+        "input_tokens": 51917,
+        "output_tokens": 8533,
+        "reasoning_tokens": 4608,
+        "models": [
+          "gpt-5.6-sol"
+        ]
+      },
+      "ai_recovery": {
+        "calls": 3,
+        "errors": 0,
+        "input_tokens": 9811,
+        "output_tokens": 234,
+        "reasoning_tokens": 121,
+        "models": [
+          "gpt-5.6-sol"
+        ]
+      }
+    },
+    "llm_totals": {
+      "calls": 27,
+      "errors": 0,
+      "input_tokens": 87849,
+      "output_tokens": 15925,
+      "reasoning_tokens": 8525
+    },
+    "cbm": {
+      "calls": 169,
+      "errors": 1,
+      "by_operation": {
+        "index_repository": 2,
+        "query_graph": 45,
+        "search_graph": 117,
+        "get_graph_schema": 1,
+        "search_code": 3,
+        "trace_path": 1
+      },
+      "enrichment_requests": 5
+    },
+    "wall_seconds": 613.9,
+    "tests": {
+      "environments": [],
+      "mapped_executions": 0,
+      "mapped_outcomes": {},
+      "ci_suite": {
+        "status": "unknown",
+        "blocker": "framework_unsupported",
+        "passed": null,
+        "failed": null
+      }
+    }
+  },
+  "framework_boundary_candidates": [
+    {
+      "category": "callback_registration",
+      "status": "unresolved",
+      "source_symbol": "?",
+      "via": "?",
+      "targets": [
+        "DatabricksDataSource.createExecutionContext"
+      ],
+      "message_type": null,
+      "facts": [
+        {
+          "provenance": "cbm_entrypoint",
+          "fact": "DatabricksDataSource.createExecutionContext is a reached entrypoint with decorator metadata and no route",
+          "file": "plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksDataSource.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_inherits",
+          "fact": "DatabricksDataSource inherits GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksDataSource.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_override",
+          "fact": "DatabricksDataSource.createExecutionContext overrides GenericDataSource.createExecutionContext",
+          "file": "plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksDataSource.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_configures",
+          "fact": "CBM records no CONFIGURES relation for DatabricksDataSource (CBM emits CONFIGURES for configuration keys and environment access, not registrations)",
+          "file": null,
+          "line": null
+        }
+      ],
+      "checks": {},
+      "missing": [
+        "no repository code that hands DatabricksDataSource to the framework was found"
+      ],
+      "runtime_needed": null,
+      "resolved_by": null,
+      "queries": 5
+    },
+    {
+      "category": "callback_registration",
+      "status": "unresolved",
+      "source_symbol": "?",
+      "via": "?",
+      "targets": [
+        "DatabricksDataSource.initializeContextState"
+      ],
+      "message_type": null,
+      "facts": [
+        {
+          "provenance": "cbm_entrypoint",
+          "fact": "DatabricksDataSource.initializeContextState is a reached entrypoint with decorator metadata and no route",
+          "file": "plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksDataSource.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_inherits",
+          "fact": "DatabricksDataSource inherits GenericDataSource",
+          "file": "plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksDataSource.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_override",
+          "fact": "DatabricksDataSource.initializeContextState overrides GenericDataSource.initializeContextState",
+          "file": "plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksDataSource.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_configures",
+          "fact": "CBM records no CONFIGURES relation for DatabricksDataSource (CBM emits CONFIGURES for configuration keys and environment access, not registrations)",
+          "file": null,
+          "line": null
+        }
+      ],
+      "checks": {},
+      "missing": [
+        "no repository code that hands DatabricksDataSource to the framework was found"
+      ],
+      "runtime_needed": null,
+      "resolved_by": null,
+      "queries": 5
+    },
+    {
+      "category": "callback_registration",
+      "status": "unresolved",
+      "source_symbol": "?",
+      "via": "?",
+      "targets": [
+        "DatabricksExecutionContext.getDefaultCatalog"
+      ],
+      "message_type": null,
+      "facts": [
+        {
+          "provenance": "cbm_entrypoint",
+          "fact": "DatabricksExecutionContext.getDefaultCatalog is a reached entrypoint with decorator metadata and no route",
+          "file": "plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksExecutionContext.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_inherits",
+          "fact": "DatabricksExecutionContext inherits GenericExecutionContext",
+          "file": "plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksExecutionContext.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_override",
+          "fact": "DatabricksExecutionContext.getDefaultCatalog overrides GenericExecutionContext.getDefaultCatalog",
+          "file": "plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksExecutionContext.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "DatabricksDataSource.createExecutionContext calls DatabricksExecutionContext",
+          "file": "plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksDataSource.java",
+          "line": 99
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "DatabricksDataSource.initializeContextState uses DatabricksExecutionContext",
+          "file": "plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksDataSource.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_configures",
+          "fact": "CBM records no CONFIGURES relation for DatabricksExecutionContext (CBM emits CONFIGURES for configuration keys and environment access, not registrations)",
+          "file": null,
+          "line": null
+        }
+      ],
+      "checks": {},
+      "missing": [
+        "no repository code that hands DatabricksExecutionContext to the framework was found"
+      ],
+      "runtime_needed": null,
+      "resolved_by": null,
+      "queries": 5
+    },
+    {
+      "category": "callback_registration",
+      "status": "unresolved",
+      "source_symbol": "?",
+      "via": "?",
+      "targets": [
+        "DatabricksExecutionContext.refreshDefaults"
+      ],
+      "message_type": null,
+      "facts": [
+        {
+          "provenance": "cbm_entrypoint",
+          "fact": "DatabricksExecutionContext.refreshDefaults is a reached entrypoint with decorator metadata and no route",
+          "file": "plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksExecutionContext.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_inherits",
+          "fact": "DatabricksExecutionContext inherits GenericExecutionContext",
+          "file": "plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksExecutionContext.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_override",
+          "fact": "DatabricksExecutionContext.refreshDefaults overrides GenericExecutionContext.refreshDefaults",
+          "file": "plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksExecutionContext.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "DatabricksDataSource.createExecutionContext calls DatabricksExecutionContext",
+          "file": "plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksDataSource.java",
+          "line": 99
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "DatabricksDataSource.initializeContextState uses DatabricksExecutionContext",
+          "file": "plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksDataSource.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_configures",
+          "fact": "CBM records no CONFIGURES relation for DatabricksExecutionContext (CBM emits CONFIGURES for configuration keys and environment access, not registrations)",
+          "file": null,
+          "line": null
+        }
+      ],
+      "checks": {},
+      "missing": [
+        "no repository code that hands DatabricksExecutionContext to the framework was found"
+      ],
+      "runtime_needed": null,
+      "resolved_by": null,
+      "queries": 5
+    },
+    {
+      "category": "callback_registration",
+      "status": "unresolved",
+      "source_symbol": "?",
+      "via": "?",
+      "targets": [
+        "DatabricksExecutionContext.setDefaultCatalog"
+      ],
+      "message_type": null,
+      "facts": [
+        {
+          "provenance": "cbm_entrypoint",
+          "fact": "DatabricksExecutionContext.setDefaultCatalog is a reached entrypoint with decorator metadata and no route",
+          "file": "plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksExecutionContext.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_inherits",
+          "fact": "DatabricksExecutionContext inherits GenericExecutionContext",
+          "file": "plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksExecutionContext.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_override",
+          "fact": "DatabricksExecutionContext.setDefaultCatalog overrides GenericExecutionContext.setDefaultCatalog",
+          "file": "plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksExecutionContext.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "DatabricksDataSource.createExecutionContext calls DatabricksExecutionContext",
+          "file": "plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksDataSource.java",
+          "line": 99
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "DatabricksDataSource.initializeContextState uses DatabricksExecutionContext",
+          "file": "plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksDataSource.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_configures",
+          "fact": "CBM records no CONFIGURES relation for DatabricksExecutionContext (CBM emits CONFIGURES for configuration keys and environment access, not registrations)",
+          "file": null,
+          "line": null
+        }
+      ],
+      "checks": {},
+      "missing": [
+        "no repository code that hands DatabricksExecutionContext to the framework was found"
+      ],
+      "runtime_needed": null,
+      "resolved_by": null,
+      "queries": 5
+    }
+  ],
+  "affected_flows": [],
+  "unresolved_changed_symbols": 1,
+  "unresolved_changed_symbol_names": [
+    "DatabricksExecutionContext"
+  ],
+  "analysis_status": "partial",
+  "analysis_notes": [
+    "Route composition is unresolved in app; some routes may be missing.",
+    "Structural exploration was bounded for this change (calls hop 2 filled a full page); boundaries beyond the explored neighborhood are not established either way.",
+    "1 changed symbol(s) have no established impact path to any entrypoint (an AI-inferred candidate may still exist for one — see AFFECTED BEHAVIOR — but that is not the same as resolved impact coverage).",
+    "No discovered route declaration reaches the changed symbols."
+  ],
+  "test_executions": [],
+  "ci_suite": {
+    "command": [],
+    "source": "",
+    "working_dir": ".",
+    "framework": "",
+    "status": "unknown",
+    "blocker": "framework_unsupported",
+    "reason": "No repository test command could be resolved",
+    "exit_code": null,
+    "duration_ms": null,
+    "tests_passed": null,
+    "tests_failed": null,
+    "summary_line": null,
+    "failed_test_ids": [],
+    "stdout_excerpt": null,
+    "stderr_excerpt": null,
+    "output_truncated": false,
+    "evidence": []
+  },
+  "verification_gaps": [],
+  "runtime_dependencies": [],
+  "cross_repo_impacts": [],
+  "notes": [
+    "test_execution=whole_suite_fallback reason=no_mapped_tests",
+    "AI recovery (experimental, provenance=ai_recovery, run-local, not merged into structural results): path recovery could not establish a source-backed path beyond the first pass; test recovery recovered no verified tests.",
+    "Saved change verification artifact: /Users/ksnaik/.sydes/workspaces/611c27dfad7f53d1/artifacts/20261027T002938Z-41d17d27/change_verification.json"
+  ],
+  "diagnostics": [
+    "code_intelligence_effective_backend=cbm selected_by=default",
+    "code_intelligence_backend=cbm transport=persistent_mcp_stdio cbm_server_version=0.11.0 cbm_executable=/Users/ksnaik/.cache/uv/archive-v0/fIq-hElUYs477A4qj4uzs/bin/codebase-memory-mcp",
+    "cbm_session_start_ms=1369.0 cbm_calls=154 cbm_mean_call_ms=2036.7",
+    "cbm_index_ms=11083.7 cbm_query_ms=302912.1 sydes_route_semantics_ms=9720.5 total_ms=325112.2",
+    "cbm_supplied=symbols,spans,imports,exports,call_edges,usage_edges,entrypoints  sydes_semantics=route_index,route_graph,repo_map",
+    "route_derived_entrypoints_added=0",
+    "cbm_gap: route composition is computed by Sydes, not CBM: CBM reports uncomposed route paths and models no persistence sinks",
+    "cbm_gap: CALLS/USAGE edges deferred: they are fetched as a bounded neighborhood around the changed symbols instead of a repository-wide sweep",
+    "handler_symbol_index: exports=45823, files_indexed=6582, imports=39355, symbols=107380",
+    "pr_semantic_analysis_prompt_chars=17860",
+    "reverse_reach_candidate_files=6",
+    "app: deterministic_routes_found=12, deterministic_frameworks=express_mount_graph,spring",
+    "app: discovery_coverage=moderate score=0.7",
+    "app: discovery_coverage_reasons=deterministic route extraction produced grounded routes; route graph composition produced mounted routes; some mount edges could not be resolved; route composition is unresolved: 1 of 1 route containers have no resolvable mount or declared prefix, so route paths may be incomplete",
+    "app: route_graph_containers=4, route_graph_declarations=1, route_graph_mount_edges=2, route_graph_composed_routes=1, route_graph_unresolved_mounts=2",
+    "app: deterministic_routes=12, llm_routes=0, merged_routes=12, rejected_routes=0, final_routes=12",
+    "app: merged_llm_routes=0",
+    "java_field_bridge_edges_added=4086",
+    "interface_bridge_edges_added=26",
+    "graph_slice_seeds: changed=7 routes=0 dropped_auxiliary=0 total=7",
+    "graph_slice: used=True seeds=7 canonical_seeds=8 unresolved_seeds=0 unresolved_changed=0 unresolved_auxiliary=0 graph_calls=4 nodes=400 call_edges=504 usage_edges=76 truncated=True fell_back=False",
+    "impact_interpreter: affected_entrypoints=7, ambiguous_edges=0, boundary_budget_exhausted=False, boundary_emitted=0, boundary_expansions=7, boundary_frontier_considered=7, boundary_rejected_weak_evidence=0, call_edges=530, changed_symbols=7, evidence_confirmed=0, guide_actions={'infer_impact': 2, 'inspect_symbol': 1, 'stop_unresolved': 1}, guide_budget_exhausted=False, guide_calls=4, guide_error_details=[], guide_errors=0, guide_latency_ms=23208.405040903017, guide_no_progress=0, guide_triggered=True, http_entrypoints=0, known_entrypoints=25773, llm_candidates=2, llm_candidates_accepted=2, llm_candidates_corroborated=0, llm_candidates_missing_reason=0, llm_candidates_self_referential=0, llm_candidates_uncorroborated=2, llm_candidates_ungrounded=0, llm_candidates_whole_change_unanchored=0, llm_new_entrypoints=2, llm_no_candidate_turns=0, unresolved_after=1, unresolved_before=1, unresolved_symbols=1, usage_edges=76",
+    "repo_profile: rebuilt (0 package(s), 0 framework(s))",
+    "boundary_reasoning: candidates=7 inferred=1",
+    "app: test_files_found=73",
+    "app: test_cases_found=425",
+    "test_frameworks_detected=none",
+    "ci_suite=unresolved reason=No repository test command could be resolved",
+    "structural_enrichment: triggered=[callback_registration: 5 callback entrypoint(s)] cbm_requests=5 (relations:1,schema:1,search:3) cache_hits=(relations:1,search:6) errors=0 truncated=0 families=[CALLS,INHERITS,OVERRIDE,USAGE,search_code] candidates=5 unresolved=5",
+    "code_review_context_added: plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksExecutionContext.java:DatabricksExecutionContext -- createExecutionContext constructs DatabricksExecutionContext at plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksDataSource.java:99 (a changed line)",
+    "code_review_context_added: plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/GenericProcedure.java:getCatalog -- getDefaultCatalog calls getCatalog at plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksExecutionContext.java:56 (a changed line)",
+    "code_review_context_added: plugins/org.jkiss.dbeaver.ext.mysql/src/org/jkiss/dbeaver/ext/mysql/model/MySQLGrant.java:isEmpty -- getDefaultCatalog calls isEmpty at plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksExecutionContext.java:53 (a changed line)",
+    "code_review_context_added: plugins/org.jkiss.dbeaver.ext.oracle/src/org/jkiss/dbeaver/ext/oracle/data/OracleXMLWrapper.java:getString -- refreshDefaults calls getString at plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksExecutionContext.java:81 (a changed line)",
+    "code_review_context_added: plugins/org.jkiss.dbeaver.ext.wmi/src/org/jkiss/dbeaver/ext/wmi/model/WMIDataSource.java:openSession -- refreshDefaults calls openSession at plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksExecutionContext.java:77 (a changed line)",
+    "code_review_context_added: plugins/org.jkiss.dbeaver.ext.wmi/src/org/jkiss/wmi/service/WMIService.java:executeQuery -- refreshDefaults calls executeQuery at plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksExecutionContext.java:79 (a changed line)",
+    "code_review_context_added: plugins/org.jkiss.dbeaver.model.jdbc/src/org/jkiss/dbeaver/model/exec/jdbc/JDBCSession.java:createStatement -- refreshDefaults calls createStatement at plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksExecutionContext.java:78 (a changed line)",
+    "code_review_context_added: plugins/org.jkiss.dbeaver.model.sql/src/org/jkiss/dbeaver/model/sql/semantics/OffsetKeyedTreeMap.java:next -- refreshDefaults calls next at plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksExecutionContext.java:80 (a changed line)",
+    "code_review_context_related=8",
+    "code_review_questions=10",
+    "investigator: hypotheses=4 lookups=12/12 confirmed=0 refuted=0 unknown=4 findings=0 llm_calls=17 errors=0",
+    "investigation_artifact=/Users/ksnaik/StudioProjects/sydes/benchmarks/aacr/results/alloc-A1-snapshot-c54d97e-first11-2026-10-26/sydes/dbeaver__dbeaver@8224826.investigation.json",
+    "run_metrics: wall_seconds=613.9 llm_calls=27 (ai_recovery:3,boundary_reasoning:1,impact_guide:4,investigator:17,pr_semantic_analysis:1,route_discovery:1) llm_errors=0 input_tokens=87849 output_tokens=15925 estimated_cost_usd=unavailable (set SYDES_LLM_PRICE_PER_MTOK) cbm_requests=169 cbm_enrichment_requests=5 test_executions=0 test_outcomes={}"
+  ],
+  "behavioral": null,
+  "known_routes": [
+    {
+      "method": "GET",
+      "path": "/",
+      "handler": "ping",
+      "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/app/DBPPingController.java",
+      "repo": "app",
+      "service": null,
+      "evidence": [
+        {
+          "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/app/DBPPingController.java",
+          "symbol": "ping",
+          "label": "@RequestMapping",
+          "snippet": "@RequestMapping\nString ping() throws DBException;"
+        },
+        {
+          "file": "plugins/org.jkiss.dbeaver.osgi.test.runner/src/org/jkiss/junit/osgi/OSGITestRunner.java",
+          "symbol": null,
+          "label": "route_declaration",
+          "snippet": "Path workPath = Paths.get(\"\").toAbsolutePath();"
+        }
+      ],
+      "confidence": 1.0,
+      "status": "deterministic",
+      "kind": "http",
+      "impact_status": null
+    },
+    {
+      "method": "GET",
+      "path": "/bringToFront",
+      "handler": "bringToFront",
+      "file": "plugins/org.jkiss.dbeaver.ui.app.standalone/src/org/jkiss/dbeaver/ui/app/standalone/rpc/IInstanceController.java",
+      "repo": "app",
+      "service": null,
+      "evidence": [
+        {
+          "file": "plugins/org.jkiss.dbeaver.ui.app.standalone/src/org/jkiss/dbeaver/ui/app/standalone/rpc/IInstanceController.java",
+          "symbol": "bringToFront",
+          "label": "@RequestMapping(\"bringToFront\")",
+          "snippet": "@RequestMapping(\"bringToFront\")\nvoid bringToFront();"
+        }
+      ],
+      "confidence": 1.0,
+      "status": "deterministic",
+      "kind": "http",
+      "impact_status": null
+    },
+    {
+      "method": "GET",
+      "path": "/closeEditors",
+      "handler": "closeAllEditors",
+      "file": "plugins/org.jkiss.dbeaver.ui.app.standalone/src/org/jkiss/dbeaver/ui/app/standalone/rpc/IInstanceController.java",
+      "repo": "app",
+      "service": null,
+      "evidence": [
+        {
+          "file": "plugins/org.jkiss.dbeaver.ui.app.standalone/src/org/jkiss/dbeaver/ui/app/standalone/rpc/IInstanceController.java",
+          "symbol": "closeAllEditors",
+          "label": "@RequestMapping(\"closeEditors\")",
+          "snippet": "@RequestMapping(\"closeEditors\")\nvoid closeAllEditors();"
+        }
+      ],
+      "confidence": 1.0,
+      "status": "deterministic",
+      "kind": "http",
+      "impact_status": null
+    },
+    {
+      "method": "GET",
+      "path": "/executeCommand",
+      "handler": "executeWorkbenchCommand",
+      "file": "plugins/org.jkiss.dbeaver.ui.app.standalone/src/org/jkiss/dbeaver/ui/app/standalone/rpc/IInstanceController.java",
+      "repo": "app",
+      "service": null,
+      "evidence": [
+        {
+          "file": "plugins/org.jkiss.dbeaver.ui.app.standalone/src/org/jkiss/dbeaver/ui/app/standalone/rpc/IInstanceController.java",
+          "symbol": "executeWorkbenchCommand",
+          "label": "@RequestMapping(\"executeCommand\")",
+          "snippet": "@RequestMapping(\"executeCommand\")\nvoid executeWorkbenchCommand("
+        }
+      ],
+      "confidence": 1.0,
+      "status": "deterministic",
+      "kind": "http",
+      "impact_status": null
+    },
+    {
+      "method": "GET",
+      "path": "/fireEvent",
+      "handler": "fireGlobalEvent",
+      "file": "plugins/org.jkiss.dbeaver.ui.app.standalone/src/org/jkiss/dbeaver/ui/app/standalone/rpc/IInstanceController.java",
+      "repo": "app",
+      "service": null,
+      "evidence": [
+        {
+          "file": "plugins/org.jkiss.dbeaver.ui.app.standalone/src/org/jkiss/dbeaver/ui/app/standalone/rpc/IInstanceController.java",
+          "symbol": "fireGlobalEvent",
+          "label": "@RequestMapping(\"fireEvent\")",
+          "snippet": "@RequestMapping(\"fireEvent\")\nvoid fireGlobalEvent("
+        }
+      ],
+      "confidence": 1.0,
+      "status": "deterministic",
+      "kind": "http",
+      "impact_status": null
+    },
+    {
+      "method": "GET",
+      "path": "/handleCommandLine",
+      "handler": "handleCommandLine",
+      "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/cli/ApplicationInstanceController.java",
+      "repo": "app",
+      "service": null,
+      "evidence": [
+        {
+          "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/cli/ApplicationInstanceController.java",
+          "symbol": "handleCommandLine",
+          "label": "@RequestMapping(value = \"handleCommandLine\")",
+          "snippet": "@RequestMapping(value = \"handleCommandLine\")\nCmdProcessResult handleCommandLine(@RequestParameter(\"args\") @NotNull String[] args);"
+        }
+      ],
+      "confidence": 1.0,
+      "status": "deterministic",
+      "kind": "http",
+      "impact_status": null
+    },
+    {
+      "method": "GET",
+      "path": "/openConnection",
+      "handler": "openDatabaseConnection",
+      "file": "plugins/org.jkiss.dbeaver.ui.app.standalone/src/org/jkiss/dbeaver/ui/app/standalone/rpc/IInstanceController.java",
+      "repo": "app",
+      "service": null,
+      "evidence": [
+        {
+          "file": "plugins/org.jkiss.dbeaver.ui.app.standalone/src/org/jkiss/dbeaver/ui/app/standalone/rpc/IInstanceController.java",
+          "symbol": "openDatabaseConnection",
+          "label": "@RequestMapping(\"openConnection\")",
+          "snippet": "@RequestMapping(\"openConnection\")\nvoid openDatabaseConnection("
+        }
+      ],
+      "confidence": 1.0,
+      "status": "deterministic",
+      "kind": "http",
+      "impact_status": null
+    },
+    {
+      "method": "GET",
+      "path": "/openFiles",
+      "handler": "openExternalFiles",
+      "file": "plugins/org.jkiss.dbeaver.ui.app.standalone/src/org/jkiss/dbeaver/ui/app/standalone/rpc/IInstanceController.java",
+      "repo": "app",
+      "service": null,
+      "evidence": [
+        {
+          "file": "plugins/org.jkiss.dbeaver.ui.app.standalone/src/org/jkiss/dbeaver/ui/app/standalone/rpc/IInstanceController.java",
+          "symbol": "openExternalFiles",
+          "label": "@RequestMapping(\"openFiles\")",
+          "snippet": "@RequestMapping(\"openFiles\")\nvoid openExternalFiles("
+        }
+      ],
+      "confidence": 1.0,
+      "status": "deterministic",
+      "kind": "http",
+      "impact_status": null
+    },
+    {
+      "method": "GET",
+      "path": "/ping",
+      "handler": "ping",
+      "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/cli/ApplicationInstanceController.java",
+      "repo": "app",
+      "service": null,
+      "evidence": [
+        {
+          "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/cli/ApplicationInstanceController.java",
+          "symbol": "ping",
+          "label": "@RequestMapping(value = \"ping\", timeout = 5)",
+          "snippet": "@RequestMapping(value = \"ping\", timeout = 5)\nlong ping(@RequestParameter(\"payload\") long payload);"
+        }
+      ],
+      "confidence": 1.0,
+      "status": "deterministic",
+      "kind": "http",
+      "impact_status": null
+    },
+    {
+      "method": "GET",
+      "path": "/quit",
+      "handler": "quit",
+      "file": "plugins/org.jkiss.dbeaver.ui.app.standalone/src/org/jkiss/dbeaver/ui/app/standalone/rpc/IInstanceController.java",
+      "repo": "app",
+      "service": null,
+      "evidence": [
+        {
+          "file": "plugins/org.jkiss.dbeaver.ui.app.standalone/src/org/jkiss/dbeaver/ui/app/standalone/rpc/IInstanceController.java",
+          "symbol": "quit",
+          "label": "@RequestMapping(\"quit\")",
+          "snippet": "@RequestMapping(\"quit\")\nvoid quit();"
+        }
+      ],
+      "confidence": 1.0,
+      "status": "deterministic",
+      "kind": "http",
+      "impact_status": null
+    },
+    {
+      "method": "GET",
+      "path": "/threadDump",
+      "handler": "getThreadDump",
+      "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/cli/ApplicationInstanceController.java",
+      "repo": "app",
+      "service": null,
+      "evidence": [
+        {
+          "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/cli/ApplicationInstanceController.java",
+          "symbol": "getThreadDump",
+          "label": "@RequestMapping(\"threadDump\")",
+          "snippet": "@RequestMapping(\"threadDump\")\nString getThreadDump();"
+        }
+      ],
+      "confidence": 1.0,
+      "status": "deterministic",
+      "kind": "http",
+      "impact_status": null
+    },
+    {
+      "method": "GET",
+      "path": "/version",
+      "handler": "getVersion",
+      "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/cli/ApplicationInstanceController.java",
+      "repo": "app",
+      "service": null,
+      "evidence": [
+        {
+          "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/cli/ApplicationInstanceController.java",
+          "symbol": "getVersion",
+          "label": "@RequestMapping(\"version\")",
+          "snippet": "@RequestMapping(\"version\")\nString getVersion();"
+        }
+      ],
+      "confidence": 1.0,
+      "status": "deterministic",
+      "kind": "http",
+      "impact_status": null
+    }
+  ],
+  "unattached_evidence": []
+}

@@ -1,0 +1,92 @@
+{
+  "path_recovery": {
+    "status": "established",
+    "paths": [
+      {
+        "entrypoint": "Service worker fetch event for /api/assets/:id/thumbnail requests",
+        "target_node": "immichAsset",
+        "status": "established",
+        "root_boundary_status": "candidate_boundary",
+        "nodes": [
+          {
+            "symbol": "fetch event listener",
+            "file": "web/src/service-worker/index.ts",
+            "qualified_name": null
+          },
+          {
+            "symbol": "immichAsset",
+            "file": "web/src/service-worker/index.ts",
+            "qualified_name": "immichAsset"
+          }
+        ],
+        "edges": [
+          {
+            "from": {
+              "symbol": "fetch event listener",
+              "file": "web/src/service-worker/index.ts",
+              "qualified_name": "fetch event listener"
+            },
+            "to": {
+              "symbol": "immichAsset",
+              "file": "web/src/service-worker/index.ts",
+              "qualified_name": "immichAsset"
+            },
+            "relationship": "The service worker fetch event listener matches GET asset original/thumbnail API paths and passes the request URL to immichAsset via event.respondWith().",
+            "evidence": [
+              {
+                "file": "web/src/service-worker/index.ts",
+                "line_start": 24,
+                "line_end": 32,
+                "fact": "The fetch event listener accepts GET requests, matches /api/assets/:id/original or /thumbnail paths, and directly invokes immichAsset(url) as the response promise."
+              },
+              {
+                "file": "web/src/service-worker/index.ts",
+                "line_start": 43,
+                "line_end": 45,
+                "fact": "These lines declare the immichAsset function called by the fetch listener and begin its cache lookup behavior."
+              }
+            ],
+            "status": "established",
+            "provenance": "ai_recovery",
+            "rejection_reason": null,
+            "from_decomposition": false
+          }
+        ],
+        "unresolved_suffix": []
+      }
+    ],
+    "corrected_first_pass_claims": [],
+    "unresolved": []
+  },
+  "test_recovery": {
+    "status": "unresolved",
+    "tests": [
+      {
+        "file": "e2e/src/web/specs/photo-viewer.e2e-spec.ts",
+        "test": "photo viewer image-loading scenario near changed lines 23 and 26",
+        "covers": "Exercises asset image loading through the photo viewer, plausibly reaching service-worker interception and caching.",
+        "target": {
+          "symbol": "immichAsset",
+          "file": "web/src/service-worker/index.ts",
+          "qualified_name": null
+        },
+        "evidence": [],
+        "status": "rejected",
+        "rejection_reason": "no evidence cited at all"
+      },
+      {
+        "file": "e2e/src/web/specs/shared-link.e2e-spec.ts",
+        "test": "shared-link photo viewing scenario near changed line 57",
+        "covers": "Exercises media loading from a shared link, plausibly reaching the service-worker asset fetch handler.",
+        "target": {
+          "symbol": "immichAsset",
+          "file": "web/src/service-worker/index.ts",
+          "qualified_name": null
+        },
+        "evidence": [],
+        "status": "rejected",
+        "rejection_reason": "no evidence cited at all"
+      }
+    ]
+  }
+}

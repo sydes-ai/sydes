@@ -1,0 +1,62 @@
+{
+  "code_findings": [
+    {
+      "id": "investigator-H1",
+      "severity": "P2",
+      "title": "When ReactDOMForm-test.js is run under the repository's Jest setup, the newly added focused test causes its ordinary sibling tests not to execute, so the full form regression file is not exercised.",
+      "file": "packages/react-dom/src/__tests__/ReactDOMForm-test.js",
+      "line": 1673,
+      "repo": null,
+      "explanation": "The change adds `it.only` at line 1673 while the file contains ordinary sibling `it` cases. Repository evidence explicitly describes `.only` as the way to focus a test, and the Jest setup implements its focus helper with `test.only`. The ESLint protection against committed focused tests is disabled, so it does not reject this line before execution. Thus the added focus marker selects this test instead of the ordinary sibling cases.",
+      "impact": "Caused by the change: The changed line introduces the focus marker `.only`. The repository's own test infrastructure uses `test.only` for focused execution, while neighboring form regressions remain ordinary `it` cases; therefore selecting the new focused case prevents those ordinary cases from running. The disabled `jest/no-focused-tests` rule does not block the committed marker.",
+      "suggested_fix": null,
+      "source": "investigator",
+      "evidence": [
+        {
+          "file": "scripts/babel/__tests__/transform-test-gate-pragma-test.js",
+          "symbol": null,
+          "label": "verified_quote:24",
+          "snippet": "// to focus something, swap the following `test` call for `test.only`."
+        },
+        {
+          "file": "scripts/jest/setupTests.js",
+          "symbol": null,
+          "label": "verified_quote:270",
+          "snippet": "test.only(testName, callback, timeoutMS);"
+        },
+        {
+          "file": ".eslintrc.js",
+          "symbol": null,
+          "label": "verified_quote:407",
+          "snippet": "'jest/no-focused-tests': OFF,"
+        },
+        {
+          "file": "packages/react-dom/src/__tests__/ReactDOMForm-test.js",
+          "symbol": null,
+          "label": "verified_quote:1673",
+          "snippet": "  it.only('multiple form submissions in rapid succession do not throw', async () => {"
+        }
+      ]
+    }
+  ],
+  "code_review_status": "completed",
+  "run_metrics": {
+    "llm_totals": {
+      "calls": 16,
+      "input_tokens": 32823,
+      "output_tokens": 7748,
+      "errors": 0
+    },
+    "llm_by_purpose": {
+      "investigator": {
+        "calls": 12
+      },
+      "verifier": {
+        "calls": 4
+      }
+    }
+  },
+  "diagnostics": [
+    "investigator: hypotheses=2 lookups=11/12 confirmed=1 refuted=0 unknown=1 findings=1 llm_calls=16 errors=0"
+  ]
+}

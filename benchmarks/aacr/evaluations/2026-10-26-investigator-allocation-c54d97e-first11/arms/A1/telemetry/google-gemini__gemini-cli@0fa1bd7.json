@@ -1,0 +1,69 @@
+{
+  "case_id": "google-gemini__gemini-cli-8154",
+  "instance_id": "google-gemini__gemini-cli@0fa1bd7",
+  "language": "TypeScript",
+  "status": "completed",
+  "wall_seconds": 446.7,
+  "review_base": "bd0f085ae896e97373b451180f70ff551142fd7e",
+  "review_base_info": {
+    "rule": "merge base (newest committer date, then smallest id)",
+    "merge_bases": [
+      "bd0f085ae896e97373b451180f70ff551142fd7e"
+    ]
+  },
+  "code_review_status": "completed",
+  "code_findings": 3,
+  "not_submitted": {
+    "local_risks": 3,
+    "affected_flows": 0
+  },
+  "llm_totals": {
+    "calls": 39,
+    "errors": 0,
+    "input_tokens": 129710,
+    "output_tokens": 28127,
+    "reasoning_tokens": 18678
+  },
+  "llm_calls_by_purpose": {
+    "pr_semantic_analysis": 1,
+    "route_discovery": 1,
+    "impact_guide": 8,
+    "boundary_reasoning": 1,
+    "investigator": 18,
+    "ai_recovery": 10
+  },
+  "cbm": {
+    "calls": 30,
+    "errors": 1,
+    "by_operation": {
+      "index_repository": 3,
+      "query_graph": 15,
+      "search_graph": 6,
+      "get_graph_schema": 1,
+      "trace_path": 5
+    },
+    "enrichment_requests": 4
+  },
+  "sydes_wall_seconds": 445.1,
+  "verdict": "VERIFICATION INCOMPLETE",
+  "invalid_reasons": [],
+  "investigation": {
+    "hypotheses": 5,
+    "lookups": 12,
+    "confirmed": 3,
+    "refuted": 0,
+    "unknown": 2,
+    "usage": {
+      "llm_calls": 18,
+      "by_stage": {
+        "finder": 1,
+        "investigator": 12,
+        "verifier": 5
+      },
+      "prompt_tokens": 66012,
+      "completion_tokens": 19403,
+      "reasoning_tokens": 13992,
+      "llm_seconds": 286.8
+    }
+  }
+}

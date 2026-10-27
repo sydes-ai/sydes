@@ -1,0 +1,245 @@
+{
+  "version": "sydes-investigation-snapshot/1",
+  "packet": [
+    {
+      "id": "E1",
+      "kind": "diff",
+      "ref": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/DBNDatabaseNode.java",
+      "text": "diff --git a/plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/DBNDatabaseNode.java b/plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/DBNDatabaseNode.java\nindex b9cd34c2827..31e5741b978 100644\n--- a/plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/DBNDatabaseNode.java\n+++ b/plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/DBNDatabaseNode.java\n@@ -723,9 +723,20 @@ public abstract class DBNDatabaseNode extends DBNNode implements DBNLazyNode, DB\n                 // Skip schemas in merge entities mode\n                 continue;\n             }\n-            if (filter != null && !filter.matches(((DBSObject) childItem).getName())) {\n-                // Doesn't match filter\n-                continue;\n+            if (filter != null) {\n+                String objectName = ((DBSObject) childItem).getName();\n+                boolean isMatchingFilter;\n+                if (childItem instanceof DBPOverloadedObject overloadedObject) {\n+                    isMatchingFilter = filter.matches(\n+                        objectName,\n+                        overloadedObject.getOverloadedName()\n+                    );\n+                } else {\n+                    isMatchingFilter = filter.matches(objectName);\n+                }\n+                if (!isMatchingFilter) {\n+                    continue;\n+                }\n             }\n             DBSObject object = (DBSObject) childItem;\n             boolean added = false;"
+    },
+    {
+      "id": "E2",
+      "kind": "diff",
+      "ref": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/struct/DBSObjectFilter.java",
+      "text": "diff --git a/plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/struct/DBSObjectFilter.java b/plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/struct/DBSObjectFilter.java\nindex ae97f23e365..39223e9a88d 100644\n--- a/plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/struct/DBSObjectFilter.java\n+++ b/plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/struct/DBSObjectFilter.java\n@@ -22,6 +22,7 @@ import org.jkiss.dbeaver.model.sql.SQLUtils;\n import org.jkiss.utils.CommonUtils;\n \n import java.util.ArrayList;\n+import java.util.Arrays;\n import java.util.List;\n import java.util.regex.Pattern;\n \n@@ -149,7 +150,7 @@ public class DBSObjectFilter {\n         return !CommonUtils.isEmpty(include) ? include.get(0) : null;\n     }\n \n-    public synchronized boolean matches(String name) {\n+    public synchronized boolean matches(String... names) {\n         if (includePatterns == null && !CommonUtils.isEmpty(include)) {\n             includePatterns = new ArrayList<>(include.size());\n             for (String inc : include) {\n@@ -159,10 +160,9 @@ public class DBSObjectFilter {\n             }\n         }\n         if (includePatterns != null) {\n-            // Match includes (at least one should match)\n             boolean matched = false;\n             for (Object pattern : includePatterns) {\n-                if (matchesPattern(pattern, name)) {\n+                if (atLeastOneNameMatchesPattern(pattern, names)) {\n                     matched = true;\n                     break;\n                 }\n@@ -181,9 +181,8 @@ public class DBSObjectFilter {\n             }\n         }\n         if (excludePatterns != null) {\n-            // Match excludes\n             for (Object pattern : excludePatterns) {\n-                if (matchesPattern(pattern, name)) {\n+                if (atLeastOneNameMatchesPattern(pattern, names)) {\n                     return false;\n                 }\n             }\n@@ -192,6 +191,11 @@ public class DBSObjectFilter {\n         return true;\n     }\n \n+    private static boolean atLeastOneNameMatchesPattern(Object pattern, String[] names) {\n+        return Arrays.stream(names)\n+            .anyMatch(name -> matchesPattern(pattern, name));\n+    }\n+\n     private static boolean matchesPattern(Object pattern, String name) {\n         if (pattern instanceof Pattern) {\n             return ((Pattern) pattern).matcher(name).matches();"
+    },
+    {
+      "id": "E3",
+      "kind": "changed_symbol",
+      "ref": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/DBNDatabaseNode.java:639-794",
+      "text": "class_method DBNDatabaseNode.loadTreeItems\n... if (mergeEntities && childItem instanceof DBSSchema) { // Skip schemas in merge entities mode continue; } if (filter != null) { String objectName = ((DBSObject) childItem).getName(); boolean isMatchingFilter; if (childItem instanceof DBPOverloadedObject overloadedObject) { isMatchingFilter = filter.matches( objectName, overloadedObject.getOverloadedName() ); } else { isMatchingFilter = filter.matches(objectName); } if (!isMatchingFilter) { continue; } } DBSObject object = (DBSObject) childItem; boolean added = false; if (!oldList.isEmpty()) {"
+    },
+    {
+      "id": "E4",
+      "kind": "changed_symbol",
+      "ref": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/struct/DBSObjectFilter.java:153-192",
+      "text": "class_method DBSObjectFilter.matches\npublic synchronized boolean matches(String... names) { if (includePatterns == null && !CommonUtils.isEmpty(include)) { includePatterns = new ArrayList<>(include.size()); for (String inc : include) { if (!inc.isEmpty()) { includePatterns.add(makePattern(inc, isCaseSensitive())); } } } if (includePatterns != null) { boolean matched = false; for (Object pattern : includePatterns) { if (atLeastOneNameMatchesPattern(pattern, names)) { matched = true; break; } } ... excludePatterns.add(makePattern(exc, isCaseSensitive())); } } } if (excludePatterns != null) { for (Object pattern : excludePatterns) { if (atLeastOneNameMatchesPattern(pattern, names)) { return false; } } }"
+    },
+    {
+      "id": "E5",
+      "kind": "changed_symbol",
+      "ref": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/struct/DBSObjectFilter.java:194-197",
+      "text": "class_method DBSObjectFilter.atLeastOneNameMatchesPattern\nprivate static boolean atLeastOneNameMatchesPattern(Object pattern, String[] names) { return Arrays.stream(names) .anyMatch(name -> matchesPattern(pattern, name)); }"
+    },
+    {
+      "id": "E6",
+      "kind": "structural",
+      "ref": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/DBPOverloadedObject.java:29-30",
+      "text": "loadTreeItems calls getOverloadedName at plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/DBNDatabaseNode.java:732 (a changed line)\n    @NotNull\n    String getOverloadedName();"
+    },
+    {
+      "id": "E7",
+      "kind": "structural",
+      "ref": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/struct/DBSObjectFilter.java:199-205",
+      "text": "atLeastOneNameMatchesPattern calls matchesPattern at plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/struct/DBSObjectFilter.java:196 (a changed line)\n    private static boolean matchesPattern(Object pattern, String name) {\n        if (pattern instanceof Pattern) {\n            return ((Pattern) pattern).matcher(name).matches();\n        } else {\n            return ((String) pattern).equalsIgnoreCase(name);\n        }\n    }"
+    },
+    {
+      "id": "E8",
+      "kind": "structural",
+      "ref": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/exec/DBCStatistics.java:158-160",
+      "text": "loadTreeItems calls isEmpty at plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/DBNDatabaseNode.java:743 (4 line(s) from a changed line)\n    public boolean isEmpty() {\n        return executeTime <= 0 && fetchTime <= 0 && statementsCount == 0;\n    }"
+    },
+    {
+      "id": "E9",
+      "kind": "structural",
+      "ref": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/struct/DBSDataManipulator.java:53-53",
+      "text": "matches calls add at plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/struct/DBSObjectFilter.java:158 (4 line(s) from a changed line)\n        void add(@NotNull Object[] attributeValues) throws DBCException;"
+    },
+    {
+      "id": "E10",
+      "kind": "structural",
+      "ref": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/struct/DBSObjectFilter.java:74-76",
+      "text": "matches calls isCaseSensitive at plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/struct/DBSObjectFilter.java:179 (4 line(s) from a changed line)\n    public boolean isCaseSensitive() {\n        return caseSensitive;\n    }"
+    },
+    {
+      "id": "E11",
+      "kind": "structural",
+      "ref": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/struct/DBSObjectFilter.java:140-142",
+      "text": "matches calls isEmpty at plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/struct/DBSObjectFilter.java:157 (4 line(s) from a changed line)\n    public boolean isEmpty() {\n        return CommonUtils.isEmpty(include) && CommonUtils.isEmpty(exclude);\n    }"
+    },
+    {
+      "id": "E12",
+      "kind": "structural",
+      "ref": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/struct/DBSObjectFilter.java:207-216",
+      "text": "matches calls makePattern at plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/struct/DBSObjectFilter.java:158 (4 line(s) from a changed line)\n    @NotNull\n    private static Object makePattern(String str, boolean caseSensitive) {\n\n        if (SQLUtils.isLikePattern(str)) {\n            return caseSensitive ? Pattern.compile(\n                SQLUtils.makeLikePattern(str), Pattern.MULTILINE) : Pattern.compile(SQLUtils.makeLikePattern(str), Pattern.CASE_INSENSITIVE | Pattern.MULTILINE);\n        } else {\n            return str;\n        }\n    }"
+    },
+    {
+      "id": "E13",
+      "kind": "structural",
+      "ref": "plugins/org.jkiss.dbeaver.model.sql/src/org/jkiss/dbeaver/model/sql/semantics/OffsetKeyedTreeMap.java:636-639",
+      "text": "loadTreeItems calls hasNext at plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/DBNDatabaseNode.java:745 (6 line(s) from a changed line)\n        @Override\n        public boolean hasNext() {\n            return this.current != null;\n        }"
+    },
+    {
+      "id": "E14",
+      "kind": "structural",
+      "ref": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/DBNDatabaseNode.java:419-538",
+      "text": "loadChildren calls the changed loadTreeItems\n    private void loadChildren(\n        DBRProgressMonitor monitor,\n        final DBXTreeNode meta,\n        final DBNDatabaseNode[] oldList,\n        final List<DBNDatabaseNode> toList,\n        Object source,\n        boolean reflect\n    ) throws DBException {\n        if (monitor.isCanceled()) {\n            return;\n        }\n\n        List<DBXTreeNode> childMetas = meta.getChildren(this);\n        if (CommonUtils.isEmpty(childMetas)) {\n            // Get top-most parent node\n            if (!isDynamicStructObject()) {\n                return;\n            }\n            DBNDatabaseDynamicItem[] dsc = getDynamicStructChildren();\n            if (dsc == null) {\n                return;\n            }\n            Collections.addAll(toList, dsc);\n            return;\n        }\n        DBSObject object = getObject();\n        if (object == null) {\n            // disposed?\n            return;\n        }\n        monitor.beginTask(ModelMessages.model_navigator_load_items_, childMetas.size());\n        DBPDataSourceContainer container = getDataSourceContainer();\n        DBNBrowseSettings navSettings = container.getNavigatorSettings();\n        final boolean showSystem = navSettings.isShowSystemObjects();\n        final boolean showOnlyEntities = navSettings.isShowOnlyEntities();\n        final boolean hideFolders = navSettings.isHideFolders();\n        boolean mergeEntities = navSettings.isMergeEntities();\n        boolean supportsOptionalFolders = false;\n        DBPDataSource dataSource = container.getDataSource();\n        if (dataSource instanceof DBPDataSourceWithOptionalElements) {\n            supportsOptionalFolders = ((DBPDataSourceWithOptionalElements) dataSource).hasOptionalFolders();\n        }\n\n        for (DBXTreeNode child : childMetas) {\n            if (monitor.isCanceled()) {\n                break;\n            }\n            monitor.subTask(ModelMessages.model_navigator_load_ + \" \" + child.getChildrenTypeLabel(object.getDataSource(), null));\n            if (showOnlyEntities && !isEntityMeta(child)) {\n                continue;\n            }\n\n            if (child instanceof DBXTreeItem item) {\n                /*if (hideSchemas && isSchemaItem(item)) {\n                    // Merge\n                } else */{\n                    boolean isLoaded = loadTreeItems(monitor, item, oldList, toList, source, showSystem, hideFolders, mergeEntities, reflect);\n                    if (!isLoaded && item.isOptional() && item.getRecursiveLink() =\u2026"
+    },
+    {
+      "id": "E15",
+      "kind": "structural",
+      "ref": "plugins/org.jkiss.dbeaver.erd.model/src/org/jkiss/dbeaver/erd/model/DiagramObjectCollector.java:102-141",
+      "text": "collectTables calls the changed matches\n    private static void collectTables(\n        DBRProgressMonitor monitor,\n        DBSObjectContainer container,\n        Set<DBSEntity> tables,\n        boolean showViews,\n        boolean showPartitions)\n        throws DBException\n    {\n        if (monitor.isCanceled()) {\n            return;\n        }\n        container.cacheStructure(monitor, DBSObjectContainer.STRUCT_ALL);\n        final Collection<? extends DBSObject> children = container.getChildren(monitor);\n        if (!CommonUtils.isEmpty(children)) {\n            Class<? extends DBSObject> childType = container.getPrimaryChildType(monitor);\n            DBSObjectFilter objectFilter = container.getDataSource().getContainer().getObjectFilter(childType, container, true);\n            for (DBSObject entity : children) {\n                if (monitor.isCanceled()) {\n                    break;\n                }\n                if (objectFilter != null && !objectFilter.matches(entity.getName())) {\n                    continue;\n                }\n                if (entity instanceof DBSEntity) {\n                    DBSEntity entity1 = (DBSEntity) entity;\n                    if ((entity instanceof DBSTablePartition && !showPartitions) || (DBUtils.isView(entity1) && !showViews)) {\n                        continue;\n                    }\n\n                    if (ERDUtils.skipSystemEntity(entity1)) {\n                        continue;\n                    }\n\n                    tables.add(entity1);\n                } else if (entity instanceof DBSObjectContainer) {\n                    collectTables(monitor, (DBSObjectContainer) entity, tables, showViews, showPartitions);\n                }\n            }\n        }\n    }"
+    },
+    {
+      "id": "E16",
+      "kind": "structural",
+      "ref": "plugins/org.jkiss.dbeaver.erd.model/src/org/jkiss/dbeaver/erd/model/ERDContentProviderDefault.java:58-144",
+      "text": "fillEntityFromObject calls the changed matches\n    @Override\n    public void fillEntityFromObject(@NotNull DBRProgressMonitor monitor, @NotNull ERDDiagram diagram, @NotNull List<ERDEntity> otherEntities, @NotNull ERDEntity erdEntity, @NotNull ERDAttributeSettings settings) {\n        DBSEntity entity = erdEntity.getObject();\n        if (READ_LAZY_DESCRIPTIONS && entity instanceof DBPObjectWithLazyDescription) {\n            try {\n                ((DBPObjectWithLazyDescription) entity).getDescription(monitor);\n            } catch (DBException e) {\n                log.warn(\"Unable to load lazy description when filling ERDEntity from object\");\n            }\n        }\n        if (settings.getVisibility() != ERDAttributeVisibility.NONE) {\n            Set<DBSEntityAttribute> keyColumns = new HashSet<>();\n            try {\n                for (DBSEntityAssociation assoc : DBVUtils.getAllAssociations(monitor, entity)) {\n                    if (assoc instanceof DBSEntityReferrer) {\n                        keyColumns.addAll(DBUtils.getEntityAttributes(monitor, (DBSEntityReferrer) assoc));\n                    }\n                }\n                for (DBSEntityConstraint constraint : DBVUtils.getAllConstraints(monitor, entity)) {\n                    if (constraint instanceof DBSEntityReferrer) {\n                        keyColumns.addAll(DBUtils.getEntityAttributes(monitor, (DBSEntityReferrer) constraint));\n                    }\n                }\n            } catch (DBException e) {\n                log.warn(e);\n            }\n\n            Collection<? extends DBSEntityAttribute> idColumns = null;\n            try {\n                idColumns = ERDUtils.getBestTableIdentifier(monitor, entity);\n                keyColumns.addAll(idColumns);\n            } catch (DBException e) {\n                log.error(\"Error reading table identifier\", e);\n            }\n            try {\n                boolean attrNodesCached = false;\n                List<? extends DBSEntityAttribute> attributes = entity.getAttributes(monitor);\n                if (CommonUtils.isEmpty(attributes)) {\n                    return;\n                }\n                DBSEntityAttribute firstAttr = attributes.iterator().next();\n                DBSObjectFilter columnFilter = entity.getDataSource().getContainer().getObjectFilter(firstAttr.getClass(), entity, false);\n                for (int i = 0; i < attributes.size(); i++) {\n                    DBSEntityAttribute attribute = attributes.get(i);\n                    bo\u2026"
+    },
+    {
+      "id": "E17",
+      "kind": "test_execution",
+      "ref": "ci_suite",
+      "text": "unknown No repository test command could be resolved"
+    },
+    {
+      "id": "E18",
+      "kind": "gap",
+      "ref": "unresolved:loadTreeItems",
+      "text": "changed symbol loadTreeItems: no structural path to an entrypoint was established"
+    },
+    {
+      "id": "E19",
+      "kind": "change_analysis",
+      "ref": "summary",
+      "text": "Database navigator filtering now treats an overloaded object's ordinary name and overloaded name as candidate identities. The filter API accepts multiple names and considers a pattern matched when it matches any supplied name, affecting both inclusion and exclusion rules."
+    },
+    {
+      "id": "E20",
+      "kind": "change_analysis",
+      "ref": "local_risk",
+      "text": "[inference, not verified] If DBPOverloadedObject.getOverloadedName() may return null, a pattern evaluation can fail while loading the tree: the null value is passed into the name stream, and a Pattern-backed rule calls Pattern.matcher with that value. The relevant nullability contract is not shown and should be verified or guarded."
+    },
+    {
+      "id": "E21",
+      "kind": "change_analysis",
+      "ref": "local_risk",
+      "text": "[inference, not verified] Inclusion and exclusion rules independently search all supplied names. An overloaded object admitted because one identity matches an include rule can still be rejected because its other identity matches an exclusion rule; reviewers should confirm that cross-identity exclusion precedence is intended."
+    },
+    {
+      "id": "E22",
+      "kind": "change_analysis",
+      "ref": "uncertainty",
+      "text": "The supplied context does not show which navigator actions or other callers invoke DBNDatabaseNode.loadTreeItems, so the full user-facing reach of the changed tree filtering is unknown."
+    },
+    {
+      "id": "E23",
+      "kind": "change_analysis",
+      "ref": "uncertainty",
+      "text": "Other callers of DBSObjectFilter.matches are not shown, so it cannot be established whether the new multi-name or zero-name callable forms affect paths outside navigator loading."
+    },
+    {
+      "id": "E24",
+      "kind": "change_analysis",
+      "ref": "uncertainty",
+      "text": "No HTTP route or endpoint is shown, so it cannot be established whether any route reaches these filtering methods."
+    },
+    {
+      "id": "E25",
+      "kind": "change_analysis",
+      "ref": "uncertainty",
+      "text": "The supplied code does not establish what identity getOverloadedName() represents relative to the ordinary object name or whether users expect both identities to participate equally in filtering."
+    },
+    {
+      "id": "E26",
+      "kind": "change_analysis",
+      "ref": "uncertainty",
+      "text": "The nullability contract of DBPOverloadedObject.getOverloadedName() is not supplied, so whether the newly passed second name is always safe for pattern matching cannot be established."
+    }
+  ],
+  "hypotheses": [
+    {
+      "id": "H1",
+      "claim": "Changing `matches(String)` to `matches(String...)` removes the JVM-level `matches(String)` method, so previously compiled plugins or modules invoking that public method may fail at runtime with `NoSuchMethodError`.",
+      "why_suspected": "Java varargs compile as an array parameter, changing the descriptor from `(String)` to `(String[])`; the evidence shows direct replacement rather than retaining a forwarding single-name overload.",
+      "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/struct/DBSObjectFilter.java",
+      "line": 153,
+      "severity": "P1",
+      "initial_evidence": [
+        "E2",
+        "E4",
+        "E15",
+        "E16"
+      ],
+      "questions_to_resolve": [
+        "Is `DBSObjectFilter` part of the binary compatibility contract for independently compiled DBeaver plugins?",
+        "Are any distributed or third-party binaries compiled against `matches(String)`?"
+      ]
+    },
+    {
+      "id": "H2",
+      "claim": "Multi-name filtering may reject an overloaded object even when one candidate identity satisfies the complete filter, because inclusion matching one name and exclusion matching a different name is evaluated as a rejection rather than evaluating each candidate identity independently.",
+      "why_suspected": "The implementation computes `any name matches an include` and then rejects on `any name matches an exclude`. Thus, for example, an overloaded name can satisfy the include while the ordinary name independently satisfies an exclude, although the included identity itself is not excluded.",
+      "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/struct/DBSObjectFilter.java",
+      "line": 163,
+      "severity": "P2",
+      "initial_evidence": [
+        "E1",
+        "E2",
+        "E19",
+        "E21",
+        "E25"
+      ],
+      "questions_to_resolve": [
+        "Is the intended contract `exists name: include(name) && !exclude(name)`, or should an exclusion matching any alias reject the whole object?",
+        "What results are expected when include and exclude patterns match different identities of the same overloaded object?"
+      ]
+    }
+  ],
+  "changed_ranges": {
+    "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/DBNDatabaseNode.java": [
+      [
+        726,
+        739
+      ]
+    ],
+    "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/struct/DBSObjectFilter.java": [
+      [
+        25,
+        25
+      ],
+      [
+        153,
+        153
+      ],
+      [
+        162,
+        162
+      ],
+      [
+        165,
+        165
+      ],
+      [
+        183,
+        183
+      ],
+      [
+        185,
+        185
+      ],
+      [
+        194,
+        198
+      ]
+    ]
+  },
+  "finder_errors": [],
+  "finder_usage": {
+    "llm_calls": 1,
+    "prompt_tokens": 5276,
+    "completion_tokens": 1520,
+    "reasoning_tokens": 1090
+  }
+}

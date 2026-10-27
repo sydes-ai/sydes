@@ -1,0 +1,56 @@
+{
+  "code_findings": [
+    {
+      "id": "investigator-H1",
+      "severity": "P2",
+      "title": "For a handler result of response.Response whose Metadata map is nil, the changed response path serializes the body with \"metadata\":null rather than omitting metadata, contrary to the updated documenta",
+      "file": "pkg/gofr/http/responder.go",
+      "line": 32,
+      "repo": null,
+      "explanation": "The updated test explicitly expects `{\"metadata\":null,\"data\":\"Hello World from new Server\"}` for a Response without metadata, while the updated documentation shows only the data property when metadata is omitted. The new responder case copies `v.Metadata` (a nil `map[string]any`) into the internal response\u2019s interface-typed Metadata field. That interface value retains the typed nil map, so the internal field\u2019s `omitempty` does not omit it and JSON encodes it as null. The handler change also removes the previous unwrapping to `resp.Data`, exposing Response to this new responder case.",
+      "impact": "Caused by the change: This change removes the handler\u2019s previous replacement of Response with `resp.Data` and adds dedicated Response serialization. On that new path, nil map-valued `v.Metadata` is assigned to an interface-typed field; the resulting typed-nil interface is serialized as `null` instead of being removed by `omitempty`, producing the body asserted by the changed test and conflicting with the changed documentation.",
+      "suggested_fix": null,
+      "source": "investigator",
+      "evidence": [
+        {
+          "file": "pkg/gofr/http/responder_test.go",
+          "symbol": null,
+          "label": "verified_quote:60",
+          "snippet": "expectedBody: []byte(`{\"metadata\":null,\"data\":\"Hello World from new Server\"}`),"
+        },
+        {
+          "file": "docs/advanced-guide/setting-custom-response-headers/page.md",
+          "symbol": null,
+          "label": "verified_quote:30",
+          "snippet": "If metadata is omitted, the response defaults to:\n\n```json\n{\n  \"data\": {}\n}\n```"
+        },
+        {
+          "file": "pkg/gofr/http/responder.go",
+          "symbol": null,
+          "label": "verified_quote:31",
+          "snippet": "case resTypes.Response:"
+        }
+      ]
+    }
+  ],
+  "code_review_status": "completed",
+  "run_metrics": {
+    "llm_totals": {
+      "calls": 3,
+      "input_tokens": 5954,
+      "output_tokens": 2237,
+      "errors": 0
+    },
+    "llm_by_purpose": {
+      "investigator": {
+        "calls": 2
+      },
+      "verifier": {
+        "calls": 1
+      }
+    }
+  },
+  "diagnostics": [
+    "investigator: hypotheses=1 lookups=2/12 confirmed=1 refuted=0 unknown=0 findings=1 llm_calls=3 errors=0"
+  ]
+}

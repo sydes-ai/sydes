@@ -1,0 +1,43 @@
+{
+  "instance_id": "google-gemini__gemini-cli@0fa1bd7",
+  "reviewer": "sydes",
+  "boundary": "code_findings",
+  "status": "completed",
+  "duration_seconds": 324.3,
+  "review": {
+    "comments": [
+      {
+        "path": "packages/cli/src/utils/commentJson.ts",
+        "start_line": 58,
+        "end_line": 58,
+        "content": "When `mcp remove` removes an existing server from a scope backed by an existing settings file, the new format-preserving save path leaves that server in the persisted `mcpServers` object and then repo\nThe command deletes the server from the scoped in-memory `mcpServers` object and passes that complete object to `setValue`. The save path uses `settingsFile.settings` as `settingsToSave`, so omission of the deleted server represents the desired persisted deletion. However, the newly added updater parses the old file, aliases it as `result`, and recursively iterates only keys present in the new object. At `mcpServers`, the deleted server is absent from `updates`, so its old on-disk key is never visited or deleted. The resulting structure, still containing that key, is written back before the command prints its success message.\nImpact: Caused by the change: This change replaces whole-document persistence with an overlay onto the parsed old document. Because the overlay starts with the old object and processes only entries present in `settingsToSave`, deleting a nested server merely omits that server from the update; it does not remove the corresponding old key. The stale key is then serialized back to disk, so a subsequent load sees the server again despite the success message.",
+        "severity": "P1"
+      },
+      {
+        "path": "packages/cli/src/utils/commentJson.ts",
+        "start_line": 120,
+        "end_line": 120,
+        "content": "When an existing MCP server in a settings scope has `args: [\"$TOKEN\"]` and `TOKEN` is defined, a later `setValue`-based save in that scope can serialize the resolved token: production resolution proce\nProduction settings are passed through `resolveEnvVarsInObject`, whose array branch recursively resolves every element. The new mapping tracker also descends into arrays, so it can record a mapping such as `mcpServers.server.args.0`. During saving, however, `applyUpdates` only recursively merges non-arrays and therefore assigns the resolved `args` array wholesale. `restoreEnvVarsRecursive` descends only into non-array objects, so it never reaches index `0`. The resulting structure is then stringified and written. The MCP add path provides a concrete subsequent-save path because it loads existing settings, modifies `mcpServers`, and calls the changed `setValue` save path.\nImpact: Caused by the change: The change routes `setValue` saves through the new environment-mapping save logic. In that newly added logic, the resolved `args` array is assigned by `result[key] = value`, while the explicit `!Array.isArray(value)` restoration guard prevents visiting its indexed mapping. The changed writer consequently stringifies the unresolved-to-original restoration failure and writes the resolved secret.",
+        "severity": "P1"
+      },
+      {
+        "path": "packages/cli/src/utils/commentJson.ts",
+        "start_line": 39,
+        "end_line": 39,
+        "content": "If an existing MCP server\u2019s settings file becomes malformed after load but before save, the `mcp add` existing-server update path leaves the file unchanged yet prints that the server was updated.\nThe changed persistence path reparses an existing file during save. On parse failure, the new helper logs errors and returns normally before reaching the write. Because `saveSettings` and `LoadedSettings.setValue` receive no failure indication, `addMcpServer` continues and prints its update-success message. This confirms the defect for the existing-server update path when malformed content is encountered at save time.\nImpact: Caused by the change: This change routes settings persistence through the newly added format-preserving helper. When that helper encounters malformed save-time content, its changed catch block returns `void` before the only subsequent write. That normal return propagates through the void `saveSettings`/`setValue` APIs, so the unchanged `mcp add` caller cannot detect the failed persistence and executes its success log.",
+        "severity": "P2"
+      },
+      {
+        "path": "packages/cli/src/utils/commentJson.ts",
+        "start_line": 47,
+        "end_line": 47,
+        "content": "For an existing valid settings file whose layout uses tabs, four-space indentation, or compact JSON, updateSettingsFilePreservingFormat reserializes the whole parsed document with a fixed two-space in\nThe function documentation explicitly says it preserves formatting. However, after applying updates to the parsed document, it passes the entire restored structure to stringify with space=2 and writes that complete serialization back to the file. Thus existing non-two-space layout is normalized rather than preserved. The evidence supports the function-level contract; it does not establish a broader externally documented user-facing guarantee.\nImpact: Caused by the change: This newly added persistence function serializes the complete parsed settings object with an explicit two-space indentation argument and overwrites the existing file. Consequently, updating any value rewrites the layout of an existing file that used a different indentation or compact representation, violating the new function's explicit promise to preserve formatting.",
+        "severity": "P3"
+      }
+    ],
+    "summary": {
+      "input_tokens": 58968,
+      "output_tokens": 16715
+    }
+  }
+}

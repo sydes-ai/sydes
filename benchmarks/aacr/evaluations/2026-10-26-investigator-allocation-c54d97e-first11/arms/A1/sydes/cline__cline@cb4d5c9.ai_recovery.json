@@ -1,0 +1,101 @@
+{
+  "path_recovery": {
+    "status": "established",
+    "paths": [
+      {
+        "entrypoint": "VS Code webview message updating API configuration",
+        "target_node": "OpenAiHandler.constructor",
+        "status": "established",
+        "root_boundary_status": "candidate_boundary",
+        "nodes": [
+          {
+            "symbol": "ClineProvider.setWebviewMessageListener",
+            "file": "src/core/webview/ClineProvider.ts",
+            "qualified_name": "ClineProvider.setWebviewMessageListener"
+          },
+          {
+            "symbol": "buildApiHandler",
+            "file": "src/api/index.ts",
+            "qualified_name": null
+          },
+          {
+            "symbol": "OpenAiHandler.constructor",
+            "file": "src/api/providers/openai.ts",
+            "qualified_name": "OpenAiHandler.constructor"
+          }
+        ],
+        "edges": [
+          {
+            "from": {
+              "symbol": "ClineProvider.setWebviewMessageListener",
+              "file": "src/core/webview/ClineProvider.ts",
+              "qualified_name": "ClineProvider.setWebviewMessageListener"
+            },
+            "to": {
+              "symbol": "buildApiHandler",
+              "file": "src/api/index.ts",
+              "qualified_name": null
+            },
+            "relationship": "setWebviewMessageListener calls buildApiHandler directly (code graph CALLS edge)",
+            "evidence": [
+              {
+                "file": "src/core/webview/ClineProvider.ts",
+                "line_start": 614,
+                "line_end": 614,
+                "fact": "setWebviewMessageListener calls buildApiHandler at this line"
+              }
+            ],
+            "status": "established",
+            "provenance": "explicit_relation",
+            "rejection_reason": null,
+            "from_decomposition": false
+          },
+          {
+            "from": {
+              "symbol": "buildApiHandler",
+              "file": "src/api/index.ts",
+              "qualified_name": "buildApiHandler"
+            },
+            "to": {
+              "symbol": "OpenAiHandler.constructor",
+              "file": "src/api/providers/openai.ts",
+              "qualified_name": "OpenAiHandler.constructor"
+            },
+            "relationship": "When configuration.apiProvider is \"openai\", buildApiHandler constructs OpenAiHandler with the remaining configuration options, directly invoking its constructor.",
+            "evidence": [
+              {
+                "file": "src/api/index.ts",
+                "line_start": 7,
+                "line_end": 7,
+                "fact": "Imports the relevant OpenAiHandler class from ./providers/openai."
+              },
+              {
+                "file": "src/api/index.ts",
+                "line_start": 30,
+                "line_end": 42,
+                "fact": "buildApiHandler extracts apiProvider and, for the \"openai\" case, executes new OpenAiHandler(options)."
+              },
+              {
+                "file": "src/api/providers/openai.ts",
+                "line_start": 10,
+                "line_end": 15,
+                "fact": "Declares OpenAiHandler and its constructor accepting ApiHandlerOptions, which stores the options passed by buildApiHandler."
+              }
+            ],
+            "status": "established",
+            "provenance": "ai_recovery",
+            "rejection_reason": null,
+            "from_decomposition": false
+          }
+        ],
+        "unresolved_suffix": []
+      }
+    ],
+    "corrected_first_pass_claims": [],
+    "unresolved": []
+  },
+  "test_recovery": {
+    "status": "unresolved",
+    "tests": []
+  }
+}

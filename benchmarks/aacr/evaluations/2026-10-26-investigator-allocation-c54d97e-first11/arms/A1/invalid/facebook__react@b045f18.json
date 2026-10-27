@@ -1,0 +1,14 @@
+{
+  "instance_id": "facebook__react@b045f18",
+  "reviewer": "sydes",
+  "boundary": "code_findings",
+  "status": "INVALID(provider errors)",
+  "duration_seconds": 437.6,
+  "review": {
+    "comments": [],
+    "summary": {
+      "input_tokens": 60275,
+      "output_tokens": 8550
+    }
+  }
+}

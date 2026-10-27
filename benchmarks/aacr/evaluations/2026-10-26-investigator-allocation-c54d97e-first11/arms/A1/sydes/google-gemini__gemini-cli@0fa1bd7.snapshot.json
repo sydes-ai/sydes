@@ -1,0 +1,473 @@
+{
+  "version": "sydes-investigation-snapshot/1",
+  "packet": [
+    {
+      "id": "E1",
+      "kind": "diff",
+      "ref": "package-lock.json",
+      "text": "diff --git a/package-lock.json b/package-lock.json\nindex 06d50c6c2..d91ce8ea4 100644\n--- a/package-lock.json\n+++ b/package-lock.json\n@@ -5232,6 +5232,12 @@\n         \"url\": \"https://github.com/sponsors/ljharb\"\n       }\n     },\n+    \"node_modules/array-timsort\": {\n+      \"version\": \"1.0.3\",\n+      \"resolved\": \"https://registry.npmjs.org/array-timsort/-/array-timsort-1.0.3.tgz\",\n+      \"integrity\": \"sha512-/+3GRL7dDAGEfM6TseQk/U+mi18TU2Ms9I3UlLdUMhz2hbvGNTKdj9xniwXfUqgYhHxRx0+8UnKkvlNwVU+cWQ==\",\n+      \"license\": \"MIT\"\n+    },\n     \"node_modules/array.prototype.findlast\": {\n       \"version\": \"1.2.5\",\n       \"resolved\": \"https://registry.npmjs.org/array.prototype.findlast/-/array.prototype.findlast-1.2.5.tgz\",\n@@ -6324,6 +6330,22 @@\n         \"node\": \">=18\"\n       }\n     },\n+    \"node_modules/comment-json\": {\n+      \"version\": \"4.2.5\",\n+      \"resolved\": \"https://registry.npmjs.org/comment-json/-/comment-json-4.2.5.tgz\",\n+      \"integrity\": \"sha512-bKw/r35jR3HGt5PEPm1ljsQQGyCrR8sFGNiN5L+ykDHdpO8Smxkrkla9Yi6NkQyUrb8V54PGhfMs6NrIwtxtdw==\",\n+      \"license\": \"MIT\",\n+      \"dependencies\": {\n+        \"array-timsort\": \"^1.0.3\",\n+        \"core-util-is\": \"^1.0.3\",\n+        \"esprima\": \"^4.0.1\",\n+        \"has-own-prop\": \"^2.0.0\",\n+        \"repeat-string\": \"^1.6.1\"\n+      },\n+      \"engines\": {\n+        \"node\": \">= 6\"\n+      }\n+    },\n     \"node_modules/component-emitter\": {\n       \"version\": \"1.3.1\",\n       \"resolved\": \"https://registry.npmjs.org/component-emitter/-/component-emitter-1.3.1.tgz\",\n@@ -6429,6 +6451,12 @@\n       \"dev\": true,\n       \"license\": \"MIT\"\n     },\n+    \"node_modules/core-util-is\": {\n+      \"version\": \"1.0.3\",\n+      \"resolved\": \"https://registry.npmjs.org/core-util-is/-/core-util-is-1.0.3.tgz\",\n+      \"integrity\": \"sha512-ZQBvi1DcpJ4GDqanjucZ2Hj3wEO5pZDS89BWbkcrvdxksJorwUDDZamX9ldFkp9aw2lmBDLgkObEA4DWNJ9FYQ==\",\n+      \"license\": \"MIT\"\n+    },\n     \"node_modules/cors\": {\n       \"version\": \"2.8.5\",\n       \"resolved\": \"https://registry.npmjs.org/cors/-/cors-2.8.5.tgz\",\n@@ -7710,7 +7738,6 @@\n       \"version\": \"4.0.1\",\n       \"resolved\": \"https://registry.npmjs.org/esprima/-/esprima-4.0.1.tgz\",\n       \"integrity\": \"sha512-eGuFFw7Upda+g4p+QHvnW0RyTX/SVeJBDM/gCtMARO0cLuT2HcEKnTPvhjV6aGeqrCB/sbNop0Kszm0jsaWU4A==\",\n-      \"dev\": true,\n       \"license\": \"BSD-2-Clause\",\n       \"bin\": {\n         \"esparse\": \"bin/esparse.js\",\n@@ -8964,6 +8991,15 @@\n         \"node\": \">=8\"\n       }\n     },\n+    \"node_modules/has-own-prop\": {\n+      \"version\": \"2.0.0\",\n+      \"reso\u2026"
+    },
+    {
+      "id": "E2",
+      "kind": "diff",
+      "ref": "packages/cli/package.json",
+      "text": "diff --git a/packages/cli/package.json b/packages/cli/package.json\nindex c2c8a5e9d..693b183d4 100644\n--- a/packages/cli/package.json\n+++ b/packages/cli/package.json\n@@ -34,6 +34,7 @@\n     \"@modelcontextprotocol/sdk\": \"^1.15.1\",\n     \"@types/update-notifier\": \"^6.0.8\",\n     \"command-exists\": \"^1.2.9\",\n+    \"comment-json\": \"^4.2.5\",\n     \"diff\": \"^7.0.0\",\n     \"dotenv\": \"^17.1.0\",\n     \"fzf\": \"^0.5.2\","
+    },
+    {
+      "id": "E3",
+      "kind": "diff",
+      "ref": "packages/cli/src/config/settings.ts",
+      "text": "diff --git a/packages/cli/src/config/settings.ts b/packages/cli/src/config/settings.ts\nindex 53ab1111d..6b0d4e31c 100644\n--- a/packages/cli/src/config/settings.ts\n+++ b/packages/cli/src/config/settings.ts\n@@ -29,6 +29,10 @@ import {\n } from './settingsSchema.js';\n import { resolveEnvVarsInObject } from '../utils/envVarResolver.js';\n import { customDeepMerge } from '../utils/deepMerge.js';\n+import {\n+  updateSettingsFilePreservingFormat,\n+  trackEnvVarMappings,\n+} from '../utils/commentJson.js';\n \n function getMergeStrategyForPath(path: string[]): MergeStrategy | undefined {\n   let current: SettingDefinition | undefined = undefined;\n@@ -353,6 +357,10 @@ export class LoadedSettings {\n     workspace: SettingsFile,\n     isTrusted: boolean,\n     migratedInMemorScopes: Set<SettingScope>,\n+    envVarMappings: Map<\n+      SettingScope,\n+      ReturnType<typeof trackEnvVarMappings>\n+    > = new Map(),\n   ) {\n     this.system = system;\n     this.systemDefaults = systemDefaults;\n@@ -360,6 +368,7 @@ export class LoadedSettings {\n     this.workspace = workspace;\n     this.isTrusted = isTrusted;\n     this.migratedInMemorScopes = migratedInMemorScopes;\n+    this.envVarMappings = envVarMappings;\n     this._merged = this.computeMergedSettings();\n   }\n \n@@ -369,6 +378,10 @@ export class LoadedSettings {\n   readonly workspace: SettingsFile;\n   readonly isTrusted: boolean;\n   readonly migratedInMemorScopes: Set<SettingScope>;\n+  readonly envVarMappings: Map<\n+    SettingScope,\n+    ReturnType<typeof trackEnvVarMappings>\n+  >;\n \n   private _merged: Settings;\n \n@@ -405,7 +418,8 @@ export class LoadedSettings {\n     const settingsFile = this.forScope(scope);\n     setNestedProperty(settingsFile.settings, key, value);\n     this._merged = this.computeMergedSettings();\n-    saveSettings(settingsFile);\n+    const envMappings = this.envVarMappings.get(scope) || [];\n+    saveSettings(settingsFile, envMappings);\n   }\n }\n \n@@ -517,6 +531,10 @@ export function loadSettings(\n   const systemSettingsPath = getSystemSettingsPath();\n   const systemDefaultsPath = getSystemDefaultsPath();\n   const migratedInMemorScopes = new Set<SettingScope>();\n+  const envVarMappings = new Map<\n+    SettingScope,\n+    ReturnType<typeof trackEnvVarMappings>\n+  >();\n \n   // Resolve paths to their canonical representation to handle symlinks\n   const resolvedWorkspaceDir = path.resolve(workspaceDir);\n@@ -640,11 +658,30 @@ export function loadSettings(\n   // the settings to avoid a cycle\n   loadEnvironment(tempMer\u2026"
+    },
+    {
+      "id": "E4",
+      "kind": "diff",
+      "ref": "packages/cli/src/utils/commentJson.test.ts",
+      "text": "diff --git a/packages/cli/src/utils/commentJson.test.ts b/packages/cli/src/utils/commentJson.test.ts\nnew file mode 100644\nindex 000000000..62d605816\n--- /dev/null\n+++ b/packages/cli/src/utils/commentJson.test.ts\n@@ -0,0 +1,337 @@\n+/**\n+ * @license\n+ * Copyright 2025 Google LLC\n+ * SPDX-License-Identifier: Apache-2.0\n+ */\n+\n+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';\n+import * as fs from 'node:fs';\n+import * as path from 'node:path';\n+import * as os from 'node:os';\n+import {\n+  updateSettingsFilePreservingFormat,\n+  trackEnvVarMappings,\n+} from './commentJson.js';\n+\n+describe('commentJson', () => {\n+  let tempDir: string;\n+  let testFilePath: string;\n+\n+  beforeEach(() => {\n+    // Create a temporary directory for test files\n+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'preserve-format-test-'));\n+    testFilePath = path.join(tempDir, 'settings.json');\n+  });\n+\n+  afterEach(() => {\n+    // Clean up temporary directory\n+    if (fs.existsSync(tempDir)) {\n+      fs.rmSync(tempDir, { recursive: true, force: true });\n+    }\n+  });\n+\n+  describe('updateSettingsFilePreservingFormat', () => {\n+    it('should preserve comments when updating settings', () => {\n+      const originalContent = `{\n+        // Model configuration\n+        \"model\": \"gemini-2.5-pro\",\n+        \"ui\": {\n+          // Theme setting\n+          \"theme\": \"dark\"\n+        }\n+      }`;\n+\n+      fs.writeFileSync(testFilePath, originalContent, 'utf-8');\n+\n+      updateSettingsFilePreservingFormat(testFilePath, {\n+        model: 'gemini-3.0-ultra',\n+      });\n+\n+      const updatedContent = fs.readFileSync(testFilePath, 'utf-8');\n+\n+      expect(updatedContent).toContain('// Model configuration');\n+      expect(updatedContent).toContain('// Theme setting');\n+      expect(updatedContent).toContain('\"model\": \"gemini-3.0-ultra\"');\n+      expect(updatedContent).toContain('\"theme\": \"dark\"');\n+    });\n+\n+    it('should preserve environment variable references', () => {\n+      const originalContent = `{\n+        \"mcpServers\": {\n+          \"context7\": {\n+            \"headers\": {\n+              \"API_KEY\": \"$API_KEY\"\n+            }\n+          }\n+        }\n+      }`;\n+\n+      fs.writeFileSync(testFilePath, originalContent, 'utf-8');\n+\n+      const envVarMappings = [\n+        {\n+          path: ['mcpServers', 'context7', 'headers', 'API_KEY'],\n+          originalValue: '$API_KEY',\n+          resolvedValue: 'actual-key-value',\n+        },\n+      ];\n+\n+      updateSettingsFilePr\u2026"
+    },
+    {
+      "id": "E5",
+      "kind": "diff",
+      "ref": "packages/cli/src/utils/commentJson.ts",
+      "text": "diff --git a/packages/cli/src/utils/commentJson.ts b/packages/cli/src/utils/commentJson.ts\nnew file mode 100644\nindex 000000000..abd88f832\n--- /dev/null\n+++ b/packages/cli/src/utils/commentJson.ts\n@@ -0,0 +1,173 @@\n+/**\n+ * @license\n+ * Copyright 2025 Google LLC\n+ * SPDX-License-Identifier: Apache-2.0\n+ */\n+\n+import * as fs from 'node:fs';\n+import { parse, stringify } from 'comment-json';\n+\n+interface EnvVarMapping {\n+  path: string[];\n+  originalValue: string;\n+  resolvedValue: unknown;\n+}\n+\n+/**\n+ * Updates a JSON file while preserving comments, formatting, and environment variable references.\n+ */\n+export function updateSettingsFilePreservingFormat(\n+  filePath: string,\n+  updates: Record<string, unknown>,\n+  envVarMappings: EnvVarMapping[] = [],\n+): void {\n+  if (!fs.existsSync(filePath)) {\n+    fs.writeFileSync(filePath, JSON.stringify(updates, null, 2), 'utf-8');\n+    return;\n+  }\n+\n+  const originalContent = fs.readFileSync(filePath, 'utf-8');\n+\n+  let parsed: Record<string, unknown>;\n+  try {\n+    parsed = parse(originalContent) as Record<string, unknown>;\n+  } catch (error) {\n+    console.error('Error parsing settings file:', error);\n+    console.error(\n+      'Settings file may be corrupted. Please check the JSON syntax.',\n+    );\n+    return;\n+  }\n+\n+  const updatedStructure = applyUpdates(parsed, updates);\n+  const restoredStructure = restoreEnvVarReferences(\n+    updatedStructure,\n+    envVarMappings,\n+  );\n+  const updatedContent = stringify(restoredStructure, null, 2);\n+\n+  fs.writeFileSync(filePath, updatedContent, 'utf-8');\n+}\n+\n+function applyUpdates(\n+  current: Record<string, unknown>,\n+  updates: Record<string, unknown>,\n+): Record<string, unknown> {\n+  const result = current;\n+\n+  for (const [key, value] of Object.entries(updates)) {\n+    // Prevent prototype pollution\n+    if (key === '__proto__' || key === 'constructor' || key === 'prototype') {\n+      continue;\n+    }\n+    if (\n+      typeof value === 'object' &&\n+      value !== null &&\n+      !Array.isArray(value) &&\n+      typeof result[key] === 'object' &&\n+      result[key] !== null &&\n+      !Array.isArray(result[key])\n+    ) {\n+      result[key] = applyUpdates(\n+        result[key] as Record<string, unknown>,\n+        value as Record<string, unknown>,\n+      );\n+    } else {\n+      result[key] = value;\n+    }\n+  }\n+\n+  return result;\n+}\n+\n+function restoreEnvVarReferences(\n+  obj: Record<string, unknown>,\n+  envVarMappings: EnvVarMapping[],\n+): Record<string, unknown> {\n+  \u2026"
+    },
+    {
+      "id": "E6",
+      "kind": "changed_symbol",
+      "ref": "packages/cli/src/config/settings.ts:353-373",
+      "text": "class_method LoadedSettings.constructor\n... user: SettingsFile, workspace: SettingsFile, isTrusted: boolean, migratedInMemorScopes: Set<SettingScope>, envVarMappings: Map< SettingScope, ReturnType<typeof trackEnvVarMappings> > = new Map(), ) { this.system = system; this.systemDefaults = systemDefaults; this.user = user; this.workspace = workspace; this.isTrusted = isTrusted; this.migratedInMemorScopes = migratedInMemorScopes; this.envVarMappings = envVarMappings; this._merged = this.computeMergedSettings(); }"
+    },
+    {
+      "id": "E7",
+      "kind": "changed_symbol",
+      "ref": "packages/cli/src/config/settings.ts:417-423",
+      "text": "class_method LoadedSettings.setValue\nsetValue(scope: SettingScope, key: string, value: unknown): void { const settingsFile = this.forScope(scope); setNestedProperty(settingsFile.settings, key, value); this._merged = this.computeMergedSettings(); const envMappings = this.envVarMappings.get(scope) || []; saveSettings(settingsFile, envMappings); }"
+    },
+    {
+      "id": "E8",
+      "kind": "changed_symbol",
+      "ref": "packages/cli/src/config/settings.ts:523-717",
+      "text": "function loadSettings\n... const settingsErrors: SettingsError[] = []; const systemSettingsPath = getSystemSettingsPath(); const systemDefaultsPath = getSystemDefaultsPath(); const migratedInMemorScopes = new Set<SettingScope>(); const envVarMappings = new Map< SettingScope, ReturnType<typeof trackEnvVarMappings> >(); // Resolve paths to their canonical representation to handle symlinks const resolvedWorkspaceDir = path.resolve(workspaceDir); const resolvedHomeDir = path.resolve(homedir()); ... // loadEnviroment depends on settings so we have to create a temp version of // the settings to avoid a cycle loadEnvironment(tempMergedSettings); // Now that the environment is loaded, track and resolve variables in the settings. // Track environment variable mappings before resolution const systemOriginal = structuredClone(systemSettings); const userOriginal = structuredClone(userSettings); const workspaceOriginal = structuredClone(workspaceSettings); systemSettings = resolveEnvVarsInObject(systemSettings); userSettings = resolveEnvVarsInObject(userSettings); workspaceSettings = resolveEnvVarsInObject(workspaceSettings); // Track which values came from environment variables envVarMappings.set( SettingScope.System, trackEnvVarMappings(systemSettings, systemOriginal), ); envVarMappings.set( SettingScope.User, trackEnvVarMappings(userSettings, userOriginal), ); envVarMappings.set( SettingScope.Workspace, trackEnvVarMappings(workspaceSettings, workspaceOriginal), ); // Create LoadedSettings first if (settingsErrors.length > 0) { const errorMessages = settingsErrors.map( ... settings: workspaceSettings, },"
+    },
+    {
+      "id": "E9",
+      "kind": "changed_symbol",
+      "ref": "packages/cli/src/config/settings.ts:719-746",
+      "text": "function saveSettings\nexport function saveSettings( settingsFile: SettingsFile, envVarMappings: ReturnType<typeof trackEnvVarMappings> = [], ): void { try { // Ensure the directory exists const dirPath = path.dirname(settingsFile.path); if (!fs.existsSync(dirPath)) { ... settingsToSave as Record<string, unknown>, ) as Settings; } // Use the format-preserving update function to prevent env var leakage and maintain comments updateSettingsFilePreservingFormat( settingsFile.path, settingsToSave as Record<string, unknown>, envVarMappings, ); } catch (error) { console.error('Error saving user settings file:', error); }"
+    },
+    {
+      "id": "E10",
+      "kind": "changed_symbol",
+      "ref": "packages/cli/src/utils/commentJson.ts:19-50",
+      "text": "function updateSettingsFilePreservingFormat\nexport function updateSettingsFilePreservingFormat( filePath: string, updates: Record<string, unknown>, envVarMappings: EnvVarMapping[] = [], ): void { if (!fs.existsSync(filePath)) { fs.writeFileSync(filePath, JSON.stringify(updates, null, 2), 'utf-8'); return; } const originalContent = fs.readFileSync(filePath, 'utf-8'); let parsed: Record<string, unknown>; try { parsed = parse(originalContent) as Record<string, unknown>; } catch (error) { console.error('Error parsing settings file:', error); console.error( 'Settings file may be corrupted. Please check the JSON syntax.', ); return; } const updatedStructure = applyUpdates(parsed, updates); const restoredStructure = restoreEnvVarReferences( updatedStructure, envVarMappings, ); const updatedContent = stringify(restoredStructure, null, 2); fs.writeFileSync(filePath, updatedContent, 'utf-8'); }"
+    },
+    {
+      "id": "E11",
+      "kind": "changed_symbol",
+      "ref": "packages/cli/src/utils/commentJson.ts:52-81",
+      "text": "function applyUpdates\nfunction applyUpdates( current: Record<string, unknown>, updates: Record<string, unknown>, ): Record<string, unknown> { const result = current; for (const [key, value] of Object.entries(updates)) { // Prevent prototype pollution if (key === '__proto__' || key === 'constructor' || key === 'prototype') { continue; } if ( typeof value === 'object' && value !== null && !Array.isArray(value) && typeof result[key] === 'object' && result[key] !== null && !Array.isArray(result[key]) ) { result[key] = applyUpdates( result[key] as Record<string, unknown>, value as Record<string, unknown>, ); } else { result[key] = value; } } return result; }"
+    },
+    {
+      "id": "E12",
+      "kind": "changed_symbol",
+      "ref": "packages/cli/src/utils/commentJson.ts:83-99",
+      "text": "function restoreEnvVarReferences\nfunction restoreEnvVarReferences( obj: Record<string, unknown>, envVarMappings: EnvVarMapping[], ): Record<string, unknown> { if (envVarMappings.length === 0) { return obj; } const envVarMap = new Map<string, string>(); for (const mapping of envVarMappings) { const pathStr = mapping.path.join('.'); envVarMap.set(pathStr, mapping.originalValue); } restoreEnvVarsRecursive(obj, [], envVarMap); return obj; }"
+    },
+    {
+      "id": "E13",
+      "kind": "changed_symbol",
+      "ref": "packages/cli/src/utils/commentJson.ts:101-125",
+      "text": "function restoreEnvVarsRecursive\nfunction restoreEnvVarsRecursive( obj: unknown, currentPath: string[], envVarMap: Map<string, string>, ): void { if (typeof obj !== 'object' || obj === null) { return; } for (const [key, value] of Object.entries(obj as Record<string, unknown>)) { const fullPath = [...currentPath, key]; const pathStr = fullPath.join('.'); const envVarReference = envVarMap.get(pathStr); if (envVarReference && typeof value === 'string') { (obj as Record<string, unknown>)[key] = envVarReference; } else if ( typeof value === 'object' && value !== null && !Array.isArray(value) ) { restoreEnvVarsRecursive(value, fullPath, envVarMap); } } }"
+    },
+    {
+      "id": "E14",
+      "kind": "changed_symbol",
+      "ref": "packages/cli/src/utils/commentJson.ts:130-173",
+      "text": "function trackEnvVarMappings\nexport function trackEnvVarMappings( obj: unknown, originalObj: unknown, path: string[] = [], ): EnvVarMapping[] { const mappings: EnvVarMapping[] = []; if ( typeof obj !== 'object' || obj === null || typeof originalObj !== 'object' || originalObj === null ) { return mappings; } for (const key in obj as Record<string, unknown>) { const value = (obj as Record<string, unknown>)[key]; const originalValue = (originalObj as Record<string, unknown>)[key]; const currentPath = [...path, key]; if (typeof originalValue === 'string' && typeof value === 'string') { const envVarPattern = /^\\$(?:(\\w+)|{([^}]+)})$/; const match = originalValue.match(envVarPattern); if (match && value !== originalValue) { mappings.push({ path: currentPath, originalValue, resolvedValue: value, }); } } else if (typeof value === 'object' && value !== null) { const nestedMappings = trackEnvVarMappings( value, originalValue, currentPath, ); mappings.push(...nestedMappings); } } return mappings; }"
+    },
+    {
+      "id": "E15",
+      "kind": "structural",
+      "ref": "packages/cli/src/config/settings.ts:392-400",
+      "text": "constructor calls computeMergedSettings at packages/cli/src/config/settings.ts:372 (1 line(s) from a changed line)\n  private computeMergedSettings(): Settings {\n    return mergeSettings(\n      this.system.settings,\n      this.systemDefaults.settings,\n      this.user.settings,\n      this.workspace.settings,\n      this.isTrusted,\n    );\n  }"
+    },
+    {
+      "id": "E16",
+      "kind": "structural",
+      "ref": "packages/cli/src/config/settings.ts:138-146",
+      "text": "loadSettings calls getSystemDefaultsPath at packages/cli/src/config/settings.ts:532 (2 line(s) from a changed line)\nexport function getSystemDefaultsPath(): string {\n  if (process.env['GEMINI_CLI_SYSTEM_DEFAULTS_PATH']) {\n    return process.env['GEMINI_CLI_SYSTEM_DEFAULTS_PATH'];\n  }\n  return path.join(\n    path.dirname(getSystemSettingsPath()),\n    'system-defaults.json',\n  );\n}"
+    },
+    {
+      "id": "E17",
+      "kind": "structural",
+      "ref": "packages/cli/src/config/settings.ts:180-203",
+      "text": "setValue calls setNestedProperty at packages/cli/src/config/settings.ts:419 (2 line(s) from a changed line)\nfunction setNestedProperty(\n  obj: Record<string, unknown>,\n  path: string,\n  value: unknown,\n) {\n  const keys = path.split('.');\n  const lastKey = keys.pop();\n  if (!lastKey) return;\n\n  let current: Record<string, unknown> = obj;\n  for (const key of keys) {\n    if (current[key] === undefined) {\n      current[key] = {};\n    }\n    const next = current[key];\n    if (typeof next === 'object' && next !== null) {\n      current = next as Record<string, unknown>;\n    } else {\n      // This path is invalid, so we stop.\n      return;\n    }\n  }\n  current[lastKey] = value;\n}"
+    },
+    {
+      "id": "E18",
+      "kind": "structural",
+      "ref": "packages/cli/src/config/settings.ts:477-517",
+      "text": "loadSettings calls loadEnvironment at packages/cli/src/config/settings.ts:659 (2 line(s) from a changed line)\nexport function loadEnvironment(settings: Settings): void {\n  const envFilePath = findEnvFile(process.cwd());\n\n  if (!isWorkspaceTrusted(settings)) {\n    return;\n  }\n\n  // Cloud Shell environment variable handling\n  if (process.env['CLOUD_SHELL'] === 'true') {\n    setUpCloudShellEnvironment(envFilePath);\n  }\n\n  if (envFilePath) {\n    // Manually parse and load environment variables to handle exclusions correctly.\n    // This avoids modifying environment variables that were already set from the shell.\n    try {\n      const envFileContent = fs.readFileSync(envFilePath, 'utf-8');\n      const parsedEnv = dotenv.parse(envFileContent);\n\n      const excludedVars =\n        settings?.advanced?.excludedEnvVars || DEFAULT_EXCLUDED_ENV_VARS;\n      const isProjectEnvFile = !envFilePath.includes(GEMINI_DIR);\n\n      for (const key in parsedEnv) {\n        if (Object.hasOwn(parsedEnv, key)) {\n          // If it's a project .env file, skip loading excluded variables.\n          if (isProjectEnvFile && excludedVars.includes(key)) {\n            continue;\n          }\n\n          // Load variable only if it's not already set in the environment.\n          if (!Object.hasOwn(process.env, key)) {\n            process.env[key] = parsedEnv[key];\n          }\n        }\n      }\n    } catch (_e) {\n      // Errors are ignored to match the behavior of `dotenv.config({ quiet: true })`.\n    }\n  }\n}"
+    },
+    {
+      "id": "E19",
+      "kind": "structural",
+      "ref": "packages/cli/src/utils/envVarResolver.ts:50-52",
+      "text": "loadSettings calls resolveEnvVarsInObject at packages/cli/src/config/settings.ts:669 (2 line(s) from a changed line)\nexport function resolveEnvVarsInObject<T>(obj: T): T {\n  return resolveEnvVarsInObjectInternal(obj, new WeakSet());\n}"
+    },
+    {
+      "id": "E20",
+      "kind": "structural",
+      "ref": "packages/cli/src/config/settings.ts:125-136",
+      "text": "loadSettings calls getSystemSettingsPath at packages/cli/src/config/settings.ts:531 (3 line(s) from a changed line)\nexport function getSystemSettingsPath(): string {\n  if (process.env['GEMINI_CLI_SYSTEM_SETTINGS_PATH']) {\n    return process.env['GEMINI_CLI_SYSTEM_SETTINGS_PATH'];\n  }\n  if (platform() === 'darwin') {\n    return '/Library/Application Support/GeminiCli/settings.json';\n  } else if (platform() === 'win32') {\n    return 'C:\\\\ProgramData\\\\gemini-cli\\\\settings.json';\n  } else {\n    return '/etc/gemini-cli/settings.json';\n  }\n}"
+    },
+    {
+      "id": "E21",
+      "kind": "structural",
+      "ref": "packages/cli/src/config/settings.ts:402-415",
+      "text": "setValue calls forScope at packages/cli/src/config/settings.ts:418 (3 line(s) from a changed line)\n  forScope(scope: SettingScope): SettingsFile {\n    switch (scope) {\n      case SettingScope.User:\n        return this.user;\n      case SettingScope.Workspace:\n        return this.workspace;\n      case SettingScope.System:\n        return this.system;\n      case SettingScope.SystemDefaults:\n        return this.systemDefaults;\n      default:\n        throw new Error(`Invalid scope: ${scope}`);\n    }\n  }"
+    },
+    {
+      "id": "E22",
+      "kind": "structural",
+      "ref": "packages/cli/src/config/settings.ts:283-325",
+      "text": "saveSettings calls migrateSettingsToV1 at packages/cli/src/config/settings.ts:732 (5 line(s) from a changed line)\nexport function migrateSettingsToV1(\n  v2Settings: Record<string, unknown>,\n): Record<string, unknown> {\n  const v1Settings: Record<string, unknown> = {};\n  const v2Keys = new Set(Object.keys(v2Settings));\n\n  for (const [newPath, oldKey] of Object.entries(REVERSE_MIGRATION_MAP)) {\n    const value = getNestedProperty(v2Settings, newPath);\n    if (value !== undefined) {\n      v1Settings[oldKey] = value;\n      v2Keys.delete(newPath.split('.')[0]);\n    }\n  }\n\n  // Preserve mcpServers at the top level\n  if (v2Settings['mcpServers']) {\n    v1Settings['mcpServers'] = v2Settings['mcpServers'];\n    v2Keys.delete('mcpServers');\n  }\n\n  // Carry over any unrecognized keys\n  for (const remainingKey of v2Keys) {\n    const value = v2Settings[remainingKey];\n    if (value === undefined) {\n      continue;\n    }\n\n    // Don't carry over empty objects that were just containers for migrated settings.\n    if (\n      KNOWN_V2_CONTAINERS.has(remainingKey) &&\n      typeof value === 'object' &&\n      value !== null &&\n      !Array.isArray(value) &&\n      Object.keys(value).length === 0\n    ) {\n      continue;\n    }\n\n    v1Settings[remainingKey] = value;\n  }\n\n  return v1Settings;\n}"
+    },
+    {
+      "id": "E23",
+      "kind": "structural",
+      "ref": "packages/cli/src/commands/mcp/add.ts:12-125",
+      "text": "addMcpServer calls the changed setValue\nasync function addMcpServer(\n  name: string,\n  commandOrUrl: string,\n  args: Array<string | number> | undefined,\n  options: {\n    scope: string;\n    transport: string;\n    env: string[] | undefined;\n    header: string[] | undefined;\n    timeout?: number;\n    trust?: boolean;\n    description?: string;\n    includeTools?: string[];\n    excludeTools?: string[];\n  },\n) {\n  const {\n    scope,\n    transport,\n    env,\n    header,\n    timeout,\n    trust,\n    description,\n    includeTools,\n    excludeTools,\n  } = options;\n  const settingsScope =\n    scope === 'user' ? SettingScope.User : SettingScope.Workspace;\n  const settings = loadSettings();\n\n  let newServer: Partial<MCPServerConfig> = {};\n\n  const headers = header?.reduce(\n    (acc, curr) => {\n      const [key, ...valueParts] = curr.split(':');\n      const value = valueParts.join(':').trim();\n      if (key.trim() && value) {\n        acc[key.trim()] = value;\n      }\n      return acc;\n    },\n    {} as Record<string, string>,\n  );\n\n  switch (transport) {\n    case 'sse':\n      newServer = {\n        url: commandOrUrl,\n        headers,\n        timeout,\n        trust,\n        description,\n        includeTools,\n        excludeTools,\n      };\n      break;\n    case 'http':\n      newServer = {\n        httpUrl: commandOrUrl,\n        headers,\n        timeout,\n        trust,\n        description,\n        includeTools,\n        excludeTools,\n      };\n      break;\n    case 'stdio':\n    default:\n      newServer = {\n        command: commandOrUrl,\n        args: args?.map(String),\n        env: env?.reduce(\n          (acc, curr) => {\n            const [key, value] = curr.split('=');\n            if (key && value) {\n              acc[key] = value;\n            }\n            return acc;\n          },\n          {} as Record<string, string>,\n        ),\n        timeout,\n        trust,\n        description,\n        includeTools,\n        excludeTools,\n      };\n      break;\n  }\n\n  const existingSettings = settings.forScope(settingsScope).settings;\n  const mcpServers = existingSettings.mcpServers || {};\n\n  const isExistingServer = !!mcpServers[name];\n  if (isExistingServer) {\n    console.log(\n      `MCP server \"${name}\" is already configured within ${scope} settings.`,\n    );\n  }\n\n  mcpServers[name] = newServer as MCPServerConfig;\n\n  settings.setValue(settingsScope, 'mcpServers', mcpServers);\n\n  if (isExistingServer) {\n    console.log(`MCP server \"${name}\" updated in ${scope} settings.`);\n  } else {\n    co\u2026"
+    },
+    {
+      "id": "E24",
+      "kind": "structural",
+      "ref": "packages/cli/src/commands/mcp/remove.ts:11-35",
+      "text": "removeMcpServer calls the changed setValue\nasync function removeMcpServer(\n  name: string,\n  options: {\n    scope: string;\n  },\n) {\n  const { scope } = options;\n  const settingsScope =\n    scope === 'user' ? SettingScope.User : SettingScope.Workspace;\n  const settings = loadSettings();\n\n  const existingSettings = settings.forScope(settingsScope).settings;\n  const mcpServers = existingSettings.mcpServers || {};\n\n  if (!mcpServers[name]) {\n    console.log(`Server \"${name}\" not found in ${scope} settings.`);\n    return;\n  }\n\n  delete mcpServers[name];\n\n  settings.setValue(settingsScope, 'mcpServers', mcpServers);\n\n  console.log(`Server \"${name}\" removed from ${scope} settings.`);\n}"
+    },
+    {
+      "id": "E25",
+      "kind": "structural",
+      "ref": "packages/cli/src/config/extension.ts:605-624",
+      "text": "disableExtension calls the changed setValue\nexport function disableExtension(\n  name: string,\n  scope: SettingScope,\n  cwd: string = process.cwd(),\n) {\n  if (scope === SettingScope.System || scope === SettingScope.SystemDefaults) {\n    throw new Error('System and SystemDefaults scopes are not supported.');\n  }\n  const settings = loadSettings(cwd);\n  const settingsFile = settings.forScope(scope);\n  const extensionSettings = settingsFile.settings.extensions || {\n    disabled: [],\n  };\n  const disabledExtensions = extensionSettings.disabled || [];\n  if (!disabledExtensions.includes(name)) {\n    disabledExtensions.push(name);\n    extensionSettings.disabled = disabledExtensions;\n    settings.setValue(scope, 'extensions', extensionSettings);\n  }\n}"
+    },
+    {
+      "id": "E26",
+      "kind": "test_execution",
+      "ref": "ci_suite",
+      "text": "unknown No repository test command could be resolved"
+    },
+    {
+      "id": "E27",
+      "kind": "gap",
+      "ref": "unresolved:applyUpdates",
+      "text": "changed symbol applyUpdates: no structural path to an entrypoint was established"
+    },
+    {
+      "id": "E28",
+      "kind": "gap",
+      "ref": "unresolved:constructor",
+      "text": "changed symbol constructor: no structural path to an entrypoint was established"
+    },
+    {
+      "id": "E29",
+      "kind": "gap",
+      "ref": "unresolved:loadSettings",
+      "text": "changed symbol loadSettings: no structural path to an entrypoint was established"
+    },
+    {
+      "id": "E30",
+      "kind": "gap",
+      "ref": "unresolved:restoreEnvVarReferences",
+      "text": "changed symbol restoreEnvVarReferences: no structural path to an entrypoint was established"
+    },
+    {
+      "id": "E31",
+      "kind": "gap",
+      "ref": "unresolved:restoreEnvVarsRecursive",
+      "text": "changed symbol restoreEnvVarsRecursive: no structural path to an entrypoint was established"
+    },
+    {
+      "id": "E32",
+      "kind": "gap",
+      "ref": "unresolved:saveSettings",
+      "text": "changed symbol saveSettings: no structural path to an entrypoint was established"
+    },
+    {
+      "id": "E33",
+      "kind": "gap",
+      "ref": "unresolved:setValue",
+      "text": "changed symbol setValue: no structural path to an entrypoint was established"
+    },
+    {
+      "id": "E34",
+      "kind": "gap",
+      "ref": "unresolved:trackEnvVarMappings",
+      "text": "changed symbol trackEnvVarMappings: no structural path to an entrypoint was established"
+    },
+    {
+      "id": "E35",
+      "kind": "gap",
+      "ref": "unresolved:updateSettingsFilePreservingFormat",
+      "text": "changed symbol updateSettingsFilePreservingFormat: no structural path to an entrypoint was established"
+    },
+    {
+      "id": "E36",
+      "kind": "change_analysis",
+      "ref": "summary",
+      "text": "CLI settings persistence now updates existing comment-bearing JSON in place instead of replacing it with freshly serialized JSON. It tracks environment-variable references during load so later saves can write the references rather than resolved values, preserves existing keys and comments while applying updates, and leaves malformed existing files unchanged after logging an error."
+    },
+    {
+      "id": "E37",
+      "kind": "change_analysis",
+      "ref": "local_risk",
+      "text": "[inference, not verified] A caller cannot reliably replace a setting that was originally backed by an environment reference with another string literal during the same LoadedSettings lifetime: setValue applies the new string, but saving restores the old reference at every mapped string path without checking whether the current value still equals the recorded resolved value. If literal replacement is supported, the requeste"
+    },
+    {
+      "id": "E38",
+      "kind": "change_analysis",
+      "ref": "local_risk",
+      "text": "[inference, not verified] The new overlay algorithm never removes keys that are absent from the supplied updates. If omission from settingsToSave represents deletion, schema filtering, or migration cleanup, stale settings will remain active in the persisted file."
+    },
+    {
+      "id": "E39",
+      "kind": "change_analysis",
+      "ref": "local_risk",
+      "text": "[inference, not verified] Environment references nested in arrays can be tracked but are not restored: tracking recurses into every non-null object, while restoration explicitly declines to recurse into arrays. If array-valued settings can contain secret references, a later save can persist their resolved values."
+    },
+    {
+      "id": "E40",
+      "kind": "change_analysis",
+      "ref": "uncertainty",
+      "text": "The supplied context does not identify every CLI command, migration, or programmatic caller that reaches LoadedSettings.setValue or saveSettings, including callers that may invoke saveSettings without mappings."
+    },
+    {
+      "id": "E41",
+      "kind": "change_analysis",
+      "ref": "uncertainty",
+      "text": "The concrete system, user, and workspace file locations and which of them are writable persistence boundaries in each execution mode are not shown."
+    },
+    {
+      "id": "E42",
+      "kind": "change_analysis",
+      "ref": "uncertainty",
+      "text": "Whether real settings files contain comments, malformed content, environment references, arrays containing references, dotted keys, or stale keys absent from settingsToSave depends on runtime file contents not supplied here."
+    },
+    {
+      "id": "E43",
+      "kind": "change_analysis",
+      "ref": "uncertainty",
+      "text": "The exact fidelity and edge-case behavior of comment-json parse/stringify beyond the demonstrated tests, including ordering and uncommon commented-JSON constructs, cannot be established from this diff."
+    },
+    {
+      "id": "E44",
+      "kind": "change_analysis",
+      "ref": "uncertainty",
+      "text": "It is not established whether replacing an environment-backed setting with a literal is an allowed operation or whether preserving the original reference is intended to override such mutations."
+    }
+  ],
+  "hypotheses": [
+    {
+      "id": "H1",
+      "claim": "Deleting a nested setting must remove it from the persisted file, but the new overlay updater retains keys absent from the in-memory settings; consequently `mcp remove` can report success while leaving the removed server in `settings.json`.",
+      "why_suspected": "`applyUpdates` only iterates keys present in `updates` and never deletes keys remaining in the parsed file (E11, E38). `removeMcpServer` deletes the server from the in-memory `mcpServers` object and saves that object through `setValue` (E24, E7), so the absent server key is never removed from the separately parsed on-disk object.",
+      "file": "packages/cli/src/utils/commentJson.ts",
+      "line": 58,
+      "severity": "P1",
+      "initial_evidence": [
+        "E11",
+        "E24",
+        "E7",
+        "E38"
+      ],
+      "questions_to_resolve": [
+        "After removing an existing MCP server, does inspecting and reloading the settings file show that the server is still present?",
+        "Does `settingsToSave` represent the complete desired document, making absent keys deletions rather than intentionally preserved values?"
+      ]
+    },
+    {
+      "id": "H2",
+      "claim": "Saving settings must not serialize resolved secrets from environment references inside arrays, but array-valued settings such as MCP `args` can be replaced with their resolved values and are never traversed during reference restoration.",
+      "why_suspected": "Mapping discovery recurses into all non-null objects, including arrays (E14, E39), and `applyUpdates` replaces arrays wholesale with the resolved in-memory array (E11). Restoration explicitly refuses to recurse into arrays (E13), while MCP arguments are string arrays that may contain environment references (E23).",
+      "file": "packages/cli/src/utils/commentJson.ts",
+      "line": 120,
+      "severity": "P1",
+      "initial_evidence": [
+        "E11",
+        "E13",
+        "E14",
+        "E23",
+        "E39"
+      ],
+      "questions_to_resolve": [
+        "If an MCP server has `args: [\"$TOKEN\"]`, does any subsequent settings save write the resolved token into the file?",
+        "Does `resolveEnvVarsInObject` resolve strings contained in arrays in production settings?"
+      ]
+    },
+    {
+      "id": "H3",
+      "claim": "An intentional string replacement at an environment-backed setting path must persist the new literal, but the save path unconditionally restores the old environment reference at every previously mapped string path.",
+      "why_suspected": "Mappings are captured once during load (E8, E14), retained for the lifetime of `LoadedSettings`, and passed unchanged after `setValue` mutates a setting (E7). Restoration uses only the path and current value's string type; it does not verify that the value still equals the recorded `resolvedValue` (E12, E13, E37).",
+      "file": "packages/cli/src/utils/commentJson.ts",
+      "line": 115,
+      "severity": "P2",
+      "initial_evidence": [
+        "E7",
+        "E8",
+        "E12",
+        "E13",
+        "E14",
+        "E37",
+        "E44"
+      ],
+      "questions_to_resolve": [
+        "Can a user replace an MCP header or other setting originally written as `$VAR` with a literal through an existing CLI command?",
+        "Does such a replacement leave the original `$VAR` reference in the file after save and reload?"
+      ]
+    },
+    {
+      "id": "H4",
+      "claim": "Updating a settings file must preserve its existing formatting as promised by the new behavior, but serializing the entire parsed document with a fixed two-space indentation rewrites files that use tabs, compact JSON, or another indentation width.",
+      "why_suspected": "The helper is documented and introduced as format-preserving (E5, E36), yet it stringifies the whole structure with `space` fixed to `2` rather than retaining the original whitespace (E10). The supplied tests demonstrate comment preservation but do not establish byte- or indentation-level formatting preservation (E4).",
+      "file": "packages/cli/src/utils/commentJson.ts",
+      "line": 47,
+      "severity": "P3",
+      "initial_evidence": [
+        "E4",
+        "E5",
+        "E10",
+        "E36"
+      ],
+      "questions_to_resolve": [
+        "Does updating a tab-indented or four-space-indented settings file normalize the entire file to two spaces?",
+        "Is whitespace and layout preservation part of the user-facing persistence contract, or is only comment preservation intended?"
+      ]
+    },
+    {
+      "id": "H5",
+      "claim": "A settings-mutating command must not report that a change was persisted when the existing file could not be parsed, but parse failure is converted into a successful void return that callers cannot distinguish from a completed write.",
+      "why_suspected": "`updateSettingsFilePreservingFormat` logs parse errors and returns without writing (E10), while `saveSettings` and `setValue` return no status (E7, E9). Commands such as MCP add print a success message after `setValue` without verifying persistence (E23), so a malformed or concurrently corrupted file can produce a false success report.",
+      "file": "packages/cli/src/utils/commentJson.ts",
+      "line": 39,
+      "severity": "P2",
+      "initial_evidence": [
+        "E7",
+        "E9",
+        "E10",
+        "E23",
+        "E36"
+      ],
+      "questions_to_resolve": [
+        "Can `mcp add` proceed when its target settings file is malformed or becomes malformed between load and save?",
+        "In that case, does the command print that the server was added even though the file remains unchanged?"
+      ]
+    }
+  ],
+  "changed_ranges": {
+    "packages/cli/src/config/settings.ts": [
+      [
+        32,
+        35
+      ],
+      [
+        360,
+        363
+      ],
+      [
+        371,
+        371
+      ],
+      [
+        381,
+        384
+      ],
+      [
+        421,
+        422
+      ],
+      [
+        534,
+        537
+      ],
+      [
+        661,
+        666
+      ],
+      [
+        671,
+        684
+      ],
+      [
+        715,
+        715
+      ],
+      [
+        719,
+        722
+      ],
+      [
+        737,
+        738
+      ],
+      [
+        740,
+        741
+      ]
+    ],
+    "packages/cli/src/utils/commentJson.ts": [
+      [
+        1,
+        173
+      ]
+    ],
+    "packages/cli/src/utils/commentJson.test.ts": [
+      [
+        1,
+        337
+      ]
+    ],
+    "packages/cli/package.json": [
+      [
+        37,
+        37
+      ]
+    ],
+    "package-lock.json": [
+      [
+        5235,
+        5240
+      ],
+      [
+        6333,
+        6348
+      ],
+      [
+        6454,
+        6459
+      ],
+      [
+        7740,
+        7740
+      ],
+      [
+        8994,
+        9002
+      ],
+      [
+        12775,
+        12783
+      ],
+      [
+        16380,
+        16380
+      ]
+    ]
+  },
+  "finder_errors": [],
+  "finder_usage": {
+    "llm_calls": 1,
+    "prompt_tokens": 10107,
+    "completion_tokens": 5071,
+    "reasoning_tokens": 3931
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "code_findings": [],
+  "code_review_status": "completed",
+  "run_metrics": {
+    "llm_totals": {
+      "calls": 16,
+      "input_tokens": 45837,
+      "output_tokens": 7194,
+      "errors": 0
+    },
+    "llm_by_purpose": {
+      "investigator": {
+        "calls": 12
+      },
+      "verifier": {
+        "calls": 4
+      }
+    }
+  },
+  "diagnostics": [
+    "investigator: hypotheses=4 lookups=12/12 confirmed=0 refuted=0 unknown=4 findings=0 llm_calls=16 errors=0"
+  ]
+}

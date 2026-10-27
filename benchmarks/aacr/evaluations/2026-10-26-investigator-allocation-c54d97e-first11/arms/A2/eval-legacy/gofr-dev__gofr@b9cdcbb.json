@@ -1,0 +1,22 @@
+{
+  "instance_id": "gofr-dev__gofr@b9cdcbb",
+  "reviewer": "sydes",
+  "boundary": "code_findings",
+  "status": "completed",
+  "duration_seconds": 41.7,
+  "review": {
+    "comments": [
+      {
+        "path": "pkg/gofr/http/responder.go",
+        "start_line": 32,
+        "end_line": 32,
+        "content": "On the value-type response.Response handler path, leaving Metadata unset causes the HTTP responder to serialize \"metadata\":null, contrary to the newly documented response-without-metadata format, whic\nThe added test explicitly expects a response.Response with only Data set to produce a body containing \"metadata\":null. The updated documentation states that omitted metadata defaults to a JSON object containing only data. The new responder type-switch branch creates its internal response by assigning v.Metadata to an interface{} field; for the unset map this path is demonstrated by the test to encode as null despite the field's omitempty tag.\nImpact: Caused by the change: This change adds the response.Response branch at responder.go:31-32 and copies the unset map-valued v.Metadata into the internal interface{} Metadata field. The added without-metadata test records the resulting wire body as \"metadata\":null. Previously the handler unwrapped response.Response to resp.Data, so this metadata serialization path did not exist; the change therefore introduces the documented-contract mismatch.",
+        "severity": "P2"
+      }
+    ],
+    "summary": {
+      "input_tokens": 11212,
+      "output_tokens": 2375
+    }
+  }
+}

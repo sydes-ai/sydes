@@ -1,0 +1,50 @@
+{
+  "code_findings": [
+    {
+      "id": "investigator-H1",
+      "severity": "P2",
+      "title": "BrowserConfig accepts chrome_remote_debugging_port=None, and when the built-in browser setup path reaches its port-conflict check, it raises TypeError by passing None as the AF_INET port to socket.con",
+      "file": "browser_use/browser/browser.py",
+      "line": 109,
+      "repo": null,
+      "explanation": "The newly added field is annotated as int | None, so an explicit None is valid configuration. The built-in setup path then uses that value directly as the port in ('localhost', self.config.chrome_remote_debugging_port). An AF_INET socket address requires a concrete port; None therefore raises TypeError at connect_ex. The evidence does not establish the exact exception on the user-provided-browser path or whether None was intended to disable debugging versus select the default, so the supported claim is limited to the built-in path.",
+      "impact": "Caused by the change: This change introduces an explicitly nullable port configuration and makes browser setup consume that configured value. With chrome_remote_debugging_port=None, formatting the Chrome argument succeeds as '--remote-debugging-port=None', after which the built-in setup passes None to socket.connect_ex as the port and raises TypeError before launch.",
+      "suggested_fix": null,
+      "source": "investigator",
+      "evidence": [
+        {
+          "file": "browser_use/browser/browser.py",
+          "symbol": null,
+          "label": "verified_quote:291",
+          "snippet": "if s.connect_ex(('localhost', self.config.chrome_remote_debugging_port)) == 0:"
+        },
+        {
+          "file": "browser_use/browser/browser.py",
+          "symbol": null,
+          "label": "verified_quote:111",
+          "snippet": "chrome_remote_debugging_port: int | None = CHROME_DEBUG_PORT"
+        }
+      ]
+    }
+  ],
+  "code_review_status": "completed",
+  "run_metrics": {
+    "llm_totals": {
+      "calls": 17,
+      "input_tokens": 54882,
+      "output_tokens": 14537,
+      "errors": 0
+    },
+    "llm_by_purpose": {
+      "investigator": {
+        "calls": 12
+      },
+      "verifier": {
+        "calls": 5
+      }
+    }
+  },
+  "diagnostics": [
+    "investigator: hypotheses=3 lookups=12/12 confirmed=1 refuted=0 unknown=2 findings=1 llm_calls=17 errors=0"
+  ]
+}

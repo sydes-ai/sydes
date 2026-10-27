@@ -1,0 +1,36 @@
+{
+  "instance_id": "google-gemini__gemini-cli@0fa1bd7",
+  "reviewer": "sydes",
+  "boundary": "code_findings",
+  "status": "completed",
+  "duration_seconds": 199.0,
+  "review": {
+    "comments": [
+      {
+        "path": "packages/cli/src/utils/commentJson.ts",
+        "start_line": 58,
+        "end_line": 58,
+        "content": "For an existing user or workspace settings file, removing an existing MCP server through `mcp remove` leaves that server in the persisted file because the new format-preserving save overlays remaining\nThe removal path deletes the named server from the scope's in-memory `mcpServers` object and passes that complete modified settings object to `saveSettings`. `saveSettings` now invokes the new format-preserving updater. That updater starts from the parsed on-disk document, recursively merges object values, and iterates only keys present in the in-memory updates. Therefore, when the deleted server name is absent from the updated `mcpServers`, no operation deletes the corresponding key from the parsed on-disk object. The stale server is stringified back to the file, after which `removeMcpServer` unconditionally prints its success message.\nImpact: Caused by the change: The changed save path supplies the scope's complete desired settings to an overlay algorithm whose base is the old on-disk object. At `mcpServers`, the algorithm recursively processes only entries still present in the desired object; the removed server is omitted, so its old parsed key is retained. The retained object is then written back, while the caller prints the success message.",
+        "severity": "P1"
+      },
+      {
+        "path": "packages/cli/src/utils/commentJson.ts",
+        "start_line": 39,
+        "end_line": 39,
+        "content": "For `mcp add` when updating an already-configured server, if the target settings file becomes unparsable after loading but before saving, the file is left unchanged while the command reports that the\nThe new persistence helper rereads the existing file and attempts to parse it. If parsing throws, it logs the error and returns normally before the write. Its return type is void, and `LoadedSettings.setValue` does not receive or check any success indicator. On the existing-server path, `addMcpServer` prints the update-success message after `setValue` returns. Thus a file that was valid during `loadSettings` but is malformed by save time follows a normal-return path with no write and then receives a success report.\nImpact: Caused by the change: This change introduces the format-preserving helper and routes settings persistence through it (E9 and L10). When its newly added parse fails, line 39 returns before the only write at line 49. That normal void return propagates through `saveSettings` and `setValue`, after which the existing-server branch prints its unconditional \u201cupdated\u201d message. The change therefore introduces this parse-failure false-success path.",
+        "severity": "P2"
+      },
+      {
+        "path": "packages/cli/src/utils/commentJson.ts",
+        "start_line": 47,
+        "end_line": 47,
+        "content": "For an existing parseable settings file saved through updateSettingsFilePreservingFormat, indentation and compact layout are not preserved when they differ from two-space pretty-printing, despite the\nThe helper explicitly promises to preserve formatting, but it parses the existing file, serializes the entire resulting structure with a fixed indentation argument of 2, and replaces the complete file with that serialization. Thus tab-indented, four-space-indented, or compact input is emitted using two-space pretty-printing; only comments represented by the parsed structure can survive independently of the original whitespace layout.\nImpact: Caused by the change: The changed helper does not retain or reuse the original file's indentation/layout when writing. Instead, line 47 serializes the whole parsed document with fixed two-space indentation, and line 49 overwrites the original file with that output. This newly introduced persistence path therefore materially changes all non-two-space layouts while claiming to preserve formatting.",
+        "severity": "P3"
+      }
+    ],
+    "summary": {
+      "input_tokens": 55101,
+      "output_tokens": 14936
+    }
+  }
+}

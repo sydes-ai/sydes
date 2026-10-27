@@ -1,0 +1,120 @@
+{
+  "version": "sydes-investigation-snapshot/1",
+  "packet": [
+    {
+      "id": "E1",
+      "kind": "diff",
+      "ref": "packages/react-dom/src/__tests__/ReactDOMForm-test.js",
+      "text": "diff --git a/packages/react-dom/src/__tests__/ReactDOMForm-test.js b/packages/react-dom/src/__tests__/ReactDOMForm-test.js\nindex 93edccf9bc..f4a9355b10 100644\n--- a/packages/react-dom/src/__tests__/ReactDOMForm-test.js\n+++ b/packages/react-dom/src/__tests__/ReactDOMForm-test.js\n@@ -1670,6 +1670,48 @@ describe('ReactDOMForm', () => {\n     expect(divRef.current.textContent).toEqual('Current username: acdlite');\n   });\n \n+  it.only('multiple form submissions in rapid succession do not throw', async () => {\n+    const submitFormTwiceButtonRef = React.createRef();\n+    let actionCounter = 0;\n+    function App() {\n+      const formRef = React.createRef();\n+      // Submits the form twice in quick succession\n+      // This simulates a user clicking a button twice in rapid succession\n+      async function submitFormTwice() {\n+        formRef.current.requestSubmit();\n+        await new Promise(res => setTimeout(res, 1));\n+        formRef.current.requestSubmit();\n+      }\n+\n+      // This is a userspace action. it must take a non-zero amount of time to\n+      // allow the form to be submitted again before the first one finishes.\n+      // Otherwise, the form transitions will be batched and will not run concurrently.\n+      async function submitForm() {\n+        actionCounter++;\n+        return new Promise(res => setTimeout(res, 1));\n+      }\n+\n+      return (\n+        <>\n+          <form ref={formRef} action={submitForm}>\n+            <button type=\"submit\">Submit</button>\n+          </form>\n+          <button ref={submitFormTwiceButtonRef} onClick={submitFormTwice}>\n+            Submit twice\n+          </button>\n+        </>\n+      );\n+    }\n+\n+    const root = ReactDOMClient.createRoot(container);\n+    await act(() => root.render(<App />));\n+\n+    await act(async () => {\n+      submitFormTwiceButtonRef.current.click();\n+    });\n+    expect(actionCounter).toBe(2);\n+  });\n+\n   it(\n     'requestFormReset works with inputs that are not descendants ' +\n       'of the form element',"
+    },
+    {
+      "id": "E2",
+      "kind": "diff",
+      "ref": "packages/react-reconciler/src/ReactFiberHooks.js",
+      "text": "diff --git a/packages/react-reconciler/src/ReactFiberHooks.js b/packages/react-reconciler/src/ReactFiberHooks.js\nindex 967be9be94..e92801f5fc 100644\n--- a/packages/react-reconciler/src/ReactFiberHooks.js\n+++ b/packages/react-reconciler/src/ReactFiberHooks.js\n@@ -3261,7 +3261,7 @@ export function startHostTransition<F>(\n \n function ensureFormComponentIsStateful(formFiber: Fiber) {\n   const existingStateHook: Hook | null = formFiber.memoizedState;\n-  if (existingStateHook !== null) {\n+  if (existingStateHook !== null && existingStateHook.next !== null) {\n     // This fiber was already upgraded to be stateful.\n     return existingStateHook;\n   }"
+    },
+    {
+      "id": "E3",
+      "kind": "test_execution",
+      "ref": "ci_suite",
+      "text": "unknown `jest` is declared in package.json but not installed in node_modules"
+    },
+    {
+      "id": "E4",
+      "kind": "change_analysis",
+      "ref": "summary",
+      "text": "React's form-transition hook initialization now distinguishes a fully upgraded form fiber from one that merely has a single existing hook. The accompanying focused test targets two rapid submissions while the first asynchronous form action is still pending and expects both actions to run without an exception."
+    },
+    {
+      "id": "E5",
+      "kind": "change_analysis",
+      "ref": "local_risk",
+      "text": "[inference, not verified] The regression test is committed as an exclusive test. Under normal focused-test semantics, this can prevent neighboring form tests or a broader test set from running, reducing regression coverage until `.only` is removed."
+    },
+    {
+      "id": "E6",
+      "kind": "change_analysis",
+      "ref": "local_risk",
+      "text": "[inference, not verified] The concurrency regression test relies on two one-millisecond timers to create overlap. Scheduling variation could allow the first action to finish before the second submission or otherwise make the intended overlap timing-sensitive."
+    },
+    {
+      "id": "E7",
+      "kind": "change_analysis",
+      "ref": "uncertainty",
+      "text": "The supplied context does not show all callers of `ensureFormComponentIsStateful` or establish which React DOM operations besides the demonstrated form submission path can reach the changed condition."
+    },
+    {
+      "id": "E8",
+      "kind": "change_analysis",
+      "ref": "uncertainty",
+      "text": "The remainder of `ensureFormComponentIsStateful` is not shown, so the exact hook-chain shape produced by continuing past the guard, and why two hooks prove that an upgrade is complete, cannot be established here."
+    },
+    {
+      "id": "E9",
+      "kind": "change_analysis",
+      "ref": "uncertainty",
+      "text": "The diff does not establish how commonly a production form fiber has an existing first hook with `next === null`, nor whether real submission timing produces that state outside the constructed regression case."
+    },
+    {
+      "id": "E10",
+      "kind": "change_analysis",
+      "ref": "uncertainty",
+      "text": "The supplied files demonstrate a React DOM form-action scenario but do not establish the complete set of public APIs, renderers, or host environments whose transitions share this reconciler helper."
+    }
+  ],
+  "hypotheses": [
+    {
+      "id": "H1",
+      "claim": "The committed `it.only` causes the other tests in `ReactDOMForm-test.js` to be skipped when the file runs, violating the requirement that the full form regression suite execute.",
+      "why_suspected": "The new regression case is explicitly marked exclusive, and focused-test semantics ordinarily suppress neighboring tests.",
+      "file": "packages/react-dom/src/__tests__/ReactDOMForm-test.js",
+      "line": 1673,
+      "severity": "P2",
+      "initial_evidence": [
+        "E1",
+        "E5"
+      ],
+      "questions_to_resolve": [
+        "Does this repository's Jest configuration reject focused tests, or does running this file silently skip its other cases?"
+      ]
+    },
+    {
+      "id": "H2",
+      "claim": "The new regression test can pass without submitting the form a second time while the first action is pending, so it does not reliably exercise the concurrent-submission behavior that the production change is intended to fix.",
+      "why_suspected": "Both the action and the delay before the second submission use one-millisecond timers, and the only assertion checks that both actions were invoked; it never asserts that the first action remained pending when the second submission occurred.",
+      "file": "packages/react-dom/src/__tests__/ReactDOMForm-test.js",
+      "line": 1682,
+      "severity": "P2",
+      "initial_evidence": [
+        "E1",
+        "E4",
+        "E6"
+      ],
+      "questions_to_resolve": [
+        "Can the first action's timer resolve before the second `requestSubmit` under supported schedulers?",
+        "Would replacing the action timer with a manually controlled promise demonstrate that the second submission definitely occurs while the first is pending?"
+      ]
+    }
+  ],
+  "changed_ranges": {
+    "packages/react-reconciler/src/ReactFiberHooks.js": [
+      [
+        3264,
+        3264
+      ]
+    ],
+    "packages/react-dom/src/__tests__/ReactDOMForm-test.js": [
+      [
+        1673,
+        1714
+      ]
+    ]
+  },
+  "finder_errors": [],
+  "finder_usage": {
+    "llm_calls": 1,
+    "prompt_tokens": 1652,
+    "completion_tokens": 2813,
+    "reasoning_tokens": 2459
+  }
+}

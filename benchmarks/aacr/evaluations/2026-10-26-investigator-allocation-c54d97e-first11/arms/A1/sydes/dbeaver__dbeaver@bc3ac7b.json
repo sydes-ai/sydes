@@ -1,0 +1,1775 @@
+{
+  "version": "v3",
+  "kind": "sydes_change_verification",
+  "generated_at": "2026-10-26T23:59:08.197655+00:00",
+  "change": {
+    "base": "2125ab9048023375ae49aa66f65be384f128d4a3",
+    "head": "bc3ac7bb47092a934b344791d8aa3a1c41e6c8f7",
+    "merge_base": "2125ab9048023375ae49aa66f65be384f128d4a3",
+    "repos": [
+      {
+        "name": "app",
+        "root": "/Users/ksnaik/.cache/sydes-aacr/repos/dbeaver__dbeaver"
+      }
+    ],
+    "includes_working_tree": false,
+    "files": [
+      {
+        "repo": "app",
+        "path": "plugins/org.jkiss.dbeaver.model.rcp/src/org/jkiss/dbeaver/model/navigator/DBNResource.java",
+        "old_path": null,
+        "change_type": "modified",
+        "role": "source_route_candidate",
+        "added_lines": 9,
+        "removed_lines": 2,
+        "hunks": [
+          {
+            "start_line": 3,
+            "end_line": 3
+          },
+          {
+            "start_line": 38,
+            "end_line": 38
+          },
+          {
+            "start_line": 423,
+            "end_line": 429
+          }
+        ],
+        "symbols": [
+          "app:plugins/org.jkiss.dbeaver.model.rcp/src/org/jkiss/dbeaver/model/navigator/DBNResource.java:DBNResource.getAdapter"
+        ],
+        "binary": false
+      },
+      {
+        "repo": "app",
+        "path": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java",
+        "old_path": null,
+        "change_type": "modified",
+        "role": "source_route_candidate",
+        "added_lines": 26,
+        "removed_lines": 6,
+        "hunks": [
+          {
+            "start_line": 38,
+            "end_line": 39
+          },
+          {
+            "start_line": 290,
+            "end_line": 303
+          },
+          {
+            "start_line": 315,
+            "end_line": 315
+          },
+          {
+            "start_line": 363,
+            "end_line": 371
+          }
+        ],
+        "symbols": [
+          "app:plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java:DBNPathBase.copyInputStream",
+          "app:plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java:DBNPathBase.dropNodes"
+        ],
+        "binary": false
+      }
+    ],
+    "symbols": [
+      {
+        "id": "app:plugins/org.jkiss.dbeaver.model.rcp/src/org/jkiss/dbeaver/model/navigator/DBNResource.java:DBNResource.getAdapter",
+        "repo": "app",
+        "file": "plugins/org.jkiss.dbeaver.model.rcp/src/org/jkiss/dbeaver/model/navigator/DBNResource.java",
+        "name": "getAdapter",
+        "qualified_name": "DBNResource.getAdapter",
+        "cbm_qualified_name": "Users-ksnaik-.cache-sydes-aacr-repos-dbeaver__dbeaver.plugins.org.jkiss.dbeaver.model.rcp.src.org.jkiss.dbeaver.model.navigator.DBNResource.getAdapter",
+        "kind": "class_method",
+        "language": "java",
+        "start_line": 414,
+        "end_line": 433,
+        "change_type": "modified",
+        "changed_lines": 7,
+        "decorators": []
+      },
+      {
+        "id": "app:plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java:DBNPathBase.dropNodes",
+        "repo": "app",
+        "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java",
+        "name": "dropNodes",
+        "qualified_name": "DBNPathBase.dropNodes",
+        "cbm_qualified_name": "Users-ksnaik-.cache-sydes-aacr-repos-dbeaver__dbeaver.plugins.org.jkiss.dbeaver.model.src.org.jkiss.dbeaver.model.navigator.fs.DBNPathBase.dropNodes",
+        "kind": "class_method",
+        "language": "java",
+        "start_line": 251,
+        "end_line": 361,
+        "change_type": "modified",
+        "changed_lines": 15,
+        "decorators": []
+      },
+      {
+        "id": "app:plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java:DBNPathBase.copyInputStream",
+        "repo": "app",
+        "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java",
+        "name": "copyInputStream",
+        "qualified_name": "DBNPathBase.copyInputStream",
+        "cbm_qualified_name": "Users-ksnaik-.cache-sydes-aacr-repos-dbeaver__dbeaver.plugins.org.jkiss.dbeaver.model.src.org.jkiss.dbeaver.model.navigator.fs.DBNPathBase.copyInputStream",
+        "kind": "class_method",
+        "language": "java",
+        "start_line": 363,
+        "end_line": 370,
+        "change_type": "modified",
+        "changed_lines": 8,
+        "decorators": []
+      }
+    ],
+    "notes": []
+  },
+  "summary": {
+    "risk": "MEDIUM",
+    "verdict": "VERIFICATION INCOMPLETE",
+    "headline": "3 changed symbol(s); no route flow resolved to them.",
+    "counts": {
+      "changed_files": 2,
+      "changed_source_files": 2,
+      "changed_test_files": 0,
+      "changed_symbols": 3,
+      "affected_flows": 0,
+      "flows_partially_analyzed": 0,
+      "code_findings": 0,
+      "obligations": 0,
+      "obligations_introduced_by_change": 0,
+      "obligations_passed": 0,
+      "obligations_failed": 0,
+      "obligations_unverified": 0,
+      "obligations_unknown": 0,
+      "mapped_tests": 0,
+      "supporting_tests": 0,
+      "tests_exercising_flows": 0,
+      "tests_supporting_behavior": 0,
+      "tests_verifying_behavior": 0,
+      "changed_test_cases": 0,
+      "tests_executed": 0,
+      "verification_gaps": 0,
+      "runtime_dependencies": 0,
+      "cross_repo_impacts": 0,
+      "impacts_proven": 4,
+      "impacts_inferred": 0,
+      "impacts_not_modeled": 4,
+      "unresolved_changed_symbols": 0
+    },
+    "risk_reasons": [
+      "change could not be tied to any verifiable behavior"
+    ]
+  },
+  "code_review_status": "completed",
+  "code_findings": [],
+  "accepted_impacts": [
+    {
+      "id": "impact:app:Users-ksnaik-.cache-sydes-aacr-repos-dbeaver__dbeaver.plugins.org.jkiss.dbeaver.core.src.org.jkiss.dbeaver.ui.resources.bookmarks.BookmarksHandlerImpl.getAssociatedDataSources",
+      "label": "BookmarksHandlerImpl.getAssociatedDataSources",
+      "repo": "app",
+      "kind": "decorated",
+      "status": "proven",
+      "changed_symbols": [
+        "getAdapter"
+      ],
+      "route_method": null,
+      "route_path": null,
+      "llm_confidence": null,
+      "llm_reason": null,
+      "llm_inference_type": null,
+      "llm_uncertainty": null,
+      "corroborated": null,
+      "behavior_label": "",
+      "verification_model_status": "unsupported_or_partial",
+      "provenance": "structural"
+    },
+    {
+      "id": "impact:app:Users-ksnaik-.cache-sydes-aacr-repos-dbeaver__dbeaver.plugins.org.jkiss.dbeaver.data.transfer.ui.src.org.jkiss.dbeaver.tasks.ui.sql.script.SQLScriptTaskConfigurationWizard.saveTaskState",
+      "label": "SQLScriptTaskConfigurationWizard.saveTaskState",
+      "repo": "app",
+      "kind": "decorated",
+      "status": "proven",
+      "changed_symbols": [
+        "getAdapter"
+      ],
+      "route_method": null,
+      "route_path": null,
+      "llm_confidence": null,
+      "llm_reason": null,
+      "llm_inference_type": null,
+      "llm_uncertainty": null,
+      "corroborated": null,
+      "behavior_label": "",
+      "verification_model_status": "unsupported_or_partial",
+      "provenance": "structural"
+    },
+    {
+      "id": "impact:app:Users-ksnaik-.cache-sydes-aacr-repos-dbeaver__dbeaver.plugins.org.jkiss.dbeaver.model.rcp.src.org.jkiss.dbeaver.model.navigator.DBNResource.getAdapter",
+      "label": "DBNResource.getAdapter",
+      "repo": "app",
+      "kind": "decorated",
+      "status": "proven",
+      "changed_symbols": [
+        "getAdapter"
+      ],
+      "route_method": null,
+      "route_path": null,
+      "llm_confidence": null,
+      "llm_reason": null,
+      "llm_inference_type": null,
+      "llm_uncertainty": null,
+      "corroborated": null,
+      "behavior_label": "",
+      "verification_model_status": "unsupported_or_partial",
+      "provenance": "structural"
+    },
+    {
+      "id": "impact:app:Users-ksnaik-.cache-sydes-aacr-repos-dbeaver__dbeaver.plugins.org.jkiss.dbeaver.model.src.org.jkiss.dbeaver.model.navigator.fs.DBNPathBase.dropNodes",
+      "label": "DBNPathBase.dropNodes",
+      "repo": "app",
+      "kind": "decorated",
+      "status": "proven",
+      "changed_symbols": [
+        "copyInputStream",
+        "dropNodes"
+      ],
+      "route_method": null,
+      "route_path": null,
+      "llm_confidence": null,
+      "llm_reason": null,
+      "llm_inference_type": null,
+      "llm_uncertainty": null,
+      "corroborated": null,
+      "behavior_label": "",
+      "verification_model_status": "unsupported_or_partial",
+      "provenance": "structural"
+    }
+  ],
+  "pr_semantic_analysis": {
+    "origin": "llm_hypothesis",
+    "change_summary": "Filesystem drop handling now supports navigator nodes that cannot provide a local Path but can provide an InputStream, including Eclipse IFile-backed DBNResource nodes. Such content is copied into the target folder under the node display name, replacing an existing target. Path existence handling also now skips only paths known not to exist rather than every path for which existence cannot be confirmed.",
+    "behavior_changes": [
+      {
+        "description": "Callers adapting a DBNResource backed by an Eclipse IFile to InputStream can now receive the file contents. If Eclipse cannot provide the contents, adaptation now fails with an unchecked RuntimeException.",
+        "changed_symbols": [
+          "DBNResource.getAdapter"
+        ],
+        "evidence": [
+          "The new adapter branch applies only to InputStream requests for IFile resources.",
+          "CoreException is logged and wrapped as RuntimeException."
+        ],
+        "confidence": 0.99,
+        "citations": [
+          {
+            "file": "plugins/org.jkiss.dbeaver.model.rcp/src/org/jkiss/dbeaver/model/navigator/DBNResource.java",
+            "line": 423,
+            "quoted_text": "} else if (adapter == InputStream.class && resource instanceof IFile file) {"
+          },
+          {
+            "file": "plugins/org.jkiss.dbeaver.model.rcp/src/org/jkiss/dbeaver/model/navigator/DBNResource.java",
+            "line": 425,
+            "quoted_text": "return adapter.cast(file.getContents());"
+          },
+          {
+            "file": "plugins/org.jkiss.dbeaver.model.rcp/src/org/jkiss/dbeaver/model/navigator/DBNResource.java",
+            "line": 428,
+            "quoted_text": "throw new RuntimeException(e);"
+          }
+        ],
+        "citations_verified": 3,
+        "citation_notes": [
+          "citation confirmed near plugins/org.jkiss.dbeaver.model.rcp/src/org/jkiss/dbeaver/model/navigator/DBNResource.java:423",
+          "citation confirmed near plugins/org.jkiss.dbeaver.model.rcp/src/org/jkiss/dbeaver/model/navigator/DBNResource.java:425",
+          "citation confirmed near plugins/org.jkiss.dbeaver.model.rcp/src/org/jkiss/dbeaver/model/navigator/DBNResource.java:428"
+        ]
+      },
+      {
+        "description": "Dropping a node without a Path can now copy content supplied through its InputStream adapter into the destination folder. The target name is the node display name, and an existing same-named target is replaced; this fallback copies rather than moving or deleting the source.",
+        "changed_symbols": [
+          "DBNPathBase.dropNodes",
+          "DBNPathBase.copyInputStream"
+        ],
+        "evidence": [
+          "A null Path now triggers an InputStream adapter lookup instead of immediate skipping.",
+          "The fallback resolves the node display name beneath the destination folder and uses REPLACE_EXISTING when the target exists."
+        ],
+        "confidence": 0.98,
+        "citations": [
+          {
+            "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java",
+            "line": 290,
+            "quoted_text": "if (resource == null) {"
+          },
+          {
+            "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java",
+            "line": 293,
+            "quoted_text": "InputStream adapter = node.getAdapter(InputStream.class);"
+          },
+          {
+            "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java",
+            "line": 295,
+            "quoted_text": "String fileName = node.getNodeDisplayName();"
+          },
+          {
+            "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java",
+            "line": 367,
+            "quoted_text": "options = new CopyOption[] {StandardCopyOption.REPLACE_EXISTING};"
+          },
+          {
+            "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java",
+            "line": 369,
+            "quoted_text": "Files.copy(inputStream, targetFile, options);"
+          }
+        ],
+        "citations_verified": 5,
+        "citation_notes": [
+          "citation confirmed near plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java:290",
+          "citation confirmed near plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java:293",
+          "citation confirmed near plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java:295",
+          "citation confirmed near plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java:367",
+          "citation confirmed near plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java:369"
+        ]
+      },
+      {
+        "description": "For a non-null source Path, the drop operation now skips it only when the filesystem positively reports that it does not exist. A path whose existence is indeterminate, such as because of access or I/O conditions, can proceed into the existing copy/move handling instead of being discarded at this check.",
+        "changed_symbols": [
+          "DBNPathBase.dropNodes"
+        ],
+        "evidence": [
+          "The existence guard now uses Files.notExists rather than negating Files.exists."
+        ],
+        "confidence": 0.96,
+        "citations": [
+          {
+            "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java",
+            "line": 303,
+            "quoted_text": "if (Files.notExists(resource)) {"
+          }
+        ],
+        "citations_verified": 1,
+        "citation_notes": [
+          "citation confirmed near plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java:303"
+        ]
+      }
+    ],
+    "important_symbols": [
+      {
+        "repo": "app",
+        "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java",
+        "symbol": "DBNPathBase.dropNodes",
+        "reason": "This is the central behavior change: it introduces the stream-backed fallback and changes the source-path existence decision used during drop processing."
+      },
+      {
+        "repo": "app",
+        "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java",
+        "symbol": "DBNPathBase.copyInputStream",
+        "reason": "This new helper determines target path construction, collision replacement, and stream-copy behavior."
+      },
+      {
+        "repo": "app",
+        "file": "plugins/org.jkiss.dbeaver.model.rcp/src/org/jkiss/dbeaver/model/navigator/DBNResource.java",
+        "symbol": "DBNResource.getAdapter",
+        "reason": "This supplies the new InputStream capability for Eclipse IFile resources and defines its failure behavior."
+      }
+    ],
+    "investigation_hints": [
+      {
+        "description": "Trace which drag/drop, paste, import, or navigator actions call dropNodes and what move-versus-copy expectations they impose on Path-less nodes.",
+        "related_symbols": [
+          "DBNPathBase.dropNodes"
+        ],
+        "concepts": [
+          "navigator transfer operations",
+          "copy versus move semantics",
+          "progress and cancellation",
+          "caller error handling"
+        ],
+        "likely_boundary_types": [
+          "callable"
+        ]
+      },
+      {
+        "description": "Inspect the adapter graph to identify all node types that can return InputStream, whether DBNResource is the intended source, and whether adapter-returned streams transfer ownership to the caller.",
+        "related_symbols": [
+          "DBNResource.getAdapter",
+          "DBNPathBase.dropNodes"
+        ],
+        "concepts": [
+          "adapter contracts",
+          "workspace resources",
+          "stream ownership",
+          "exception conventions"
+        ],
+        "likely_boundary_types": [
+          "callable",
+          "external"
+        ]
+      },
+      {
+        "description": "Verify filename invariants and collision policy for node display names before they are resolved and potentially used to replace existing files.",
+        "related_symbols": [
+          "DBNPathBase.dropNodes",
+          "DBNPathBase.copyInputStream"
+        ],
+        "concepts": [
+          "path normalization",
+          "filename validation",
+          "overwrite policy",
+          "filesystem permissions"
+        ],
+        "likely_boundary_types": [
+          "external"
+        ]
+      }
+    ],
+    "likely_boundary_types": [
+      "callable",
+      "external"
+    ],
+    "local_risks": [
+      {
+        "description": "The newly obtained InputStream is not closed in the shown fallback or helper. If the adapter contract makes the consumer responsible for closing it, repeated copies can retain file descriptors or workspace resources.",
+        "severity": "P2",
+        "citations": [
+          {
+            "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java",
+            "line": 293,
+            "quoted_text": "InputStream adapter = node.getAdapter(InputStream.class);"
+          },
+          {
+            "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java",
+            "line": 296,
+            "quoted_text": "copyInputStream(adapter, folder, fileName);"
+          },
+          {
+            "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java",
+            "line": 369,
+            "quoted_text": "Files.copy(inputStream, targetFile, options);"
+          }
+        ],
+        "citations_verified": 3,
+        "citation_notes": [
+          "citation confirmed near plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java:293",
+          "citation confirmed near plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java:296",
+          "citation confirmed near plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java:369"
+        ]
+      },
+      {
+        "description": "If node display names are not guaranteed to be single safe filename components, resolving them directly can select a nested, parent-relative, or absolute location rather than a file strictly inside the drop folder. Because existing targets are replaced, this could overwrite an unintended file.",
+        "severity": "P1",
+        "citations": [
+          {
+            "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java",
+            "line": 295,
+            "quoted_text": "String fileName = node.getNodeDisplayName();"
+          },
+          {
+            "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java",
+            "line": 364,
+            "quoted_text": "Path targetFile = folder.resolve(str);"
+          },
+          {
+            "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java",
+            "line": 367,
+            "quoted_text": "options = new CopyOption[] {StandardCopyOption.REPLACE_EXISTING};"
+          }
+        ],
+        "citations_verified": 3,
+        "citation_notes": [
+          "citation confirmed near plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java:295",
+          "citation confirmed near plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java:364",
+          "citation confirmed near plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java:367"
+        ]
+      },
+      {
+        "description": "The stream-backed branch replaces an existing same-named target without any conflict decision visible here. Distinct source nodes sharing a display name, or an accidental collision with destination content, can therefore lose the prior target contents.",
+        "severity": "P1",
+        "citations": [
+          {
+            "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java",
+            "line": 295,
+            "quoted_text": "String fileName = node.getNodeDisplayName();"
+          },
+          {
+            "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java",
+            "line": 366,
+            "quoted_text": "if (Files.exists(targetFile)) {"
+          },
+          {
+            "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java",
+            "line": 367,
+            "quoted_text": "options = new CopyOption[] {StandardCopyOption.REPLACE_EXISTING};"
+          }
+        ],
+        "citations_verified": 3,
+        "citation_notes": [
+          "citation confirmed near plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java:295",
+          "citation confirmed near plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java:366",
+          "citation confirmed near plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java:367"
+        ]
+      }
+    ],
+    "uncertainties": [
+      "The supplied context does not identify which concrete UI actions or programmatic callers invoke dropNodes, so the reachable transfer workflows cannot be established here.",
+      "The complete set of navigator node implementations capable of supplying an InputStream adapter is not shown, so this fallback may apply beyond DBNResource-backed IFile nodes.",
+      "The ownership and required closing behavior of InputStreams returned through the adapter mechanism and IFile.getContents cannot be established from this diff.",
+      "Whether real drop inputs lack a Path while supplying an InputStream, and whether their display names collide or contain path syntax, depends on runtime node data not shown here.",
+      "The practical effect of the changed existence test and replacement policy depends on destination contents, filesystem accessibility, permissions, and source-path status at execution time.",
+      "The surrounding transfer code is incomplete, so it cannot be established whether higher layers provide overwrite confirmation, sanitize names, close streams, or convert adapter RuntimeExceptions into user-facing errors."
+    ],
+    "uncertainty_items": [
+      {
+        "kind": "caller_reachability",
+        "text": "The supplied context does not identify which concrete UI actions or programmatic callers invoke dropNodes, so the reachable transfer workflows cannot be established here.",
+        "symbols": [
+          "DBNPathBase.dropNodes"
+        ],
+        "resolved_by": null,
+        "established_context": null,
+        "scoped_text": null
+      },
+      {
+        "kind": "boundary_identity",
+        "text": "The complete set of navigator node implementations capable of supplying an InputStream adapter is not shown, so this fallback may apply beyond DBNResource-backed IFile nodes.",
+        "symbols": [
+          "DBNResource.getAdapter",
+          "DBNPathBase.dropNodes"
+        ],
+        "resolved_by": null,
+        "established_context": null,
+        "scoped_text": null
+      },
+      {
+        "kind": "dependency_semantics",
+        "text": "The ownership and required closing behavior of InputStreams returned through the adapter mechanism and IFile.getContents cannot be established from this diff.",
+        "symbols": [
+          "DBNResource.getAdapter",
+          "DBNPathBase.dropNodes",
+          "DBNPathBase.copyInputStream"
+        ],
+        "resolved_by": null,
+        "established_context": null,
+        "scoped_text": null
+      },
+      {
+        "kind": "runtime_condition",
+        "text": "Whether real drop inputs lack a Path while supplying an InputStream, and whether their display names collide or contain path syntax, depends on runtime node data not shown here.",
+        "symbols": [
+          "DBNPathBase.dropNodes",
+          "DBNPathBase.copyInputStream"
+        ],
+        "resolved_by": null,
+        "established_context": null,
+        "scoped_text": null
+      },
+      {
+        "kind": "external_state",
+        "text": "The practical effect of the changed existence test and replacement policy depends on destination contents, filesystem accessibility, permissions, and source-path status at execution time.",
+        "symbols": [
+          "DBNPathBase.dropNodes",
+          "DBNPathBase.copyInputStream"
+        ],
+        "resolved_by": null,
+        "established_context": null,
+        "scoped_text": null
+      },
+      {
+        "kind": "other",
+        "text": "The surrounding transfer code is incomplete, so it cannot be established whether higher layers provide overwrite confirmation, sanitize names, close streams, or convert adapter RuntimeExceptions into user-facing errors.",
+        "symbols": [
+          "DBNResource.getAdapter",
+          "DBNPathBase.dropNodes",
+          "DBNPathBase.copyInputStream"
+        ],
+        "resolved_by": null,
+        "established_context": null,
+        "scoped_text": null
+      }
+    ],
+    "verification_state": "verified",
+    "is_indeterminate": true,
+    "indeterminate_reason": "runtime_only_behavior",
+    "indeterminate_detail": "The mechanisms are explicit, but observable impact requires runtime inputs that have no Path and do have an InputStream, or filesystem states such as ambiguous source existence and destination collisions. The supplied diff does not establish that those conditions occur in a real workflow."
+  },
+  "affected_boundaries": [
+    {
+      "id": "boundary:inferred:callable:app:DBNResource.getAdapter:0",
+      "kind": "callable",
+      "subtype": "public_callable",
+      "repo": "app",
+      "file": "plugins/org.jkiss.dbeaver.model.rcp/src/org/jkiss/dbeaver/model/navigator/DBNResource.java",
+      "symbol": "DBNResource.getAdapter",
+      "label": "Navigator resource content adaptation",
+      "changed_symbols": [
+        "DBNResource.getAdapter"
+      ],
+      "evidence": [
+        "The established call edge shows SQLScriptTaskPageSettings.saveSettings calling DBNResource.getAdapter at line 523.",
+        "The supplied DBNResource.getAdapter source specifically branches on adapter == InputStream.class and resource instanceof IFile, then obtains the file contents.",
+        "DBNResource.getAdapter is a changed symbol and a proven accepted impact."
+      ],
+      "distance": 0,
+      "evidence_strength": "medium",
+      "status": "inferred",
+      "reason": "A consumer crosses the navigator resource adapter surface to request a typed representation, and the changed implementation now exposes Eclipse IFile content as an InputStream.",
+      "uncertainty": "Only one concrete caller is established; the full set of adapter consumers, stream ownership requirements, and propagation of adaptation failures are not shown. No caller crossing into DBNPathBase.dropNodes is supplied, so the drop workflow is not inferred as a separate boundary.",
+      "llm_confidence": 0.88
+    }
+  ],
+  "composed_dispatch_edges": [],
+  "run_metrics": {
+    "llm_by_purpose": {
+      "pr_semantic_analysis": {
+        "calls": 1,
+        "errors": 0,
+        "input_tokens": 3227,
+        "output_tokens": 4037,
+        "reasoning_tokens": 1756,
+        "models": [
+          "gpt-5.6-sol"
+        ]
+      },
+      "route_discovery": {
+        "calls": 1,
+        "errors": 0,
+        "input_tokens": 7154,
+        "output_tokens": 33,
+        "reasoning_tokens": 0,
+        "models": [
+          "gpt-5.6-sol"
+        ]
+      },
+      "boundary_reasoning": {
+        "calls": 1,
+        "errors": 0,
+        "input_tokens": 3955,
+        "output_tokens": 522,
+        "reasoning_tokens": 276,
+        "models": [
+          "gpt-5.6-sol"
+        ]
+      },
+      "investigator": {
+        "calls": 18,
+        "errors": 0,
+        "input_tokens": 38326,
+        "output_tokens": 11164,
+        "reasoning_tokens": 6354,
+        "models": [
+          "gpt-5.6-sol"
+        ]
+      },
+      "ai_recovery": {
+        "calls": 12,
+        "errors": 0,
+        "input_tokens": 29920,
+        "output_tokens": 1071,
+        "reasoning_tokens": 191,
+        "models": [
+          "gpt-5.6-sol"
+        ]
+      }
+    },
+    "llm_totals": {
+      "calls": 33,
+      "errors": 0,
+      "input_tokens": 82582,
+      "output_tokens": 16827,
+      "reasoning_tokens": 8577
+    },
+    "cbm": {
+      "calls": 185,
+      "errors": 2,
+      "by_operation": {
+        "index_repository": 3,
+        "query_graph": 54,
+        "search_graph": 110,
+        "get_graph_schema": 1,
+        "search_code": 13,
+        "trace_path": 4
+      },
+      "enrichment_requests": 20
+    },
+    "wall_seconds": 619.7,
+    "tests": {
+      "environments": [],
+      "mapped_executions": 0,
+      "mapped_outcomes": {},
+      "ci_suite": {
+        "status": "unknown",
+        "blocker": "framework_unsupported",
+        "passed": null,
+        "failed": null
+      }
+    }
+  },
+  "framework_boundary_candidates": [
+    {
+      "category": "callback_registration",
+      "status": "unresolved",
+      "source_symbol": "?",
+      "via": "?",
+      "targets": [
+        "BookmarksHandlerImpl.getAssociatedDataSources"
+      ],
+      "message_type": null,
+      "facts": [
+        {
+          "provenance": "cbm_entrypoint",
+          "fact": "BookmarksHandlerImpl.getAssociatedDataSources is a reached entrypoint with decorator metadata and no route",
+          "file": "plugins/org.jkiss.dbeaver.core/src/org/jkiss/dbeaver/ui/resources/bookmarks/BookmarksHandlerImpl.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_inherits",
+          "fact": "BookmarksHandlerImpl inherits AbstractResourceHandler",
+          "file": "plugins/org.jkiss.dbeaver.core/src/org/jkiss/dbeaver/ui/resources/bookmarks/BookmarksHandlerImpl.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_override",
+          "fact": "BookmarksHandlerImpl.getAssociatedDataSources overrides AbstractResourceHandler.getAssociatedDataSources",
+          "file": "plugins/org.jkiss.dbeaver.core/src/org/jkiss/dbeaver/ui/resources/bookmarks/BookmarksHandlerImpl.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "AddBookmarkDialog.createDialogArea uses BookmarksHandlerImpl",
+          "file": "plugins/org.jkiss.dbeaver.core/src/org/jkiss/dbeaver/ui/actions/common/AddBookmarkHandler.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "AddBookmarkHandler.createBookmarkDialog uses BookmarksHandlerImpl",
+          "file": "plugins/org.jkiss.dbeaver.core/src/org/jkiss/dbeaver/ui/actions/common/AddBookmarkHandler.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "NavigateBookmarkHandler.execute uses BookmarksHandlerImpl",
+          "file": "plugins/org.jkiss.dbeaver.core/src/org/jkiss/dbeaver/ui/actions/common/NavigateBookmarkHandler.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "DBNBookmarkFolder.dropNodes uses BookmarksHandlerImpl",
+          "file": "plugins/org.jkiss.dbeaver.core/src/org/jkiss/dbeaver/ui/resources/bookmarks/DBNBookmarkFolder.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "DBNBookmarkFolder.pasteNodes uses BookmarksHandlerImpl",
+          "file": "plugins/org.jkiss.dbeaver.core/src/org/jkiss/dbeaver/ui/resources/bookmarks/DBNBookmarkFolder.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_configures",
+          "fact": "CBM records no CONFIGURES relation for BookmarksHandlerImpl (CBM emits CONFIGURES for configuration keys and environment access, not registrations)",
+          "file": null,
+          "line": null
+        }
+      ],
+      "checks": {},
+      "missing": [
+        "no repository code that hands BookmarksHandlerImpl to the framework was found"
+      ],
+      "runtime_needed": null,
+      "resolved_by": null,
+      "queries": 20
+    },
+    {
+      "category": "callback_registration",
+      "status": "unresolved",
+      "source_symbol": "?",
+      "via": "?",
+      "targets": [
+        "SQLScriptTaskConfigurationWizard.saveTaskState"
+      ],
+      "message_type": null,
+      "facts": [
+        {
+          "provenance": "cbm_entrypoint",
+          "fact": "SQLScriptTaskConfigurationWizard.saveTaskState is a reached entrypoint with decorator metadata and no route",
+          "file": "plugins/org.jkiss.dbeaver.data.transfer.ui/src/org/jkiss/dbeaver/tasks/ui/sql/script/SQLScriptTaskConfigurationWizard.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_inherits",
+          "fact": "SQLScriptTaskConfigurationWizard inherits TaskConfigurationWizard",
+          "file": "plugins/org.jkiss.dbeaver.data.transfer.ui/src/org/jkiss/dbeaver/tasks/ui/sql/script/SQLScriptTaskConfigurationWizard.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_override",
+          "fact": "SQLScriptTaskConfigurationWizard.saveTaskState overrides TaskConfigurationWizard.saveTaskState",
+          "file": "plugins/org.jkiss.dbeaver.data.transfer.ui/src/org/jkiss/dbeaver/tasks/ui/sql/script/SQLScriptTaskConfigurationWizard.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "SQLScriptTaskConfigurator.createTaskConfigWizard calls SQLScriptTaskConfigurationWizard",
+          "file": "plugins/org.jkiss.dbeaver.data.transfer.ui/src/org/jkiss/dbeaver/tasks/ui/sql/script/SQLScriptTaskConfigurator.java",
+          "line": 32
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "SQLScriptTaskPageSettings.SQLScriptTaskPageSettings uses SQLScriptTaskConfigurationWizard",
+          "file": "plugins/org.jkiss.dbeaver.data.transfer.ui/src/org/jkiss/dbeaver/tasks/ui/sql/script/SQLScriptTaskPageSettings.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "plugins/org.jkiss.dbeaver.data.transfer.ui/src/org/jkiss/dbeaver/tasks/ui/sql/script/SQLScriptTaskPageSettings.java uses SQLScriptTaskConfigurationWizard",
+          "file": "plugins/org.jkiss.dbeaver.data.transfer.ui/src/org/jkiss/dbeaver/tasks/ui/sql/script/SQLScriptTaskPageSettings.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_configures",
+          "fact": "CBM records no CONFIGURES relation for SQLScriptTaskConfigurationWizard (CBM emits CONFIGURES for configuration keys and environment access, not registrations)",
+          "file": null,
+          "line": null
+        }
+      ],
+      "checks": {},
+      "missing": [
+        "no repository code that hands SQLScriptTaskConfigurationWizard to the framework was found"
+      ],
+      "runtime_needed": null,
+      "resolved_by": null,
+      "queries": 20
+    },
+    {
+      "category": "callback_registration",
+      "status": "unresolved",
+      "source_symbol": "AddBookmarkDialog.createDialogArea",
+      "via": "setSelection(new StructuredSelection(targetNode))",
+      "targets": [
+        "DBNResource.getAdapter"
+      ],
+      "message_type": null,
+      "facts": [
+        {
+          "provenance": "cbm_entrypoint",
+          "fact": "DBNResource.getAdapter is a reached entrypoint with decorator metadata and no route",
+          "file": "plugins/org.jkiss.dbeaver.model.rcp/src/org/jkiss/dbeaver/model/navigator/DBNResource.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_inherits",
+          "fact": "DBNResource implements DBNLazyNode",
+          "file": "plugins/org.jkiss.dbeaver.model.rcp/src/org/jkiss/dbeaver/model/navigator/DBNResource.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_inherits",
+          "fact": "DBNResource inherits DBNNode",
+          "file": "plugins/org.jkiss.dbeaver.model.rcp/src/org/jkiss/dbeaver/model/navigator/DBNResource.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_inherits",
+          "fact": "DBNResource implements DBNNodeWithCache",
+          "file": "plugins/org.jkiss.dbeaver.model.rcp/src/org/jkiss/dbeaver/model/navigator/DBNResource.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_inherits",
+          "fact": "DBNResource implements DBNStreamData",
+          "file": "plugins/org.jkiss.dbeaver.model.rcp/src/org/jkiss/dbeaver/model/navigator/DBNResource.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_override",
+          "fact": "DBNResource.getAdapter overrides DBNNode.getAdapter",
+          "file": "plugins/org.jkiss.dbeaver.model.rcp/src/org/jkiss/dbeaver/model/navigator/DBNResource.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "AddBookmarkDialog.createDialogArea uses DBNResource",
+          "file": "plugins/org.jkiss.dbeaver.core/src/org/jkiss/dbeaver/ui/actions/common/AddBookmarkHandler.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "plugins/org.jkiss.dbeaver.core/src/org/jkiss/dbeaver/ui/actions/common/AddBookmarkHandler.java uses DBNResource",
+          "file": "plugins/org.jkiss.dbeaver.core/src/org/jkiss/dbeaver/ui/actions/common/AddBookmarkHandler.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "DataSourceToolbarHandler.nodeChanged uses DBNResource",
+          "file": "plugins/org.jkiss.dbeaver.core/src/org/jkiss/dbeaver/ui/actions/datasource/DataSourceToolbarHandler.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "BookmarksHandlerImpl.getAssociatedDataSources uses DBNResource",
+          "file": "plugins/org.jkiss.dbeaver.core/src/org/jkiss/dbeaver/ui/resources/bookmarks/BookmarksHandlerImpl.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "BookmarksHandlerImpl.makeNavigatorNode uses DBNResource",
+          "file": "plugins/org.jkiss.dbeaver.core/src/org/jkiss/dbeaver/ui/resources/bookmarks/BookmarksHandlerImpl.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "plugins/org.jkiss.dbeaver.core/src/org/jkiss/dbeaver/ui/resources/bookmarks/DBNBookmark.java uses DBNResource",
+          "file": "plugins/org.jkiss.dbeaver.core/src/org/jkiss/dbeaver/ui/resources/bookmarks/DBNBookmark.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "plugins/org.jkiss.dbeaver.core/src/org/jkiss/dbeaver/ui/resources/bookmarks/DBNBookmarkFolder.java uses DBNResource",
+          "file": "plugins/org.jkiss.dbeaver.core/src/org/jkiss/dbeaver/ui/resources/bookmarks/DBNBookmarkFolder.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "plugins/org.jkiss.dbeaver.data.transfer.ui/src/org/jkiss/dbeaver/tasks/ui/sql/script/SQLScriptTaskDataSourceSelectorDialog.java uses DBNResource",
+          "file": "plugins/org.jkiss.dbeaver.data.transfer.ui/src/org/jkiss/dbeaver/tasks/ui/sql/script/SQLScriptTaskDataSourceSelectorDialog.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "SQLScriptTaskPageSettings.updateSelectedScripts uses DBNResource",
+          "file": "plugins/org.jkiss.dbeaver.data.transfer.ui/src/org/jkiss/dbeaver/tasks/ui/sql/script/SQLScriptTaskPageSettings.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "SQLScriptTaskScriptSelectorDialog.isResourceApplicable uses DBNResource",
+          "file": "plugins/org.jkiss.dbeaver.data.transfer.ui/src/org/jkiss/dbeaver/tasks/ui/sql/script/SQLScriptTaskScriptSelectorDialog.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "plugins/org.jkiss.dbeaver.data.transfer.ui/src/org/jkiss/dbeaver/tasks/ui/sql/script/SQLScriptTaskScriptSelectorDialog.java uses DBNResource",
+          "file": "plugins/org.jkiss.dbeaver.data.transfer.ui/src/org/jkiss/dbeaver/tasks/ui/sql/script/SQLScriptTaskScriptSelectorDialog.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "SQLScriptTaskScriptSelectorDialog.updateSelectedScripts uses DBNResource",
+          "file": "plugins/org.jkiss.dbeaver.data.transfer.ui/src/org/jkiss/dbeaver/tasks/ui/sql/script/SQLScriptTaskScriptSelectorDialog.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "plugins/org.jkiss.dbeaver.erd.ui/src/org/jkiss/dbeaver/erd/model/navigator/DBNDiagram.java uses DBNResource",
+          "file": "plugins/org.jkiss.dbeaver.erd.ui/src/org/jkiss/dbeaver/erd/model/navigator/DBNDiagram.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "plugins/org.jkiss.dbeaver.erd.ui/src/org/jkiss/dbeaver/erd/model/navigator/DBNDiagramFolder.java uses DBNResource",
+          "file": "plugins/org.jkiss.dbeaver.erd.ui/src/org/jkiss/dbeaver/erd/model/navigator/DBNDiagramFolder.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "ERDResourceHandler.getAssociatedDataSources uses DBNResource",
+          "file": "plugins/org.jkiss.dbeaver.erd.ui/src/org/jkiss/dbeaver/erd/ui/navigator/ERDResourceHandler.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "ERDResourceHandler.makeNavigatorNode uses DBNResource",
+          "file": "plugins/org.jkiss.dbeaver.erd.ui/src/org/jkiss/dbeaver/erd/ui/navigator/ERDResourceHandler.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "DBPResourceHandler.getAssociatedDataSources uses DBNResource",
+          "file": "plugins/org.jkiss.dbeaver.model.rcp/src/org/jkiss/dbeaver/model/app/DBPResourceHandler.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "DBNProjectDesktop.addProjectNodes uses DBNResource",
+          "file": "plugins/org.jkiss.dbeaver.model.rcp/src/org/jkiss/dbeaver/model/navigator/DBNProjectDesktop.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "DBNProjectDesktop.filterChildren uses DBNResource",
+          "file": "plugins/org.jkiss.dbeaver.model.rcp/src/org/jkiss/dbeaver/model/navigator/DBNProjectDesktop.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "NavigatorResourceListener.refreshResourceState uses DBNResource",
+          "file": "plugins/org.jkiss.dbeaver.model.rcp/src/org/jkiss/dbeaver/model/navigator/NavigatorResourceListener.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "NavigatorResources.findResource uses DBNResource",
+          "file": "plugins/org.jkiss.dbeaver.model.rcp/src/org/jkiss/dbeaver/model/navigator/NavigatorResources.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "NavigatorResources.getNodeByResource uses DBNResource",
+          "file": "plugins/org.jkiss.dbeaver.model.rcp/src/org/jkiss/dbeaver/model/navigator/NavigatorResources.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "plugins/org.jkiss.dbeaver.model.rcp/src/org/jkiss/dbeaver/model/navigator/NavigatorResources.java uses DBNResource",
+          "file": "plugins/org.jkiss.dbeaver.model.rcp/src/org/jkiss/dbeaver/model/navigator/NavigatorResources.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "NavigatorResources.makeNode uses DBNResource",
+          "file": "plugins/org.jkiss.dbeaver.model.rcp/src/org/jkiss/dbeaver/model/navigator/NavigatorResources.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "NavigatorResources.refreshNavigatorResource uses DBNResource",
+          "file": "plugins/org.jkiss.dbeaver.model.rcp/src/org/jkiss/dbeaver/model/navigator/NavigatorResources.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "GitUIUtils.extractProject uses DBNResource",
+          "file": "plugins/org.jkiss.dbeaver.team.git.ui/src/org/jkiss/dbeaver/team/git/ui/utils/GitUIUtils.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "plugins/org.jkiss.dbeaver.ui.dashboard/src/org/jkiss/dbeaver/model/dashboard/navigator/DBNDashboard.java uses DBNResource",
+          "file": "plugins/org.jkiss.dbeaver.ui.dashboard/src/org/jkiss/dbeaver/model/dashboard/navigator/DBNDashboard.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "plugins/org.jkiss.dbeaver.ui.dashboard/src/org/jkiss/dbeaver/model/dashboard/navigator/DBNDashboardFolder.java uses DBNResource",
+          "file": "plugins/org.jkiss.dbeaver.ui.dashboard/src/org/jkiss/dbeaver/model/dashboard/navigator/DBNDashboardFolder.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "DashboardResourceHandler.getAssociatedDataSources uses DBNResource",
+          "file": "plugins/org.jkiss.dbeaver.ui.dashboard/src/org/jkiss/dbeaver/ui/dashboard/navigator/DashboardResourceHandler.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "DashboardResourceHandler.makeNavigatorNode uses DBNResource",
+          "file": "plugins/org.jkiss.dbeaver.ui.dashboard/src/org/jkiss/dbeaver/ui/dashboard/navigator/DashboardResourceHandler.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "SQLEditorHandlerOpenEditor.getCurrentScriptFolder uses DBNResource",
+          "file": "plugins/org.jkiss.dbeaver.ui.editors.sql/src/org/jkiss/dbeaver/ui/editors/sql/handlers/SQLEditorHandlerOpenEditor.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "SQLEditorHandlerShowScripts.showResourceInExplorer uses DBNResource",
+          "file": "plugins/org.jkiss.dbeaver.ui.editors.sql/src/org/jkiss/dbeaver/ui/editors/sql/handlers/SQLEditorHandlerShowScripts.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "ObjectPropertyTester.test uses DBNResource",
+          "file": "plugins/org.jkiss.dbeaver.ui.navigator/src/org/jkiss/dbeaver/ui/actions/ObjectPropertyTester.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "NavigatorAdapterFactory.getAdapter uses DBNResource",
+          "file": "plugins/org.jkiss.dbeaver.ui.navigator/src/org/jkiss/dbeaver/ui/navigator/NavigatorAdapterFactory.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "NavigatorUtils.addStandardMenuItem uses DBNResource",
+          "file": "plugins/org.jkiss.dbeaver.ui.navigator/src/org/jkiss/dbeaver/ui/navigator/NavigatorUtils.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "NavigatorUtils.openNavigatorNode uses DBNResource",
+          "file": "plugins/org.jkiss.dbeaver.ui.navigator/src/org/jkiss/dbeaver/ui/navigator/NavigatorUtils.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "NavigatorHandlerAssociateScript.execute uses DBNResource",
+          "file": "plugins/org.jkiss.dbeaver.ui.navigator/src/org/jkiss/dbeaver/ui/navigator/actions/NavigatorHandlerAssociateScript.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "NavigatorHandlerCopyAbstract.copySelection uses DBNResource",
+          "file": "plugins/org.jkiss.dbeaver.ui.navigator/src/org/jkiss/dbeaver/ui/navigator/actions/NavigatorHandlerCopyAbstract.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "NavigatorHandlerCreateFile.execute uses DBNResource",
+          "file": "plugins/org.jkiss.dbeaver.ui.navigator/src/org/jkiss/dbeaver/ui/navigator/actions/NavigatorHandlerCreateFile.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "NavigatorHandlerExec.execute uses DBNResource",
+          "file": "plugins/org.jkiss.dbeaver.ui.navigator/src/org/jkiss/dbeaver/ui/navigator/actions/NavigatorHandlerExec.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "NavigatorHandlerLinkEditor.showResourceInNavigator uses DBNResource",
+          "file": "plugins/org.jkiss.dbeaver.ui.navigator/src/org/jkiss/dbeaver/ui/navigator/actions/NavigatorHandlerLinkEditor.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "NavigatorHandlerObjectCreateCopy.execute uses DBNResource",
+          "file": "plugins/org.jkiss.dbeaver.ui.navigator/src/org/jkiss/dbeaver/ui/navigator/actions/NavigatorHandlerObjectCreateCopy.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "NavigatorHandlerObjectCreateCopy.pasteResource uses DBNResource",
+          "file": "plugins/org.jkiss.dbeaver.ui.navigator/src/org/jkiss/dbeaver/ui/navigator/actions/NavigatorHandlerObjectCreateCopy.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "NavigatorHandlerShowInExplorer.execute uses DBNResource",
+          "file": "plugins/org.jkiss.dbeaver.ui.navigator/src/org/jkiss/dbeaver/ui/navigator/actions/NavigatorHandlerShowInExplorer.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "DatabaseNavigatorLabelProvider.getImage uses DBNResource",
+          "file": "plugins/org.jkiss.dbeaver.ui.navigator/src/org/jkiss/dbeaver/ui/navigator/database/DatabaseNavigatorLabelProvider.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "DatabaseNavigatorLabelProvider.getToolTipText uses DBNResource",
+          "file": "plugins/org.jkiss.dbeaver.ui.navigator/src/org/jkiss/dbeaver/ui/navigator/database/DatabaseNavigatorLabelProvider.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "NavigatorViewBase.createNavigatorTree uses DBNResource",
+          "file": "plugins/org.jkiss.dbeaver.ui.navigator/src/org/jkiss/dbeaver/ui/navigator/database/NavigatorViewBase.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "NavigatorViewBase.getDataSourceContainer uses DBNResource",
+          "file": "plugins/org.jkiss.dbeaver.ui.navigator/src/org/jkiss/dbeaver/ui/navigator/database/NavigatorViewBase.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "plugins/org.jkiss.dbeaver.ui.navigator/src/org/jkiss/dbeaver/ui/navigator/project/ProjectExplorerView.java uses DBNResource",
+          "file": "plugins/org.jkiss.dbeaver.ui.navigator/src/org/jkiss/dbeaver/ui/navigator/project/ProjectExplorerView.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "AbstractResourceHandler.getAssociatedDataSources uses DBNResource",
+          "file": "plugins/org.jkiss.dbeaver.ui.navigator/src/org/jkiss/dbeaver/ui/resources/AbstractResourceHandler.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "AbstractResourceHandler.makeNavigatorNode uses DBNResource",
+          "file": "plugins/org.jkiss.dbeaver.ui.navigator/src/org/jkiss/dbeaver/ui/resources/AbstractResourceHandler.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "AbstractResourceHandler.openResource uses DBNResource",
+          "file": "plugins/org.jkiss.dbeaver.ui.navigator/src/org/jkiss/dbeaver/ui/resources/AbstractResourceHandler.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "ResultsContentProvider.rebuildObjectTree uses DBNResource",
+          "file": "plugins/org.jkiss.dbeaver.ui.search/src/org/jkiss/dbeaver/ui/search/AbstractSearchResultsPage.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_configures",
+          "fact": "CBM records no CONFIGURES relation for DBNResource (CBM emits CONFIGURES for configuration keys and environment access, not registrations)",
+          "file": null,
+          "line": null
+        },
+        {
+          "provenance": "cbm_source",
+          "fact": "AddBookmarkDialog.createDialogArea passes DBNResource to treeViewer.setSelection(new StructuredSelection(targetNode))",
+          "file": "plugins/org.jkiss.dbeaver.core/src/org/jkiss/dbeaver/ui/actions/common/AddBookmarkHandler.java",
+          "line": 115
+        },
+        {
+          "provenance": "cbm_path",
+          "fact": "direct relation AddBookmarkDialog.createDialogArea → DBNResource.getAdapter: AddBookmarkDialog.createDialogArea -USAGE-> navigator.DBNResource",
+          "file": null,
+          "line": null
+        },
+        {
+          "provenance": "cbm_path",
+          "fact": "calls path AddBookmarkDialog.createDialogArea → DBNResource.getAdapter: none within 5 hops",
+          "file": null,
+          "line": null
+        }
+      ],
+      "checks": {
+        "direct_relation": "AddBookmarkDialog.createDialogArea -USAGE-> navigator.DBNResource",
+        "calls_path": "none within 5 hops"
+      },
+      "missing": [
+        "the framework's invocation of DBNResource.getAdapter (lifecycle, not a call in the source)"
+      ],
+      "runtime_needed": "DBNResource.getAdapter invoked by the framework after AddBookmarkDialog.createDialogArea registers it",
+      "resolved_by": null,
+      "queries": 20
+    },
+    {
+      "category": "callback_registration",
+      "status": "unresolved",
+      "source_symbol": "SQLScriptTaskPageSettings.loadSettings",
+      "via": "add(pathNode)",
+      "targets": [
+        "DBNPathBase.dropNodes"
+      ],
+      "message_type": null,
+      "facts": [
+        {
+          "provenance": "cbm_entrypoint",
+          "fact": "DBNPathBase.dropNodes is a reached entrypoint with decorator metadata and no route",
+          "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_inherits",
+          "fact": "DBNPathBase implements DBNLazyNode",
+          "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_inherits",
+          "fact": "DBNPathBase inherits DBNNode",
+          "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_override",
+          "fact": "DBNPathBase.dropNodes overrides DBNNode.dropNodes",
+          "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "DesktopUI.openFileSystemSelector uses DBNPathBase",
+          "file": "plugins/org.jkiss.dbeaver.core/src/org/jkiss/dbeaver/core/DesktopUI.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "SQLScriptTaskPageSettings.createControl uses DBNPathBase",
+          "file": "plugins/org.jkiss.dbeaver.data.transfer.ui/src/org/jkiss/dbeaver/tasks/ui/sql/script/SQLScriptTaskPageSettings.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "plugins/org.jkiss.dbeaver.data.transfer.ui/src/org/jkiss/dbeaver/tasks/ui/sql/script/SQLScriptTaskPageSettings.java uses DBNPathBase",
+          "file": "plugins/org.jkiss.dbeaver.data.transfer.ui/src/org/jkiss/dbeaver/tasks/ui/sql/script/SQLScriptTaskPageSettings.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "SQLScriptTaskPageSettings.loadSettings uses DBNPathBase",
+          "file": "plugins/org.jkiss.dbeaver.data.transfer.ui/src/org/jkiss/dbeaver/tasks/ui/sql/script/SQLScriptTaskPageSettings.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "SQLScriptTaskPageSettings.saveSettings uses DBNPathBase",
+          "file": "plugins/org.jkiss.dbeaver.data.transfer.ui/src/org/jkiss/dbeaver/tasks/ui/sql/script/SQLScriptTaskPageSettings.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "AthenaConnectionPage.findFileSystemNode uses DBNPathBase",
+          "file": "plugins/org.jkiss.dbeaver.ext.athena.ui/src/org/jkiss/dbeaver/ext/athena/ui/views/AthenaConnectionPage.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "plugins/org.jkiss.dbeaver.ext.athena.ui/src/org/jkiss/dbeaver/ext/athena/ui/views/AthenaConnectionPage.java uses DBNPathBase",
+          "file": "plugins/org.jkiss.dbeaver.ext.athena.ui/src/org/jkiss/dbeaver/ext/athena/ui/views/AthenaConnectionPage.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "DBFResourceListener.resourceChanged uses DBNPathBase",
+          "file": "plugins/org.jkiss.dbeaver.model.rcp/src/org/jkiss/dbeaver/model/navigator/DBFResourceListener.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNFileSystemRoot.java uses DBNPathBase",
+          "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNFileSystemRoot.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "DBNFileSystems.findNodeByPath uses DBNPathBase",
+          "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNFileSystems.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPath.java uses DBNPathBase",
+          "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPath.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "DBPPlatformUI.openFileSystemSelector uses DBNPathBase",
+          "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/runtime/ui/DBPPlatformUI.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "ConsoleUserInterface.openFileSystemSelector uses DBNPathBase",
+          "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/runtime/ui/console/ConsoleUserInterface.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "NavigatorUtils.openNavigatorNode uses DBNPathBase",
+          "file": "plugins/org.jkiss.dbeaver.ui.navigator/src/org/jkiss/dbeaver/ui/navigator/NavigatorUtils.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "NavigatorHandlerCopySpecial.getObjectDisplayString uses DBNPathBase",
+          "file": "plugins/org.jkiss.dbeaver.ui.navigator/src/org/jkiss/dbeaver/ui/navigator/actions/NavigatorHandlerCopySpecial.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "NavigatorHandlerLoadResource.execute uses DBNPathBase",
+          "file": "plugins/org.jkiss.dbeaver.ui.navigator/src/org/jkiss/dbeaver/ui/navigator/actions/NavigatorHandlerLoadResource.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "NavigatorHandlerObjectCreateCopy.execute uses DBNPathBase",
+          "file": "plugins/org.jkiss.dbeaver.ui.navigator/src/org/jkiss/dbeaver/ui/navigator/actions/NavigatorHandlerObjectCreateCopy.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "NavigatorHandlerSaveResource.collectSourceFiles uses DBNPathBase",
+          "file": "plugins/org.jkiss.dbeaver.ui.navigator/src/org/jkiss/dbeaver/ui/navigator/actions/NavigatorHandlerSaveResource.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "NavigatorHandlerSaveResource.execute uses DBNPathBase",
+          "file": "plugins/org.jkiss.dbeaver.ui.navigator/src/org/jkiss/dbeaver/ui/navigator/actions/NavigatorHandlerSaveResource.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "NavigatorHandlerSaveResource.saveMultipleResources uses DBNPathBase",
+          "file": "plugins/org.jkiss.dbeaver.ui.navigator/src/org/jkiss/dbeaver/ui/navigator/actions/NavigatorHandlerSaveResource.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "NavigatorHandlerSaveResource.saveSingleFile uses DBNPathBase",
+          "file": "plugins/org.jkiss.dbeaver.ui.navigator/src/org/jkiss/dbeaver/ui/navigator/actions/NavigatorHandlerSaveResource.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "NavigatorHandlerSaveResource.saveSourceFiles uses DBNPathBase",
+          "file": "plugins/org.jkiss.dbeaver.ui.navigator/src/org/jkiss/dbeaver/ui/navigator/actions/NavigatorHandlerSaveResource.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "plugins/org.jkiss.dbeaver.ui.navigator/src/org/jkiss/dbeaver/ui/navigator/dialogs/ObjectBrowserDialog.java uses DBNPathBase",
+          "file": "plugins/org.jkiss.dbeaver.ui.navigator/src/org/jkiss/dbeaver/ui/navigator/dialogs/ObjectBrowserDialog.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "TextWithOpenFile.openBrowser uses DBNPathBase",
+          "file": "plugins/org.jkiss.dbeaver.ui/src/org/jkiss/dbeaver/ui/controls/TextWithOpenFile.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_usage",
+          "fact": "plugins/org.jkiss.dbeaver.ui/src/org/jkiss/dbeaver/ui/dialogs/DialogUtils.java uses DBNPathBase",
+          "file": "plugins/org.jkiss.dbeaver.ui/src/org/jkiss/dbeaver/ui/dialogs/DialogUtils.java",
+          "line": null
+        },
+        {
+          "provenance": "cbm_configures",
+          "fact": "CBM records no CONFIGURES relation for DBNPathBase (CBM emits CONFIGURES for configuration keys and environment access, not registrations)",
+          "file": null,
+          "line": null
+        },
+        {
+          "provenance": "cbm_source",
+          "fact": "SQLScriptTaskPageSettings.loadSettings passes DBNPathBase to selectedScripts.add(pathNode)",
+          "file": "plugins/org.jkiss.dbeaver.data.transfer.ui/src/org/jkiss/dbeaver/tasks/ui/sql/script/SQLScriptTaskPageSettings.java",
+          "line": 499
+        },
+        {
+          "provenance": "cbm_path",
+          "fact": "direct relation SQLScriptTaskPageSettings.loadSettings → DBNPathBase.dropNodes: SQLScriptTaskPageSettings.loadSettings -USAGE-> fs.DBNPathBase",
+          "file": null,
+          "line": null
+        },
+        {
+          "provenance": "cbm_path",
+          "fact": "calls path SQLScriptTaskPageSettings.loadSettings → DBNPathBase.dropNodes: none within 5 hops",
+          "file": null,
+          "line": null
+        }
+      ],
+      "checks": {
+        "direct_relation": "SQLScriptTaskPageSettings.loadSettings -USAGE-> fs.DBNPathBase",
+        "calls_path": "none within 5 hops"
+      },
+      "missing": [
+        "the framework's invocation of DBNPathBase.dropNodes (lifecycle, not a call in the source)"
+      ],
+      "runtime_needed": "DBNPathBase.dropNodes invoked by the framework after SQLScriptTaskPageSettings.loadSettings registers it",
+      "resolved_by": null,
+      "queries": 20
+    }
+  ],
+  "affected_flows": [],
+  "unresolved_changed_symbols": 0,
+  "unresolved_changed_symbol_names": [],
+  "analysis_status": "partial",
+  "analysis_notes": [
+    "Route composition is unresolved in app; some routes may be missing.",
+    "Structural exploration was bounded for this change (calls hop 2 filled a full page); boundaries beyond the explored neighborhood are not established either way.",
+    "No discovered route declaration reaches the changed symbols.",
+    "Structural enrichment facts may be incomplete (CBM returned 2 partial response(s) and 0 failed query(ies)); framework-boundary candidates may be missing facts."
+  ],
+  "test_executions": [],
+  "ci_suite": {
+    "command": [],
+    "source": "",
+    "working_dir": ".",
+    "framework": "",
+    "status": "unknown",
+    "blocker": "framework_unsupported",
+    "reason": "No repository test command could be resolved",
+    "exit_code": null,
+    "duration_ms": null,
+    "tests_passed": null,
+    "tests_failed": null,
+    "summary_line": null,
+    "failed_test_ids": [],
+    "stdout_excerpt": null,
+    "stderr_excerpt": null,
+    "output_truncated": false,
+    "evidence": []
+  },
+  "verification_gaps": [],
+  "runtime_dependencies": [],
+  "cross_repo_impacts": [],
+  "notes": [
+    "test_execution=whole_suite_fallback reason=no_mapped_tests",
+    "AI recovery (experimental, provenance=ai_recovery, run-local, not merged into structural results): path recovery found a partial, edge-verified prefix but could not prove the full path to the changed behavior; test recovery recovered no verified tests.",
+    "Saved change verification artifact: /Users/ksnaik/.sydes/workspaces/611c27dfad7f53d1/artifacts/20261027T000927Z-83d5004b/change_verification.json"
+  ],
+  "diagnostics": [
+    "code_intelligence_effective_backend=cbm selected_by=default",
+    "code_intelligence_backend=cbm transport=persistent_mcp_stdio cbm_server_version=0.11.0 cbm_executable=/Users/ksnaik/.cache/uv/archive-v0/fIq-hElUYs477A4qj4uzs/bin/codebase-memory-mcp",
+    "cbm_session_start_ms=1347.4 cbm_calls=150 cbm_mean_call_ms=1990.3",
+    "cbm_index_ms=11012.1 cbm_query_ms=287865.6 sydes_route_semantics_ms=9451.3 total_ms=309701.4",
+    "cbm_supplied=symbols,spans,imports,exports,call_edges,usage_edges,entrypoints  sydes_semantics=route_index,route_graph,repo_map",
+    "route_derived_entrypoints_added=0",
+    "cbm_gap: route composition is computed by Sydes, not CBM: CBM reports uncomposed route paths and models no persistence sinks",
+    "cbm_gap: CALLS/USAGE edges deferred: they are fetched as a bounded neighborhood around the changed symbols instead of a repository-wide sweep",
+    "handler_symbol_index: exports=45435, files_indexed=6427, imports=38302, symbols=104924",
+    "pr_semantic_analysis_prompt_chars=13844",
+    "reverse_reach_candidate_files=2",
+    "app: deterministic_routes_found=11, deterministic_frameworks=express_mount_graph,spring",
+    "app: discovery_coverage=moderate score=0.7",
+    "app: discovery_coverage_reasons=deterministic route extraction produced grounded routes; route graph composition produced mounted routes; some mount edges could not be resolved; route composition is unresolved: 1 of 1 route containers have no resolvable mount or declared prefix, so route paths may be incomplete",
+    "app: route_graph_containers=4, route_graph_declarations=1, route_graph_mount_edges=2, route_graph_composed_routes=1, route_graph_unresolved_mounts=2",
+    "app: deterministic_routes=11, llm_routes=0, merged_routes=11, rejected_routes=0, final_routes=11",
+    "app: merged_llm_routes=0",
+    "java_field_bridge_edges_added=3979",
+    "interface_bridge_edges_added=3",
+    "graph_slice_seeds: changed=3 routes=0 dropped_auxiliary=0 total=3",
+    "graph_slice: used=True seeds=3 canonical_seeds=3 unresolved_seeds=0 unresolved_changed=0 unresolved_auxiliary=0 graph_calls=4 nodes=400 call_edges=516 usage_edges=10 truncated=True fell_back=False",
+    "impact_interpreter: affected_entrypoints=4, ambiguous_edges=0, boundary_budget_exhausted=False, boundary_emitted=0, boundary_expansions=5, boundary_frontier_considered=5, boundary_rejected_weak_evidence=0, call_edges=519, changed_symbols=3, evidence_confirmed=0, guide_actions={}, guide_budget_exhausted=False, guide_calls=0, guide_error_details=[], guide_errors=0, guide_latency_ms=0.0, guide_no_progress=0, guide_triggered=False, http_entrypoints=0, known_entrypoints=24955, llm_candidates=0, llm_candidates_accepted=0, llm_candidates_corroborated=0, llm_candidates_missing_reason=0, llm_candidates_self_referential=0, llm_candidates_uncorroborated=0, llm_candidates_ungrounded=0, llm_candidates_whole_change_unanchored=0, llm_new_entrypoints=0, llm_no_candidate_turns=0, unresolved_after=0, unresolved_before=0, unresolved_symbols=0, usage_edges=10",
+    "repo_profile: rebuilt (0 package(s), 0 framework(s))",
+    "boundary_reasoning: candidates=4 inferred=1",
+    "app: test_files_found=73",
+    "app: test_cases_found=421",
+    "test_frameworks_detected=none",
+    "ci_suite=unresolved reason=No repository test command could be resolved",
+    "structural_enrichment: triggered=[callback_registration: 4 callback entrypoint(s)] cbm_requests=20 (calls_path:2,direct:2,relations:2,schema:1,search:13) cache_hits=(relations:1) errors=0 truncated=2 families=[CALLS,IMPLEMENTS,INHERITS,OVERRIDE,USAGE,calls_path,direct_relation,search_code] candidates=4 unresolved=4",
+    "code_review_context_added: plugins/org.jkiss.dbeaver.model.nio/src/org/jkiss/dbeaver/model/nio/NIOUtils.java:resolve -- copyInputStream calls resolve at plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java:364 (a changed line)",
+    "code_review_context_added: plugins/org.jkiss.dbeaver.model.rcp/src/org/jkiss/dbeaver/model/fs/nio/EFSNIOFile.java:getContents -- getAdapter calls getContents at plugins/org.jkiss.dbeaver.model.rcp/src/org/jkiss/dbeaver/model/navigator/DBNResource.java:425 (a changed line)",
+    "code_review_context_added: plugins/org.jkiss.dbeaver.model.rcp/src/org/jkiss/dbeaver/model/fs/nio/EFSNIOResource.java:copy -- copyInputStream calls copy at plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java:369 (a changed line)",
+    "code_review_context_added: plugins/org.jkiss.dbeaver.model.rcp/src/org/jkiss/dbeaver/model/fs/nio/EFSNIOResource.java:exists -- copyInputStream calls exists at plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java:366 (a changed line)",
+    "code_review_context_added: plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/LogHandler.java:error -- getAdapter calls error at plugins/org.jkiss.dbeaver.model.rcp/src/org/jkiss/dbeaver/model/navigator/DBNResource.java:427 (a changed line)",
+    "code_review_context_added: plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/DBNRoot.java:getNodeDisplayName -- dropNodes calls getNodeDisplayName at plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java:295 (a changed line)",
+    "code_review_context_added: plugins/org.jkiss.dbeaver.model.rcp/src/org/jkiss/dbeaver/model/fs/nio/EFSNIOPath.java:toPath -- getAdapter calls toPath at plugins/org.jkiss.dbeaver.model.rcp/src/org/jkiss/dbeaver/model/navigator/DBNResource.java:422 (1 line(s) from a changed line)",
+    "code_review_context_added: plugins/org.jkiss.dbeaver.ui.navigator/src/org/jkiss/dbeaver/ui/editors/entity/properties/TabbedFolderPageNode.java:getAdapter -- dropNodes calls getAdapter at plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java:289 (1 line(s) from a changed line)",
+    "code_review_context_added: plugins/org.jkiss.dbeaver.data.transfer.ui/src/org/jkiss/dbeaver/tasks/ui/sql/script/SQLScriptTaskPageSettings.java:saveSettings -- saveSettings calls the changed getAdapter",
+    "code_review_context_related=9",
+    "code_review_questions=10",
+    "investigator: hypotheses=5 lookups=12/12 confirmed=0 refuted=0 unknown=5 findings=0 llm_calls=18 errors=0",
+    "investigation_artifact=/Users/ksnaik/StudioProjects/sydes/benchmarks/aacr/results/alloc-A1-snapshot-c54d97e-first11-2026-10-26/sydes/dbeaver__dbeaver@bc3ac7b.investigation.json",
+    "run_metrics: wall_seconds=619.7 llm_calls=33 (ai_recovery:12,boundary_reasoning:1,investigator:18,pr_semantic_analysis:1,route_discovery:1) llm_errors=0 input_tokens=82582 output_tokens=16827 estimated_cost_usd=unavailable (set SYDES_LLM_PRICE_PER_MTOK) cbm_requests=185 cbm_enrichment_requests=20 test_executions=0 test_outcomes={}"
+  ],
+  "behavioral": null,
+  "known_routes": [
+    {
+      "method": "GET",
+      "path": "/",
+      "handler": "ping",
+      "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/app/DBPPingController.java",
+      "repo": "app",
+      "service": null,
+      "evidence": [
+        {
+          "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/app/DBPPingController.java",
+          "symbol": "ping",
+          "label": "@RequestMapping",
+          "snippet": "@RequestMapping\nString ping() throws DBException;"
+        },
+        {
+          "file": "plugins/org.jkiss.dbeaver.osgi.test.runner/src/org/jkiss/junit/osgi/OSGITestRunner.java",
+          "symbol": null,
+          "label": "route_declaration",
+          "snippet": "Path workPath = Paths.get(\"\").toAbsolutePath();"
+        }
+      ],
+      "confidence": 1.0,
+      "status": "deterministic",
+      "kind": "http",
+      "impact_status": null
+    },
+    {
+      "method": "GET",
+      "path": "/bringToFront",
+      "handler": "bringToFront",
+      "file": "plugins/org.jkiss.dbeaver.ui.app.standalone/src/org/jkiss/dbeaver/ui/app/standalone/rpc/IInstanceController.java",
+      "repo": "app",
+      "service": null,
+      "evidence": [
+        {
+          "file": "plugins/org.jkiss.dbeaver.ui.app.standalone/src/org/jkiss/dbeaver/ui/app/standalone/rpc/IInstanceController.java",
+          "symbol": "bringToFront",
+          "label": "@RequestMapping(\"bringToFront\")",
+          "snippet": "@RequestMapping(\"bringToFront\")\nvoid bringToFront();"
+        }
+      ],
+      "confidence": 1.0,
+      "status": "deterministic",
+      "kind": "http",
+      "impact_status": null
+    },
+    {
+      "method": "GET",
+      "path": "/closeEditors",
+      "handler": "closeAllEditors",
+      "file": "plugins/org.jkiss.dbeaver.ui.app.standalone/src/org/jkiss/dbeaver/ui/app/standalone/rpc/IInstanceController.java",
+      "repo": "app",
+      "service": null,
+      "evidence": [
+        {
+          "file": "plugins/org.jkiss.dbeaver.ui.app.standalone/src/org/jkiss/dbeaver/ui/app/standalone/rpc/IInstanceController.java",
+          "symbol": "closeAllEditors",
+          "label": "@RequestMapping(\"closeEditors\")",
+          "snippet": "@RequestMapping(\"closeEditors\")\nvoid closeAllEditors();"
+        }
+      ],
+      "confidence": 1.0,
+      "status": "deterministic",
+      "kind": "http",
+      "impact_status": null
+    },
+    {
+      "method": "GET",
+      "path": "/executeCommand",
+      "handler": "executeWorkbenchCommand",
+      "file": "plugins/org.jkiss.dbeaver.ui.app.standalone/src/org/jkiss/dbeaver/ui/app/standalone/rpc/IInstanceController.java",
+      "repo": "app",
+      "service": null,
+      "evidence": [
+        {
+          "file": "plugins/org.jkiss.dbeaver.ui.app.standalone/src/org/jkiss/dbeaver/ui/app/standalone/rpc/IInstanceController.java",
+          "symbol": "executeWorkbenchCommand",
+          "label": "@RequestMapping(\"executeCommand\")",
+          "snippet": "@RequestMapping(\"executeCommand\")\nvoid executeWorkbenchCommand("
+        }
+      ],
+      "confidence": 1.0,
+      "status": "deterministic",
+      "kind": "http",
+      "impact_status": null
+    },
+    {
+      "method": "GET",
+      "path": "/fireEvent",
+      "handler": "fireGlobalEvent",
+      "file": "plugins/org.jkiss.dbeaver.ui.app.standalone/src/org/jkiss/dbeaver/ui/app/standalone/rpc/IInstanceController.java",
+      "repo": "app",
+      "service": null,
+      "evidence": [
+        {
+          "file": "plugins/org.jkiss.dbeaver.ui.app.standalone/src/org/jkiss/dbeaver/ui/app/standalone/rpc/IInstanceController.java",
+          "symbol": "fireGlobalEvent",
+          "label": "@RequestMapping(\"fireEvent\")",
+          "snippet": "@RequestMapping(\"fireEvent\")\nvoid fireGlobalEvent("
+        }
+      ],
+      "confidence": 1.0,
+      "status": "deterministic",
+      "kind": "http",
+      "impact_status": null
+    },
+    {
+      "method": "GET",
+      "path": "/openConnection",
+      "handler": "openDatabaseConnection",
+      "file": "plugins/org.jkiss.dbeaver.ui.app.standalone/src/org/jkiss/dbeaver/ui/app/standalone/rpc/IInstanceController.java",
+      "repo": "app",
+      "service": null,
+      "evidence": [
+        {
+          "file": "plugins/org.jkiss.dbeaver.ui.app.standalone/src/org/jkiss/dbeaver/ui/app/standalone/rpc/IInstanceController.java",
+          "symbol": "openDatabaseConnection",
+          "label": "@RequestMapping(\"openConnection\")",
+          "snippet": "@RequestMapping(\"openConnection\")\nvoid openDatabaseConnection("
+        }
+      ],
+      "confidence": 1.0,
+      "status": "deterministic",
+      "kind": "http",
+      "impact_status": null
+    },
+    {
+      "method": "GET",
+      "path": "/openFiles",
+      "handler": "openExternalFiles",
+      "file": "plugins/org.jkiss.dbeaver.ui.app.standalone/src/org/jkiss/dbeaver/ui/app/standalone/rpc/IInstanceController.java",
+      "repo": "app",
+      "service": null,
+      "evidence": [
+        {
+          "file": "plugins/org.jkiss.dbeaver.ui.app.standalone/src/org/jkiss/dbeaver/ui/app/standalone/rpc/IInstanceController.java",
+          "symbol": "openExternalFiles",
+          "label": "@RequestMapping(\"openFiles\")",
+          "snippet": "@RequestMapping(\"openFiles\")\nvoid openExternalFiles("
+        }
+      ],
+      "confidence": 1.0,
+      "status": "deterministic",
+      "kind": "http",
+      "impact_status": null
+    },
+    {
+      "method": "GET",
+      "path": "/ping",
+      "handler": "ping",
+      "file": "plugins/org.jkiss.dbeaver.ui.app.standalone/src/org/jkiss/dbeaver/ui/app/standalone/rpc/IInstanceController.java",
+      "repo": "app",
+      "service": null,
+      "evidence": [
+        {
+          "file": "plugins/org.jkiss.dbeaver.ui.app.standalone/src/org/jkiss/dbeaver/ui/app/standalone/rpc/IInstanceController.java",
+          "symbol": "ping",
+          "label": "@RequestMapping(value = \"ping\", timeout = 5)",
+          "snippet": "@RequestMapping(value = \"ping\", timeout = 5)\nlong ping(@RequestParameter(\"payload\") long payload);"
+        }
+      ],
+      "confidence": 1.0,
+      "status": "deterministic",
+      "kind": "http",
+      "impact_status": null
+    },
+    {
+      "method": "GET",
+      "path": "/quit",
+      "handler": "quit",
+      "file": "plugins/org.jkiss.dbeaver.ui.app.standalone/src/org/jkiss/dbeaver/ui/app/standalone/rpc/IInstanceController.java",
+      "repo": "app",
+      "service": null,
+      "evidence": [
+        {
+          "file": "plugins/org.jkiss.dbeaver.ui.app.standalone/src/org/jkiss/dbeaver/ui/app/standalone/rpc/IInstanceController.java",
+          "symbol": "quit",
+          "label": "@RequestMapping(\"quit\")",
+          "snippet": "@RequestMapping(\"quit\")\nvoid quit();"
+        }
+      ],
+      "confidence": 1.0,
+      "status": "deterministic",
+      "kind": "http",
+      "impact_status": null
+    },
+    {
+      "method": "GET",
+      "path": "/threadDump",
+      "handler": "getThreadDump",
+      "file": "plugins/org.jkiss.dbeaver.ui.app.standalone/src/org/jkiss/dbeaver/ui/app/standalone/rpc/IInstanceController.java",
+      "repo": "app",
+      "service": null,
+      "evidence": [
+        {
+          "file": "plugins/org.jkiss.dbeaver.ui.app.standalone/src/org/jkiss/dbeaver/ui/app/standalone/rpc/IInstanceController.java",
+          "symbol": "getThreadDump",
+          "label": "@RequestMapping(\"threadDump\")",
+          "snippet": "@RequestMapping(\"threadDump\")\nString getThreadDump();"
+        }
+      ],
+      "confidence": 1.0,
+      "status": "deterministic",
+      "kind": "http",
+      "impact_status": null
+    },
+    {
+      "method": "GET",
+      "path": "/version",
+      "handler": "getVersion",
+      "file": "plugins/org.jkiss.dbeaver.ui.app.standalone/src/org/jkiss/dbeaver/ui/app/standalone/rpc/IInstanceController.java",
+      "repo": "app",
+      "service": null,
+      "evidence": [
+        {
+          "file": "plugins/org.jkiss.dbeaver.ui.app.standalone/src/org/jkiss/dbeaver/ui/app/standalone/rpc/IInstanceController.java",
+          "symbol": "getVersion",
+          "label": "@RequestMapping(\"version\")",
+          "snippet": "@RequestMapping(\"version\")\nString getVersion();"
+        }
+      ],
+      "confidence": 1.0,
+      "status": "deterministic",
+      "kind": "http",
+      "impact_status": null
+    }
+  ],
+  "unattached_evidence": []
+}

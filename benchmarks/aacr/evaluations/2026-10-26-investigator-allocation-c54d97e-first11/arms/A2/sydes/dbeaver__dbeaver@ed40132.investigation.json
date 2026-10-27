@@ -1,0 +1,506 @@
+{
+  "version": "sydes-investigation/1",
+  "packet": [
+    {
+      "id": "E1",
+      "kind": "diff",
+      "ref": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/DBNDatabaseNode.java",
+      "chars": 1507
+    },
+    {
+      "id": "E2",
+      "kind": "diff",
+      "ref": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/struct/DBSObjectFilter.java",
+      "chars": 2393
+    },
+    {
+      "id": "E3",
+      "kind": "changed_symbol",
+      "ref": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/DBNDatabaseNode.java:639-794",
+      "chars": 595
+    },
+    {
+      "id": "E4",
+      "kind": "changed_symbol",
+      "ref": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/struct/DBSObjectFilter.java:153-192",
+      "chars": 709
+    },
+    {
+      "id": "E5",
+      "kind": "changed_symbol",
+      "ref": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/struct/DBSObjectFilter.java:194-197",
+      "chars": 223
+    },
+    {
+      "id": "E6",
+      "kind": "structural",
+      "ref": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/DBPOverloadedObject.java:29-30",
+      "chars": 197
+    },
+    {
+      "id": "E7",
+      "kind": "structural",
+      "ref": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/struct/DBSObjectFilter.java:199-205",
+      "chars": 435
+    },
+    {
+      "id": "E8",
+      "kind": "structural",
+      "ref": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/exec/DBCStatistics.java:158-160",
+      "chars": 269
+    },
+    {
+      "id": "E9",
+      "kind": "structural",
+      "ref": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/struct/DBSDataManipulator.java:53-53",
+      "chars": 217
+    },
+    {
+      "id": "E10",
+      "kind": "structural",
+      "ref": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/struct/DBSObjectFilter.java:74-76",
+      "chars": 231
+    },
+    {
+      "id": "E11",
+      "kind": "structural",
+      "ref": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/struct/DBSObjectFilter.java:140-142",
+      "chars": 262
+    },
+    {
+      "id": "E12",
+      "kind": "structural",
+      "ref": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/struct/DBSObjectFilter.java:207-216",
+      "chars": 555
+    },
+    {
+      "id": "E13",
+      "kind": "structural",
+      "ref": "plugins/org.jkiss.dbeaver.model.sql/src/org/jkiss/dbeaver/model/sql/semantics/OffsetKeyedTreeMap.java:636-639",
+      "chars": 261
+    },
+    {
+      "id": "E14",
+      "kind": "structural",
+      "ref": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/DBNDatabaseNode.java:419-538",
+      "chars": 2500
+    },
+    {
+      "id": "E15",
+      "kind": "structural",
+      "ref": "plugins/org.jkiss.dbeaver.erd.model/src/org/jkiss/dbeaver/erd/model/DiagramObjectCollector.java:102-141",
+      "chars": 1720
+    },
+    {
+      "id": "E16",
+      "kind": "structural",
+      "ref": "plugins/org.jkiss.dbeaver.erd.model/src/org/jkiss/dbeaver/erd/model/ERDContentProviderDefault.java:58-144",
+      "chars": 2500
+    },
+    {
+      "id": "E17",
+      "kind": "test_execution",
+      "ref": "ci_suite",
+      "chars": 52
+    },
+    {
+      "id": "E18",
+      "kind": "gap",
+      "ref": "unresolved:loadTreeItems",
+      "chars": 81
+    },
+    {
+      "id": "E19",
+      "kind": "change_analysis",
+      "ref": "summary",
+      "chars": 272
+    },
+    {
+      "id": "E20",
+      "kind": "change_analysis",
+      "ref": "local_risk",
+      "chars": 333
+    },
+    {
+      "id": "E21",
+      "kind": "change_analysis",
+      "ref": "local_risk",
+      "chars": 326
+    },
+    {
+      "id": "E22",
+      "kind": "change_analysis",
+      "ref": "uncertainty",
+      "chars": 185
+    },
+    {
+      "id": "E23",
+      "kind": "change_analysis",
+      "ref": "uncertainty",
+      "chars": 178
+    },
+    {
+      "id": "E24",
+      "kind": "change_analysis",
+      "ref": "uncertainty",
+      "chars": 114
+    },
+    {
+      "id": "E25",
+      "kind": "change_analysis",
+      "ref": "uncertainty",
+      "chars": 195
+    },
+    {
+      "id": "E26",
+      "kind": "change_analysis",
+      "ref": "uncertainty",
+      "chars": 183
+    }
+  ],
+  "hypotheses": [
+    {
+      "id": "H1",
+      "claim": "Changing `matches(String)` to `matches(String...)` removes the JVM-level `matches(String)` method, so previously compiled plugins or modules invoking that public method may fail at runtime with `NoSuchMethodError`.",
+      "why_suspected": "Java varargs compile as an array parameter, changing the descriptor from `(String)` to `(String[])`; the evidence shows direct replacement rather than retaining a forwarding single-name overload.",
+      "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/struct/DBSObjectFilter.java",
+      "line": 153,
+      "severity": "P1",
+      "initial_evidence": [
+        "E2",
+        "E4",
+        "E15",
+        "E16"
+      ],
+      "questions_to_resolve": [
+        "Is `DBSObjectFilter` part of the binary compatibility contract for independently compiled DBeaver plugins?",
+        "Are any distributed or third-party binaries compiled against `matches(String)`?"
+      ]
+    },
+    {
+      "id": "H2",
+      "claim": "Multi-name filtering may reject an overloaded object even when one candidate identity satisfies the complete filter, because inclusion matching one name and exclusion matching a different name is evaluated as a rejection rather than evaluating each candidate identity independently.",
+      "why_suspected": "The implementation computes `any name matches an include` and then rejects on `any name matches an exclude`. Thus, for example, an overloaded name can satisfy the include while the ordinary name independently satisfies an exclude, although the included identity itself is not excluded.",
+      "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/struct/DBSObjectFilter.java",
+      "line": 163,
+      "severity": "P2",
+      "initial_evidence": [
+        "E1",
+        "E2",
+        "E19",
+        "E21",
+        "E25"
+      ],
+      "questions_to_resolve": [
+        "Is the intended contract `exists name: include(name) && !exclude(name)`, or should an exclusion matching any alias reject the whole object?",
+        "What results are expected when include and exclude patterns match different identities of the same overloaded object?"
+      ]
+    }
+  ],
+  "lookups": [
+    {
+      "n": 1,
+      "id": "L1",
+      "hypothesis": "H1",
+      "tool": "read_source",
+      "args": {
+        "path": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/struct/DBSObjectFilter.java",
+        "start_line": 120,
+        "end_line": 180
+      },
+      "why": "Confirm the exact source-level signature change context and whether a compatibility overload remains.",
+      "provenance": "source_read",
+      "result_chars": 2215,
+      "result_excerpt": "120: \n121:     public void addExclude(String name) {\n122:         if (exclude == null) {\n123:             exclude = new ArrayList<>();\n124:         }\n125:         if (!exclude.contains(name)) {\n126:             exclude.add(name);\n127:         }\n128:         this.excludePatterns = null;\n129:     }\n130: \n131:     public void setExclude(List<String> exclude) {\n132:         this.exclude = exclude;\n133:         this.excludePatterns = null;\n134:     }\n135: \n136:     public boolean isNotApplicable() {\n137:         return !enabled || isEmpty();\n138:     }\n139: \n140:     public boolean isEmpty() {\n141:"
+    },
+    {
+      "n": 2,
+      "id": "L2",
+      "hypothesis": "H1",
+      "tool": "search_text",
+      "args": {
+        "pattern": "Export-Package:|org\\.jkiss\\.dbeaver\\.model\\.struct",
+        "path_glob": "plugins/org.jkiss.dbeaver.model/META-INF/MANIFEST.MF"
+      },
+      "why": "Determine whether the package containing DBSObjectFilter is exported by the model bundle, which establishes availability to independently compiled OSGi plugins.",
+      "provenance": "source_search",
+      "result_chars": 368,
+      "result_excerpt": "plugins/org.jkiss.dbeaver.model/META-INF/MANIFEST.MF:11: Export-Package: org.jkiss.dbeaver,\nplugins/org.jkiss.dbeaver.model/META-INF/MANIFEST.MF:74: org.jkiss.dbeaver.model.struct,\nplugins/org.jkiss.dbeaver.model/META-INF/MANIFEST.MF:75: org.jkiss.dbeaver.model.struct.cache,\nplugins/org.jkiss.dbeaver.model/META-INF/MANIFEST.MF:76: org.jkiss.dbeaver.model.struct.rdb,"
+    },
+    {
+      "n": 3,
+      "id": "L3",
+      "hypothesis": "H1",
+      "tool": "runtime_for",
+      "args": {
+        "term": "DBSObjectFilter.matches"
+      },
+      "why": "Determine whether runtime evidence observed any existing compiled caller linking specifically to matches(String), including a NoSuchMethodError after the descriptor changed.",
+      "provenance": "runtime_evidence",
+      "result_chars": 54,
+      "result_excerpt": "no runtime evidence mentions 'DBSObjectFilter.matches'"
+    },
+    {
+      "n": 4,
+      "id": "L4",
+      "hypothesis": "H1",
+      "tool": "search_text",
+      "args": {
+        "pattern": "\\.matches\\([^,\\n()]*\\)",
+        "path_glob": "plugins/**/*.java"
+      },
+      "why": "Identify plugin source call sites that invoke matches with one argument; these modules would compile to the removed matches(String) JVM descriptor when built against the prior API, providing concrete candidates for affected distributed binaries.",
+      "provenance": "source_search",
+      "result_chars": 6000,
+      "result_excerpt": "plugins/org.jkiss.dbeaver.core/src/org/jkiss/dbeaver/tools/scripts/ScriptsImportWizard.java:185: if (mask.matcher(file.getName()).matches()) {\nplugins/org.jkiss.dbeaver.core/src/org/jkiss/dbeaver/ui/dialogs/connection/ConnectionNameResolver.java:111: if (nextPart.matches(\"[0-9]+\")) {\nplugins/org.jkiss.dbeaver.core/src/org/jkiss/dbeaver/ui/dialogs/connection/NewConnectionFromUrlDialog.java:175: if (DatabaseURL.getPattern(driver.getSampleURL()).matcher(url).matches()) {\nplugins/org.jkiss.dbeaver.core/src/org/jkiss/dbeaver/ui/dialogs/connection/NewConnectionFromUrlDialog.java:183: if (matcher.mat"
+    },
+    {
+      "n": 5,
+      "id": "L5",
+      "hypothesis": "H2",
+      "tool": "read_source",
+      "args": {
+        "path": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/struct/DBSObjectFilter.java",
+        "start_line": 120,
+        "end_line": 205
+      },
+      "why": "Inspect the multi-name filtering implementation and nearby contract/comments to determine whether include and exclude are evaluated per identity or across the whole object.",
+      "provenance": "source_read",
+      "result_chars": 3113,
+      "result_excerpt": "120: \n121:     public void addExclude(String name) {\n122:         if (exclude == null) {\n123:             exclude = new ArrayList<>();\n124:         }\n125:         if (!exclude.contains(name)) {\n126:             exclude.add(name);\n127:         }\n128:         this.excludePatterns = null;\n129:     }\n130: \n131:     public void setExclude(List<String> exclude) {\n132:         this.exclude = exclude;\n133:         this.excludePatterns = null;\n134:     }\n135: \n136:     public boolean isNotApplicable() {\n137:         return !enabled || isEmpty();\n138:     }\n139: \n140:     public boolean isEmpty() {\n141:"
+    },
+    {
+      "n": 6,
+      "id": "L6",
+      "hypothesis": "H2",
+      "tool": "tests_for",
+      "args": {
+        "term": "DBSObjectFilter.matches"
+      },
+      "why": "Find tests that define expected behavior when different names of one object match include and exclude patterns.",
+      "provenance": "test_evidence",
+      "result_chars": 74,
+      "result_excerpt": "no test_mapping/test_execution evidence mentions 'DBSObjectFilter.matches'"
+    },
+    {
+      "n": 7,
+      "id": "L7",
+      "hypothesis": "H2",
+      "tool": "callers",
+      "args": {
+        "symbol": "DBSObjectFilter.matches"
+      },
+      "why": "Identify multi-name call sites and their semantics (aliases versus overloaded candidate identities), which can show whether exclusions are intended to apply per identity or to the whole object.",
+      "provenance": "structural_query",
+      "result_chars": 238,
+      "result_excerpt": "ERROR: Codebase Memory tool 'trace_path' reported an error: {\"error\":\"function not found\",\"function_name\":\"DBSObjectFilter.matches\",\"hint\":\"Use search_graph(name_pattern=...) to find the exact qualified name, then pass it to trace_path.\"}"
+    },
+    {
+      "n": 8,
+      "id": "L8",
+      "hypothesis": "H2",
+      "tool": "find_symbol",
+      "args": {
+        "name_pattern": "DBSObjectFilter.*matches|matches"
+      },
+      "why": "Resolve the exact indexed symbol for DBSObjectFilter.matches so its callers can be inspected for multi-name identity semantics.",
+      "provenance": "structural_query",
+      "result_chars": 6000,
+      "result_excerpt": "{\"qn_rule\":\"qn = qn_prefix == \\\"\\\" ? name : qn_prefix + \\\".\\\" + name\",\"cols\":[\"name\",\"label\",\"lines\",\"in\",\"out\"],\"groups\":[{\"qn_prefix\":\"Users-ksnaik-.cache-sydes-aacr-repos-dbeaver__dbeaver.plugins.org.jkiss.dbeaver.ext.postgresql.src.org.jkiss.dbeaver.ext.postgresql.model.PostgreDialect\",\"file\":\"plugins/org.jkiss.dbeaver.ext.postgresql/src/org/jkiss/dbeaver/ext/postgresql/model/PostgreDialect.java\",\"rows\":[[\"POSTGRE_FUNCTIONS_STRING = new String[]{\\n        \\\"bit_length\\\",\\n        \\\"btrim\\\",\\n        \\\"chr\\\",\\n        \\\"concat_ws\\\",\\n        \\\"convert\\\",\\n        \\\"convert_from\\\",\\n        "
+    }
+  ],
+  "outcomes": [
+    {
+      "hypothesis": "H1",
+      "lookups": [
+        "L1",
+        "L2",
+        "L3",
+        "L4"
+      ],
+      "status": "UNKNOWN",
+      "supported_claim": "The change replaces the exported public `matches(String)` signature with `matches(String...)`, which is source-compatible for one-argument calls but changes the JVM parameter type to `String[]`; however, the evidence does not establish that an older compiled consumer is deployed against this changed class.",
+      "reasoning": "L2 shows that `org.jkiss.dbeaver.model.struct` is exported, and E15 shows a caller in another plugin source tree. The diff establishes the signature replacement. Thus binary incompatibility is possible for a class previously compiled to invoke `matches(String)`. However, source callers can be recompiled to invoke the new array descriptor, and no supplied evidence identifies a distributed or third-party binary that remains compiled against the old descriptor, establishes a supported mixed-version compatibility contract, or shows an actual runtime linkage failure. L3 explicitly reports no runtime evidence for this method. Therefore the runtime defect cannot be confirmed or refuted.",
+      "defect_evidence": [
+        {
+          "source": "L2",
+          "file": "plugins/org.jkiss.dbeaver.model/META-INF/MANIFEST.MF",
+          "line": 74,
+          "quote": "org.jkiss.dbeaver.model.struct,"
+        },
+        {
+          "source": "E15",
+          "file": "plugins/org.jkiss.dbeaver.erd.model/src/org/jkiss/dbeaver/erd/model/DiagramObjectCollector.java",
+          "line": 122,
+          "quote": "if (objectFilter != null && !objectFilter.matches(entity.getName())) {"
+        }
+      ],
+      "changed_evidence": [
+        {
+          "source": "L1",
+          "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/struct/DBSObjectFilter.java",
+          "line": 153,
+          "quote": "public synchronized boolean matches(String... names) {"
+        }
+      ],
+      "causal_link": "Replacing a single `String` parameter with `String...` replaces the JVM-level parameter type with `String[]`; an unrecompiled caller targeting the former `(String)` method would not resolve to the new method. The evidence does not establish that such an unrecompiled caller will be loaded with this version.",
+      "refuting": [
+        {
+          "source": "L3",
+          "explanation": "No runtime evidence mentions `DBSObjectFilter.matches`; this does not prove safety, but it provides no observed `NoSuchMethodError`."
+        }
+      ],
+      "missing": [
+        "Evidence of a distributed or third-party binary compiled against `DBSObjectFilter.matches(String)` and loaded with the changed model bundle.",
+        "The bundle/package version constraints or compatibility policy showing that old independently compiled consumers are expected and permitted to resolve against this updated exported package.",
+        "Runtime linkage evidence, such as a `NoSuchMethodError`, from an affected deployment."
+      ],
+      "verified_defect_evidence": [
+        {
+          "source": "L2",
+          "file": "plugins/org.jkiss.dbeaver.model/META-INF/MANIFEST.MF",
+          "line": 74,
+          "quote": "org.jkiss.dbeaver.model.struct,",
+          "verification": "citation confirmed near plugins/org.jkiss.dbeaver.model/META-INF/MANIFEST.MF:74"
+        },
+        {
+          "source": "E15",
+          "file": "plugins/org.jkiss.dbeaver.erd.model/src/org/jkiss/dbeaver/erd/model/DiagramObjectCollector.java",
+          "line": 122,
+          "quote": "if (objectFilter != null && !objectFilter.matches(entity.getName())) {",
+          "verification": "citation confirmed near plugins/org.jkiss.dbeaver.erd.model/src/org/jkiss/dbeaver/erd/model/DiagramObjectCollector.java:122"
+        }
+      ],
+      "verified_changed_evidence": [
+        {
+          "source": "L1",
+          "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/struct/DBSObjectFilter.java",
+          "line": 153,
+          "quote": "public synchronized boolean matches(String... names) {",
+          "verification": "citation confirmed near plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/struct/DBSObjectFilter.java:153"
+        }
+      ]
+    },
+    {
+      "hypothesis": "H2",
+      "lookups": [
+        "L5",
+        "L6",
+        "L7",
+        "L8"
+      ],
+      "status": "UNKNOWN",
+      "supported_claim": "On the changed DBNDatabaseNode overloaded-object path, inclusion may match one supplied identity while exclusion matches the other, causing matches(...) to return false. The evidence does not establish whether that cross-identity rejection violates the intended filtering contract.",
+      "reasoning": "The mechanics are established: DBNDatabaseNode now supplies both the ordinary name and overloaded name. DBSObjectFilter independently searches all supplied names for an inclusion match and then independently searches all supplied names for an exclusion match, returning false on any exclusion. Thus an ordinary name that satisfies the complete filter by itself can now be rejected when only the overloaded name matches an exclusion. However, no contract, documentation, expected-result test, or user-facing requirement establishes that filters must be evaluated independently per identity (`exists name: include(name) && !exclude(name)`) rather than treating an exclusion of any alias as excluding the whole object. E25 explicitly identifies this semantic uncertainty, and L6 provides no relevant test evidence. Therefore the changed behavior is proven, but its status as a defect is not.",
+      "defect_evidence": [
+        {
+          "source": "L5",
+          "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/struct/DBSObjectFilter.java",
+          "line": 163,
+          "quote": "boolean matched = false;\n            for (Object pattern : includePatterns) {\n                if (atLeastOneNameMatchesPattern(pattern, names)) {\n                    matched = true;\n                    break;\n                }\n            }\n            if (!matched) {\n                return false;\n            }"
+        },
+        {
+          "source": "L5",
+          "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/struct/DBSObjectFilter.java",
+          "line": 183,
+          "quote": "if (excludePatterns != null) {\n            for (Object pattern : excludePatterns) {\n                if (atLeastOneNameMatchesPattern(pattern, names)) {\n                    return false;\n                }\n            }\n        }"
+        }
+      ],
+      "changed_evidence": [
+        {
+          "source": "change",
+          "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/DBNDatabaseNode.java",
+          "line": 730,
+          "quote": "isMatchingFilter = filter.matches(\n                        objectName,\n                        overloadedObject.getOverloadedName()\n                    );"
+        },
+        {
+          "source": "L5",
+          "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/struct/DBSObjectFilter.java",
+          "line": 153,
+          "quote": "public synchronized boolean matches(String... names) {"
+        },
+        {
+          "source": "L5",
+          "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/struct/DBSObjectFilter.java",
+          "line": 194,
+          "quote": "private static boolean atLeastOneNameMatchesPattern(Object pattern, String[] names) {\n        return Arrays.stream(names)\n            .anyMatch(name -> matchesPattern(pattern, name));\n    }"
+        }
+      ],
+      "causal_link": "Previously DBNDatabaseNode called matches only with getName(). The changed caller passes both getName() and getOverloadedName(), while the changed filter applies inclusion-any-name and exclusion-any-name separately. Consequently, when include matches the ordinary name and exclude matches only the overloaded name, the old call could return true but the changed path returns false. Whether this newly introduced outcome is erroneous depends on the unestablished alias-filtering contract.",
+      "refuting": [],
+      "missing": [
+        "Evidence defining whether exclusions apply to each candidate identity independently or to the overloaded object as a whole.",
+        "A test or documented expected result for include and exclude patterns matching different identities of the same overloaded object.",
+        "Evidence clarifying the semantic relationship between getName() and getOverloadedName() and whether both are intended as equivalent aliases for exclusion purposes."
+      ],
+      "verified_defect_evidence": [
+        {
+          "source": "L5",
+          "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/struct/DBSObjectFilter.java",
+          "line": 163,
+          "quote": "boolean matched = false;\n            for (Object pattern : includePatterns) {\n                if (atLeastOneNameMatchesPattern(pattern, names)) {\n                    matched = true;\n                    break;\n                }\n            }\n            if (!matched) {\n                return false;\n            }",
+          "verification": "citation recovered near plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/struct/DBSObjectFilter.java:162-172 (model cited line 163; the real text was located there instead)"
+        },
+        {
+          "source": "L5",
+          "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/struct/DBSObjectFilter.java",
+          "line": 183,
+          "quote": "if (excludePatterns != null) {\n            for (Object pattern : excludePatterns) {\n                if (atLeastOneNameMatchesPattern(pattern, names)) {\n                    return false;\n                }\n            }\n        }",
+          "verification": "citation recovered near plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/struct/DBSObjectFilter.java:179-189 (model cited line 183; the real text was located there instead)"
+        }
+      ],
+      "verified_changed_evidence": [
+        {
+          "source": "change",
+          "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/DBNDatabaseNode.java",
+          "line": 730,
+          "quote": "isMatchingFilter = filter.matches(\n                        objectName,\n                        overloadedObject.getOverloadedName()\n                    );",
+          "verification": "citation confirmed near plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/DBNDatabaseNode.java:730"
+        },
+        {
+          "source": "L5",
+          "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/struct/DBSObjectFilter.java",
+          "line": 153,
+          "quote": "public synchronized boolean matches(String... names) {",
+          "verification": "citation confirmed near plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/struct/DBSObjectFilter.java:153"
+        },
+        {
+          "source": "L5",
+          "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/struct/DBSObjectFilter.java",
+          "line": 194,
+          "quote": "private static boolean atLeastOneNameMatchesPattern(Object pattern, String[] names) {\n        return Arrays.stream(names)\n            .anyMatch(name -> matchesPattern(pattern, name));\n    }",
+          "verification": "citation confirmed near plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/struct/DBSObjectFilter.java:194"
+        }
+      ]
+    }
+  ],
+  "confirmed": [],
+  "refuted": [],
+  "unknown": [
+    "H1",
+    "H2"
+  ],
+  "findings": [],
+  "budget": {
+    "max_hypotheses": 5,
+    "max_lookups": 12,
+    "used_lookups": 8,
+    "max_lookups_per_hypothesis": 4
+  },
+  "usage": {
+    "llm_calls": 10,
+    "by_stage": {
+      "investigator": 8,
+      "verifier": 2
+    },
+    "prompt_tokens": 18120,
+    "completion_tokens": 4827,
+    "reasoning_tokens": 2944,
+    "llm_seconds": 79.1
+  },
+  "errors": [],
+  "replay": {
+    "snapshot_version": "sydes-investigation-snapshot/1",
+    "allocation": "sequential"
+  }
+}

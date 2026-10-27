@@ -1,0 +1,62 @@
+{
+  "code_findings": [
+    {
+      "id": "investigator-H1",
+      "severity": "P2",
+      "title": "On the value-type response.Response handler path, leaving Metadata unset causes the HTTP responder to serialize \"metadata\":null, contrary to the newly documented response-without-metadata format, whic",
+      "file": "pkg/gofr/http/responder.go",
+      "line": 32,
+      "repo": null,
+      "explanation": "The added test explicitly expects a response.Response with only Data set to produce a body containing \"metadata\":null. The updated documentation states that omitted metadata defaults to a JSON object containing only data. The new responder type-switch branch creates its internal response by assigning v.Metadata to an interface{} field; for the unset map this path is demonstrated by the test to encode as null despite the field's omitempty tag.",
+      "impact": "Caused by the change: This change adds the response.Response branch at responder.go:31-32 and copies the unset map-valued v.Metadata into the internal interface{} Metadata field. The added without-metadata test records the resulting wire body as \"metadata\":null. Previously the handler unwrapped response.Response to resp.Data, so this metadata serialization path did not exist; the change therefore introduces the documented-contract mismatch.",
+      "suggested_fix": null,
+      "source": "investigator",
+      "evidence": [
+        {
+          "file": "pkg/gofr/http/responder_test.go",
+          "symbol": null,
+          "label": "verified_quote:59",
+          "snippet": "expectedBody: []byte(`{\"metadata\":null,\"data\":\"Hello World from new Server\"}`),"
+        },
+        {
+          "file": "docs/advanced-guide/setting-custom-response-headers/page.md",
+          "symbol": null,
+          "label": "verified_quote:30",
+          "snippet": "If metadata is omitted, the response defaults to:"
+        },
+        {
+          "file": "docs/advanced-guide/setting-custom-response-headers/page.md",
+          "symbol": null,
+          "label": "verified_quote:33",
+          "snippet": "{\n  \"data\": {}\n}"
+        },
+        {
+          "file": "pkg/gofr/http/responder.go",
+          "symbol": null,
+          "label": "verified_quote:32",
+          "snippet": "resp = response{Data: v.Data, Metadata: v.Metadata, Error: errorObj}"
+        }
+      ]
+    }
+  ],
+  "code_review_status": "completed",
+  "run_metrics": {
+    "llm_totals": {
+      "calls": 5,
+      "input_tokens": 11212,
+      "output_tokens": 2375,
+      "errors": 0
+    },
+    "llm_by_purpose": {
+      "investigator": {
+        "calls": 4
+      },
+      "verifier": {
+        "calls": 1
+      }
+    }
+  },
+  "diagnostics": [
+    "investigator: hypotheses=1 lookups=4/12 confirmed=1 refuted=0 unknown=0 findings=1 llm_calls=5 errors=0"
+  ]
+}

@@ -1,0 +1,844 @@
+{
+  "version": "sydes-investigation/1",
+  "packet": [
+    {
+      "id": "E1",
+      "kind": "diff",
+      "ref": "plugins/org.jkiss.dbeaver.model.rcp/src/org/jkiss/dbeaver/model/navigator/DBNResource.java",
+      "chars": 1705
+    },
+    {
+      "id": "E2",
+      "kind": "diff",
+      "ref": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java",
+      "chars": 2500
+    },
+    {
+      "id": "E3",
+      "kind": "changed_symbol",
+      "ref": "plugins/org.jkiss.dbeaver.model.rcp/src/org/jkiss/dbeaver/model/navigator/DBNResource.java:414-433",
+      "chars": 439
+    },
+    {
+      "id": "E4",
+      "kind": "changed_symbol",
+      "ref": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java:251-361",
+      "chars": 771
+    },
+    {
+      "id": "E5",
+      "kind": "changed_symbol",
+      "ref": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java:363-370",
+      "chars": 369
+    },
+    {
+      "id": "E6",
+      "kind": "structural",
+      "ref": "plugins/org.jkiss.dbeaver.model.nio/src/org/jkiss/dbeaver/model/nio/NIOUtils.java:23-29",
+      "chars": 384
+    },
+    {
+      "id": "E7",
+      "kind": "structural",
+      "ref": "plugins/org.jkiss.dbeaver.model.rcp/src/org/jkiss/dbeaver/model/fs/nio/EFSNIOFile.java:109-111",
+      "chars": 252
+    },
+    {
+      "id": "E8",
+      "kind": "structural",
+      "ref": "plugins/org.jkiss.dbeaver.model.rcp/src/org/jkiss/dbeaver/model/fs/nio/EFSNIOResource.java:138-140",
+      "chars": 316
+    },
+    {
+      "id": "E9",
+      "kind": "structural",
+      "ref": "plugins/org.jkiss.dbeaver.model.rcp/src/org/jkiss/dbeaver/model/fs/nio/EFSNIOResource.java:191-193",
+      "chars": 216
+    },
+    {
+      "id": "E10",
+      "kind": "structural",
+      "ref": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/LogHandler.java:56-56",
+      "chars": 195
+    },
+    {
+      "id": "E11",
+      "kind": "structural",
+      "ref": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/DBNRoot.java:118-121",
+      "chars": 247
+    },
+    {
+      "id": "E12",
+      "kind": "structural",
+      "ref": "plugins/org.jkiss.dbeaver.model.rcp/src/org/jkiss/dbeaver/model/fs/nio/EFSNIOPath.java:200-203",
+      "chars": 224
+    },
+    {
+      "id": "E13",
+      "kind": "structural",
+      "ref": "plugins/org.jkiss.dbeaver.ui.navigator/src/org/jkiss/dbeaver/ui/editors/entity/properties/TabbedFolderPageNode.java:227-236",
+      "chars": 434
+    },
+    {
+      "id": "E14",
+      "kind": "structural",
+      "ref": "plugins/org.jkiss.dbeaver.data.transfer.ui/src/org/jkiss/dbeaver/tasks/ui/sql/script/SQLScriptTaskPageSettings.java:523-560",
+      "chars": 1529
+    },
+    {
+      "id": "E15",
+      "kind": "test_execution",
+      "ref": "ci_suite",
+      "chars": 52
+    },
+    {
+      "id": "E16",
+      "kind": "change_analysis",
+      "ref": "summary",
+      "chars": 406
+    },
+    {
+      "id": "E17",
+      "kind": "change_analysis",
+      "ref": "local_risk",
+      "chars": 242
+    },
+    {
+      "id": "E18",
+      "kind": "change_analysis",
+      "ref": "local_risk",
+      "chars": 320
+    },
+    {
+      "id": "E19",
+      "kind": "change_analysis",
+      "ref": "local_risk",
+      "chars": 278
+    },
+    {
+      "id": "E20",
+      "kind": "change_analysis",
+      "ref": "uncertainty",
+      "chars": 170
+    },
+    {
+      "id": "E21",
+      "kind": "change_analysis",
+      "ref": "uncertainty",
+      "chars": 174
+    },
+    {
+      "id": "E22",
+      "kind": "change_analysis",
+      "ref": "uncertainty",
+      "chars": 158
+    },
+    {
+      "id": "E23",
+      "kind": "change_analysis",
+      "ref": "uncertainty",
+      "chars": 177
+    },
+    {
+      "id": "E24",
+      "kind": "change_analysis",
+      "ref": "uncertainty",
+      "chars": 187
+    }
+  ],
+  "hypotheses": [
+    {
+      "id": "H1",
+      "claim": "The stream-backed drop path leaks the InputStream returned by the source node because neither dropNodes nor copyInputStream closes it after success or failure.",
+      "why_suspected": "The new branch obtains an InputStream adapter and passes it to Files.copy, whose API does not close the supplied stream; DBNResource creates that stream with IFile.getContents().",
+      "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java",
+      "line": 293,
+      "severity": "P2",
+      "initial_evidence": [
+        "E2",
+        "E3",
+        "E5",
+        "E17",
+        "E22"
+      ],
+      "questions_to_resolve": [
+        "Does the InputStream adapter contract transfer ownership to the caller?",
+        "Can dropNodes wrap the adapter use in try-with-resources?"
+      ]
+    },
+    {
+      "id": "H2",
+      "claim": "A stream-backed node whose display name is absolute or contains parent or separator components can write outside the intended drop folder because the name is passed directly to folder.resolve().",
+      "why_suspected": "The destination is computed from getNodeDisplayName() rather than a validated single filename component, and Path.resolve can produce nested, parent-relative, or absolute destinations.",
+      "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java",
+      "line": 364,
+      "severity": "P1",
+      "initial_evidence": [
+        "E4",
+        "E5",
+        "E11",
+        "E18",
+        "E21",
+        "E23"
+      ],
+      "questions_to_resolve": [
+        "Are display names of every node capable of returning InputStream guaranteed to be one safe path component?",
+        "Should the resolved target be normalized and checked to remain inside folder?"
+      ]
+    },
+    {
+      "id": "H3",
+      "claim": "Dropping a stream-backed node can silently destroy an existing destination file because copyInputStream unconditionally uses REPLACE_EXISTING whenever the resolved target exists.",
+      "why_suspected": "The newly added helper explicitly replaces an existing target, while no collision confirmation, rename policy, or comparison with the path-backed drop policy is visible.",
+      "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java",
+      "line": 367,
+      "severity": "P1",
+      "initial_evidence": [
+        "E5",
+        "E19",
+        "E23",
+        "E24"
+      ],
+      "questions_to_resolve": [
+        "What conflict policy does the existing path-backed branch apply?",
+        "Does the drop UI obtain overwrite confirmation before calling dropNodes?",
+        "Can multiple dropped nodes legitimately share a display name?"
+      ]
+    },
+    {
+      "id": "H4",
+      "claim": "Failure to open an IFile stream can escape getAdapter as an unchecked RuntimeException, violating adapter failure behavior and aborting the entire drop instead of reporting or skipping that source cleanly.",
+      "why_suspected": "The new InputStream adaptation catches CoreException and rethrows RuntimeException; the drop branch does not show handling for unchecked adapter failures, and other adapter implementations shown return null when adaptation is unavailable.",
+      "file": "plugins/org.jkiss.dbeaver.model.rcp/src/org/jkiss/dbeaver/model/navigator/DBNResource.java",
+      "line": 428,
+      "severity": "P2",
+      "initial_evidence": [
+        "E3",
+        "E10",
+        "E13"
+      ],
+      "questions_to_resolve": [
+        "Is DBNNode.getAdapter permitted to throw unchecked exceptions?",
+        "Does dropNodes or its caller catch RuntimeException and surface a controlled transfer error?",
+        "Should a CoreException instead result in null or a checked drop error?"
+      ]
+    },
+    {
+      "id": "H5",
+      "claim": "A source path whose existence cannot be determined is now treated as present and may enter copy or move processing, causing an inaccessible or indeterminate source to fail the drop operation rather than being skipped.",
+      "why_suspected": "Files.notExists returns false both when a path exists and when its status is unknown, whereas the previous !Files.exists check skipped both absent and indeterminate paths.",
+      "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java",
+      "line": 303,
+      "severity": "P2",
+      "initial_evidence": [
+        "E2",
+        "E4",
+        "E16",
+        "E24"
+      ],
+      "questions_to_resolve": [
+        "How does the remainder of dropNodes handle inaccessible paths after Files.notExists returns false?",
+        "Was processing indeterminate paths intentional, and is failure isolated per node?"
+      ]
+    }
+  ],
+  "lookups": [
+    {
+      "n": 1,
+      "id": "L1",
+      "hypothesis": "H1",
+      "tool": "read_source",
+      "args": {
+        "path": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java",
+        "start_line": 240,
+        "end_line": 330
+      },
+      "why": "Inspect dropNodes and copyInputStream to verify stream acquisition, control flow, and whether either method closes the returned InputStream.",
+      "provenance": "source_read",
+      "result_chars": 4088,
+      "result_excerpt": "240: \n241:         if (getOwnerProject() instanceof DBFResourceAdapter rm) {\n242:             // Drop supported only if both nodes are resource with the same handler and DROP feature is supported\n243:             return otherNode.getAdapter(Path.class) != null\n244:                    && otherNode != this\n245:                    && otherNode.getParentNode() != this\n246:                    && !this.isChildOf(otherNode);\n247:         }\n248:         return false;\n249:     }\n250: \n251:     @Override\n252:     public void dropNodes(DBRProgressMonitor monitor, Collection<DBNNode> nodes) throws DBExcep"
+    },
+    {
+      "n": 2,
+      "id": "L2",
+      "hypothesis": "H1",
+      "tool": "read_source",
+      "args": {
+        "path": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java",
+        "start_line": 318,
+        "end_line": 390
+      },
+      "why": "Inspect copyInputStream\u2019s implementation and exception flow to determine whether it closes the source stream and whether closure can be safely handled by dropNodes.",
+      "provenance": "source_read",
+      "result_chars": 3108,
+      "result_excerpt": "318:                 try {\n319: \n320:                     Path targetFile = folder.resolve(resource.getFileName().toString());\n321: \n322:                     if (!doCopy) {\n323:                         // Try to move first\n324:                         // Note that move is not supported by some file systems\n325:                         boolean wasMoved = false;\n326:                         try {\n327:                             Files.move(resource, targetFile);\n328:                             wasMoved = true;\n329:                         } catch (Exception e) {\n330:                            "
+    },
+    {
+      "n": 3,
+      "id": "L3",
+      "hypothesis": "H1",
+      "tool": "search_text",
+      "args": {
+        "pattern": "getAdapter\\(InputStream\\.class\\)|InputStream\\.class",
+        "path_glob": "plugins/**/*.java"
+      },
+      "why": "Find InputStream adapter producers and consumers to determine the ownership convention and whether callers are expected to close adapter-returned streams.",
+      "provenance": "source_search",
+      "result_chars": 494,
+      "result_excerpt": "plugins/org.jkiss.dbeaver.ext.oracle/src/org/jkiss/dbeaver/ext/oracle/data/OracleContentXML.java:88: new Class[] {java.sql.Connection.class, java.io.InputStream.class},\nplugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java:293: InputStream adapter = node.getAdapter(InputStream.class);\nplugins/org.jkiss.dbeaver.model.rcp/src/org/jkiss/dbeaver/model/navigator/DBNResource.java:423: } else if (adapter == InputStream.class && resource instanceof IFile file) {"
+    },
+    {
+      "n": 4,
+      "id": "L4",
+      "hypothesis": "H1",
+      "tool": "read_source",
+      "args": {
+        "path": "plugins/org.jkiss.dbeaver.model.rcp/src/org/jkiss/dbeaver/model/navigator/DBNResource.java",
+        "start_line": 400,
+        "end_line": 440
+      },
+      "why": "Inspect the only InputStream adapter producer to see whether it returns a newly opened stream whose ownership must pass to the caller.",
+      "provenance": "source_read",
+      "result_chars": 1591,
+      "result_excerpt": "400: \n401:     @Property(viewable = true, order = 11)\n402:     public String getResourceLastModified() {\n403:         if (resource instanceof IFile) {\n404:             long lastModified = ResourceUtils.getResourceLastModified(resource);\n405:             return lastModified <= 0 ? \"\" : DATE_FORMAT.format(lastModified);\n406:         }\n407:         return null;\n408:     }\n409: \n410:     protected boolean isResourceExists() {\n411:         return resource != null && resource.exists();\n412:     }\n413: \n414:     @Override\n415:     public <T> T getAdapter(Class<T> adapter) {\n416:         if (resource "
+    },
+    {
+      "n": 5,
+      "id": "L5",
+      "hypothesis": "H2",
+      "tool": "read_source",
+      "args": {
+        "path": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java",
+        "start_line": 320,
+        "end_line": 395
+      },
+      "why": "Inspect the drop/copy implementation around line 364 to verify whether display names are passed directly to folder.resolve() and whether normalization or containment checks exist.",
+      "provenance": "source_read",
+      "result_chars": 3228,
+      "result_excerpt": "320:                     Path targetFile = folder.resolve(resource.getFileName().toString());\n321: \n322:                     if (!doCopy) {\n323:                         // Try to move first\n324:                         // Note that move is not supported by some file systems\n325:                         boolean wasMoved = false;\n326:                         try {\n327:                             Files.move(resource, targetFile);\n328:                             wasMoved = true;\n329:                         } catch (Exception e) {\n330:                             log.debug(\"Underlying FS doesn't"
+    },
+    {
+      "n": 6,
+      "id": "L6",
+      "hypothesis": "H2",
+      "tool": "search_text",
+      "args": {
+        "pattern": "copyInputStream\\(",
+        "path_glob": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java"
+      },
+      "why": "Identify every call site and the exact source of the filename argument passed to folder.resolve().",
+      "provenance": "source_search",
+      "result_chars": 333,
+      "result_excerpt": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java:296: copyInputStream(adapter, folder, fileName);\nplugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java:363: private void copyInputStream(InputStream inputStream, Path folder, String str) throws IOException {"
+    },
+    {
+      "n": 7,
+      "id": "L7",
+      "hypothesis": "H2",
+      "tool": "read_source",
+      "args": {
+        "path": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java",
+        "start_line": 250,
+        "end_line": 325
+      },
+      "why": "Determine which node types can reach copyInputStream and whether fileName comes directly from getNodeDisplayName or is sanitized before folder.resolve().",
+      "provenance": "source_read",
+      "result_chars": 3304,
+      "result_excerpt": "250: \n251:     @Override\n252:     public void dropNodes(DBRProgressMonitor monitor, Collection<DBNNode> nodes) throws DBException {\n253:         Path folder;\n254:         Path thisResource = getPath();\n255:         if (thisResource == null) {\n256:             return;\n257:         }\n258:         if (isDirectory()) {\n259:             folder = thisResource;\n260:         } else {\n261:             folder = thisResource.getParent();\n262:         }\n263:         if (!isDirectory()) {\n264:             throw new DBException(\"Can't drop files into non-folder '\" + folder + \"'\");\n265:         }\n266:       "
+    },
+    {
+      "n": 8,
+      "id": "L8",
+      "hypothesis": "H2",
+      "tool": "search_text",
+      "args": {
+        "pattern": "InputStream\\.class|getAdapter\\([^\\n]*InputStream",
+        "path_glob": "plugins/org.jkiss.dbeaver*/src/**/*.java"
+      },
+      "why": "Identify node implementations that expose InputStream adapters so their display-name guarantees can be checked.",
+      "provenance": "source_search",
+      "result_chars": 494,
+      "result_excerpt": "plugins/org.jkiss.dbeaver.ext.oracle/src/org/jkiss/dbeaver/ext/oracle/data/OracleContentXML.java:88: new Class[] {java.sql.Connection.class, java.io.InputStream.class},\nplugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java:293: InputStream adapter = node.getAdapter(InputStream.class);\nplugins/org.jkiss.dbeaver.model.rcp/src/org/jkiss/dbeaver/model/navigator/DBNResource.java:423: } else if (adapter == InputStream.class && resource instanceof IFile file) {"
+    },
+    {
+      "n": 9,
+      "id": "L9",
+      "hypothesis": "H3",
+      "tool": "read_source",
+      "args": {
+        "path": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java",
+        "start_line": 300,
+        "end_line": 395
+      },
+      "why": "Compare the stream-backed and path-backed copy branches, including target resolution and conflict handling.",
+      "provenance": "source_read",
+      "result_chars": 4115,
+      "result_excerpt": "300:                     }\n301:                     continue;\n302:                 }\n303:                 if (Files.notExists(resource)) {\n304:                     log.debug(\"Resource \" + resource + \" doesn't not exists\");\n305:                     continue;\n306:                 }\n307:                 if (!Files.isRegularFile(resource)) {\n308:                     log.debug(\"Resource \" + resource + \" is not a file\");\n309:                     continue;\n310:                 }\n311:                 if (resource.getParent().equals(folder)) {\n312:                     // Already in this container\n313: "
+    },
+    {
+      "n": 10,
+      "id": "L10",
+      "hypothesis": "H3",
+      "tool": "callers",
+      "args": {
+        "symbol": "dropNodes"
+      },
+      "why": "Identify the drop UI call path and whether it performs overwrite/conflict confirmation before invoking DBNPathBase.dropNodes.",
+      "provenance": "structural_query",
+      "result_chars": 2370,
+      "result_excerpt": "{\"status\":\"ambiguous\",\"message\":\"7 matches for \\\"dropNodes\\\". Pick a qualified_name from suggestions below, or use search_graph(name_pattern=\\\"...\\\") to narrow results.\",\"suggestions\":[{\"qualified_name\":\"Users-ksnaik-.cache-sydes-aacr-repos-dbeaver__dbeaver.plugins.org.jkiss.dbeaver.model.src.org.jkiss.dbeaver.model.navigator.fs.DBNPathBase.dropNodes\",\"name\":\"dropNodes\",\"label\":\"Method\",\"file_path\":\"plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java\"},{\"qualified_name\":\"Users-ksnaik-.cache-sydes-aacr-repos-dbeaver__dbeaver.plugins.org.jkiss.dbeaver.core.s"
+    },
+    {
+      "n": 11,
+      "id": "L11",
+      "hypothesis": "H3",
+      "tool": "callers",
+      "args": {
+        "symbol": "Users-ksnaik-.cache-sydes-aacr-repos-dbeaver__dbeaver.plugins.org.jkiss.dbeaver.model.src.org.jkiss.dbeaver.model.navigator.fs.DBNPathBase.dropNodes"
+      },
+      "why": "Trace the concrete DBNPathBase drop call path to determine whether any UI layer confirms overwrite before invoking it.",
+      "provenance": "structural_query",
+      "result_chars": 363,
+      "result_excerpt": "{\"function\":\"Users-ksnaik-.cache-sydes-aacr-repos-dbeaver__dbeaver.plugins.org.jkiss.dbeaver.model.src.org.jkiss.dbeaver.model.navigator.fs.DBNPathBase.dropNodes\",\"direction\":\"inbound\",\"mode\":\"calls\",\"callers_total\":0,\"callers_total_relation\":\"eq\",\"callers\":{\"qn_rule\":\"qn = qn_prefix == \\\"\\\" ? name : qn_prefix + \\\".\\\" + name\",\"cols\":[\"name\",\"hop\"],\"groups\":[]}}"
+    },
+    {
+      "n": 12,
+      "id": "L12",
+      "hypothesis": "H3",
+      "tool": "search_text",
+      "args": {
+        "pattern": "\\.dropNodes\\(",
+        "path_glob": "plugins/**/*.java"
+      },
+      "why": "Find all invocation sites so the UI drop path can be inspected for overwrite confirmation; surrounding matches may also show whether batches permit duplicate display names.",
+      "provenance": "source_search",
+      "result_chars": 493,
+      "result_excerpt": "plugins/org.jkiss.dbeaver.core/src/org/jkiss/dbeaver/ui/resources/bookmarks/DBNBookmarkFolder.java:71: super.dropNodes(monitor, Collections.singleton(node));\nplugins/org.jkiss.dbeaver.ui.navigator/src/org/jkiss/dbeaver/ui/navigator/actions/NavigatorHandlerObjectCreateCopy.java:103: pathTarget.dropNodes(monitor, cbNodes);\nplugins/org.jkiss.dbeaver.ui.navigator/src/org/jkiss/dbeaver/ui/navigator/dnd/NavigatorDropTargetListener.java:154: ((DBNNode) curObject).dropNodes(monitor, nodesToDrop);"
+    }
+  ],
+  "outcomes": [
+    {
+      "hypothesis": "H1",
+      "lookups": [
+        "L1",
+        "L2",
+        "L3",
+        "L4"
+      ],
+      "status": "UNKNOWN",
+      "supported_claim": "On the newly added stream-backed drop path, dropNodes obtains an InputStream and passes it to Files.copy without an explicit close in either dropNodes or copyInputStream; the supplied evidence does not establish that this causes a resource leak.",
+      "reasoning": "L1 shows the changed path obtains the adapter stream and calls copyInputStream, while L2 shows copyInputStream calls Files.copy and contains no close. This applies on both normal return and exception from Files.copy because the surrounding finally only updates monitor progress. However, E22 explicitly states that ownership and required closing behavior for streams returned through the adapter mechanism and IFile.getContents could not be established. The evidence also supplies no contract establishing whether Files.copy closes the supplied stream. Therefore the absence of an explicit close is established, but the claimed leak is not.",
+      "defect_evidence": [],
+      "changed_evidence": [
+        {
+          "source": "L1",
+          "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java",
+          "line": 293,
+          "quote": "InputStream adapter = node.getAdapter(InputStream.class);"
+        },
+        {
+          "source": "L1",
+          "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java",
+          "line": 296,
+          "quote": "copyInputStream(adapter, folder, fileName);"
+        },
+        {
+          "source": "L2",
+          "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java",
+          "line": 369,
+          "quote": "Files.copy(inputStream, targetFile, options);"
+        },
+        {
+          "source": "L4",
+          "file": "plugins/org.jkiss.dbeaver.model.rcp/src/org/jkiss/dbeaver/model/navigator/DBNResource.java",
+          "line": 425,
+          "quote": "return adapter.cast(file.getContents());"
+        }
+      ],
+      "causal_link": "The change introduces the stream-backed fallback and creates the stream via IFile.getContents, but whether leaving it explicitly unclosed constitutes a leak depends on ownership and closure contracts absent from the evidence.",
+      "refuting": [
+        {
+          "source": "E22",
+          "explanation": "The packet explicitly says the ownership and required closing behavior of InputStreams returned through the adapter mechanism and IFile.getContents cannot be established from the diff."
+        }
+      ],
+      "missing": [
+        "The IFile.getContents contract specifying who must close the returned InputStream.",
+        "The InputStream adapter ownership contract specifying whether the caller assumes responsibility for closing it.",
+        "Evidence establishing whether Files.copy(InputStream, Path, CopyOption...) closes or deliberately leaves the supplied stream open.",
+        "Evidence that closing the adapter stream in dropNodes would be valid rather than violating an owner-managed stream lifecycle."
+      ],
+      "verified_defect_evidence": [],
+      "verified_changed_evidence": [
+        {
+          "source": "L1",
+          "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java",
+          "line": 293,
+          "quote": "InputStream adapter = node.getAdapter(InputStream.class);",
+          "verification": "citation confirmed near plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java:293"
+        },
+        {
+          "source": "L1",
+          "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java",
+          "line": 296,
+          "quote": "copyInputStream(adapter, folder, fileName);",
+          "verification": "citation confirmed near plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java:296"
+        },
+        {
+          "source": "L2",
+          "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java",
+          "line": 369,
+          "quote": "Files.copy(inputStream, targetFile, options);",
+          "verification": "citation confirmed near plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java:369"
+        },
+        {
+          "source": "L4",
+          "file": "plugins/org.jkiss.dbeaver.model.rcp/src/org/jkiss/dbeaver/model/navigator/DBNResource.java",
+          "line": 425,
+          "quote": "return adapter.cast(file.getContents());",
+          "verification": "citation confirmed near plugins/org.jkiss.dbeaver.model.rcp/src/org/jkiss/dbeaver/model/navigator/DBNResource.java:425"
+        }
+      ]
+    },
+    {
+      "hypothesis": "H2",
+      "lookups": [
+        "L5",
+        "L6",
+        "L7",
+        "L8"
+      ],
+      "status": "UNKNOWN",
+      "supported_claim": "The change adds a fallback that copies a node's InputStream to `folder.resolve(node.getNodeDisplayName())` without a visible normalization or containment check, but the evidence does not establish that any node reaching this fallback can have an absolute or path-traversing display name.",
+      "reasoning": "The candidate sink is established: when the Path adapter is null and the InputStream adapter is non-null, the changed code uses the display name directly in `folder.resolve`. However, the packet explicitly lacks the complete set of InputStream-capable nodes and runtime display-name constraints. The only concrete InputStream provider found is the newly changed DBNResource IFile adapter, but the evidence neither shows that such a node reaches the fallback with a null Path nor that its display name may contain an absolute path, `..`, or separators. Therefore an actual out-of-folder write cannot be established or ruled out.",
+      "defect_evidence": [],
+      "changed_evidence": [
+        {
+          "source": "L7",
+          "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java",
+          "line": 293,
+          "quote": "InputStream adapter = node.getAdapter(InputStream.class);"
+        },
+        {
+          "source": "L7",
+          "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java",
+          "line": 295,
+          "quote": "String fileName = node.getNodeDisplayName();"
+        },
+        {
+          "source": "L7",
+          "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java",
+          "line": 296,
+          "quote": "copyInputStream(adapter, folder, fileName);"
+        },
+        {
+          "source": "L5",
+          "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java",
+          "line": 364,
+          "quote": "Path targetFile = folder.resolve(str);"
+        },
+        {
+          "source": "L5",
+          "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java",
+          "line": 369,
+          "quote": "Files.copy(inputStream, targetFile, options);"
+        }
+      ],
+      "causal_link": "If a node with a null Path adapter, a non-null InputStream adapter, and an absolute or traversal-containing display name is accepted, the changed lines pass that name directly to `folder.resolve` and then copy to the resulting target. The evidence does not establish the required reachable node/name combination.",
+      "refuting": [
+        {
+          "source": "L8",
+          "explanation": "The search found only the changed DBNResource IFile implementation as a concrete InputStream adapter provider; it found no demonstrated provider with an unsafe display name. This narrows but does not eliminate the possible path."
+        }
+      ],
+      "missing": [
+        "Evidence that a real node can simultaneously return null for `getAdapter(Path.class)`, return a non-null InputStream, and have a display name containing an absolute path, `..`, or path separators.",
+        "The display-name contract or implementation for DBNResource-backed IFile nodes, including whether names are guaranteed to be one safe path component.",
+        "The complete set of DBNNode implementations or adapter mechanisms capable of supplying InputStream.",
+        "A normalized containment check is absent from the shown method, but evidence establishing whether such a check is required given all reachable display-name contracts is missing."
+      ],
+      "verified_defect_evidence": [],
+      "verified_changed_evidence": [
+        {
+          "source": "L7",
+          "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java",
+          "line": 293,
+          "quote": "InputStream adapter = node.getAdapter(InputStream.class);",
+          "verification": "citation confirmed near plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java:293"
+        },
+        {
+          "source": "L7",
+          "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java",
+          "line": 295,
+          "quote": "String fileName = node.getNodeDisplayName();",
+          "verification": "citation confirmed near plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java:295"
+        },
+        {
+          "source": "L7",
+          "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java",
+          "line": 296,
+          "quote": "copyInputStream(adapter, folder, fileName);",
+          "verification": "citation confirmed near plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java:296"
+        },
+        {
+          "source": "L5",
+          "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java",
+          "line": 364,
+          "quote": "Path targetFile = folder.resolve(str);",
+          "verification": "citation confirmed near plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java:364"
+        },
+        {
+          "source": "L5",
+          "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java",
+          "line": 369,
+          "quote": "Files.copy(inputStream, targetFile, options);",
+          "verification": "citation confirmed near plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java:369"
+        }
+      ]
+    },
+    {
+      "hypothesis": "H3",
+      "lookups": [
+        "L9",
+        "L10",
+        "L11",
+        "L12"
+      ],
+      "status": "UNKNOWN",
+      "supported_claim": "If the changed stream-backed branch is reached for a node whose display name resolves to an existing destination file, copyInputStream replaces that file's contents. The evidence does not establish that an actual UI drop can reach this branch without prior overwrite confirmation.",
+      "reasoning": "The replacement behavior is explicit: copyInputStream tests Files.exists(targetFile), selects REPLACE_EXISTING, and copies the stream onto that target. The change also adds the Path-null branch that obtains an InputStream and calls this helper. However, the supplied caller evidence only identifies NavigatorDropTargetListener as a caller and does not show whether it obtains overwrite confirmation. It also does not establish a real droppable node for which getAdapter(Path.class) is null while getAdapter(InputStream.class) is non-null. DBNResource's new adapter makes such a combination conceivable for an IFile with no location, but no evidence shows that such an IFile occurs in this drop flow. The existing path-backed branch already applies the same replacement policy, so the change extends that policy to a new conditional branch rather than introducing a different conflict policy. Consequently, destructive replacement is established conditionally, but the claimed user-visible silent-drop defect is not.",
+      "defect_evidence": [
+        {
+          "source": "L9",
+          "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java",
+          "line": 366,
+          "quote": "if (Files.exists(targetFile)) {"
+        },
+        {
+          "source": "L9",
+          "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java",
+          "line": 367,
+          "quote": "options = new CopyOption[] {StandardCopyOption.REPLACE_EXISTING};"
+        },
+        {
+          "source": "L9",
+          "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java",
+          "line": 369,
+          "quote": "Files.copy(inputStream, targetFile, options);"
+        }
+      ],
+      "changed_evidence": [
+        {
+          "source": "change",
+          "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java",
+          "line": 290,
+          "quote": "if (resource == null) {"
+        },
+        {
+          "source": "change",
+          "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java",
+          "line": 293,
+          "quote": "InputStream adapter = node.getAdapter(InputStream.class);"
+        },
+        {
+          "source": "change",
+          "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java",
+          "line": 296,
+          "quote": "copyInputStream(adapter, folder, fileName);"
+        },
+        {
+          "source": "E5",
+          "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java",
+          "line": 367,
+          "quote": "options = new CopyOption[] {StandardCopyOption.REPLACE_EXISTING};"
+        }
+      ],
+      "causal_link": "Conditionally, the new resource-null branch routes a stream-backed node into the new copyInputStream helper; that helper resolves the destination from the node display name and replaces an existing target. What is not established is that this conditional path is exercised by a legitimate drop and that no caller-side confirmation precedes it.",
+      "refuting": [
+        {
+          "source": "L9",
+          "explanation": "Lines 338-344 show that the pre-existing path-backed copy branch also selects StandardCopyOption.REPLACE_EXISTING when the target exists. Thus the stream branch does not introduce a conflict policy different from the existing path-backed policy."
+        }
+      ],
+      "missing": [
+        "The body of NavigatorDropTargetListener around the call at line 154, or equivalent UI evidence, showing whether overwrite confirmation occurs before dropNodes.",
+        "Evidence that a legitimate droppable node can return null from getAdapter(Path.class) while returning a non-null InputStream in this flow.",
+        "Evidence that such a stream-backed node can collide with an existing destination name, including whether multiple dropped nodes may legitimately share a display name.",
+        "A specification, test, or established contract showing that replacing an existing target in this drop operation is unintended rather than the selected conflict policy."
+      ],
+      "verified_defect_evidence": [
+        {
+          "source": "L9",
+          "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java",
+          "line": 366,
+          "quote": "if (Files.exists(targetFile)) {",
+          "verification": "citation confirmed near plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java:366"
+        },
+        {
+          "source": "L9",
+          "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java",
+          "line": 367,
+          "quote": "options = new CopyOption[] {StandardCopyOption.REPLACE_EXISTING};",
+          "verification": "citation confirmed near plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java:367"
+        },
+        {
+          "source": "L9",
+          "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java",
+          "line": 369,
+          "quote": "Files.copy(inputStream, targetFile, options);",
+          "verification": "citation confirmed near plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java:369"
+        }
+      ],
+      "verified_changed_evidence": [
+        {
+          "source": "change",
+          "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java",
+          "line": 290,
+          "quote": "if (resource == null) {",
+          "verification": "citation confirmed near plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java:290"
+        },
+        {
+          "source": "change",
+          "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java",
+          "line": 293,
+          "quote": "InputStream adapter = node.getAdapter(InputStream.class);",
+          "verification": "citation confirmed near plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java:293"
+        },
+        {
+          "source": "change",
+          "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java",
+          "line": 296,
+          "quote": "copyInputStream(adapter, folder, fileName);",
+          "verification": "citation confirmed near plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java:296"
+        },
+        {
+          "source": "E5",
+          "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java",
+          "line": 367,
+          "quote": "options = new CopyOption[] {StandardCopyOption.REPLACE_EXISTING};",
+          "verification": "citation confirmed near plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java:367"
+        }
+      ]
+    },
+    {
+      "hypothesis": "H4",
+      "lookups": [],
+      "status": "UNKNOWN",
+      "supported_claim": "The changed DBNResource.getAdapter(InputStream.class) path converts an IFile.getContents CoreException into an unchecked RuntimeException; the evidence does not establish whether that exception escapes the transfer stack or violates required adapter/drop behavior.",
+      "reasoning": "E3 confirms the new unchecked throw inside getAdapter. The changed drop path invokes node.getAdapter(InputStream.class), but the supplied evidence does not include the complete dropNodes method, its callers, or any adapter contract. Thus it cannot be determined whether a surrounding handler converts the RuntimeException into a controlled transfer error, whether the whole drop is aborted, or whether unchecked exceptions are prohibited here.",
+      "defect_evidence": [],
+      "changed_evidence": [
+        {
+          "source": "E3",
+          "file": "plugins/org.jkiss.dbeaver.model.rcp/src/org/jkiss/dbeaver/model/navigator/DBNResource.java",
+          "line": 428,
+          "quote": "throw new RuntimeException(e);"
+        },
+        {
+          "source": "change",
+          "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java",
+          "line": 292,
+          "quote": "InputStream adapter = node.getAdapter(InputStream.class);"
+        }
+      ],
+      "causal_link": "If IFile.getContents() throws CoreException on the newly added InputStream adaptation path, this change wraps it in RuntimeException. Whether that exception then aborts the drop is not shown.",
+      "refuting": [],
+      "missing": [
+        "The DBNNode.getAdapter exception contract or other evidence that unchecked exceptions violate adapter failure behavior.",
+        "The complete dropNodes exception-handling scope and its callers, showing whether RuntimeException is caught and reported.",
+        "Evidence defining the intended handling of CoreException here, such as returning null, skipping the source, or propagating a checked transfer error."
+      ],
+      "verified_defect_evidence": [],
+      "verified_changed_evidence": [
+        {
+          "source": "E3",
+          "file": "plugins/org.jkiss.dbeaver.model.rcp/src/org/jkiss/dbeaver/model/navigator/DBNResource.java",
+          "line": 428,
+          "quote": "throw new RuntimeException(e);",
+          "verification": "citation confirmed near plugins/org.jkiss.dbeaver.model.rcp/src/org/jkiss/dbeaver/model/navigator/DBNResource.java:428"
+        },
+        {
+          "source": "change",
+          "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java",
+          "line": 292,
+          "quote": "InputStream adapter = node.getAdapter(InputStream.class);",
+          "verification": "citation confirmed near plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java:292"
+        }
+      ]
+    },
+    {
+      "hypothesis": "H5",
+      "lookups": [],
+      "status": "UNKNOWN",
+      "supported_claim": "The change allows a source Path whose existence is indeterminate to proceed beyond the existence check instead of being skipped, but the evidence does not establish that this path subsequently fails or aborts the drop operation.",
+      "reasoning": "E16 states that the new test \"skips only paths known not to exist rather than every path for which existence cannot be confirmed,\" and the changed predicate is `Files.notExists(resource)`. This establishes that an indeterminate Path can enter later copy or move processing. However, E4 ends at the beginning of the processing `try` block, so there is no evidence showing which filesystem operation is invoked, how access failures are caught, or whether an exception aborts the entire drop versus being isolated to one node. E24 also explicitly says the practical effect depends on runtime accessibility, permissions, and source status. Therefore the claimed drop failure cannot be established or refuted.",
+      "defect_evidence": [],
+      "changed_evidence": [
+        {
+          "source": "E4",
+          "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java",
+          "line": 303,
+          "quote": "if (Files.notExists(resource)) {"
+        },
+        {
+          "source": "E16",
+          "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java",
+          "line": 303,
+          "quote": "Path existence handling also now skips only paths known not to exist rather than every path for which existence cannot be confirmed."
+        }
+      ],
+      "causal_link": "Replacing the prior `!Files.exists(resource)` condition with `Files.notExists(resource)` materially changes indeterminate-existence handling: such a Path is no longer skipped and reaches subsequent processing. The supplied evidence does not show that subsequent processing necessarily or actually fails the drop operation.",
+      "refuting": [
+        {
+          "source": "E24",
+          "explanation": "The evidence says the practical effect depends on destination contents, filesystem accessibility, permissions, and source-path status, so it does not establish the alleged failure outcome."
+        }
+      ],
+      "missing": [
+        "The remainder of the copy/move `try` block and its exception handling.",
+        "Evidence that an indeterminate or inaccessible source causes a downstream filesystem operation to throw.",
+        "Evidence showing whether such an exception aborts the whole drop operation or is isolated per node.",
+        "Evidence that processing indeterminate paths was unintended rather than deliberate."
+      ],
+      "verified_defect_evidence": [],
+      "verified_changed_evidence": [
+        {
+          "source": "E4",
+          "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java",
+          "line": 303,
+          "quote": "if (Files.notExists(resource)) {",
+          "verification": "citation confirmed near plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java:303"
+        }
+      ]
+    }
+  ],
+  "confirmed": [],
+  "refuted": [],
+  "unknown": [
+    "H1",
+    "H2",
+    "H3",
+    "H4",
+    "H5"
+  ],
+  "findings": [],
+  "budget": {
+    "max_hypotheses": 5,
+    "max_lookups": 12,
+    "used_lookups": 12,
+    "max_lookups_per_hypothesis": 4
+  },
+  "usage": {
+    "llm_calls": 18,
+    "by_stage": {
+      "finder": 1,
+      "investigator": 12,
+      "verifier": 5
+    },
+    "prompt_tokens": 38326,
+    "completion_tokens": 11164,
+    "reasoning_tokens": 6354,
+    "llm_seconds": 172.2
+  },
+  "errors": []
+}

@@ -1,0 +1,104 @@
+{
+  "path_recovery": {
+    "status": "partial",
+    "paths": [
+      {
+        "entrypoint": "Navigator drag-and-drop operation",
+        "target_node": "DBNPathBase.dropNodes",
+        "status": "partial",
+        "root_boundary_status": "candidate_boundary",
+        "nodes": [
+          {
+            "symbol": "NavigatorDropTargetListener.drop",
+            "file": "plugins/org.jkiss.dbeaver.ui.navigator/src/org/jkiss/dbeaver/ui/navigator/dnd/NavigatorDropTargetListener.java",
+            "qualified_name": "org.jkiss.dbeaver.ui.navigator.dnd.NavigatorDropTargetListener.drop"
+          },
+          {
+            "symbol": "NavigatorDropTargetListener.moveNodes",
+            "file": "plugins/org.jkiss.dbeaver.ui.navigator/src/org/jkiss/dbeaver/ui/navigator/dnd/NavigatorDropTargetListener.java",
+            "qualified_name": "org.jkiss.dbeaver.ui.navigator.dnd.NavigatorDropTargetListener.moveNodes"
+          },
+          {
+            "symbol": "DBNNode.dropNodes",
+            "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/DBNNode.java",
+            "qualified_name": "org.jkiss.dbeaver.model.navigator.DBNNode.dropNodes"
+          }
+        ],
+        "edges": [
+          {
+            "from": {
+              "symbol": "NavigatorDropTargetListener.drop",
+              "file": "plugins/org.jkiss.dbeaver.ui.navigator/src/org/jkiss/dbeaver/ui/navigator/dnd/NavigatorDropTargetListener.java",
+              "qualified_name": "org.jkiss.dbeaver.ui.navigator.dnd.NavigatorDropTargetListener.drop"
+            },
+            "to": {
+              "symbol": "NavigatorDropTargetListener.moveNodes",
+              "file": "plugins/org.jkiss.dbeaver.ui.navigator/src/org/jkiss/dbeaver/ui/navigator/dnd/NavigatorDropTargetListener.java",
+              "qualified_name": "org.jkiss.dbeaver.ui.navigator.dnd.NavigatorDropTargetListener.moveNodes"
+            },
+            "relationship": "drop calls moveNodes directly (code graph CALLS edge)",
+            "evidence": [
+              {
+                "file": "plugins/org.jkiss.dbeaver.ui.navigator/src/org/jkiss/dbeaver/ui/navigator/dnd/NavigatorDropTargetListener.java",
+                "line_start": 87,
+                "line_end": 87,
+                "fact": "drop calls moveNodes at this line"
+              }
+            ],
+            "status": "established",
+            "provenance": "explicit_relation",
+            "rejection_reason": null,
+            "from_decomposition": true
+          },
+          {
+            "from": {
+              "symbol": "NavigatorDropTargetListener.moveNodes",
+              "file": "plugins/org.jkiss.dbeaver.ui.navigator/src/org/jkiss/dbeaver/ui/navigator/dnd/NavigatorDropTargetListener.java",
+              "qualified_name": "org.jkiss.dbeaver.ui.navigator.dnd.NavigatorDropTargetListener.moveNodes"
+            },
+            "to": {
+              "symbol": "DBNNode.dropNodes",
+              "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/DBNNode.java",
+              "qualified_name": "org.jkiss.dbeaver.model.navigator.DBNNode.dropNodes"
+            },
+            "relationship": "moveNodes calls dropNodes directly (code graph CALLS edge)",
+            "evidence": [
+              {
+                "file": "plugins/org.jkiss.dbeaver.ui.navigator/src/org/jkiss/dbeaver/ui/navigator/dnd/NavigatorDropTargetListener.java",
+                "line_start": 154,
+                "line_end": 154,
+                "fact": "moveNodes calls dropNodes at this line"
+              }
+            ],
+            "status": "established",
+            "provenance": "explicit_relation",
+            "rejection_reason": null,
+            "from_decomposition": true
+          }
+        ],
+        "unresolved_suffix": [
+          {
+            "from": {
+              "symbol": "DBNNode.dropNodes",
+              "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/DBNNode.java",
+              "qualified_name": "org.jkiss.dbeaver.model.navigator.DBNNode.dropNodes"
+            },
+            "to": {
+              "symbol": "DBNPathBase.dropNodes",
+              "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java",
+              "qualified_name": "org.jkiss.dbeaver.model.navigator.fs.DBNPathBase.dropNodes"
+            },
+            "relationship": "no relationship found",
+            "rejection_reason": "no evidence is located in either entity's own declared file ('plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/DBNNode.java' or 'plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/fs/DBNPathBase.java') -- possible wrong-file/wrong-module substitution"
+          }
+        ]
+      }
+    ],
+    "corrected_first_pass_claims": [],
+    "unresolved": []
+  },
+  "test_recovery": {
+    "status": "unresolved",
+    "tests": []
+  }
+}

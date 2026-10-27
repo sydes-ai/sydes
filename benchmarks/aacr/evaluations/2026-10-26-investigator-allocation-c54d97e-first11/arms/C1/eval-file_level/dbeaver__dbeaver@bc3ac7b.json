@@ -1,0 +1,14 @@
+{
+  "instance_id": "dbeaver__dbeaver@bc3ac7b",
+  "reviewer": "sydes",
+  "boundary": "code_findings",
+  "status": "completed",
+  "duration_seconds": 165.3,
+  "review": {
+    "comments": [],
+    "summary": {
+      "input_tokens": 36260,
+      "output_tokens": 9128
+    }
+  }
+}

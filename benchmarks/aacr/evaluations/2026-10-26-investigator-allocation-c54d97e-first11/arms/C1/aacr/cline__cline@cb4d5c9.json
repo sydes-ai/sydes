@@ -1,0 +1,14 @@
+{
+  "instance_id": "cline__cline@cb4d5c9",
+  "reviewer": "sydes",
+  "boundary": "code_findings",
+  "status": "completed",
+  "duration_seconds": 97.2,
+  "review": {
+    "comments": [],
+    "summary": {
+      "input_tokens": 45451,
+      "output_tokens": 5596
+    }
+  }
+}

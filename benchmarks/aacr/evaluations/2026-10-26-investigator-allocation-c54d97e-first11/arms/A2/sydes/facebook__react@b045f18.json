@@ -1,0 +1,16 @@
+{
+  "code_findings": [],
+  "code_review_status": "completed",
+  "run_metrics": {
+    "llm_totals": {
+      "calls": 0,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "errors": 0
+    },
+    "llm_by_purpose": {}
+  },
+  "diagnostics": [
+    "investigator: hypotheses=0 lookups=0/12 confirmed=0 refuted=0 unknown=0 findings=0 llm_calls=0 errors=1"
+  ]
+}

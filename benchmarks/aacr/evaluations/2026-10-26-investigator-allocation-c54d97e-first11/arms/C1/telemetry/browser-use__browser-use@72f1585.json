@@ -1,0 +1,56 @@
+{
+  "case_id": "browser-use__browser-use-3172",
+  "instance_id": "browser-use__browser-use@72f1585",
+  "language": "Python",
+  "status": "completed",
+  "wall_seconds": 140.9,
+  "review_base": "e85a547378b236c9788802d28e816f10940a7e53",
+  "review_base_info": {
+    "rule": "base is an ancestor of head",
+    "merge_bases": [
+      "e85a547378b236c9788802d28e816f10940a7e53"
+    ]
+  },
+  "code_review_status": "completed",
+  "code_findings": 1,
+  "not_submitted": {
+    "local_risks": 0,
+    "affected_flows": 0
+  },
+  "llm_totals": {
+    "calls": 19,
+    "input_tokens": 62567,
+    "output_tokens": 8338,
+    "errors": 0
+  },
+  "llm_calls_by_purpose": {
+    "investigator": 13,
+    "verifier": 6
+  },
+  "cbm": null,
+  "sydes_wall_seconds": null,
+  "verdict": null,
+  "invalid_reasons": [],
+  "replay": {
+    "source_run": "alloc-A1-snapshot-c54d97e-first11-2026-10-26",
+    "allocation": "two_round"
+  },
+  "investigation": {
+    "hypotheses": 4,
+    "lookups": 12,
+    "confirmed": 1,
+    "refuted": 0,
+    "unknown": 3,
+    "usage": {
+      "llm_calls": 19,
+      "by_stage": {
+        "investigator": 13,
+        "verifier": 6
+      },
+      "prompt_tokens": 62567,
+      "completion_tokens": 8338,
+      "reasoning_tokens": 4783,
+      "llm_seconds": 138.5
+    }
+  }
+}

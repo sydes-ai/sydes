@@ -1,0 +1,22 @@
+{
+  "instance_id": "browser-use__browser-use@72f1585",
+  "reviewer": "sydes",
+  "boundary": "code_findings",
+  "status": "completed",
+  "duration_seconds": 140.9,
+  "review": {
+    "comments": [
+      {
+        "path": "browser_use/llm/google/chat.py",
+        "start_line": 202,
+        "end_line": 202,
+        "content": "In ChatGoogle.ainvoke, whenever self.thinking_budget is non-None\u2014including explicitly supplied 0 or positive values\u2014the generated request config uses thinking_budget=-1 instead of the supplied value.\nThe condition accepts every non-None integer, but the assigned configuration value is the literal -1. The resulting config is passed to generate_content. The diff shows this was changed from using self.thinking_budget, so this change directly causes explicit values to be discarded during request serialization.\nImpact: Caused by the change: The changed assignment replaced {'thinking_budget': self.thinking_budget} with {'thinking_budget': -1}. Consequently, any non-None caller value passes the guard but is replaced by -1 before config is sent to the provider.",
+        "severity": "P2"
+      }
+    ],
+    "summary": {
+      "input_tokens": 62567,
+      "output_tokens": 8338
+    }
+  }
+}

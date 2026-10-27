@@ -1,0 +1,36 @@
+{
+  "instance_id": "google-gemini__gemini-cli@0fa1bd7",
+  "reviewer": "sydes",
+  "boundary": "code_findings",
+  "status": "completed",
+  "duration_seconds": 446.7,
+  "review": {
+    "comments": [
+      {
+        "path": "packages/cli/src/utils/commentJson.ts",
+        "start_line": 58,
+        "end_line": 58,
+        "content": "When `mcp remove` deletes an existing server from a scope whose settings file already exists, the new format-preserving save path can print that the server was removed while retaining that server unde\nThe remove command deletes the server from the in-memory `mcpServers` object, passes that object through `setValue`, and unconditionally prints success. `saveSettings` then passes the complete in-memory settings document as `settingsToSave`. However, the changed updater begins with the parsed persisted document and recursively processes only entries present in `updates`. At `mcpServers`, the removed server is absent from the update object, so its persisted key is never visited or deleted. The resulting parsed document, still containing that server, is stringified and written back.\nImpact: Caused by the change: This change replaces full-document persistence with an overlay onto the existing parsed file. Because the overlay enumerates only keys present in the complete desired settings object, omission of the deleted nested server is treated as \u201cleave the old key untouched\u201d rather than deletion. Thus the changed save implementation reintroduces the server from the old file before writing, while the unchanged command still reports success.",
+        "severity": "P1"
+      },
+      {
+        "path": "packages/cli/src/utils/commentJson.ts",
+        "start_line": 39,
+        "end_line": 39,
+        "content": "On the existing-server path of `mcp add`, if the target settings file is malformed when the changed save helper rereads it\u2014including if it became malformed after loading\u2014the helper performs no write a\nThe changed persistence path calls the new format-preserving helper. When parsing fails, that helper logs the error and executes `return;` before the only subsequent `writeFileSync`, without throwing or returning a failure status. This normal return propagates through the void `saveSettings`/`setValue` calls. In the evidenced existing-server path, `addMcpServer` then unconditionally prints that the server was updated. Thus that path reports a completed update although the malformed file was left unchanged.\nImpact: Caused by the change: This change routes settings saves through `updateSettingsFilePreservingFormat`. Its new parse-error branch converts failure into an ordinary void return before any write. Because callers receive no failure signal, `addMcpServer` continues past `setValue` and emits its success message even though the file remains unchanged.",
+        "severity": "P2"
+      },
+      {
+        "path": "packages/cli/src/utils/commentJson.ts",
+        "start_line": 47,
+        "end_line": 47,
+        "content": "For an existing valid settings file updated through updateSettingsFilePreservingFormat, the implementation rewrites the complete parsed document using a fixed two-space indentation, so compact, tab-in\nThe function explicitly promises to preserve \u201ccomments, formatting, and environment variable references,\u201d but it does not patch the original text. After parsing and applying updates, it stringifies the entire restored object with an indentation argument of 2 and writes that serialization over the file. Thus existing indentation and compact layout are replaced by the fixed serialization format. Comment preservation alone does not satisfy the explicit formatting-preservation statement.\nImpact: Caused by the change: This newly added persistence path parses the existing file, then serializes the entire resulting structure with the fixed indentation value `2` and overwrites the original content. Consequently, files whose existing layout is compact, tab-indented, or uses another indentation width are rewritten into the serializer's two-space layout, directly contradicting the changed function's formatting-preservation contract.",
+        "severity": "P3"
+      }
+    ],
+    "summary": {
+      "input_tokens": 129710,
+      "output_tokens": 28127
+    }
+  }
+}

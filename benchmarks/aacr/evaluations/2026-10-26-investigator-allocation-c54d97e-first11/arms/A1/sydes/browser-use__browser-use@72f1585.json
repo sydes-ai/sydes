@@ -1,0 +1,1010 @@
+{
+  "version": "v3",
+  "kind": "sydes_change_verification",
+  "generated_at": "2026-10-26T23:51:41.471987+00:00",
+  "change": {
+    "base": "e85a547378b236c9788802d28e816f10940a7e53",
+    "head": "72f1585f9add5b72e829eaee3b5bff684e0b08d3",
+    "merge_base": "e85a547378b236c9788802d28e816f10940a7e53",
+    "repos": [
+      {
+        "name": "app",
+        "root": "/Users/ksnaik/.cache/sydes-aacr/repos/browser-use__browser-use"
+      }
+    ],
+    "includes_working_tree": false,
+    "files": [
+      {
+        "repo": "app",
+        "path": "browser_use/llm/google/chat.py",
+        "old_path": null,
+        "change_type": "modified",
+        "role": "source_route_candidate",
+        "added_lines": 176,
+        "removed_lines": 152,
+        "hunks": [
+          {
+            "start_line": 1,
+            "end_line": 1
+          },
+          {
+            "start_line": 3,
+            "end_line": 4
+          },
+          {
+            "start_line": 29,
+            "end_line": 31
+          },
+          {
+            "start_line": 39,
+            "end_line": 39
+          },
+          {
+            "start_line": 78,
+            "end_line": 78
+          },
+          {
+            "start_line": 97,
+            "end_line": 101
+          },
+          {
+            "start_line": 202,
+            "end_line": 202
+          },
+          {
+            "start_line": 209,
+            "end_line": 210
+          },
+          {
+            "start_line": 212,
+            "end_line": 215
+          },
+          {
+            "start_line": 219,
+            "end_line": 219
+          },
+          {
+            "start_line": 223,
+            "end_line": 230
+          },
+          {
+            "start_line": 233,
+            "end_line": 342
+          },
+          {
+            "start_line": 345,
+            "end_line": 355
+          },
+          {
+            "start_line": 361,
+            "end_line": 362
+          },
+          {
+            "start_line": 364,
+            "end_line": 364
+          },
+          {
+            "start_line": 369,
+            "end_line": 369
+          },
+          {
+            "start_line": 375,
+            "end_line": 379
+          },
+          {
+            "start_line": 382,
+            "end_line": 384
+          },
+          {
+            "start_line": 387,
+            "end_line": 387
+          },
+          {
+            "start_line": 391,
+            "end_line": 403
+          },
+          {
+            "start_line": 405,
+            "end_line": 405
+          }
+        ],
+        "symbols": [
+          "app:browser_use/llm/google/chat.py:ChatGoogle.ainvoke",
+          "app:browser_use/llm/google/chat.py:ChatGoogle.logger",
+          "app:browser_use/llm/google/chat.py:VerifiedGeminiModels"
+        ],
+        "binary": false
+      }
+    ],
+    "symbols": [
+      {
+        "id": "app:browser_use/llm/google/chat.py:VerifiedGeminiModels",
+        "repo": "app",
+        "file": "browser_use/llm/google/chat.py",
+        "name": "VerifiedGeminiModels",
+        "qualified_name": "VerifiedGeminiModels",
+        "cbm_qualified_name": "Users-ksnaik-.cache-sydes-aacr-repos-browser-use__browser-use.browser_use.llm.google.chat.VerifiedGeminiModels",
+        "kind": "variable",
+        "language": "python",
+        "start_line": 24,
+        "end_line": 37,
+        "change_type": "modified",
+        "changed_lines": 3,
+        "decorators": []
+      },
+      {
+        "id": "app:browser_use/llm/google/chat.py:ChatGoogle.logger",
+        "repo": "app",
+        "file": "browser_use/llm/google/chat.py",
+        "name": "logger",
+        "qualified_name": "ChatGoogle.logger",
+        "cbm_qualified_name": "Users-ksnaik-.cache-sydes-aacr-repos-browser-use__browser-use.browser_use.llm.google.chat.ChatGoogle.logger",
+        "kind": "class_method",
+        "language": "python",
+        "start_line": 98,
+        "end_line": 100,
+        "change_type": "modified",
+        "changed_lines": 4,
+        "decorators": []
+      },
+      {
+        "id": "app:browser_use/llm/google/chat.py:ChatGoogle.ainvoke",
+        "repo": "app",
+        "file": "browser_use/llm/google/chat.py",
+        "name": "ainvoke",
+        "qualified_name": "ChatGoogle.ainvoke",
+        "cbm_qualified_name": "Users-ksnaik-.cache-sydes-aacr-repos-browser-use__browser-use.browser_use.llm.google.chat.ChatGoogle.ainvoke",
+        "kind": "class_method",
+        "language": "python",
+        "start_line": 163,
+        "end_line": 426,
+        "change_type": "modified",
+        "changed_lines": 164,
+        "decorators": []
+      }
+    ],
+    "notes": []
+  },
+  "summary": {
+    "risk": "MEDIUM",
+    "verdict": "VERIFICATION INCOMPLETE",
+    "headline": "3 changed symbol(s); no route flow resolved to them.",
+    "counts": {
+      "changed_files": 1,
+      "changed_source_files": 1,
+      "changed_test_files": 0,
+      "changed_symbols": 3,
+      "affected_flows": 0,
+      "flows_partially_analyzed": 0,
+      "code_findings": 1,
+      "obligations": 0,
+      "obligations_introduced_by_change": 0,
+      "obligations_passed": 0,
+      "obligations_failed": 0,
+      "obligations_unverified": 0,
+      "obligations_unknown": 0,
+      "mapped_tests": 1,
+      "supporting_tests": 0,
+      "tests_exercising_flows": 1,
+      "tests_supporting_behavior": 0,
+      "tests_verifying_behavior": 1,
+      "changed_test_cases": 0,
+      "tests_executed": 0,
+      "verification_gaps": 0,
+      "runtime_dependencies": 1,
+      "cross_repo_impacts": 0,
+      "impacts_proven": 1,
+      "impacts_inferred": 1,
+      "impacts_not_modeled": 2,
+      "unresolved_changed_symbols": 1
+    },
+    "risk_reasons": [
+      "change could not be tied to any verifiable behavior"
+    ]
+  },
+  "code_review_status": "completed",
+  "code_findings": [
+    {
+      "id": "investigator-H1",
+      "severity": "P2",
+      "title": "In ChatGoogle.ainvoke, any non-None thinking_budget supplied on the instance—including 0 or a positive integer—is discarded and the request config instead contains thinking_budget=-1.",
+      "file": "browser_use/llm/google/chat.py",
+      "line": 202,
+      "repo": null,
+      "explanation": "ChatGoogle exposes thinking_budget as an int-or-None field. ainvoke checks only whether that field is non-None, but then assigns the constant -1 rather than the field's value, and passes the resulting config to generate_content. The diff directly changed this assignment from self.thinking_budget to -1, so the loss of explicitly supplied values is introduced by this change. Evidence of particular callers or Google's interpretation of -1 is unnecessary for the narrower confirmed defect that the supplied value is not serialized.",
+      "impact": "Caused by the change: The change replaces the previous changed-line expression {'thinking_budget': self.thinking_budget} with {'thinking_budget': -1}. Consequently, whenever self.thinking_budget is non-None, ainvoke now sends the constant -1 instead of the caller-supplied value.",
+      "suggested_fix": null,
+      "source": "investigator",
+      "evidence": [
+        {
+          "file": "browser_use/llm/google/chat.py",
+          "symbol": null,
+          "label": "verified_quote:78",
+          "snippet": "thinking_budget: int | None = 0"
+        },
+        {
+          "file": "browser_use/llm/google/chat.py",
+          "symbol": null,
+          "label": "verified_quote:201",
+          "snippet": "if self.thinking_budget is not None:\n\t\t\tthinking_config_dict: types.ThinkingConfigDict = {'thinking_budget': -1}\n\t\t\tconfig['thinking_config'] = thinking_config_dict"
+        },
+        {
+          "file": "browser_use/llm/google/chat.py",
+          "symbol": null,
+          "label": "verified_quote:217",
+          "snippet": "response = await self.get_client().aio.models.generate_content(\n\t\t\t\t\t\tmodel=self.model,\n\t\t\t\t\t\tcontents=contents,  # type: ignore\n\t\t\t\t\t\tconfig=config,\n\t\t\t\t\t)"
+        },
+        {
+          "file": "browser_use/llm/google/chat.py",
+          "symbol": null,
+          "label": "verified_quote:202",
+          "snippet": "thinking_config_dict: types.ThinkingConfigDict = {'thinking_budget': -1}"
+        }
+      ]
+    }
+  ],
+  "accepted_impacts": [
+    {
+      "id": "impact:app:Users-ksnaik-.cache-sydes-aacr-repos-browser-use__browser-use.browser_use.llm.google.chat.ChatGoogle.logger",
+      "label": "ChatGoogle.logger",
+      "repo": "app",
+      "kind": "decorated",
+      "status": "proven",
+      "changed_symbols": [
+        "logger"
+      ],
+      "route_method": null,
+      "route_path": null,
+      "llm_confidence": null,
+      "llm_reason": null,
+      "llm_inference_type": null,
+      "llm_uncertainty": null,
+      "corroborated": null,
+      "behavior_label": "",
+      "verification_model_status": "unsupported_or_partial",
+      "provenance": "structural"
+    },
+    {
+      "id": "impact:app:Google model selection during agent setup",
+      "label": "Google model selection during agent setup",
+      "repo": "app",
+      "kind": "unknown",
+      "status": "inferred",
+      "changed_symbols": [
+        "(whole change)"
+      ],
+      "route_method": null,
+      "route_path": null,
+      "llm_confidence": 0.66,
+      "llm_reason": "Agent configurations selecting the listed Gemini 2.5 or Gemma 3 model identifiers may now be accepted by the Google chat integration instead of being rejected as unsupported model names.",
+      "llm_inference_type": "semantic_indirect_dependency",
+      "llm_uncertainty": "The available context does not show where VerifiedGeminiModels is consumed or which identifiers were newly added.",
+      "corroborated": false,
+      "behavior_label": "Google model selection during agent setup",
+      "verification_model_status": "unsupported_or_partial",
+      "provenance": "structural"
+    }
+  ],
+  "pr_semantic_analysis": {
+    "origin": "llm_hypothesis",
+    "change_summary": "The Google/Gemini chat adapter expands its declared model set, changes thinking configuration sent to Gemini, improves structured-response parsing and diagnostics, and replaces its own retry loop with reliance on the Google client’s retry behavior.",
+    "behavior_changes": [
+      {
+        "description": "Gemini requests now send a thinking budget of -1 whenever thinking configuration is enabled; because the instance default is now 0 rather than None, this configuration is included by default. Caller-supplied non-None budget values are not forwarded.",
+        "changed_symbols": [
+          "ChatGoogle.ainvoke"
+        ],
+        "evidence": [
+          "The field default changed from None to 0, while request construction assigns the constant -1 instead of the field value."
+        ],
+        "confidence": 0.99,
+        "citations": [
+          {
+            "file": "browser_use/llm/google/chat.py",
+            "line": 78,
+            "quoted_text": "thinking_budget: int | None = 0"
+          },
+          {
+            "file": "browser_use/llm/google/chat.py",
+            "line": 201,
+            "quoted_text": "if self.thinking_budget is not None:"
+          },
+          {
+            "file": "browser_use/llm/google/chat.py",
+            "line": 202,
+            "quoted_text": "thinking_config_dict: types.ThinkingConfigDict = {'thinking_budget': -1}"
+          }
+        ],
+        "citations_verified": 3,
+        "citation_notes": [
+          "citation confirmed near browser_use/llm/google/chat.py:78",
+          "citation confirmed near browser_use/llm/google/chat.py:201",
+          "citation confirmed near browser_use/llm/google/chat.py:202"
+        ]
+      },
+      {
+        "description": "The adapter’s declared supported Gemini model identifiers now include Gemini 2.5 Flash, Flash Lite, and Pro.",
+        "changed_symbols": [
+          "VerifiedGeminiModels"
+        ],
+        "evidence": [
+          "Three Gemini 2.5 identifiers were added to the Literal model set."
+        ],
+        "confidence": 0.98,
+        "citations": [
+          {
+            "file": "browser_use/llm/google/chat.py",
+            "line": 29,
+            "quoted_text": "'gemini-2.5-flash',"
+          },
+          {
+            "file": "browser_use/llm/google/chat.py",
+            "line": 30,
+            "quoted_text": "'gemini-2.5-flash-lite',"
+          },
+          {
+            "file": "browser_use/llm/google/chat.py",
+            "line": 31,
+            "quoted_text": "'gemini-2.5-pro',"
+          }
+        ],
+        "citations_verified": 3,
+        "citation_notes": [
+          "citation confirmed near browser_use/llm/google/chat.py:29",
+          "citation confirmed near browser_use/llm/google/chat.py:30",
+          "citation confirmed near browser_use/llm/google/chat.py:31"
+        ]
+      },
+      {
+        "description": "Native structured-output responses can now be parsed when Gemini returns the JSON inside a complete Markdown code fence, rather than failing JSON decoding solely because of that wrapper.",
+        "changed_symbols": [
+          "ChatGoogle.ainvoke"
+        ],
+        "evidence": [
+          "Before validation, the native structured-output path strips either a ```json fence or a generic ``` fence."
+        ],
+        "confidence": 0.98,
+        "citations": [
+          {
+            "file": "browser_use/llm/google/chat.py",
+            "line": 269,
+            "quoted_text": "if text.startswith('```json') and text.endswith('```'):"
+          },
+          {
+            "file": "browser_use/llm/google/chat.py",
+            "line": 270,
+            "quoted_text": "text = text[7:-3].strip()"
+          },
+          {
+            "file": "browser_use/llm/google/chat.py",
+            "line": 272,
+            "quoted_text": "elif text.startswith('```') and text.endswith('```'):"
+          },
+          {
+            "file": "browser_use/llm/google/chat.py",
+            "line": 277,
+            "quoted_text": "parsed_data = json.loads(text)"
+          }
+        ],
+        "citations_verified": 4,
+        "citation_notes": [
+          "citation confirmed near browser_use/llm/google/chat.py:269",
+          "citation confirmed near browser_use/llm/google/chat.py:270",
+          "citation confirmed near browser_use/llm/google/chat.py:272",
+          "citation confirmed near browser_use/llm/google/chat.py:277"
+        ]
+      },
+      {
+        "description": "The adapter no longer performs its own surrounding multi-attempt retry loop for a generation request; it makes the call directly and expects the Google client to provide retry behavior.",
+        "changed_symbols": [
+          "ChatGoogle.ainvoke"
+        ],
+        "evidence": [
+          "The final invocation path directly awaits one internal API-call operation and explicitly documents reliance on built-in retry."
+        ],
+        "confidence": 0.96,
+        "citations": [
+          {
+            "file": "browser_use/llm/google/chat.py",
+            "line": 382,
+            "quoted_text": "# Let Google client handle retries internally with proper connection management"
+          },
+          {
+            "file": "browser_use/llm/google/chat.py",
+            "line": 383,
+            "quoted_text": "self.logger.debug(f'🔄 Making API call to {self.model} (using built-in retry)')"
+          },
+          {
+            "file": "browser_use/llm/google/chat.py",
+            "line": 384,
+            "quoted_text": "return await _make_api_call()"
+          }
+        ],
+        "citations_verified": 3,
+        "citation_notes": [
+          "citation confirmed near browser_use/llm/google/chat.py:382",
+          "citation confirmed near browser_use/llm/google/chat.py:383",
+          "citation confirmed near browser_use/llm/google/chat.py:384"
+        ]
+      }
+    ],
+    "important_symbols": [
+      {
+        "repo": "app",
+        "file": "browser_use/llm/google/chat.py",
+        "symbol": "ChatGoogle.ainvoke",
+        "reason": "Contains the request configuration, provider invocation, structured-output parsing, retry delegation, timing logs, and error classification; it carries nearly all runtime behavior changes."
+      },
+      {
+        "repo": "app",
+        "file": "browser_use/llm/google/chat.py",
+        "symbol": "VerifiedGeminiModels",
+        "reason": "Defines the adapter’s declared model-name surface and now includes three Gemini 2.5 variants."
+      },
+      {
+        "repo": "app",
+        "file": "browser_use/llm/google/chat.py",
+        "symbol": "ChatGoogle.logger",
+        "reason": "Introduces per-model logging used for request timing, parsing diagnostics, empty responses, and failures."
+      }
+    ],
+    "investigation_hints": [
+      {
+        "description": "Trace construction of ChatGoogle instances and determine whether callers set thinking_budget deliberately or rely on its default.",
+        "related_symbols": [
+          "ChatGoogle.ainvoke"
+        ],
+        "concepts": [
+          "thinking configuration",
+          "model defaults",
+          "request configuration propagation"
+        ],
+        "likely_boundary_types": [
+          "callable"
+        ]
+      },
+      {
+        "description": "Inspect Google client creation and SDK configuration to establish the actual retry count, backoff policy, timeout handling, and connection lifecycle after removal of the local loop.",
+        "related_symbols": [
+          "ChatGoogle.ainvoke"
+        ],
+        "concepts": [
+          "retry policy",
+          "timeouts",
+          "Google SDK configuration",
+          "transient provider failures"
+        ],
+        "likely_boundary_types": [
+          "async",
+          "external"
+        ]
+      },
+      {
+        "description": "Find callers requesting structured output and map which models use native response schemas versus prompt-based JSON fallback.",
+        "related_symbols": [
+          "ChatGoogle.ainvoke",
+          "VerifiedGeminiModels"
+        ],
+        "concepts": [
+          "structured output",
+          "Pydantic validation",
+          "schema compatibility",
+          "model capabilities"
+        ],
+        "likely_boundary_types": [
+          "callable",
+          "external"
+        ]
+      },
+      {
+        "description": "Check how asynchronous cancellation and provider exceptions are translated for upstream callers.",
+        "related_symbols": [
+          "ChatGoogle.ainvoke"
+        ],
+        "concepts": [
+          "async cancellation",
+          "exception taxonomy",
+          "status-code mapping"
+        ],
+        "likely_boundary_types": [
+          "async",
+          "callable"
+        ]
+      }
+    ],
+    "likely_boundary_types": [
+      "callable",
+      "async",
+      "external"
+    ],
+    "local_risks": [
+      {
+        "description": "Every non-None thinking_budget value is replaced with -1, so explicit caller choices such as 0 or a positive budget are silently ignored. This is a material configuration correctness risk if callers expect the field to control Gemini thinking behavior.",
+        "severity": "P1",
+        "citations": [
+          {
+            "file": "browser_use/llm/google/chat.py",
+            "line": 78,
+            "quoted_text": "thinking_budget: int | None = 0"
+          },
+          {
+            "file": "browser_use/llm/google/chat.py",
+            "line": 201,
+            "quoted_text": "if self.thinking_budget is not None:"
+          },
+          {
+            "file": "browser_use/llm/google/chat.py",
+            "line": 202,
+            "quoted_text": "thinking_config_dict: types.ThinkingConfigDict = {'thinking_budget': -1}"
+          }
+        ],
+        "citations_verified": 3,
+        "citation_notes": [
+          "citation confirmed near browser_use/llm/google/chat.py:78",
+          "citation confirmed near browser_use/llm/google/chat.py:201",
+          "citation confirmed near browser_use/llm/google/chat.py:202"
+        ]
+      },
+      {
+        "description": "The new cancellation-specific branch is nested under an `except Exception` handler. In Python versions where asyncio.CancelledError is a BaseException rather than an Exception, genuine task cancellation cannot reach this diagnostic and status-mapping branch.",
+        "severity": "P1",
+        "citations": [
+          {
+            "file": "browser_use/llm/google/chat.py",
+            "line": 386,
+            "quoted_text": "except Exception as e:"
+          },
+          {
+            "file": "browser_use/llm/google/chat.py",
+            "line": 393,
+            "quoted_text": "if isinstance(e, asyncio.CancelledError) or 'CancelledError' in str(type(e)):"
+          }
+        ],
+        "citations_verified": 2,
+        "citation_notes": [
+          "citation confirmed near browser_use/llm/google/chat.py:386",
+          "citation confirmed near browser_use/llm/google/chat.py:393"
+        ]
+      },
+      {
+        "description": "Transient-failure resilience now depends entirely on how the constructed Google client is configured. If its built-in retry policy is absent or narrower than the removed wrapper policy, callers may receive failures after fewer attempts.",
+        "severity": "P2",
+        "citations": [
+          {
+            "file": "browser_use/llm/google/chat.py",
+            "line": 382,
+            "quoted_text": "# Let Google client handle retries internally with proper connection management"
+          },
+          {
+            "file": "browser_use/llm/google/chat.py",
+            "line": 384,
+            "quoted_text": "return await _make_api_call()"
+          }
+        ],
+        "citations_verified": 2,
+        "citation_notes": [
+          "citation confirmed near browser_use/llm/google/chat.py:382",
+          "citation confirmed near browser_use/llm/google/chat.py:384"
+        ]
+      }
+    ],
+    "uncertainties": [
+      "No HTTP route or endpoint is shown, so it cannot be established whether any route directly or indirectly exposes these ChatGoogle changes.",
+      "The supplied context does not identify which application components instantiate ChatGoogle, request structured output, select the new model names, or set thinking_budget.",
+      "The Google SDK’s built-in retry defaults and the client configuration used by get_client() are not shown, so the effective retry count and backoff behavior cannot be established.",
+      "The provider meaning and model support of thinking_budget=-1 are not established by this diff, including whether it enables dynamic thinking or is rejected by any listed model.",
+      "The structured-output parsing change is exercised only when an output format is requested, native structured output is supported, response.parsed is absent, and response.text contains suitable JSON or a complete recognized fence."
+    ],
+    "uncertainty_items": [
+      {
+        "kind": "route_identity",
+        "text": "No HTTP route or endpoint is shown, so it cannot be established whether any route directly or indirectly exposes these ChatGoogle changes.",
+        "symbols": [
+          "ChatGoogle.ainvoke"
+        ],
+        "resolved_by": null,
+        "established_context": null,
+        "scoped_text": null
+      },
+      {
+        "kind": "caller_reachability",
+        "text": "The supplied context does not identify which application components instantiate ChatGoogle, request structured output, select the new model names, or set thinking_budget.",
+        "symbols": [
+          "ChatGoogle.ainvoke",
+          "VerifiedGeminiModels"
+        ],
+        "resolved_by": null,
+        "established_context": null,
+        "scoped_text": null
+      },
+      {
+        "kind": "dependency_semantics",
+        "text": "The Google SDK’s built-in retry defaults and the client configuration used by get_client() are not shown, so the effective retry count and backoff behavior cannot be established.",
+        "symbols": [
+          "ChatGoogle.ainvoke"
+        ],
+        "resolved_by": null,
+        "established_context": null,
+        "scoped_text": null
+      },
+      {
+        "kind": "dependency_semantics",
+        "text": "The provider meaning and model support of thinking_budget=-1 are not established by this diff, including whether it enables dynamic thinking or is rejected by any listed model.",
+        "symbols": [
+          "ChatGoogle.ainvoke"
+        ],
+        "resolved_by": null,
+        "established_context": null,
+        "scoped_text": null
+      },
+      {
+        "kind": "runtime_condition",
+        "text": "The structured-output parsing change is exercised only when an output format is requested, native structured output is supported, response.parsed is absent, and response.text contains suitable JSON or a complete recognized fence.",
+        "symbols": [
+          "ChatGoogle.ainvoke"
+        ],
+        "resolved_by": null,
+        "established_context": null,
+        "scoped_text": null
+      }
+    ],
+    "verification_state": "verified",
+    "is_indeterminate": true,
+    "indeterminate_reason": "runtime_only_behavior",
+    "indeterminate_detail": "The mechanisms are visible, but real observable impact depends on runtime model selection, whether callers request structured output or configure thinking budgets, the shape of Gemini responses, and whether transient errors or cancellations occur."
+  },
+  "affected_boundaries": [],
+  "composed_dispatch_edges": [],
+  "run_metrics": {
+    "llm_by_purpose": {
+      "pr_semantic_analysis": {
+        "calls": 1,
+        "errors": 0,
+        "input_tokens": 7677,
+        "output_tokens": 3943,
+        "reasoning_tokens": 2048,
+        "models": [
+          "gpt-5.6-sol"
+        ]
+      },
+      "route_discovery": {
+        "calls": 1,
+        "errors": 0,
+        "input_tokens": 6678,
+        "output_tokens": 98,
+        "reasoning_tokens": 45,
+        "models": [
+          "gpt-5.6-sol"
+        ]
+      },
+      "impact_guide": {
+        "calls": 3,
+        "errors": 0,
+        "input_tokens": 8647,
+        "output_tokens": 1014,
+        "reasoning_tokens": 732,
+        "models": [
+          "gpt-5.6-sol"
+        ]
+      },
+      "boundary_reasoning": {
+        "calls": 1,
+        "errors": 0,
+        "input_tokens": 1994,
+        "output_tokens": 142,
+        "reasoning_tokens": 126,
+        "models": [
+          "gpt-5.6-sol"
+        ]
+      },
+      "investigator": {
+        "calls": 17,
+        "errors": 0,
+        "input_tokens": 45201,
+        "output_tokens": 6274,
+        "reasoning_tokens": 3235,
+        "models": [
+          "gpt-5.6-sol"
+        ]
+      },
+      "ai_recovery": {
+        "calls": 22,
+        "errors": 0,
+        "input_tokens": 52402,
+        "output_tokens": 1835,
+        "reasoning_tokens": 312,
+        "models": [
+          "gpt-5.6-sol"
+        ]
+      }
+    },
+    "llm_totals": {
+      "calls": 45,
+      "errors": 0,
+      "input_tokens": 122599,
+      "output_tokens": 13306,
+      "reasoning_tokens": 6498
+    },
+    "cbm": {
+      "calls": 42,
+      "errors": 2,
+      "by_operation": {
+        "index_repository": 2,
+        "query_graph": 15,
+        "search_graph": 6,
+        "get_graph_schema": 1,
+        "search_code": 16,
+        "trace_path": 2
+      },
+      "enrichment_requests": 19
+    },
+    "wall_seconds": 237.1,
+    "tests": {
+      "environments": [
+        "owner=none interpreter=none reason=test execution unavailable: no runnable target-project environment found (uv project with no synced `.venv`; Sydes does not create or install environments)"
+      ],
+      "mapped_executions": 0,
+      "mapped_outcomes": {},
+      "ci_suite": {
+        "status": "unknown",
+        "blocker": "runner_missing",
+        "passed": null,
+        "failed": null
+      }
+    }
+  },
+  "framework_boundary_candidates": [
+    {
+      "category": "callback_registration",
+      "status": "unresolved",
+      "source_symbol": "?",
+      "via": "?",
+      "targets": [
+        "ChatGoogle.logger"
+      ],
+      "message_type": null,
+      "facts": [
+        {
+          "provenance": "cbm_entrypoint",
+          "fact": "ChatGoogle.logger is a reached entrypoint with decorator metadata and no route",
+          "file": "browser_use/llm/google/chat.py",
+          "line": null
+        },
+        {
+          "provenance": "cbm_decorator",
+          "fact": "ChatGoogle is decorated @dataclass (DECORATES)",
+          "file": "browser_use/llm/google/chat.py",
+          "line": null
+        },
+        {
+          "provenance": "cbm_inherits",
+          "fact": "ChatGoogle inherits BaseChatModel",
+          "file": "browser_use/llm/google/chat.py",
+          "line": null
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "cli.get_llm calls ChatGoogle",
+          "file": "browser_use/cli.py",
+          "line": 247
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "models.get_llm_by_name calls ChatGoogle",
+          "file": "browser_use/llm/models.py",
+          "line": 109
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "LandingPageAnalyzer.__init__ calls ChatGoogle",
+          "file": "examples/apps/ad-use/ad_generator.py",
+          "line": 48
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "login.login_to_whatsapp calls ChatGoogle",
+          "file": "examples/apps/msg-use/login.py",
+          "line": 32
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "scheduler.auto_respond_to_unread calls ChatGoogle",
+          "file": "examples/apps/msg-use/scheduler.py",
+          "line": 149
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "scheduler.parse_messages calls ChatGoogle",
+          "file": "examples/apps/msg-use/scheduler.py",
+          "line": 56
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "scheduler.send_message calls ChatGoogle",
+          "file": "examples/apps/msg-use/scheduler.py",
+          "line": 122
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "news_monitor.extract_latest_article calls ChatGoogle",
+          "file": "examples/apps/news-use/news_monitor.py",
+          "line": 83
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "features.download_file calls ChatGoogle",
+          "file": "examples/features/download_file.py",
+          "line": 18
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "discord.discord_example calls ChatGoogle",
+          "file": "examples/integrations/discord/discord_example.py",
+          "line": 58
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "slack.slack_example calls ChatGoogle",
+          "file": "examples/integrations/slack/slack_example.py",
+          "line": 28
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "models.gemini calls ChatGoogle",
+          "file": "examples/models/gemini.py",
+          "line": 17
+        },
+        {
+          "provenance": "cbm_call",
+          "fact": "examples.simple calls ChatGoogle",
+          "file": "examples/simple.py",
+          "line": 9
+        },
+        {
+          "provenance": "cbm_configures",
+          "fact": "CBM records no CONFIGURES relation for ChatGoogle (CBM emits CONFIGURES for configuration keys and environment access, not registrations)",
+          "file": null,
+          "line": null
+        }
+      ],
+      "checks": {},
+      "missing": [
+        "no repository code that hands ChatGoogle to the framework was found"
+      ],
+      "runtime_needed": null,
+      "resolved_by": null,
+      "queries": 19
+    }
+  ],
+  "affected_flows": [],
+  "unresolved_changed_symbols": 1,
+  "unresolved_changed_symbol_names": [
+    "VerifiedGeminiModels"
+  ],
+  "analysis_status": "partial",
+  "analysis_notes": [
+    "Structural exploration was bounded for this change (max_depth reached with unexplored frontier); boundaries beyond the explored neighborhood are not established either way.",
+    "1 changed symbol(s) have no established impact path to any entrypoint (an AI-inferred candidate may still exist for one — see AFFECTED BEHAVIOR — but that is not the same as resolved impact coverage).",
+    "No discovered route declaration reaches the changed symbols."
+  ],
+  "test_executions": [],
+  "ci_suite": {
+    "command": [],
+    "source": "",
+    "working_dir": ".",
+    "framework": "",
+    "status": "unknown",
+    "blocker": "runner_missing",
+    "reason": "test execution unavailable: no runnable target-project environment found (uv project with no synced `.venv`; Sydes does not create or install environments)",
+    "exit_code": null,
+    "duration_ms": null,
+    "tests_passed": null,
+    "tests_failed": null,
+    "summary_line": null,
+    "failed_test_ids": [],
+    "stdout_excerpt": null,
+    "stderr_excerpt": null,
+    "output_truncated": false,
+    "evidence": []
+  },
+  "verification_gaps": [],
+  "runtime_dependencies": [
+    {
+      "id": "runtime:object_store:aws-services",
+      "name": "AWS services",
+      "kind": "object_store",
+      "repo": "app",
+      "required_for_flow_ids": [],
+      "detected_from": [
+        {
+          "file": "browser_use/llm/aws/chat_anthropic.py",
+          "symbol": null,
+          "label": "client_import",
+          "snippet": "from boto3.session import Session  # pyright: ignore"
+        },
+        {
+          "file": "browser_use/llm/aws/chat_bedrock.py",
+          "symbol": null,
+          "label": "client_import",
+          "snippet": "from boto3 import client as AwsClient  # type: ignore"
+        },
+        {
+          "file": "browser_use/llm/aws/chat_bedrock.py",
+          "symbol": null,
+          "label": "client_import",
+          "snippet": "from boto3.session import Session  # type: ignore"
+        }
+      ],
+      "scope": "repository"
+    }
+  ],
+  "cross_repo_impacts": [],
+  "notes": [
+    "test_execution=whole_suite_fallback reason=no_mapped_tests",
+    "AI recovery (experimental, provenance=ai_recovery, run-local, merged into structural results): path recovery found a partial, edge-verified prefix but could not prove the full path to the changed behavior; test recovery recovered 1 verified test(s).",
+    "Saved change verification artifact: /Users/ksnaik/.sydes/workspaces/9008eb0adcb56148/artifacts/20261026T235538Z-0deab7f7/change_verification.json"
+  ],
+  "diagnostics": [
+    "code_intelligence_effective_backend=cbm selected_by=default",
+    "code_intelligence_backend=cbm transport=persistent_mcp_stdio cbm_server_version=0.11.0 cbm_executable=/Users/ksnaik/.cache/uv/archive-v0/fIq-hElUYs477A4qj4uzs/bin/codebase-memory-mcp",
+    "cbm_session_start_ms=1374.0 cbm_calls=11 cbm_mean_call_ms=227.0",
+    "cbm_index_ms=2313.1 cbm_query_ms=191.1 sydes_route_semantics_ms=12.9 total_ms=3892.2",
+    "cbm_supplied=symbols,spans,imports,exports,call_edges,usage_edges,entrypoints  sydes_semantics=route_index,route_graph,repo_map",
+    "route_derived_entrypoints_added=0",
+    "cbm_gap: route composition is computed by Sydes, not CBM: CBM reports uncomposed route paths and models no persistence sinks",
+    "cbm_gap: CALLS/USAGE edges deferred: they are fetched as a bounded neighborhood around the changed symbols instead of a repository-wide sweep",
+    "handler_symbol_index: exports=1992, files_indexed=265, imports=992, symbols=2455",
+    "pr_semantic_analysis_prompt_chars=26256",
+    "reverse_reach_candidate_files=105",
+    "app: deterministic_routes_found=0, deterministic_frameworks=none",
+    "app: discovery_coverage=unknown score=0.2",
+    "app: discovery_coverage_reasons=insufficient route index/graph signals",
+    "app: route_graph_containers=0, route_graph_declarations=0, route_graph_mount_edges=0, route_graph_composed_routes=0, route_graph_unresolved_mounts=0",
+    "app: deterministic_routes=0, llm_routes=0, merged_routes=0, rejected_routes=0, final_routes=0",
+    "app: merged_llm_routes=0",
+    "graph_slice_seeds: changed=3 routes=0 dropped_auxiliary=0 total=3",
+    "graph_slice: used=True seeds=3 canonical_seeds=3 unresolved_seeds=0 unresolved_changed=0 unresolved_auxiliary=0 graph_calls=4 nodes=247 call_edges=226 usage_edges=68 truncated=True fell_back=False",
+    "impact_interpreter: affected_entrypoints=2, ambiguous_edges=0, boundary_budget_exhausted=False, boundary_emitted=0, boundary_expansions=7, boundary_frontier_considered=7, boundary_rejected_weak_evidence=0, call_edges=226, changed_symbols=3, evidence_confirmed=0, guide_actions={'infer_impact': 2, 'stop_unresolved': 1}, guide_budget_exhausted=False, guide_calls=3, guide_error_details=[], guide_errors=0, guide_latency_ms=19505.639208015054, guide_no_progress=0, guide_triggered=True, http_entrypoints=0, known_entrypoints=439, llm_candidates=1, llm_candidates_accepted=1, llm_candidates_corroborated=0, llm_candidates_missing_reason=0, llm_candidates_self_referential=0, llm_candidates_uncorroborated=1, llm_candidates_ungrounded=0, llm_candidates_whole_change_unanchored=0, llm_new_entrypoints=1, llm_no_candidate_turns=1, unresolved_after=1, unresolved_before=1, unresolved_symbols=1, usage_edges=68",
+    "repo_profile: rebuilt (1 package(s), 0 framework(s))",
+    "boundary_reasoning: candidates=3 inferred=0",
+    "app: test_files_found=46",
+    "app: test_cases_found=296",
+    "test_frameworks_detected=pytest",
+    "test_environment=pytest owner=none interpreter=none reason=test execution unavailable: no runnable target-project environment found (uv project with no synced `.venv`; Sydes does not create or install environments)",
+    "ci_suite=unresolved reason=test execution unavailable: no runnable target-project environment found (uv project with no synced `.venv`; Sydes does not create or install environments)",
+    "structural_enrichment: triggered=[callback_registration: 1 callback entrypoint(s); route_container_registration: 1 unresolved changed symbol(s)] cbm_requests=19 (relations:2,schema:1,search:16) cache_hits=(none) errors=0 truncated=0 families=[CALLS,DECORATES,INHERITS,search_code] candidates=1 unresolved=1",
+    "code_review_context_related=0",
+    "code_review_questions=10",
+    "investigator: hypotheses=4 lookups=12/12 confirmed=1 refuted=0 unknown=3 findings=1 llm_calls=17 errors=0",
+    "investigation_artifact=/Users/ksnaik/StudioProjects/sydes/benchmarks/aacr/results/alloc-A1-snapshot-c54d97e-first11-2026-10-26/sydes/browser-use__browser-use@72f1585.investigation.json",
+    "run_metrics: wall_seconds=237.1 llm_calls=45 (ai_recovery:22,boundary_reasoning:1,impact_guide:3,investigator:17,pr_semantic_analysis:1,route_discovery:1) llm_errors=0 input_tokens=122599 output_tokens=13306 estimated_cost_usd=unavailable (set SYDES_LLM_PRICE_PER_MTOK) cbm_requests=42 cbm_enrichment_requests=19 test_executions=0 test_outcomes={}"
+  ],
+  "behavioral": null,
+  "known_routes": [],
+  "unattached_evidence": [
+    {
+      "scope": "symbol",
+      "target_symbol": "ChatGoogle.ainvoke",
+      "target_file": "browser_use/llm/google/chat.py",
+      "mapped_tests": [
+        {
+          "id": "ai_recovery:browser_use/llm/tests/test_gemini_image.py:Gemini image invocation test (lines 55-80)",
+          "name": "Gemini image invocation test (lines 55-80)",
+          "case_name": "Gemini image invocation test (lines 55-80)",
+          "repo": null,
+          "file": "browser_use/llm/tests/test_gemini_image.py",
+          "line": null,
+          "suite": null,
+          "match_rule": "The test constructs ChatGoogle with a Gemini model and directly awaits its ainvoke method with messages containing a base64 image content part.",
+          "evidence_tier": "A_direct_invocation",
+          "source_refs": [
+            "ai_recovery:browser_use/llm/tests/test_gemini_image.py:Gemini image invocation test (lines 55-80)"
+          ],
+          "changed_in_diff": false,
+          "evidence": []
+        }
+      ],
+      "provenance": "ai_recovery"
+    }
+  ]
+}

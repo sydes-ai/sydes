@@ -1,0 +1,126 @@
+{
+  "code_findings": [
+    {
+      "id": "investigator-H1",
+      "severity": "P1",
+      "title": "For an existing user or workspace settings file, removing an existing MCP server through `mcp remove` leaves that server in the persisted file because the new format-preserving save overlays remaining",
+      "file": "packages/cli/src/utils/commentJson.ts",
+      "line": 58,
+      "repo": null,
+      "explanation": "The removal path deletes the named server from the scope's in-memory `mcpServers` object and passes that complete modified settings object to `saveSettings`. `saveSettings` now invokes the new format-preserving updater. That updater starts from the parsed on-disk document, recursively merges object values, and iterates only keys present in the in-memory updates. Therefore, when the deleted server name is absent from the updated `mcpServers`, no operation deletes the corresponding key from the parsed on-disk object. The stale server is stringified back to the file, after which `removeMcpServer` unconditionally prints its success message.",
+      "impact": "Caused by the change: The changed save path supplies the scope's complete desired settings to an overlay algorithm whose base is the old on-disk object. At `mcpServers`, the algorithm recursively processes only entries still present in the desired object; the removed server is omitted, so its old parsed key is retained. The retained object is then written back, while the caller prints the success message.",
+      "suggested_fix": null,
+      "source": "investigator",
+      "evidence": [
+        {
+          "file": "packages/cli/src/commands/mcp/remove.ts",
+          "symbol": null,
+          "label": "verified_quote:30",
+          "snippet": "delete mcpServers[name];"
+        },
+        {
+          "file": "packages/cli/src/commands/mcp/remove.ts",
+          "symbol": null,
+          "label": "verified_quote:32",
+          "snippet": "settings.setValue(settingsScope, 'mcpServers', mcpServers);"
+        },
+        {
+          "file": "packages/cli/src/commands/mcp/remove.ts",
+          "symbol": null,
+          "label": "verified_quote:34",
+          "snippet": "console.log(`Server \"${name}\" removed from ${scope} settings.`);"
+        },
+        {
+          "file": "packages/cli/src/config/settings.ts",
+          "symbol": null,
+          "label": "verified_quote:738",
+          "snippet": "updateSettingsFilePreservingFormat("
+        }
+      ]
+    },
+    {
+      "id": "investigator-H5",
+      "severity": "P2",
+      "title": "For `mcp add` when updating an already-configured server, if the target settings file becomes unparsable after loading but before saving, the file is left unchanged while the command reports that the ",
+      "file": "packages/cli/src/utils/commentJson.ts",
+      "line": 39,
+      "repo": null,
+      "explanation": "The new persistence helper rereads the existing file and attempts to parse it. If parsing throws, it logs the error and returns normally before the write. Its return type is void, and `LoadedSettings.setValue` does not receive or check any success indicator. On the existing-server path, `addMcpServer` prints the update-success message after `setValue` returns. Thus a file that was valid during `loadSettings` but is malformed by save time follows a normal-return path with no write and then receives a success report.",
+      "impact": "Caused by the change: This change introduces the format-preserving helper and routes settings persistence through it (E9 and L10). When its newly added parse fails, line 39 returns before the only write at line 49. That normal void return propagates through `saveSettings` and `setValue`, after which the existing-server branch prints its unconditional \u201cupdated\u201d message. The change therefore introduces this parse-failure false-success path.",
+      "suggested_fix": null,
+      "source": "investigator",
+      "evidence": [
+        {
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "symbol": null,
+          "label": "verified_quote:33",
+          "snippet": "parsed = parse(originalContent) as Record<string, unknown>;"
+        },
+        {
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "symbol": null,
+          "label": "verified_quote:49",
+          "snippet": "fs.writeFileSync(filePath, updatedContent, 'utf-8');"
+        },
+        {
+          "file": "packages/cli/src/commands/mcp/add.ts",
+          "symbol": null,
+          "label": "verified_quote:119",
+          "snippet": "console.log(`MCP server \"${name}\" updated in ${scope} settings.`);"
+        },
+        {
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "symbol": null,
+          "label": "verified_quote:23",
+          "snippet": "): void {"
+        }
+      ]
+    },
+    {
+      "id": "investigator-H4",
+      "severity": "P3",
+      "title": "For an existing parseable settings file saved through updateSettingsFilePreservingFormat, indentation and compact layout are not preserved when they differ from two-space pretty-printing, despite the ",
+      "file": "packages/cli/src/utils/commentJson.ts",
+      "line": 47,
+      "repo": null,
+      "explanation": "The helper explicitly promises to preserve formatting, but it parses the existing file, serializes the entire resulting structure with a fixed indentation argument of 2, and replaces the complete file with that serialization. Thus tab-indented, four-space-indented, or compact input is emitted using two-space pretty-printing; only comments represented by the parsed structure can survive independently of the original whitespace layout.",
+      "impact": "Caused by the change: The changed helper does not retain or reuse the original file's indentation/layout when writing. Instead, line 47 serializes the whole parsed document with fixed two-space indentation, and line 49 overwrites the original file with that output. This newly introduced persistence path therefore materially changes all non-two-space layouts while claiming to preserve formatting.",
+      "suggested_fix": null,
+      "source": "investigator",
+      "evidence": [
+        {
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "symbol": null,
+          "label": "verified_quote:17",
+          "snippet": " * Updates a JSON file while preserving comments, formatting, and environment variable references."
+        },
+        {
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "symbol": null,
+          "label": "verified_quote:47",
+          "snippet": "  const updatedContent = stringify(restoredStructure, null, 2);"
+        }
+      ]
+    }
+  ],
+  "code_review_status": "completed",
+  "run_metrics": {
+    "llm_totals": {
+      "calls": 18,
+      "input_tokens": 55101,
+      "output_tokens": 14936,
+      "errors": 0
+    },
+    "llm_by_purpose": {
+      "investigator": {
+        "calls": 12
+      },
+      "verifier": {
+        "calls": 6
+      }
+    }
+  },
+  "diagnostics": [
+    "investigator: hypotheses=5 lookups=12/12 confirmed=3 refuted=0 unknown=2 findings=3 llm_calls=18 errors=0"
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "run": "alloc-A2-replay-sequential-c54d97e-first11-2026-10-26",
+  "cases_file": "benchmarks/aacr/baselines/2026-10-25-sydes-0.4.0-dev-laptop-first11/cases-completed.json",
+  "sydes": {
+    "package": "/Users/ksnaik/.cache/sydes-aacr/sydes-builds/c54d97ecd07904310b32e7f966d2c33b45e67044",
+    "model": "openai:gpt-5.6-sol",
+    "args": [
+      "--llm-policy",
+      "auto",
+      "--impact-guide",
+      "auto",
+      "--code-review"
+    ],
+    "timeout_minutes": 45,
+    "git_commit": "c54d97ecd07904310b32e7f966d2c33b45e67044",
+    "git_ref": "c54d97e"
+  },
+  "replay": {
+    "source_run": "alloc-A1-snapshot-c54d97e-first11-2026-10-26",
+    "allocation": "sequential"
+  },
+  "aacr_commit": "ee9d7fef70ef31acea2ff7ae316ce0a9575fe4df",
+  "boundary": "code_findings",
+  "started_at": "2026-10-27T01:04:55Z"
+}

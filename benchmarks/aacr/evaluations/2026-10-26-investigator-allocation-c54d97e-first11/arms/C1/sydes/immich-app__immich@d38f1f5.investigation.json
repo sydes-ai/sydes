@@ -1,0 +1,1219 @@
+{
+  "version": "sydes-investigation/1",
+  "packet": [
+    {
+      "id": "E1",
+      "kind": "diff",
+      "ref": "Makefile",
+      "chars": 457
+    },
+    {
+      "id": "E2",
+      "kind": "diff",
+      "ref": "e2e/src/api/specs/oauth.e2e-spec.ts",
+      "chars": 696
+    },
+    {
+      "id": "E3",
+      "kind": "diff",
+      "ref": "e2e/src/web/specs/photo-viewer.e2e-spec.ts",
+      "chars": 1317
+    },
+    {
+      "id": "E4",
+      "kind": "diff",
+      "ref": "e2e/src/web/specs/shared-link.e2e-spec.ts",
+      "chars": 595
+    },
+    {
+      "id": "E5",
+      "kind": "diff",
+      "ref": "web/eslint.config.js",
+      "chars": 343
+    },
+    {
+      "id": "E6",
+      "kind": "diff",
+      "ref": "web/src/lib/components/asset-viewer/photo-viewer.svelte",
+      "chars": 1330
+    },
+    {
+      "id": "E7",
+      "kind": "diff",
+      "ref": "web/src/lib/components/assets/thumbnail/image-thumbnail.svelte",
+      "chars": 1199
+    },
+    {
+      "id": "E8",
+      "kind": "diff",
+      "ref": "web/src/lib/utils/sw-messaging.ts",
+      "chars": 459
+    },
+    {
+      "id": "E9",
+      "kind": "diff",
+      "ref": "web/src/service-worker/index.ts",
+      "chars": 2500
+    },
+    {
+      "id": "E10",
+      "kind": "changed_symbol",
+      "ref": "web/src/lib/utils/sw-messaging.ts:1-1",
+      "chars": 68
+    },
+    {
+      "id": "E11",
+      "kind": "changed_symbol",
+      "ref": "web/src/lib/utils/sw-messaging.ts:3-5",
+      "chars": 119
+    },
+    {
+      "id": "E12",
+      "kind": "changed_symbol",
+      "ref": "web/src/lib/utils/sw-messaging.ts:6-8",
+      "chars": 122
+    },
+    {
+      "id": "E13",
+      "kind": "changed_symbol",
+      "ref": "web/src/service-worker/index.ts:7-7",
+      "chars": 40
+    },
+    {
+      "id": "E14",
+      "kind": "changed_symbol",
+      "ref": "web/src/service-worker/index.ts:8-8",
+      "chars": 73
+    },
+    {
+      "id": "E15",
+      "kind": "changed_symbol",
+      "ref": "web/src/service-worker/index.ts:9-9",
+      "chars": 78
+    },
+    {
+      "id": "E16",
+      "kind": "changed_symbol",
+      "ref": "web/src/service-worker/index.ts:12-12",
+      "chars": 48
+    },
+    {
+      "id": "E17",
+      "kind": "changed_symbol",
+      "ref": "web/src/service-worker/index.ts:35-41",
+      "chars": 153
+    },
+    {
+      "id": "E18",
+      "kind": "changed_symbol",
+      "ref": "web/src/service-worker/index.ts:43-68",
+      "chars": 644
+    },
+    {
+      "id": "E19",
+      "kind": "changed_symbol",
+      "ref": "web/src/service-worker/index.ts:70-70",
+      "chars": 68
+    },
+    {
+      "id": "E20",
+      "kind": "changed_symbol",
+      "ref": "Makefile:17-20",
+      "chars": 112
+    },
+    {
+      "id": "E21",
+      "kind": "changed_symbol",
+      "ref": "Makefile:20-23",
+      "chars": 114
+    },
+    {
+      "id": "E22",
+      "kind": "changed_symbol",
+      "ref": "web/src/lib/components/asset-viewer/photo-viewer.svelte:72-78",
+      "chars": 17
+    },
+    {
+      "id": "E23",
+      "kind": "changed_symbol",
+      "ref": "web/src/lib/components/assets/thumbnail/image-thumbnail.svelte:64-72",
+      "chars": 15
+    },
+    {
+      "id": "E24",
+      "kind": "changed_symbol",
+      "ref": "web/src/lib/components/assets/thumbnail/image-thumbnail.svelte:70-70",
+      "chars": 17
+    },
+    {
+      "id": "E25",
+      "kind": "structural",
+      "ref": "mobile/lib/services/background.service.dart:641-641",
+      "chars": 123
+    },
+    {
+      "id": "E26",
+      "kind": "structural",
+      "ref": "web/src/lib/components/asset-viewer/photo-viewer.svelte:80-88",
+      "chars": 535
+    },
+    {
+      "id": "E27",
+      "kind": "structural",
+      "ref": "web/src/lib/components/assets/thumbnail/image-thumbnail.svelte:30-46",
+      "chars": 485
+    },
+    {
+      "id": "E28",
+      "kind": "structural",
+      "ref": "mobile/lib/services/album.service.dart:73-73",
+      "chars": 85
+    },
+    {
+      "id": "E29",
+      "kind": "structural",
+      "ref": "mobile/lib/services/album.service.dart:165-165",
+      "chars": 85
+    },
+    {
+      "id": "E30",
+      "kind": "structural",
+      "ref": "mobile/lib/services/asset.service.dart:83-83",
+      "chars": 85
+    },
+    {
+      "id": "E31",
+      "kind": "test_execution",
+      "ref": "ci_suite",
+      "chars": 163
+    },
+    {
+      "id": "E32",
+      "kind": "gap",
+      "ref": "unresolved:CACHE",
+      "chars": 73
+    },
+    {
+      "id": "E33",
+      "kind": "gap",
+      "ref": "unresolved:broadcast",
+      "chars": 77
+    },
+    {
+      "id": "E34",
+      "kind": "gap",
+      "ref": "unresolved:cancelImageUrl",
+      "chars": 82
+    },
+    {
+      "id": "E35",
+      "kind": "gap",
+      "ref": "unresolved:deleteOldCaches",
+      "chars": 83
+    },
+    {
+      "id": "E36",
+      "kind": "gap",
+      "ref": "unresolved:destroy",
+      "chars": 75
+    },
+    {
+      "id": "E37",
+      "kind": "gap",
+      "ref": "unresolved:immichAsset",
+      "chars": 79
+    },
+    {
+      "id": "E38",
+      "kind": "gap",
+      "ref": "unresolved:mount",
+      "chars": 73
+    },
+    {
+      "id": "E39",
+      "kind": "gap",
+      "ref": "unresolved:pendingLoads",
+      "chars": 80
+    },
+    {
+      "id": "E40",
+      "kind": "gap",
+      "ref": "unresolved:preload",
+      "chars": 75
+    },
+    {
+      "id": "E41",
+      "kind": "gap",
+      "ref": "unresolved:preloadImageUrl",
+      "chars": 83
+    },
+    {
+      "id": "E42",
+      "kind": "gap",
+      "ref": "unresolved:prod",
+      "chars": 72
+    },
+    {
+      "id": "E43",
+      "kind": "gap",
+      "ref": "unresolved:prod-down",
+      "chars": 77
+    },
+    {
+      "id": "E44",
+      "kind": "change_analysis",
+      "ref": "summary",
+      "chars": 433
+    },
+    {
+      "id": "E45",
+      "kind": "change_analysis",
+      "ref": "local_risk",
+      "chars": 367
+    },
+    {
+      "id": "E46",
+      "kind": "change_analysis",
+      "ref": "local_risk",
+      "chars": 297
+    },
+    {
+      "id": "E47",
+      "kind": "change_analysis",
+      "ref": "local_risk",
+      "chars": 232
+    },
+    {
+      "id": "E48",
+      "kind": "change_analysis",
+      "ref": "local_risk",
+      "chars": 239
+    },
+    {
+      "id": "E49",
+      "kind": "change_analysis",
+      "ref": "uncertainty",
+      "chars": 170
+    },
+    {
+      "id": "E50",
+      "kind": "change_analysis",
+      "ref": "uncertainty",
+      "chars": 169
+    },
+    {
+      "id": "E51",
+      "kind": "change_analysis",
+      "ref": "uncertainty",
+      "chars": 154
+    },
+    {
+      "id": "E52",
+      "kind": "change_analysis",
+      "ref": "uncertainty",
+      "chars": 189
+    },
+    {
+      "id": "E53",
+      "kind": "change_analysis",
+      "ref": "uncertainty",
+      "chars": 206
+    }
+  ],
+  "hypotheses": [
+    {
+      "id": "H1",
+      "claim": "Asset caching may violate authorization isolation: a successful response cached for an asset URL can be returned to a later session that is not authorized to access that asset, because cache lookup is keyed by URL and is not cleared when identity or permissions change.",
+      "why_suspected": "The service worker caches every successful matching asset response and later returns cache matches before contacting the server. The cache name changes only with deployments, while the evidence does not establish that asset URLs are user-specific or that logout and permission changes clear the cache.",
+      "file": "web/src/service-worker/index.ts",
+      "line": 46,
+      "severity": "P1",
+      "initial_evidence": [
+        "E13",
+        "E16",
+        "E18",
+        "E45",
+        "E52"
+      ],
+      "questions_to_resolve": [
+        "Can the same asset URL be requested by differently authorized users or before and after logout?",
+        "Are these caches cleared whenever authentication, sharing permissions, or asset access changes?"
+      ]
+    },
+    {
+      "id": "H2",
+      "claim": "Canceling an image load for one component may abort another component's concurrent load of the same URL, violating independent request ownership.",
+      "why_suspected": "All requests for a URL share one map key. A later request overwrites the earlier AbortController, and component teardown broadcasts cancellation using only the URL, so it can abort whichever request currently occupies that key; one request's finally block can also delete another request's entry.",
+      "file": "web/src/service-worker/index.ts",
+      "line": 55,
+      "severity": "P2",
+      "initial_evidence": [
+        "E6",
+        "E7",
+        "E11",
+        "E15",
+        "E18",
+        "E46"
+      ],
+      "questions_to_resolve": [
+        "Can multiple thumbnails, viewers, or preload operations request the same asset URL concurrently?",
+        "Does the cancellation handler distinguish the requesting component or individual fetch in any omitted code?"
+      ]
+    },
+    {
+      "id": "H3",
+      "claim": "Activating this service worker may delete Cache Storage entries owned by unrelated application features because cleanup removes every origin cache except the current asset cache.",
+      "why_suspected": "deleteOldCaches iterates all cache names and deletes every name unequal to CACHE, without restricting deletion to an Immich asset-cache namespace.",
+      "file": "web/src/service-worker/index.ts",
+      "line": 36,
+      "severity": "P2",
+      "initial_evidence": [
+        "E16",
+        "E17",
+        "E47"
+      ],
+      "questions_to_resolve": [
+        "Does any current or supported deployment sharing this origin use Cache Storage for another feature or application?",
+        "Is this service worker guaranteed exclusive ownership of every cache on the origin?"
+      ]
+    },
+    {
+      "id": "H4",
+      "claim": "A successful asset fetch or preload may fail to persist its response because cache.put is not awaited before immichAsset resolves, violating the new preloading and cache-reuse behavior.",
+      "why_suspected": "The service worker starts cache.put and immediately returns the network response. Once the fetch handler's response promise settles, service-worker termination can interrupt the outstanding write, and a rejected write is not observed.",
+      "file": "web/src/service-worker/index.ts",
+      "line": 61,
+      "severity": "P2",
+      "initial_evidence": [
+        "E12",
+        "E18",
+        "E22",
+        "E48",
+        "E53"
+      ],
+      "questions_to_resolve": [
+        "Is any surrounding event lifetime kept open until cache.put settles?",
+        "Is reliable cache population required for preload requests, which have no foreground response consumer?"
+      ]
+    },
+    {
+      "id": "H5",
+      "claim": "The cache-first path may serve obsolete asset content for the remainder of a deployment after an asset is edited or replaced, because cached responses have no expiry or revalidation.",
+      "why_suspected": "Once cache.match succeeds, the service worker returns that response without consulting the server or HTTP freshness directives. Entries persist under a deployment-versioned cache until a later deployment unless every content mutation changes the requested URL.",
+      "file": "web/src/service-worker/index.ts",
+      "line": 46,
+      "severity": "P2",
+      "initial_evidence": [
+        "E13",
+        "E16",
+        "E18",
+        "E26",
+        "E53"
+      ],
+      "questions_to_resolve": [
+        "Do all mutations that can change an original or thumbnail also change the cacheKey embedded in its URL?",
+        "Must server cache-control directives or asset replacement become visible without a new frontend deployment?"
+      ]
+    }
+  ],
+  "lookups": [
+    {
+      "n": 1,
+      "id": "L1",
+      "hypothesis": "H1",
+      "tool": "read_source",
+      "args": {
+        "path": "web/src/service-worker/index.ts",
+        "start_line": 1,
+        "end_line": 140
+      },
+      "why": "Inspect the service worker\u2019s cache keying, request filtering, and cache invalidation behavior around line 46.",
+      "provenance": "source_read",
+      "result_chars": 2800,
+      "result_excerpt": "1: /// <reference types=\"@sveltejs/kit\" />\n2: /// <reference no-default-lib=\"true\"/>\n3: /// <reference lib=\"esnext\" />\n4: /// <reference lib=\"webworker\" />\n5: import { version } from '$service-worker';\n6: \n7: const useCache = true;\n8: const sw = globalThis as unknown as ServiceWorkerGlobalScope;\n9: const pendingLoads = new Map<string, AbortController>();\n10: \n11: // Create a unique cache name for this deployment\n12: const CACHE = `cache-${version}`;\n13: \n14: sw.addEventListener('install', (event) => {\n15:   event.waitUntil(sw.skipWaiting());\n16: });\n17: \n18: sw.addEventListener('activate', (ev"
+    },
+    {
+      "n": 2,
+      "id": "L2",
+      "hypothesis": "H1",
+      "tool": "search_text",
+      "args": {
+        "pattern": "caches\\.(delete|keys)|cache-(?:\\$\\{)?version|BroadcastChannel\\(['\"]immich['\"]\\)|type:\\s*['\"](?:logout|clear|preload|cancel)['\"]",
+        "path_glob": "web/src/**/*.{ts,js,svelte}"
+      },
+      "why": "Determine whether application authentication/logout or permission-change paths send a cache-clear signal or directly clear the service worker asset cache.",
+      "provenance": "source_search",
+      "result_chars": 552,
+      "result_excerpt": "web/src/lib/utils/sw-messaging.ts:1: const broadcast = new BroadcastChannel('immich');\nweb/src/lib/utils/sw-messaging.ts:4: broadcast.postMessage({ type: 'cancel', url });\nweb/src/lib/utils/sw-messaging.ts:7: broadcast.postMessage({ type: 'preload', url });\nweb/src/service-worker/index.ts:12: const CACHE = `cache-${version}`;\nweb/src/service-worker/index.ts:36: for (const key of await caches.keys()) {\nweb/src/service-worker/index.ts:38: await caches.delete(key);\nweb/src/service-worker/index.ts:70: const broadcast = new BroadcastChannel('immich');"
+    },
+    {
+      "n": 3,
+      "id": "L3",
+      "hypothesis": "H2",
+      "tool": "read_source",
+      "args": {
+        "path": "web/src/service-worker/index.ts",
+        "start_line": 1,
+        "end_line": 130
+      },
+      "why": "Inspect the image-load and cancellation protocol around line 55 to see whether requests are keyed only by URL or distinguish individual fetches/components.",
+      "provenance": "source_read",
+      "result_chars": 2800,
+      "result_excerpt": "1: /// <reference types=\"@sveltejs/kit\" />\n2: /// <reference no-default-lib=\"true\"/>\n3: /// <reference lib=\"esnext\" />\n4: /// <reference lib=\"webworker\" />\n5: import { version } from '$service-worker';\n6: \n7: const useCache = true;\n8: const sw = globalThis as unknown as ServiceWorkerGlobalScope;\n9: const pendingLoads = new Map<string, AbortController>();\n10: \n11: // Create a unique cache name for this deployment\n12: const CACHE = `cache-${version}`;\n13: \n14: sw.addEventListener('install', (event) => {\n15:   event.waitUntil(sw.skipWaiting());\n16: });\n17: \n18: sw.addEventListener('activate', (ev"
+    },
+    {
+      "n": 4,
+      "id": "L4",
+      "hypothesis": "H2",
+      "tool": "search_text",
+      "args": {
+        "pattern": "BroadcastChannel\\(['\"]immich['\"]\\)|type:\\s*['\"](?:cancel|preload)['\"]|type\\s*===?\\s*['\"](?:cancel|preload)['\"]",
+        "path_glob": "web/src/**/*"
+      },
+      "why": "Find all cancellation/preload senders and consumers to determine whether multiple components can request the same URL concurrently and whether messages carry any per-component or per-fetch identity.",
+      "provenance": "source_search",
+      "result_chars": 495,
+      "result_excerpt": "web/src/lib/utils/sw-messaging.ts:1: const broadcast = new BroadcastChannel('immich');\nweb/src/lib/utils/sw-messaging.ts:4: broadcast.postMessage({ type: 'cancel', url });\nweb/src/lib/utils/sw-messaging.ts:7: broadcast.postMessage({ type: 'preload', url });\nweb/src/service-worker/index.ts:70: const broadcast = new BroadcastChannel('immich');\nweb/src/service-worker/index.ts:76: if (event.data.type === 'cancel') {\nweb/src/service-worker/index.ts:85: } else if (event.data.type === 'preload') {"
+    },
+    {
+      "n": 5,
+      "id": "L5",
+      "hypothesis": "H3",
+      "tool": "read_source",
+      "args": {
+        "path": "web/src/service-worker/index.ts",
+        "start_line": 1,
+        "end_line": 80
+      },
+      "why": "Verify whether activation actually enumerates and deletes all origin caches other than the current asset cache, and identify any ownership assumptions or naming scope.",
+      "provenance": "source_read",
+      "result_chars": 2506,
+      "result_excerpt": "1: /// <reference types=\"@sveltejs/kit\" />\n2: /// <reference no-default-lib=\"true\"/>\n3: /// <reference lib=\"esnext\" />\n4: /// <reference lib=\"webworker\" />\n5: import { version } from '$service-worker';\n6: \n7: const useCache = true;\n8: const sw = globalThis as unknown as ServiceWorkerGlobalScope;\n9: const pendingLoads = new Map<string, AbortController>();\n10: \n11: // Create a unique cache name for this deployment\n12: const CACHE = `cache-${version}`;\n13: \n14: sw.addEventListener('install', (event) => {\n15:   event.waitUntil(sw.skipWaiting());\n16: });\n17: \n18: sw.addEventListener('activate', (ev"
+    },
+    {
+      "n": 6,
+      "id": "L6",
+      "hypothesis": "H3",
+      "tool": "search_text",
+      "args": {
+        "pattern": "\\bcaches\\.(open|keys|delete|match)\\s*\\(|\\bCacheStorage\\b",
+        "path_glob": "**/*.{ts,tsx,js,jsx,svelte,html}"
+      },
+      "why": "Determine whether any other repository feature or application uses Cache Storage on the same origin, which would be vulnerable to this unscoped cleanup.",
+      "provenance": "source_search",
+      "result_chars": 214,
+      "result_excerpt": "web/src/service-worker/index.ts:36: for (const key of await caches.keys()) {\nweb/src/service-worker/index.ts:38: await caches.delete(key);\nweb/src/service-worker/index.ts:44: const cache = await caches.open(CACHE);"
+    },
+    {
+      "n": 7,
+      "id": "L7",
+      "hypothesis": "H4",
+      "tool": "read_source",
+      "args": {
+        "path": "web/src/service-worker/index.ts",
+        "start_line": 1,
+        "end_line": 130
+      },
+      "why": "Inspect immichAsset, its cache.put handling, and surrounding fetch/preload event lifetime management.",
+      "provenance": "source_read",
+      "result_chars": 2800,
+      "result_excerpt": "1: /// <reference types=\"@sveltejs/kit\" />\n2: /// <reference no-default-lib=\"true\"/>\n3: /// <reference lib=\"esnext\" />\n4: /// <reference lib=\"webworker\" />\n5: import { version } from '$service-worker';\n6: \n7: const useCache = true;\n8: const sw = globalThis as unknown as ServiceWorkerGlobalScope;\n9: const pendingLoads = new Map<string, AbortController>();\n10: \n11: // Create a unique cache name for this deployment\n12: const CACHE = `cache-${version}`;\n13: \n14: sw.addEventListener('install', (event) => {\n15:   event.waitUntil(sw.skipWaiting());\n16: });\n17: \n18: sw.addEventListener('activate', (ev"
+    },
+    {
+      "n": 8,
+      "id": "L8",
+      "hypothesis": "H4",
+      "tool": "search_text",
+      "args": {
+        "pattern": "type:\\s*['\"]preload['\"]|type:\\s*\"preload\"|postMessage\\([^\\n]*preload|preload",
+        "path_glob": "web/src/**/*"
+      },
+      "why": "Determine how preload messages are initiated and whether their only useful effect is populating the service-worker cache, with no foreground response consumer.",
+      "provenance": "source_search",
+      "result_chars": 4428,
+      "result_excerpt": "web/src/app.html:16: <link rel=\"preload\" as=\"font\" type=\"font/ttf\" href=\"%app.font%\" crossorigin=\"anonymous\" />\nweb/src/app.html:17: <link rel=\"preload\" as=\"font\" type=\"font/ttf\" href=\"%app.monofont%\" crossorigin=\"anonymous\" />\nweb/src/lib/components/album-page/__tests__/album-cover.spec.ts:16: preload: false,\nweb/src/lib/components/album-page/__tests__/album-cover.spec.ts:33: preload: true,\nweb/src/lib/components/album-page/album-card-group.svelte:71: data-sveltekit-preload-data=\"hover\"\nweb/src/lib/components/album-page/album-card-group.svelte:81: preload={index < 20}\nweb/src/lib/components/a"
+    },
+    {
+      "n": 9,
+      "id": "L9",
+      "hypothesis": "H5",
+      "tool": "read_source",
+      "args": {
+        "path": "web/src/service-worker/index.ts",
+        "start_line": 1,
+        "end_line": 100
+      },
+      "why": "Inspect the cache-first implementation, cache naming/versioning, request scope, and whether it performs expiry or revalidation.",
+      "provenance": "source_read",
+      "result_chars": 2800,
+      "result_excerpt": "1: /// <reference types=\"@sveltejs/kit\" />\n2: /// <reference no-default-lib=\"true\"/>\n3: /// <reference lib=\"esnext\" />\n4: /// <reference lib=\"webworker\" />\n5: import { version } from '$service-worker';\n6: \n7: const useCache = true;\n8: const sw = globalThis as unknown as ServiceWorkerGlobalScope;\n9: const pendingLoads = new Map<string, AbortController>();\n10: \n11: // Create a unique cache name for this deployment\n12: const CACHE = `cache-${version}`;\n13: \n14: sw.addEventListener('install', (event) => {\n15:   event.waitUntil(sw.skipWaiting());\n16: });\n17: \n18: sw.addEventListener('activate', (ev"
+    },
+    {
+      "n": 10,
+      "id": "L10",
+      "hypothesis": "H5",
+      "tool": "search_text",
+      "args": {
+        "pattern": "cacheKey",
+        "path_glob": "**/*.{ts,svelte,js}"
+      },
+      "why": "Determine where original/thumbnail URLs embed cacheKey and whether asset mutations update it, which decides whether edited or replaced content gets a new cache URL.",
+      "provenance": "source_search",
+      "result_chars": 3257,
+      "result_excerpt": "web/src/lib/components/asset-viewer/asset-viewer.svelte:494: cacheKey={previewStackedAsset.thumbhash}\nweb/src/lib/components/asset-viewer/asset-viewer.svelte:511: cacheKey={asset.thumbhash}\nweb/src/lib/components/asset-viewer/asset-viewer.svelte:539: cacheKey={asset.thumbhash}\nweb/src/lib/components/asset-viewer/editor/crop-tool/crop-area.svelte:53: img.src = getAssetOriginalUrl({ id: asset.id, cacheKey: asset.thumbhash });\nweb/src/lib/components/asset-viewer/photo-viewer.spec.ts:51: cacheKey: asset.thumbhash,\nweb/src/lib/components/asset-viewer/photo-viewer.spec.ts:61: expect(getAssetOriginal"
+    },
+    {
+      "n": 11,
+      "id": "L11",
+      "hypothesis": "H1",
+      "tool": "search_text",
+      "args": {
+        "pattern": "api/assets/|AssetController|original|thumbnail",
+        "path_glob": "server/src/**/*.{ts,js}"
+      },
+      "why": "Identify the asset endpoints and their authorization checks to determine whether the same URL can yield access for one user/session and denial for another.",
+      "provenance": "source_search",
+      "result_chars": 2934,
+      "result_excerpt": "server/src/config.ts:111: thumbnail: ImageOptions;\nserver/src/config.ts:273: thumbnail: {\nserver/src/controllers/asset-media.controller.ts:81: @Get(':id/original')\nserver/src/controllers/asset-media.controller.ts:96: @Put(':id/original')\nserver/src/controllers/asset-media.controller.ts:121: @Get(':id/thumbnail')\nserver/src/controllers/asset-media.controller.ts:138: // which redirects to the original asset or a specific size to make better use of caching\nserver/src/controllers/asset-media.controller.ts:143: if (targetSize === 'original') {\nserver/src/controllers/asset-media.controller.ts:145: r"
+    },
+    {
+      "n": 12,
+      "id": "L12",
+      "hypothesis": "H1",
+      "tool": "read_source",
+      "args": {
+        "path": "server/src/controllers/asset-media.controller.ts",
+        "start_line": 1,
+        "end_line": 170
+      },
+      "why": "Confirm whether identical original/thumbnail asset URLs are authorization-protected per request, so one session can receive 200 while another receives denial; combined with the observed URL-only cache and deployment-only cleanup, this decides the hypothesis.",
+      "provenance": "source_read",
+      "result_chars": 6000,
+      "result_excerpt": "1: import {\n2:   Body,\n3:   Controller,\n4:   Get,\n5:   HttpCode,\n6:   HttpStatus,\n7:   Next,\n8:   Param,\n9:   ParseFilePipe,\n10:   Post,\n11:   Put,\n12:   Query,\n13:   Req,\n14:   Res,\n15:   UploadedFiles,\n16:   UseInterceptors,\n17: } from '@nestjs/common';\n18: import { ApiBody, ApiConsumes, ApiHeader, ApiOperation, ApiTags } from '@nestjs/swagger';\n19: import { NextFunction, Request, Response } from 'express';\n20: import { EndpointLifecycle } from 'src/decorators';\n21: import {\n22:   AssetBulkUploadCheckResponseDto,\n23:   AssetMediaResponseDto,\n24:   AssetMediaStatus,\n25:   CheckExistingAssetsR"
+    }
+  ],
+  "outcomes": [
+    {
+      "hypothesis": "H1",
+      "lookups": [
+        "L1",
+        "L2",
+        "L11",
+        "L12"
+      ],
+      "status": "UNKNOWN",
+      "supported_claim": "The change adds a same-deployment, URL-keyed cache for authenticated asset original/thumbnail routes and returns matching cached responses without contacting the server, but the evidence does not establish that such a response remains cached across logout or is delivered to a differently authorized session.",
+      "reasoning": "The risk mechanism is present: the service worker intercepts asset-media GETs, stores status-200 responses under the URL, and returns a URL match before making a network request. The corresponding server routes are marked @Authenticated and receive AuthDto, so bypassing a fresh server request could matter. However, the supplied evidence does not show the authorization checks inside the guard/service or an example where the same URL is allowed for one identity and denied for another. It also does not show the logout/session-change implementation or server logout responses. L2 found no logout/clear cache message in web/src, but that search does not exclude other clearing mechanisms such as server-provided Clear-Site-Data or unsearched cache-management code. Thus cross-authorization disclosure is plausible but not established, and no evidence refutes it.",
+      "defect_evidence": [
+        {
+          "source": "L12",
+          "file": "server/src/controllers/asset-media.controller.ts",
+          "line": 81,
+          "quote": "@Get(':id/original')"
+        },
+        {
+          "source": "L12",
+          "file": "server/src/controllers/asset-media.controller.ts",
+          "line": 83,
+          "quote": "@Authenticated({ sharedLink: true })"
+        },
+        {
+          "source": "L12",
+          "file": "server/src/controllers/asset-media.controller.ts",
+          "line": 90,
+          "quote": "await sendFile(res, next, () => this.service.downloadOriginal(auth, id), this.logger);"
+        },
+        {
+          "source": "L12",
+          "file": "server/src/controllers/asset-media.controller.ts",
+          "line": 121,
+          "quote": "@Get(':id/thumbnail')"
+        },
+        {
+          "source": "L12",
+          "file": "server/src/controllers/asset-media.controller.ts",
+          "line": 123,
+          "quote": "@Authenticated({ sharedLink: true })"
+        }
+      ],
+      "changed_evidence": [
+        {
+          "source": "L1",
+          "file": "web/src/service-worker/index.ts",
+          "line": 30,
+          "quote": "if (/^\\/api\\/assets\\/[a-f0-9-]+\\/(original|thumbnail)/.test(url.pathname)) {"
+        },
+        {
+          "source": "L1",
+          "file": "web/src/service-worker/index.ts",
+          "line": 45,
+          "quote": "let response = useCache ? await cache.match(url) : undefined;"
+        },
+        {
+          "source": "L1",
+          "file": "web/src/service-worker/index.ts",
+          "line": 46,
+          "quote": "if (response) {\n    return response;\n  }"
+        },
+        {
+          "source": "L1",
+          "file": "web/src/service-worker/index.ts",
+          "line": 59,
+          "quote": "if (response.status === 200) {\n      cache.put(url, response.clone());\n    }"
+        },
+        {
+          "source": "L1",
+          "file": "web/src/service-worker/index.ts",
+          "line": 35,
+          "quote": "async function deleteOldCaches() {\n  for (const key of await caches.keys()) {\n    if (key !== CACHE) {\n      await caches.delete(key);\n    }\n  }\n}"
+        }
+      ],
+      "causal_link": "If an authorized 200 response remains in CACHE after identity or permission changes, the newly added cache.match(url) and immediate return would bypass the authenticated server route for a later request to the same URL. The evidence does not establish that prerequisite or exclude external invalidation, so the causal link remains conditional.",
+      "refuting": [],
+      "missing": [
+        "The Authenticated guard and asset-media service authorization behavior proving that the same asset URL can return 200 for one identity but be denied for another or after logout.",
+        "The logout, login-switch, shared-link revocation, and permission-change implementations, including any CacheStorage deletion or Clear-Site-Data response.",
+        "A test or trace showing that an asset cached under one authorization context is actually returned after that context loses access."
+      ],
+      "verified_defect_evidence": [
+        {
+          "source": "L12",
+          "file": "server/src/controllers/asset-media.controller.ts",
+          "line": 81,
+          "quote": "@Get(':id/original')",
+          "verification": "citation confirmed near server/src/controllers/asset-media.controller.ts:81"
+        },
+        {
+          "source": "L12",
+          "file": "server/src/controllers/asset-media.controller.ts",
+          "line": 83,
+          "quote": "@Authenticated({ sharedLink: true })",
+          "verification": "citation confirmed near server/src/controllers/asset-media.controller.ts:83"
+        },
+        {
+          "source": "L12",
+          "file": "server/src/controllers/asset-media.controller.ts",
+          "line": 90,
+          "quote": "await sendFile(res, next, () => this.service.downloadOriginal(auth, id), this.logger);",
+          "verification": "citation confirmed near server/src/controllers/asset-media.controller.ts:90"
+        },
+        {
+          "source": "L12",
+          "file": "server/src/controllers/asset-media.controller.ts",
+          "line": 121,
+          "quote": "@Get(':id/thumbnail')",
+          "verification": "citation confirmed near server/src/controllers/asset-media.controller.ts:121"
+        },
+        {
+          "source": "L12",
+          "file": "server/src/controllers/asset-media.controller.ts",
+          "line": 123,
+          "quote": "@Authenticated({ sharedLink: true })",
+          "verification": "citation confirmed near server/src/controllers/asset-media.controller.ts:123"
+        }
+      ],
+      "verified_changed_evidence": [
+        {
+          "source": "L1",
+          "file": "web/src/service-worker/index.ts",
+          "line": 30,
+          "quote": "if (/^\\/api\\/assets\\/[a-f0-9-]+\\/(original|thumbnail)/.test(url.pathname)) {",
+          "verification": "citation confirmed near web/src/service-worker/index.ts:30"
+        },
+        {
+          "source": "L1",
+          "file": "web/src/service-worker/index.ts",
+          "line": 45,
+          "quote": "let response = useCache ? await cache.match(url) : undefined;",
+          "verification": "citation confirmed near web/src/service-worker/index.ts:45"
+        },
+        {
+          "source": "L1",
+          "file": "web/src/service-worker/index.ts",
+          "line": 46,
+          "quote": "if (response) {\n    return response;\n  }",
+          "verification": "citation confirmed near web/src/service-worker/index.ts:46"
+        },
+        {
+          "source": "L1",
+          "file": "web/src/service-worker/index.ts",
+          "line": 59,
+          "quote": "if (response.status === 200) {\n      cache.put(url, response.clone());\n    }",
+          "verification": "citation confirmed near web/src/service-worker/index.ts:59"
+        },
+        {
+          "source": "L1",
+          "file": "web/src/service-worker/index.ts",
+          "line": 35,
+          "quote": "async function deleteOldCaches() {\n  for (const key of await caches.keys()) {\n    if (key !== CACHE) {\n      await caches.delete(key);\n    }\n  }\n}",
+          "verification": "citation recovered near web/src/service-worker/index.ts:31-41 (model cited line 35; the real text was located there instead)"
+        }
+      ],
+      "rounds": [
+        {
+          "round": 1,
+          "lookups": [
+            "L1",
+            "L2"
+          ],
+          "status": "UNKNOWN",
+          "missing": [
+            "Evidence that the same origin and exact asset URL can be requested before and after logout or by users with different asset authorization.",
+            "Evidence that authorization for these requests depends on cookies, headers, or mutable permissions rather than authorization information encoded in the URL.",
+            "Evidence about cache handling during logout, user switching, shared-link revocation, and asset permission changes outside the searched cache/messaging patterns.",
+            "A demonstrated request sequence in which an authorized session populates the cache and a later unauthorized session receives that cached response."
+          ]
+        },
+        {
+          "round": 2,
+          "lookups": [
+            "L11",
+            "L12"
+          ],
+          "verified_again": true,
+          "new_nonempty_lookups": [
+            "L11",
+            "L12"
+          ],
+          "status": "UNKNOWN",
+          "status_changed": false,
+          "missing": [
+            "The Authenticated guard and asset-media service authorization behavior proving that the same asset URL can return 200 for one identity but be denied for another or after logout.",
+            "The logout, login-switch, shared-link revocation, and permission-change implementations, including any CacheStorage deletion or Clear-Site-Data response.",
+            "A test or trace showing that an asset cached under one authorization context is actually returned after that context loses access."
+          ]
+        }
+      ]
+    },
+    {
+      "hypothesis": "H2",
+      "lookups": [
+        "L3",
+        "L4"
+      ],
+      "status": "UNKNOWN",
+      "supported_claim": "The new service-worker cancellation mechanism identifies pending loads only by URL, not by component or individual request; however, the evidence does not establish that the application generates overlapping intercepted loads for the same uncached URL, so an actual cross-component abort cannot be concluded.",
+      "reasoning": "The full service-worker code shows no requester identity: each load stores an AbortController under url.toString(), and a cancel message retrieves and aborts whichever controller is currently stored for that URL. Overlapping calls would also overwrite the map entry. Thus the proposed failure mechanism is present. However, none of the supplied evidence demonstrates that two thumbnails, viewers, or preload/fetch operations actually request the same uncached URL concurrently. Without that prerequisite, the claimed ownership violation remains conditional rather than an established defect.",
+      "defect_evidence": [],
+      "changed_evidence": [
+        {
+          "source": "L3",
+          "file": "web/src/service-worker/index.ts",
+          "line": 9,
+          "quote": "const pendingLoads = new Map<string, AbortController>();"
+        },
+        {
+          "source": "L3",
+          "file": "web/src/service-worker/index.ts",
+          "line": 54,
+          "quote": "pendingLoads.set(url.toString(), cancelToken);"
+        },
+        {
+          "source": "L3",
+          "file": "web/src/service-worker/index.ts",
+          "line": 80,
+          "quote": "const pending = pendingLoads.get(url.toString());"
+        },
+        {
+          "source": "L3",
+          "file": "web/src/service-worker/index.ts",
+          "line": 82,
+          "quote": "pending.abort();"
+        },
+        {
+          "source": "E11",
+          "file": "web/src/lib/utils/sw-messaging.ts",
+          "line": 4,
+          "quote": "export function cancelImageUrl(url: string) { broadcast.postMessage({ type: 'cancel', url }); }"
+        }
+      ],
+      "causal_link": "If two uncached loads for the same normalized URL overlap, the changed URL-keyed map retains only the latest controller, and any component posting cancelImageUrl for that URL will abort that controller regardless of which component initiated it. The evidence does not establish that this overlap occurs in the application.",
+      "refuting": [],
+      "missing": [
+        "Evidence that multiple thumbnails, viewers, or preload/fetch operations can and do produce concurrent service-worker loads for the same uncached URL.",
+        "Evidence tying a component teardown cancellation to a distinct concurrently pending consumer of that identical URL."
+      ],
+      "verified_defect_evidence": [],
+      "verified_changed_evidence": [
+        {
+          "source": "L3",
+          "file": "web/src/service-worker/index.ts",
+          "line": 9,
+          "quote": "const pendingLoads = new Map<string, AbortController>();",
+          "verification": "citation confirmed near web/src/service-worker/index.ts:9"
+        },
+        {
+          "source": "L3",
+          "file": "web/src/service-worker/index.ts",
+          "line": 54,
+          "quote": "pendingLoads.set(url.toString(), cancelToken);",
+          "verification": "citation confirmed near web/src/service-worker/index.ts:54"
+        },
+        {
+          "source": "L3",
+          "file": "web/src/service-worker/index.ts",
+          "line": 80,
+          "quote": "const pending = pendingLoads.get(url.toString());",
+          "verification": "citation confirmed near web/src/service-worker/index.ts:80"
+        },
+        {
+          "source": "L3",
+          "file": "web/src/service-worker/index.ts",
+          "line": 82,
+          "quote": "pending.abort();",
+          "verification": "citation confirmed near web/src/service-worker/index.ts:82"
+        },
+        {
+          "source": "E11",
+          "file": "web/src/lib/utils/sw-messaging.ts",
+          "line": 4,
+          "quote": "export function cancelImageUrl(url: string) { broadcast.postMessage({ type: 'cancel', url }); }",
+          "verification": "citation confirmed near web/src/lib/utils/sw-messaging.ts:4"
+        }
+      ],
+      "rounds": [
+        {
+          "round": 1,
+          "lookups": [
+            "L3",
+            "L4"
+          ],
+          "status": "UNKNOWN",
+          "missing": [
+            "Evidence that multiple thumbnails, viewers, or preload/fetch operations can and do produce concurrent service-worker loads for the same uncached URL.",
+            "Evidence tying a component teardown cancellation to a distinct concurrently pending consumer of that identical URL."
+          ]
+        }
+      ]
+    },
+    {
+      "hypothesis": "H3",
+      "lookups": [
+        "L5",
+        "L6"
+      ],
+      "status": "UNKNOWN",
+      "supported_claim": "On activation, the new service worker deletes every origin Cache Storage cache whose name differs from `cache-${version}`; the evidence does not establish that any such cache is owned by an unrelated feature or application.",
+      "reasoning": "L5 confirms that activation invokes `deleteOldCaches()`, which enumerates all origin caches and deletes every key other than `CACHE`. However, no packet or lookup result identifies an unrelated cache in any current or supported same-origin deployment. L6 finds no other Cache Storage use in the searched repository sources, but it cannot establish exclusive ownership at runtime or rule out another application or externally supplied feature sharing the origin. Therefore the destructive mechanism is established, but the alleged defect is not.",
+      "defect_evidence": [],
+      "changed_evidence": [
+        {
+          "source": "L5",
+          "file": "web/src/service-worker/index.ts",
+          "line": 21,
+          "quote": "  event.waitUntil(deleteOldCaches());"
+        },
+        {
+          "source": "L5",
+          "file": "web/src/service-worker/index.ts",
+          "line": 36,
+          "quote": "  for (const key of await caches.keys()) {"
+        },
+        {
+          "source": "L5",
+          "file": "web/src/service-worker/index.ts",
+          "line": 37,
+          "quote": "    if (key !== CACHE) {"
+        },
+        {
+          "source": "L5",
+          "file": "web/src/service-worker/index.ts",
+          "line": 38,
+          "quote": "      await caches.delete(key);"
+        }
+      ],
+      "causal_link": "If an unrelated same-origin cache with a name other than `cache-${version}` exists when this newly added service worker activates, the changed activation handler will enumerate and delete it. The evidence does not establish that this prerequisite occurs in a current or supported deployment.",
+      "refuting": [
+        {
+          "source": "L6",
+          "explanation": "The repository search found Cache Storage operations only in the new service-worker file, providing no evidence of another repository feature owning a cache; however, this does not prove origin-wide exclusivity in deployed environments."
+        }
+      ],
+      "missing": [
+        "Evidence that a current or supported deployment has another feature or application using Cache Storage on the same origin.",
+        "Evidence establishing whether this service worker is guaranteed exclusive ownership of all Cache Storage caches on that origin."
+      ],
+      "verified_defect_evidence": [],
+      "verified_changed_evidence": [
+        {
+          "source": "L5",
+          "file": "web/src/service-worker/index.ts",
+          "line": 21,
+          "quote": "  event.waitUntil(deleteOldCaches());",
+          "verification": "citation confirmed near web/src/service-worker/index.ts:21"
+        },
+        {
+          "source": "L5",
+          "file": "web/src/service-worker/index.ts",
+          "line": 36,
+          "quote": "  for (const key of await caches.keys()) {",
+          "verification": "citation confirmed near web/src/service-worker/index.ts:36"
+        },
+        {
+          "source": "L5",
+          "file": "web/src/service-worker/index.ts",
+          "line": 37,
+          "quote": "    if (key !== CACHE) {",
+          "verification": "citation confirmed near web/src/service-worker/index.ts:37"
+        },
+        {
+          "source": "L5",
+          "file": "web/src/service-worker/index.ts",
+          "line": 38,
+          "quote": "      await caches.delete(key);",
+          "verification": "citation confirmed near web/src/service-worker/index.ts:38"
+        }
+      ],
+      "rounds": [
+        {
+          "round": 1,
+          "lookups": [
+            "L5",
+            "L6"
+          ],
+          "status": "UNKNOWN",
+          "missing": [
+            "Evidence that a current or supported deployment has another feature or application using Cache Storage on the same origin.",
+            "Evidence establishing whether this service worker is guaranteed exclusive ownership of all Cache Storage caches on that origin."
+          ]
+        }
+      ]
+    },
+    {
+      "hypothesis": "H4",
+      "lookups": [
+        "L7",
+        "L8"
+      ],
+      "status": "UNKNOWN",
+      "supported_claim": "The new service worker starts cache.put without awaiting it, and the preload message path ignores immichAsset's returned promise; the supplied evidence does not establish that this causes a successful preload or fetch to lose its cache entry.",
+      "reasoning": "L7 shows that immichAsset returns the network response immediately after starting cache.put, and that the BroadcastChannel preload handler calls immichAsset(url) without awaiting it or using waitUntil. However, no supplied evidence demonstrates an actual interrupted or failed cache write, establishes the service worker lifetime semantics needed to prove such an interruption, or specifies that successful preload completion guarantees persistent cache population. E48 explicitly labels the proposed failure as an unverified inference, while E53 says service-worker lifetime around the unawaited operation is not established.",
+      "defect_evidence": [],
+      "changed_evidence": [
+        {
+          "source": "L7",
+          "file": "web/src/service-worker/index.ts",
+          "line": 60,
+          "quote": "cache.put(url, response.clone());"
+        },
+        {
+          "source": "L7",
+          "file": "web/src/service-worker/index.ts",
+          "line": 62,
+          "quote": "return response;"
+        },
+        {
+          "source": "L7",
+          "file": "web/src/service-worker/index.ts",
+          "line": 85,
+          "quote": "} else if (event.data.type === 'preload') {"
+        },
+        {
+          "source": "L7",
+          "file": "web/src/service-worker/index.ts",
+          "line": 88,
+          "quote": "immichAsset(url);"
+        }
+      ],
+      "causal_link": "The code provides a plausible mechanism: immichAsset can settle before cache.put, and the preload handler has no foreground consumer or explicit lifetime extension. The evidence does not prove that the worker can or does terminate before that write settles, so the claimed lost persistence and behavioral violation cannot be established.",
+      "refuting": [
+        {
+          "source": "E48",
+          "explanation": "The packet characterizes cache loss from lifecycle termination or rejection as '[inference, not verified]' rather than observed defect evidence."
+        },
+        {
+          "source": "E53",
+          "explanation": "The packet expressly states that service-worker lifetime around the unawaited cache.put and expected behavior are not established."
+        }
+      ],
+      "missing": [
+        "Evidence or authoritative lifecycle semantics showing that no event keeps this service worker alive until cache.put settles after immichAsset resolves.",
+        "A reproduction, test, log, or other observation showing a successful fetch/preload followed by a missing cache entry due to the unawaited write.",
+        "A requirement or test establishing that a preload request is considered successful only when its response has been persistently added to Cache Storage.",
+        "Evidence about whether and how cache.put rejection is handled or affects the intended behavior."
+      ],
+      "verified_defect_evidence": [],
+      "verified_changed_evidence": [
+        {
+          "source": "L7",
+          "file": "web/src/service-worker/index.ts",
+          "line": 60,
+          "quote": "cache.put(url, response.clone());",
+          "verification": "citation confirmed near web/src/service-worker/index.ts:60"
+        },
+        {
+          "source": "L7",
+          "file": "web/src/service-worker/index.ts",
+          "line": 62,
+          "quote": "return response;",
+          "verification": "citation confirmed near web/src/service-worker/index.ts:62"
+        },
+        {
+          "source": "L7",
+          "file": "web/src/service-worker/index.ts",
+          "line": 85,
+          "quote": "} else if (event.data.type === 'preload') {",
+          "verification": "citation confirmed near web/src/service-worker/index.ts:85"
+        },
+        {
+          "source": "L7",
+          "file": "web/src/service-worker/index.ts",
+          "line": 88,
+          "quote": "immichAsset(url);",
+          "verification": "citation confirmed near web/src/service-worker/index.ts:88"
+        }
+      ],
+      "rounds": [
+        {
+          "round": 1,
+          "lookups": [
+            "L7",
+            "L8"
+          ],
+          "status": "UNKNOWN",
+          "missing": [
+            "Evidence or authoritative lifecycle semantics showing that no event keeps this service worker alive until cache.put settles after immichAsset resolves.",
+            "A reproduction, test, log, or other observation showing a successful fetch/preload followed by a missing cache entry due to the unawaited write.",
+            "A requirement or test establishing that a preload request is considered successful only when its response has been persistently added to Cache Storage.",
+            "Evidence about whether and how cache.put rejection is handled or affects the intended behavior."
+          ]
+        }
+      ]
+    },
+    {
+      "hypothesis": "H5",
+      "lookups": [
+        "L9",
+        "L10"
+      ],
+      "status": "UNKNOWN",
+      "supported_claim": "The new service worker returns a matching cached asset response without performing a network fetch or revalidation, but the evidence does not establish that edited or replaced asset content can retain the same URL/cacheKey.",
+      "reasoning": "L9 confirms a cache-first path: intercepted asset requests are looked up in Cache Storage and a hit is returned immediately; successful network responses are cached under a deployment-versioned cache. However, E26 and L10 show that the inspected asset URL construction includes a cacheKey derived from thumbhash. The supplied evidence does not establish whether every mutation affecting an original or thumbnail changes that value, whether any relevant path omits it, or whether replacement must become visible independently of a frontend deployment. E53 explicitly identifies these freshness expectations as unestablished. Therefore the stale-content mechanism is possible only under an unproven condition and the claimed defect cannot be confirmed or refuted.",
+      "defect_evidence": [],
+      "changed_evidence": [
+        {
+          "source": "L9",
+          "file": "web/src/service-worker/index.ts",
+          "line": 30,
+          "quote": "if (/^\\/api\\/assets\\/[a-f0-9-]+\\/(original|thumbnail)/.test(url.pathname)) {\n    event.respondWith(immichAsset(url));\n  }"
+        },
+        {
+          "source": "L9",
+          "file": "web/src/service-worker/index.ts",
+          "line": 45,
+          "quote": "let response = useCache ? await cache.match(url) : undefined;\n  if (response) {\n    return response;\n  }"
+        },
+        {
+          "source": "L9",
+          "file": "web/src/service-worker/index.ts",
+          "line": 59,
+          "quote": "if (response.status === 200) {\n      cache.put(url, response.clone());\n    }"
+        },
+        {
+          "source": "L9",
+          "file": "web/src/service-worker/index.ts",
+          "line": 12,
+          "quote": "const CACHE = `cache-${version}`;"
+        }
+      ],
+      "causal_link": "This change newly intercepts original and thumbnail GET requests and can serve a Cache Storage hit without contacting the server. It would cause stale content if an asset's bytes changed while its complete request URL remained unchanged, but the evidence does not establish that this condition occurs.",
+      "refuting": [
+        {
+          "source": "E26",
+          "explanation": "The inspected photo-viewer path passes a cacheKey into both original and thumbnail URL builders, providing a potential cache-busting mechanism."
+        },
+        {
+          "source": "L10",
+          "explanation": "Multiple asset URL call sites pass asset.thumbhash as cacheKey, but the search does not establish that thumbhash changes for every relevant mutation or that all intercepted request paths include it."
+        }
+      ],
+      "missing": [
+        "Evidence that at least one supported edit or replacement changes original or thumbnail bytes without changing the full request URL, including its cacheKey query parameter.",
+        "Evidence defining whether thumbhash/cacheKey is regenerated for every mutation that can affect original or thumbnail content.",
+        "Evidence that server cache-control directives or asset replacement are required to become visible during the same frontend deployment.",
+        "An observed or tested path demonstrating that a cached response is obsolete after such a mutation."
+      ],
+      "verified_defect_evidence": [],
+      "verified_changed_evidence": [
+        {
+          "source": "L9",
+          "file": "web/src/service-worker/index.ts",
+          "line": 30,
+          "quote": "if (/^\\/api\\/assets\\/[a-f0-9-]+\\/(original|thumbnail)/.test(url.pathname)) {\n    event.respondWith(immichAsset(url));\n  }",
+          "verification": "citation confirmed near web/src/service-worker/index.ts:30"
+        },
+        {
+          "source": "L9",
+          "file": "web/src/service-worker/index.ts",
+          "line": 45,
+          "quote": "let response = useCache ? await cache.match(url) : undefined;\n  if (response) {\n    return response;\n  }",
+          "verification": "citation confirmed near web/src/service-worker/index.ts:45"
+        },
+        {
+          "source": "L9",
+          "file": "web/src/service-worker/index.ts",
+          "line": 59,
+          "quote": "if (response.status === 200) {\n      cache.put(url, response.clone());\n    }",
+          "verification": "citation confirmed near web/src/service-worker/index.ts:59"
+        },
+        {
+          "source": "L9",
+          "file": "web/src/service-worker/index.ts",
+          "line": 12,
+          "quote": "const CACHE = `cache-${version}`;",
+          "verification": "citation confirmed near web/src/service-worker/index.ts:12"
+        }
+      ],
+      "rounds": [
+        {
+          "round": 1,
+          "lookups": [
+            "L9",
+            "L10"
+          ],
+          "status": "UNKNOWN",
+          "missing": [
+            "Evidence that at least one supported edit or replacement changes original or thumbnail bytes without changing the full request URL, including its cacheKey query parameter.",
+            "Evidence defining whether thumbhash/cacheKey is regenerated for every mutation that can affect original or thumbnail content.",
+            "Evidence that server cache-control directives or asset replacement are required to become visible during the same frontend deployment.",
+            "An observed or tested path demonstrating that a cached response is obsolete after such a mutation."
+          ]
+        }
+      ]
+    }
+  ],
+  "confirmed": [],
+  "refuted": [],
+  "unknown": [
+    "H1",
+    "H2",
+    "H3",
+    "H4",
+    "H5"
+  ],
+  "findings": [],
+  "budget": {
+    "max_hypotheses": 5,
+    "max_lookups": 12,
+    "used_lookups": 12,
+    "max_lookups_per_hypothesis": 6,
+    "allocation": "two_round",
+    "round1_lookups": 2
+  },
+  "usage": {
+    "llm_calls": 18,
+    "by_stage": {
+      "investigator": 12,
+      "verifier": 6
+    },
+    "prompt_tokens": 45897,
+    "completion_tokens": 11520,
+    "reasoning_tokens": 7149,
+    "llm_seconds": 173.0
+  },
+  "errors": [],
+  "replay": {
+    "snapshot_version": "sydes-investigation-snapshot/1",
+    "allocation": "two_round"
+  }
+}

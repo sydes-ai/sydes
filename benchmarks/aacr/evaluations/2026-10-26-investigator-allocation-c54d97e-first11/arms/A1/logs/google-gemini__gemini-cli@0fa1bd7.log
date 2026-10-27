@@ -1,0 +1,117 @@
+AI recovery (experimental): triggered (a structural boundary was found but no complete route/entrypoint flow reaches it; the first pass reported route composition as unresolved in this repository; no relevant test was mapped even though this diff changed a test file (packages/cli/src/utils/commentJson.test.ts); 9 changed symbol(s) reach no entrypoint the first pass found)
+AI recovery (experimental): path=established test=unresolved turns=9 llm_calls=10 tokens=17978+846 edge_retries_attempted=0 edge_retries_succeeded=0 graph_paths_proposed=0 graph_paths_established=0 graph_paths_established_unverified_boundary=0 explicit_relation_edges=2
+Wrote AI recovery result: /Users/ksnaik/StudioProjects/sydes/benchmarks/aacr/results/alloc-A1-snapshot-c54d97e-first11-2026-10-26/sydes/google-gemini__gemini-cli@0fa1bd7.ai_recovery.json
+SYDES VERIFICATION
+
+MEDIUM RISK · 5 AFFECTED BEHAVIORS
+
+Changed
+───────
+packages/cli/src/config/settings.ts:353 — LoadedSettings.constructor
+packages/cli/src/config/settings.ts:417 — LoadedSettings.setValue
+packages/cli/src/config/settings.ts:523 — loadSettings
+packages/cli/src/config/settings.ts:719 — saveSettings
+packages/cli/src/utils/commentJson.ts:52 — applyUpdates
++1 more relevant changed symbol — use --verbose
+
+CHANGE ANALYSIS (citations verified, indeterminate)
+───────────────────────────────────────────────────
+Cannot be established from this repository alone: depends on state only known at runtime (e.g. feature flags, request data).
+The persistence mechanisms are explicit, but observable impact requires a settings save and depends on the runtime contents of the affected file—particularly whether it contains comments, environment-variable references, malformed JSON, arrays, or keys omitted from the update.
+
+CLI settings persistence now updates existing comment-bearing JSON in place instead of replacing it with freshly serialized JSON. It tracks environment-variable references during load so later saves can write the references rather than resolved values, preserves existing keys and comments while applying updates, and leaves malformed existing files unchanged after logging an error.
+
+Likely behavioral changes
+  • Saving an existing settings file now overlays the current settings onto its parsed structure and serializes that structure with comment-aware tooling, so existing comments and fields outside the update are retained rather than the file being wholly regenerated.
+  • For settings that were loaded from a standalone environment-variable reference, subsequent saves restore the original reference in the file instead of persisting the resolved runtime value.
+  • If an existing settings file cannot be parsed, a save now reports the parse problem and returns without modifying that file.
+
+Investigate
+  • Trace all settings mutation and migration paths to determine whether they pass the mappings captured by loadSettings or call saveSettings directly with its empty default.
+  • Check whether omission from settingsToSave is intended to delete keys, especially for schema filtering, migrated settings, and disabled or removed configuration sections.
+  • Examine supported settings shapes and key syntax, including arrays and keys containing periods, against the path encoding and recursive restoration logic.
+  • Validate comment-json behavior for the full accepted settings syntax, including duplicate keys, inline comments, ordering, and parse/stringify round trips.
+
+Uncertain
+  • The supplied context does not identify every CLI command, migration, or programmatic caller that reaches LoadedSettings.setValue or saveSettings, including callers that may invoke saveSettings without mappings.
+  • The concrete system, user, and workspace file locations and which of them are writable persistence boundaries in each execution mode are not shown.
+  • Whether real settings files contain comments, malformed content, environment references, arrays containing references, dotted keys, or stale keys absent from settingsToSave depends on runtime file contents not supplied here.
+  • The exact fidelity and edge-case behavior of comment-json parse/stringify beyond the demonstrated tests, including ordering and uncommon commented-JSON constructs, cannot be established from this diff.
+  • It is not established whether replacing an environment-backed setting with a literal is an allowed operation or whether preserving the original reference is intended to override such mutations.
+
+System impact
+─────────────
+No structural propagation path was established.
+
+Inferred boundaries
+───────────────────
+INFERRED · callable/service · CLI settings loading and persistence service
+    CLI command and configuration components cross into the settings service through loadSettings and LoadedSettings.setValue, reaching the changed persistence and environment-reference restoration behavior.
+    Evidence: Established call edge: addMcpServer -> loadSettings in packages/cli/src/commands/mcp/add.ts:12.; Established call edge: removeMcpServer -> LoadedSettings.setValue in packages/cli/src/commands/mcp/remove.ts:11.
+    Uncertain: concrete writable settings scopes and file locations are also not supplied.
+
+Inferred impact
+───────────────
+INFERRED · 0.91
+settings updates containing prototype-polluting keys
+
+Why:
+Settings writes initiated by CLI commands or the settings dialog now skip `__proto__`, `constructor`, and `prototype` keys while recursively applying updates, preventing those operations from mutating object prototypes.
+
+Static confirmation: unavailable
+
+INFERRED · 0.90
+settings files retain environment-variable placeholders and comments after updates
+
+Why:
+Programmatic settings updates now carry mappings captured from environment-variable references into format-preserving persistence, so saving a changed setting may preserve placeholders and comments instead of writing resolved values or replacing the file structure.
+
+Static confirmation: unavailable
+
+INFERRED · 0.88
+nested settings updates preserve environment-variable placeholders
+
+Why:
+Settings written through setValue ultimately use restoreEnvVarsRecursive, so nested values mapped to environment-variable references may now be serialized differently while preserving their placeholders.
+
+Static confirmation: unavailable
+
+… 2 more inferred impacts — use --verbose for the full list.
+
+Code review (advisory; excluded from the verdict)
+─────────────────────────────────────────────────
+[P1] When `mcp remove` deletes an existing server from a scope whose settings file already exists, the new format-preserving save path can print that the server was removed while retaining that server unde
+  packages/cli/src/utils/commentJson.ts:58
+  Why: The remove command deletes the server from the in-memory `mcpServers` object, passes that object through `setValue`, and unconditionally prints success. `saveSettings` then passes the complete in-memory settings document as `settingsToSave`. However, the changed updater begins with the parsed persisted document and recursively processes only entries present…
+  Impact: Caused by the change: This change replaces full-document persistence with an overlay onto the existing parsed file. Because the overlay enumerates only keys present in the complete desired settings object, omission of the deleted nested server is treated as “leave the old key untouched” rather than deletion. Thus the changed save implementation reintroduces…
+
+[P2] On the existing-server path of `mcp add`, if the target settings file is malformed when the changed save helper rereads it—including if it became malformed after loading—the helper performs no write a
+  packages/cli/src/utils/commentJson.ts:39
+  Why: The changed persistence path calls the new format-preserving helper. When parsing fails, that helper logs the error and executes `return;` before the only subsequent `writeFileSync`, without throwing or returning a failure status. This normal return propagates through the void `saveSettings`/`setValue` calls. In the evidenced existing-server path, `addMcpSe…
+  Impact: Caused by the change: This change routes settings saves through `updateSettingsFilePreservingFormat`. Its new parse-error branch converts failure into an ordinary void return before any write. Because callers receive no failure signal, `addMcpServer` continues past `setValue` and emits its success message even though the file remains unchanged.
+
+[P3] For an existing valid settings file updated through updateSettingsFilePreservingFormat, the implementation rewrites the complete parsed document using a fixed two-space indentation, so compact, tab-in
+  packages/cli/src/utils/commentJson.ts:47
+  Why: The function explicitly promises to preserve “comments, formatting, and environment variable references,” but it does not patch the original text. After parsing and applying updates, it stringifies the entire restored object with an indentation argument of 2 and writes that serialization over the file. Thus existing indentation and compact layout are replac…
+  Impact: Caused by the change: This newly added persistence path parses the existing file, then serializes the entire resulting structure with the fixed indentation value `2` and overwrites the original content. Consequently, files whose existing layout is compact, tab-indented, or uses another indentation width are rewritten into the serializer's two-space layout, …
+
+CI
+──
+? the test suite could not run
+  No repository test command could be resolved
+
+What Sydes could not establish
+──────────────────────────────
+• 4 additional affected areas are not yet verification-modeled.
+• 9 changed symbols have unresolved impact paths.
+• 5 inferred impacts could not be structurally confirmed.
+• The repository test suite could not run (No repository test command could be resolved).
+
+Verdict
+───────
+VERIFICATION INCOMPLETE
+
+Wrote verification result: /Users/ksnaik/StudioProjects/sydes/benchmarks/aacr/results/alloc-A1-snapshot-c54d97e-first11-2026-10-26/sydes/google-gemini__gemini-cli@0fa1bd7.json
+
+--- stderr ---
+Preparing Sydes code intelligence...

@@ -1,0 +1,126 @@
+{
+  "code_findings": [
+    {
+      "id": "investigator-H1",
+      "severity": "P1",
+      "title": "When `mcp remove` deletes an existing user- or workspace-scoped server from an existing settings file, the new format-preserving save path retains that server under `mcpServers` in the persisted file ",
+      "file": "packages/cli/src/utils/commentJson.ts",
+      "line": 58,
+      "repo": null,
+      "explanation": "The remove command deletes the server from the scoped in-memory `mcpServers` object and passes that complete object to `setValue`, then unconditionally prints success. `saveSettings` treats `settingsFile.settings` as the document to save and passes it to the new updater. However, the updater starts from the parsed on-disk document and recursively visits only entries present in the supplied update. Because the deleted server name is absent from the updated `mcpServers`, no iteration deletes the corresponding key from the parsed document. The stale server is therefore stringified and written back, so reloading the file restores it.",
+      "impact": "Caused by the change: Previously the save path did not use this overlay updater; this change routes the complete in-memory settings document through `updateSettingsFilePreservingFormat`. That updater mutates the parsed persisted document and only applies keys present in the update. On the `mcp remove` path, the removed server is intentionally absent from `settingsFile.settings.mcpServers`, so the recursive loop never removes its on-disk key. The resulting parsed document still contains the server and is written back before the command reports success.",
+      "suggested_fix": null,
+      "source": "investigator",
+      "evidence": [
+        {
+          "file": "packages/cli/src/commands/mcp/remove.ts",
+          "symbol": null,
+          "label": "verified_quote:30",
+          "snippet": "delete mcpServers[name];"
+        },
+        {
+          "file": "packages/cli/src/commands/mcp/remove.ts",
+          "symbol": null,
+          "label": "verified_quote:32",
+          "snippet": "settings.setValue(settingsScope, 'mcpServers', mcpServers);"
+        },
+        {
+          "file": "packages/cli/src/commands/mcp/remove.ts",
+          "symbol": null,
+          "label": "verified_quote:34",
+          "snippet": "console.log(`Server \"${name}\" removed from ${scope} settings.`);"
+        },
+        {
+          "file": "packages/cli/src/config/settings.ts",
+          "symbol": null,
+          "label": "verified_quote:738",
+          "snippet": "updateSettingsFilePreservingFormat("
+        }
+      ]
+    },
+    {
+      "id": "investigator-H5",
+      "severity": "P2",
+      "title": "If an existing settings file becomes malformed after `mcp add` loads it but before the changed save path reparses it, an update to an existing MCP server is not written, yet the command reports that t",
+      "file": "packages/cli/src/utils/commentJson.ts",
+      "line": 39,
+      "repo": null,
+      "explanation": "The changed formatter reparses the existing file during save. On parse failure it logs an error and returns normally before the only `writeFileSync`. `saveSettings` and the void `LoadedSettings.setValue` receive no failure signal. The existing-server path in `mcp add` therefore continues after `setValue` and prints that the server was updated. The evidence does not establish whether `loadSettings` permits a file that was already malformed before command startup, so the supported claim is limited to the between-load-and-save path.",
+      "impact": "Caused by the change: This change routes saves through `updateSettingsFilePreservingFormat`, which rereads and parses the on-disk file. If another writer makes the file malformed after `loadSettings()` but before that parse, the catch returns before line 49, leaving the file unchanged. Because the return is successful `void`, it propagates through `saveSettings` and `setValue` without an exception or status, after which `mcp add` executes its success message.",
+      "suggested_fix": null,
+      "source": "investigator",
+      "evidence": [
+        {
+          "file": "packages/cli/src/commands/mcp/add.ts",
+          "symbol": null,
+          "label": "verified_quote:116",
+          "snippet": "settings.setValue(settingsScope, 'mcpServers', mcpServers);"
+        },
+        {
+          "file": "packages/cli/src/commands/mcp/add.ts",
+          "symbol": null,
+          "label": "verified_quote:119",
+          "snippet": "console.log(`MCP server \"${name}\" updated in ${scope} settings.`);"
+        },
+        {
+          "file": "packages/cli/src/config/settings.ts",
+          "symbol": null,
+          "label": "verified_quote:417",
+          "snippet": "setValue(scope: SettingScope, key: string, value: unknown): void { const settingsFile = this.forScope(scope); setNestedProperty(settingsFile.settings, key, value); this._merged = this.computeMergedSettings(); const envMappings = this.envVarMappings.get(scope) || []; saveSettings(settingsFile, envMap"
+        },
+        {
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "symbol": null,
+          "label": "verified_quote:35",
+          "snippet": "} catch (error) {\n    console.error('Error parsing settings file:', error);\n    console.error(\n      'Settings file may be corrupted. Please check the JSON syntax.',\n    );\n    return;\n  }"
+        }
+      ]
+    },
+    {
+      "id": "investigator-H4",
+      "severity": "P3",
+      "title": "For an existing parseable settings file whose layout is compact or uses tabs or an indentation width other than two spaces, this update rewrites the serialized document with two-space indentation desp",
+      "file": "packages/cli/src/utils/commentJson.ts",
+      "line": 47,
+      "repo": null,
+      "explanation": "The new function is documented as preserving formatting, but after parsing and applying updates it serializes the entire root object with a fixed space argument of 2. Consequently, pre-existing indentation and compact layout are not retained; they are normalized during every successful update. The evidence supports this layout/indentation defect, not a claim that comments are lost.",
+      "impact": "Caused by the change: The changed code reads and parses the existing file, then passes the complete resulting structure to `stringify` with a fixed two-space formatting argument and overwrites the original file with that output. Thus tabs, four-space indentation, or compact layout are replaced by the serializer's two-space layout, directly contradicting the changed function's stated preservation of formatting.",
+      "suggested_fix": null,
+      "source": "investigator",
+      "evidence": [
+        {
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "symbol": null,
+          "label": "verified_quote:17",
+          "snippet": "* Updates a JSON file while preserving comments, formatting, and environment variable references."
+        },
+        {
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "symbol": null,
+          "label": "verified_quote:47",
+          "snippet": "const updatedContent = stringify(restoredStructure, null, 2);"
+        }
+      ]
+    }
+  ],
+  "code_review_status": "completed",
+  "run_metrics": {
+    "llm_totals": {
+      "calls": 17,
+      "input_tokens": 57803,
+      "output_tokens": 10232,
+      "errors": 0
+    },
+    "llm_by_purpose": {
+      "investigator": {
+        "calls": 12
+      },
+      "verifier": {
+        "calls": 5
+      }
+    }
+  },
+  "diagnostics": [
+    "investigator: hypotheses=5 lookups=12/12 confirmed=3 refuted=0 unknown=2 findings=3 llm_calls=17 errors=0"
+  ]
+}

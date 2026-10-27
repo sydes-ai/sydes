@@ -1,0 +1,118 @@
+{
+  "path_recovery": {
+    "status": "partial",
+    "paths": [
+      {
+        "entrypoint": "renderToPipeableStream",
+        "target_node": "renderSuspenseBoundary",
+        "status": "partial",
+        "root_boundary_status": "candidate_boundary",
+        "nodes": [
+          {
+            "symbol": "renderToPipeableStream",
+            "file": "packages/react-dom/src/server/ReactDOMFizzServerNode.js",
+            "qualified_name": null
+          },
+          {
+            "symbol": "createRequestImpl",
+            "file": "packages/react-dom/src/server/ReactDOMFizzServerNode.js",
+            "qualified_name": null
+          },
+          {
+            "symbol": "createRequest",
+            "file": "packages/react-server/src/ReactFizzServer.js",
+            "qualified_name": null
+          }
+        ],
+        "edges": [
+          {
+            "from": {
+              "symbol": "renderToPipeableStream",
+              "file": "packages/react-dom/src/server/ReactDOMFizzServerNode.js",
+              "qualified_name": null
+            },
+            "to": {
+              "symbol": "createRequestImpl",
+              "file": "packages/react-dom/src/server/ReactDOMFizzServerNode.js",
+              "qualified_name": null
+            },
+            "relationship": "renderToPipeableStream calls createRequestImpl directly (the caller's own source)",
+            "evidence": [
+              {
+                "file": "packages/react-dom/src/server/ReactDOMFizzServerNode.js",
+                "line_start": 130,
+                "line_end": 130,
+                "fact": "renderToPipeableStream calls createRequestImpl at this line"
+              }
+            ],
+            "status": "established",
+            "provenance": "explicit_relation",
+            "rejection_reason": null,
+            "from_decomposition": true
+          },
+          {
+            "from": {
+              "symbol": "createRequestImpl",
+              "file": "packages/react-dom/src/server/ReactDOMFizzServerNode.js",
+              "qualified_name": null
+            },
+            "to": {
+              "symbol": "createRequest",
+              "file": "packages/react-server/src/ReactFizzServer.js",
+              "qualified_name": null
+            },
+            "relationship": "createRequestImpl calls createRequest directly (the caller's own source)",
+            "evidence": [
+              {
+                "file": "packages/react-dom/src/server/ReactDOMFizzServerNode.js",
+                "line_start": 103,
+                "line_end": 103,
+                "fact": "createRequestImpl calls createRequest at this line"
+              }
+            ],
+            "status": "established",
+            "provenance": "explicit_relation",
+            "rejection_reason": null,
+            "from_decomposition": true
+          }
+        ],
+        "unresolved_suffix": [
+          {
+            "from": {
+              "symbol": "createRequest",
+              "file": "packages/react-server/src/ReactFizzServer.js",
+              "qualified_name": "createRequest"
+            },
+            "to": {
+              "symbol": "renderToPipeableStream",
+              "file": "packages/react-dom/server.node.js",
+              "qualified_name": "renderToPipeableStream"
+            },
+            "relationship": "no relationship found",
+            "rejection_reason": "no evidence is located in either entity's own declared file ('packages/react-server/src/ReactFizzServer.js' or 'packages/react-dom/server.node.js') -- possible wrong-file/wrong-module substitution"
+          },
+          {
+            "from": {
+              "symbol": "renderToPipeableStream",
+              "file": "packages/react-server/src/ReactFizzServer.js",
+              "qualified_name": null
+            },
+            "to": {
+              "symbol": "renderSuspenseBoundary",
+              "file": "packages/react-server/src/ReactFizzServer.js",
+              "qualified_name": null
+            },
+            "relationship": "no relationship found",
+            "rejection_reason": "no evidence is located in either entity's own declared file ('packages/react-server/src/ReactFizzServer.js' or 'packages/react-server/src/ReactFizzServer.js') -- possible wrong-file/wrong-module substitution"
+          }
+        ]
+      }
+    ],
+    "corrected_first_pass_claims": [],
+    "unresolved": []
+  },
+  "test_recovery": {
+    "status": "unresolved",
+    "tests": []
+  }
+}

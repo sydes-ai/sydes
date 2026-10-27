@@ -1,0 +1,56 @@
+{
+  "case_id": "dbeaver__dbeaver-38915",
+  "instance_id": "dbeaver__dbeaver@8224826",
+  "language": "Java",
+  "status": "completed",
+  "wall_seconds": 128.2,
+  "review_base": "1faab74be397e7577708fa64f0ec6bc5c6057b78",
+  "review_base_info": {
+    "rule": "merge base (newest committer date, then smallest id)",
+    "merge_bases": [
+      "1faab74be397e7577708fa64f0ec6bc5c6057b78"
+    ]
+  },
+  "code_review_status": "completed",
+  "code_findings": 1,
+  "not_submitted": {
+    "local_risks": 0,
+    "affected_flows": 0
+  },
+  "llm_totals": {
+    "calls": 17,
+    "input_tokens": 52037,
+    "output_tokens": 8064,
+    "errors": 0
+  },
+  "llm_calls_by_purpose": {
+    "investigator": 12,
+    "verifier": 5
+  },
+  "cbm": null,
+  "sydes_wall_seconds": null,
+  "verdict": null,
+  "invalid_reasons": [],
+  "replay": {
+    "source_run": "alloc-A1-snapshot-c54d97e-first11-2026-10-26",
+    "allocation": "two_round"
+  },
+  "investigation": {
+    "hypotheses": 4,
+    "lookups": 12,
+    "confirmed": 1,
+    "refuted": 0,
+    "unknown": 3,
+    "usage": {
+      "llm_calls": 17,
+      "by_stage": {
+        "investigator": 12,
+        "verifier": 5
+      },
+      "prompt_tokens": 52037,
+      "completion_tokens": 8064,
+      "reasoning_tokens": 4381,
+      "llm_seconds": 112.7
+    }
+  }
+}

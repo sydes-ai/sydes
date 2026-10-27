@@ -1,0 +1,1159 @@
+{
+  "version": "sydes-investigation/1",
+  "packet": [
+    {
+      "id": "E1",
+      "kind": "diff",
+      "ref": "package-lock.json",
+      "chars": 2500
+    },
+    {
+      "id": "E2",
+      "kind": "diff",
+      "ref": "packages/cli/package.json",
+      "chars": 403
+    },
+    {
+      "id": "E3",
+      "kind": "diff",
+      "ref": "packages/cli/src/config/settings.ts",
+      "chars": 2500
+    },
+    {
+      "id": "E4",
+      "kind": "diff",
+      "ref": "packages/cli/src/utils/commentJson.test.ts",
+      "chars": 2500
+    },
+    {
+      "id": "E5",
+      "kind": "diff",
+      "ref": "packages/cli/src/utils/commentJson.ts",
+      "chars": 2500
+    },
+    {
+      "id": "E6",
+      "kind": "changed_symbol",
+      "ref": "packages/cli/src/config/settings.ts:353-373",
+      "chars": 514
+    },
+    {
+      "id": "E7",
+      "kind": "changed_symbol",
+      "ref": "packages/cli/src/config/settings.ts:417-423",
+      "chars": 346
+    },
+    {
+      "id": "E8",
+      "kind": "changed_symbol",
+      "ref": "packages/cli/src/config/settings.ts:523-717",
+      "chars": 1619
+    },
+    {
+      "id": "E9",
+      "kind": "changed_symbol",
+      "ref": "packages/cli/src/config/settings.ts:719-746",
+      "chars": 620
+    },
+    {
+      "id": "E10",
+      "kind": "changed_symbol",
+      "ref": "packages/cli/src/utils/commentJson.ts:19-50",
+      "chars": 897
+    },
+    {
+      "id": "E11",
+      "kind": "changed_symbol",
+      "ref": "packages/cli/src/utils/commentJson.ts:52-81",
+      "chars": 661
+    },
+    {
+      "id": "E12",
+      "kind": "changed_symbol",
+      "ref": "packages/cli/src/utils/commentJson.ts:83-99",
+      "chars": 440
+    },
+    {
+      "id": "E13",
+      "kind": "changed_symbol",
+      "ref": "packages/cli/src/utils/commentJson.ts:101-125",
+      "chars": 656
+    },
+    {
+      "id": "E14",
+      "kind": "changed_symbol",
+      "ref": "packages/cli/src/utils/commentJson.ts:130-173",
+      "chars": 1002
+    },
+    {
+      "id": "E15",
+      "kind": "structural",
+      "ref": "packages/cli/src/config/settings.ts:392-400",
+      "chars": 340
+    },
+    {
+      "id": "E16",
+      "kind": "structural",
+      "ref": "packages/cli/src/config/settings.ts:138-146",
+      "chars": 382
+    },
+    {
+      "id": "E17",
+      "kind": "structural",
+      "ref": "packages/cli/src/config/settings.ts:180-203",
+      "chars": 678
+    },
+    {
+      "id": "E18",
+      "kind": "structural",
+      "ref": "packages/cli/src/config/settings.ts:477-517",
+      "chars": 1493
+    },
+    {
+      "id": "E19",
+      "kind": "structural",
+      "ref": "packages/cli/src/utils/envVarResolver.ts:50-52",
+      "chars": 234
+    },
+    {
+      "id": "E20",
+      "kind": "structural",
+      "ref": "packages/cli/src/config/settings.ts:125-136",
+      "chars": 541
+    },
+    {
+      "id": "E21",
+      "kind": "structural",
+      "ref": "packages/cli/src/config/settings.ts:402-415",
+      "chars": 502
+    },
+    {
+      "id": "E22",
+      "kind": "structural",
+      "ref": "packages/cli/src/config/settings.ts:283-325",
+      "chars": 1287
+    },
+    {
+      "id": "E23",
+      "kind": "structural",
+      "ref": "packages/cli/src/commands/mcp/add.ts:12-125",
+      "chars": 2500
+    },
+    {
+      "id": "E24",
+      "kind": "structural",
+      "ref": "packages/cli/src/commands/mcp/remove.ts:11-35",
+      "chars": 687
+    },
+    {
+      "id": "E25",
+      "kind": "structural",
+      "ref": "packages/cli/src/config/extension.ts:605-624",
+      "chars": 751
+    },
+    {
+      "id": "E26",
+      "kind": "test_execution",
+      "ref": "ci_suite",
+      "chars": 52
+    },
+    {
+      "id": "E27",
+      "kind": "gap",
+      "ref": "unresolved:applyUpdates",
+      "chars": 80
+    },
+    {
+      "id": "E28",
+      "kind": "gap",
+      "ref": "unresolved:constructor",
+      "chars": 79
+    },
+    {
+      "id": "E29",
+      "kind": "gap",
+      "ref": "unresolved:loadSettings",
+      "chars": 80
+    },
+    {
+      "id": "E30",
+      "kind": "gap",
+      "ref": "unresolved:restoreEnvVarReferences",
+      "chars": 91
+    },
+    {
+      "id": "E31",
+      "kind": "gap",
+      "ref": "unresolved:restoreEnvVarsRecursive",
+      "chars": 91
+    },
+    {
+      "id": "E32",
+      "kind": "gap",
+      "ref": "unresolved:saveSettings",
+      "chars": 80
+    },
+    {
+      "id": "E33",
+      "kind": "gap",
+      "ref": "unresolved:setValue",
+      "chars": 76
+    },
+    {
+      "id": "E34",
+      "kind": "gap",
+      "ref": "unresolved:trackEnvVarMappings",
+      "chars": 87
+    },
+    {
+      "id": "E35",
+      "kind": "gap",
+      "ref": "unresolved:updateSettingsFilePreservingFormat",
+      "chars": 102
+    },
+    {
+      "id": "E36",
+      "kind": "change_analysis",
+      "ref": "summary",
+      "chars": 383
+    },
+    {
+      "id": "E37",
+      "kind": "change_analysis",
+      "ref": "local_risk",
+      "chars": 426
+    },
+    {
+      "id": "E38",
+      "kind": "change_analysis",
+      "ref": "local_risk",
+      "chars": 263
+    },
+    {
+      "id": "E39",
+      "kind": "change_analysis",
+      "ref": "local_risk",
+      "chars": 314
+    },
+    {
+      "id": "E40",
+      "kind": "change_analysis",
+      "ref": "uncertainty",
+      "chars": 210
+    },
+    {
+      "id": "E41",
+      "kind": "change_analysis",
+      "ref": "uncertainty",
+      "chars": 147
+    },
+    {
+      "id": "E42",
+      "kind": "change_analysis",
+      "ref": "uncertainty",
+      "chars": 224
+    },
+    {
+      "id": "E43",
+      "kind": "change_analysis",
+      "ref": "uncertainty",
+      "chars": 201
+    },
+    {
+      "id": "E44",
+      "kind": "change_analysis",
+      "ref": "uncertainty",
+      "chars": 193
+    }
+  ],
+  "hypotheses": [
+    {
+      "id": "H1",
+      "claim": "Deleting a nested setting must remove it from the persisted file, but the new overlay updater retains keys absent from the in-memory settings; consequently `mcp remove` can report success while leaving the removed server in `settings.json`.",
+      "why_suspected": "`applyUpdates` only iterates keys present in `updates` and never deletes keys remaining in the parsed file (E11, E38). `removeMcpServer` deletes the server from the in-memory `mcpServers` object and saves that object through `setValue` (E24, E7), so the absent server key is never removed from the separately parsed on-disk object.",
+      "file": "packages/cli/src/utils/commentJson.ts",
+      "line": 58,
+      "severity": "P1",
+      "initial_evidence": [
+        "E11",
+        "E24",
+        "E7",
+        "E38"
+      ],
+      "questions_to_resolve": [
+        "After removing an existing MCP server, does inspecting and reloading the settings file show that the server is still present?",
+        "Does `settingsToSave` represent the complete desired document, making absent keys deletions rather than intentionally preserved values?"
+      ]
+    },
+    {
+      "id": "H2",
+      "claim": "Saving settings must not serialize resolved secrets from environment references inside arrays, but array-valued settings such as MCP `args` can be replaced with their resolved values and are never traversed during reference restoration.",
+      "why_suspected": "Mapping discovery recurses into all non-null objects, including arrays (E14, E39), and `applyUpdates` replaces arrays wholesale with the resolved in-memory array (E11). Restoration explicitly refuses to recurse into arrays (E13), while MCP arguments are string arrays that may contain environment references (E23).",
+      "file": "packages/cli/src/utils/commentJson.ts",
+      "line": 120,
+      "severity": "P1",
+      "initial_evidence": [
+        "E11",
+        "E13",
+        "E14",
+        "E23",
+        "E39"
+      ],
+      "questions_to_resolve": [
+        "If an MCP server has `args: [\"$TOKEN\"]`, does any subsequent settings save write the resolved token into the file?",
+        "Does `resolveEnvVarsInObject` resolve strings contained in arrays in production settings?"
+      ]
+    },
+    {
+      "id": "H3",
+      "claim": "An intentional string replacement at an environment-backed setting path must persist the new literal, but the save path unconditionally restores the old environment reference at every previously mapped string path.",
+      "why_suspected": "Mappings are captured once during load (E8, E14), retained for the lifetime of `LoadedSettings`, and passed unchanged after `setValue` mutates a setting (E7). Restoration uses only the path and current value's string type; it does not verify that the value still equals the recorded `resolvedValue` (E12, E13, E37).",
+      "file": "packages/cli/src/utils/commentJson.ts",
+      "line": 115,
+      "severity": "P2",
+      "initial_evidence": [
+        "E7",
+        "E8",
+        "E12",
+        "E13",
+        "E14",
+        "E37",
+        "E44"
+      ],
+      "questions_to_resolve": [
+        "Can a user replace an MCP header or other setting originally written as `$VAR` with a literal through an existing CLI command?",
+        "Does such a replacement leave the original `$VAR` reference in the file after save and reload?"
+      ]
+    },
+    {
+      "id": "H4",
+      "claim": "Updating a settings file must preserve its existing formatting as promised by the new behavior, but serializing the entire parsed document with a fixed two-space indentation rewrites files that use tabs, compact JSON, or another indentation width.",
+      "why_suspected": "The helper is documented and introduced as format-preserving (E5, E36), yet it stringifies the whole structure with `space` fixed to `2` rather than retaining the original whitespace (E10). The supplied tests demonstrate comment preservation but do not establish byte- or indentation-level formatting preservation (E4).",
+      "file": "packages/cli/src/utils/commentJson.ts",
+      "line": 47,
+      "severity": "P3",
+      "initial_evidence": [
+        "E4",
+        "E5",
+        "E10",
+        "E36"
+      ],
+      "questions_to_resolve": [
+        "Does updating a tab-indented or four-space-indented settings file normalize the entire file to two spaces?",
+        "Is whitespace and layout preservation part of the user-facing persistence contract, or is only comment preservation intended?"
+      ]
+    },
+    {
+      "id": "H5",
+      "claim": "A settings-mutating command must not report that a change was persisted when the existing file could not be parsed, but parse failure is converted into a successful void return that callers cannot distinguish from a completed write.",
+      "why_suspected": "`updateSettingsFilePreservingFormat` logs parse errors and returns without writing (E10), while `saveSettings` and `setValue` return no status (E7, E9). Commands such as MCP add print a success message after `setValue` without verifying persistence (E23), so a malformed or concurrently corrupted file can produce a false success report.",
+      "file": "packages/cli/src/utils/commentJson.ts",
+      "line": 39,
+      "severity": "P2",
+      "initial_evidence": [
+        "E7",
+        "E9",
+        "E10",
+        "E23",
+        "E36"
+      ],
+      "questions_to_resolve": [
+        "Can `mcp add` proceed when its target settings file is malformed or becomes malformed between load and save?",
+        "In that case, does the command print that the server was added even though the file remains unchanged?"
+      ]
+    }
+  ],
+  "lookups": [
+    {
+      "n": 1,
+      "id": "L1",
+      "hypothesis": "H1",
+      "tool": "read_source",
+      "args": {
+        "path": "packages/cli/src/utils/commentJson.ts",
+        "start_line": 1,
+        "end_line": 140
+      },
+      "why": "Inspect the overlay updater to determine whether keys absent from the desired settings are retained in the persisted document.",
+      "provenance": "source_read",
+      "result_chars": 4128,
+      "result_excerpt": "1: /**\n2:  * @license\n3:  * Copyright 2025 Google LLC\n4:  * SPDX-License-Identifier: Apache-2.0\n5:  */\n6: \n7: import * as fs from 'node:fs';\n8: import { parse, stringify } from 'comment-json';\n9: \n10: interface EnvVarMapping {\n11:   path: string[];\n12:   originalValue: string;\n13:   resolvedValue: unknown;\n14: }\n15: \n16: /**\n17:  * Updates a JSON file while preserving comments, formatting, and environment variable references.\n18:  */\n19: export function updateSettingsFilePreservingFormat(\n20:   filePath: string,\n21:   updates: Record<string, unknown>,\n22:   envVarMappings: EnvVarMapping[] = []"
+    },
+    {
+      "n": 2,
+      "id": "L2",
+      "hypothesis": "H1",
+      "tool": "search_text",
+      "args": {
+        "pattern": "updateSettingsFilePreservingFormat|settingsToSave",
+        "path_glob": "packages/cli/src/**/*.ts"
+      },
+      "why": "Identify the save pipeline and MCP removal call sites to determine whether the updater receives a complete desired document whose missing nested keys represent deletions.",
+      "provenance": "source_search",
+      "result_chars": 1539,
+      "result_excerpt": "packages/cli/src/config/settings.ts:33: updateSettingsFilePreservingFormat,\npackages/cli/src/config/settings.ts:730: let settingsToSave = settingsFile.settings;\npackages/cli/src/config/settings.ts:732: settingsToSave = migrateSettingsToV1(\npackages/cli/src/config/settings.ts:733: settingsToSave as Record<string, unknown>,\npackages/cli/src/config/settings.ts:738: updateSettingsFilePreservingFormat(\npackages/cli/src/config/settings.ts:740: settingsToSave as Record<string, unknown>,\npackages/cli/src/utils/commentJson.test.ts:12: updateSettingsFilePreservingFormat,\npackages/cli/src/utils/commentJs"
+    },
+    {
+      "n": 3,
+      "id": "L3",
+      "hypothesis": "H2",
+      "tool": "read_source",
+      "args": {
+        "path": "packages/cli/src/utils/commentJson.ts",
+        "start_line": 1,
+        "end_line": 220
+      },
+      "why": "Inspect environment reference resolution/restoration logic, especially whether arrays are traversed or replaced before settings serialization.",
+      "provenance": "source_read",
+      "result_chars": 5189,
+      "result_excerpt": "1: /**\n2:  * @license\n3:  * Copyright 2025 Google LLC\n4:  * SPDX-License-Identifier: Apache-2.0\n5:  */\n6: \n7: import * as fs from 'node:fs';\n8: import { parse, stringify } from 'comment-json';\n9: \n10: interface EnvVarMapping {\n11:   path: string[];\n12:   originalValue: string;\n13:   resolvedValue: unknown;\n14: }\n15: \n16: /**\n17:  * Updates a JSON file while preserving comments, formatting, and environment variable references.\n18:  */\n19: export function updateSettingsFilePreservingFormat(\n20:   filePath: string,\n21:   updates: Record<string, unknown>,\n22:   envVarMappings: EnvVarMapping[] = []"
+    },
+    {
+      "n": 4,
+      "id": "L4",
+      "hypothesis": "H2",
+      "tool": "find_symbol",
+      "args": {
+        "name_pattern": "resolveEnvVarsInObject"
+      },
+      "why": "Locate the production resolver to determine whether it traverses array elements such as MCP args and produces mappings for them.",
+      "provenance": "structural_query",
+      "result_chars": 885,
+      "result_excerpt": "{\"qn_rule\":\"qn = qn_prefix == \\\"\\\" ? name : qn_prefix + \\\".\\\" + name\",\"cols\":[\"name\",\"label\",\"lines\",\"in\",\"out\"],\"groups\":[{\"qn_prefix\":\"Users-ksnaik-.cache-sydes-aacr-repos-google-gemini__gemini-cli.packages.cli.src.utils.envVarResolver\",\"file\":\"packages/cli/src/utils/envVarResolver.ts\",\"rows\":[[\"resolveEnvVarsInObject\",\"Function\",\"50-52\",2,1]]},{\"qn_prefix\":\"Users-ksnaik-.cache-sydes-aacr-repos-google-gemini__gemini-cli.packages.a2a-server.src.config.settings\",\"file\":\"packages/a2a-server/src/config/settings.ts\",\"rows\":[[\"resolveEnvVarsInObject\",\"Function\",\"125-154\",1,1]]},{\"qn_prefix\":\"Users"
+    },
+    {
+      "n": 5,
+      "id": "L5",
+      "hypothesis": "H3",
+      "tool": "read_source",
+      "args": {
+        "path": "packages/cli/src/utils/commentJson.ts",
+        "start_line": 1,
+        "end_line": 180
+      },
+      "why": "Inspect the environment-reference mapping and save logic around line 115 to determine whether previously mapped paths are restored unconditionally.",
+      "provenance": "source_read",
+      "result_chars": 5189,
+      "result_excerpt": "1: /**\n2:  * @license\n3:  * Copyright 2025 Google LLC\n4:  * SPDX-License-Identifier: Apache-2.0\n5:  */\n6: \n7: import * as fs from 'node:fs';\n8: import { parse, stringify } from 'comment-json';\n9: \n10: interface EnvVarMapping {\n11:   path: string[];\n12:   originalValue: string;\n13:   resolvedValue: unknown;\n14: }\n15: \n16: /**\n17:  * Updates a JSON file while preserving comments, formatting, and environment variable references.\n18:  */\n19: export function updateSettingsFilePreservingFormat(\n20:   filePath: string,\n21:   updates: Record<string, unknown>,\n22:   envVarMappings: EnvVarMapping[] = []"
+    },
+    {
+      "n": 6,
+      "id": "L6",
+      "hypothesis": "H3",
+      "tool": "callers",
+      "args": {
+        "symbol": "updateSettingsFilePreservingFormat"
+      },
+      "why": "Identify CLI save paths using this function so we can determine whether an existing command can replace an environment-backed MCP header or other string setting with a literal.",
+      "provenance": "structural_query",
+      "result_chars": 388,
+      "result_excerpt": "{\"function\":\"updateSettingsFilePreservingFormat\",\"direction\":\"inbound\",\"mode\":\"calls\",\"callers_total\":1,\"callers_total_relation\":\"eq\",\"callers\":{\"qn_rule\":\"qn = qn_prefix == \\\"\\\" ? name : qn_prefix + \\\".\\\" + name\",\"cols\":[\"name\",\"hop\"],\"groups\":[{\"qn_prefix\":\"Users-ksnaik-.cache-sydes-aacr-repos-google-gemini__gemini-cli.packages.cli.src.config.settings\",\"rows\":[[\"saveSettings\",1]]}]}}"
+    },
+    {
+      "n": 7,
+      "id": "L7",
+      "hypothesis": "H4",
+      "tool": "read_source",
+      "args": {
+        "path": "packages/cli/src/utils/commentJson.ts",
+        "start_line": 1,
+        "end_line": 100
+      },
+      "why": "Determine whether updates serialize the whole parsed document with fixed two-space indentation and inspect any stated preservation contract.",
+      "provenance": "source_read",
+      "result_chars": 2897,
+      "result_excerpt": "1: /**\n2:  * @license\n3:  * Copyright 2025 Google LLC\n4:  * SPDX-License-Identifier: Apache-2.0\n5:  */\n6: \n7: import * as fs from 'node:fs';\n8: import { parse, stringify } from 'comment-json';\n9: \n10: interface EnvVarMapping {\n11:   path: string[];\n12:   originalValue: string;\n13:   resolvedValue: unknown;\n14: }\n15: \n16: /**\n17:  * Updates a JSON file while preserving comments, formatting, and environment variable references.\n18:  */\n19: export function updateSettingsFilePreservingFormat(\n20:   filePath: string,\n21:   updates: Record<string, unknown>,\n22:   envVarMappings: EnvVarMapping[] = []"
+    },
+    {
+      "n": 8,
+      "id": "L8",
+      "hypothesis": "H4",
+      "tool": "tests_for",
+      "args": {
+        "term": "packages/cli/src/utils/commentJson.ts"
+      },
+      "why": "Check whether tests define formatting/layout preservation behavior and whether tab-, four-space-, or compact JSON updates are covered.",
+      "provenance": "test_evidence",
+      "result_chars": 88,
+      "result_excerpt": "no test_mapping/test_execution evidence mentions 'packages/cli/src/utils/commentJson.ts'"
+    },
+    {
+      "n": 9,
+      "id": "L9",
+      "hypothesis": "H5",
+      "tool": "read_source",
+      "args": {
+        "path": "packages/cli/src/utils/commentJson.ts",
+        "start_line": 1,
+        "end_line": 100
+      },
+      "why": "Determine how malformed JSON is handled during settings reads/writes and whether the save path returns a distinguishable failure.",
+      "provenance": "source_read",
+      "result_chars": 2897,
+      "result_excerpt": "1: /**\n2:  * @license\n3:  * Copyright 2025 Google LLC\n4:  * SPDX-License-Identifier: Apache-2.0\n5:  */\n6: \n7: import * as fs from 'node:fs';\n8: import { parse, stringify } from 'comment-json';\n9: \n10: interface EnvVarMapping {\n11:   path: string[];\n12:   originalValue: string;\n13:   resolvedValue: unknown;\n14: }\n15: \n16: /**\n17:  * Updates a JSON file while preserving comments, formatting, and environment variable references.\n18:  */\n19: export function updateSettingsFilePreservingFormat(\n20:   filePath: string,\n21:   updates: Record<string, unknown>,\n22:   envVarMappings: EnvVarMapping[] = []"
+    },
+    {
+      "n": 10,
+      "id": "L10",
+      "hypothesis": "H5",
+      "tool": "search_text",
+      "args": {
+        "pattern": "updateSettingsFilePreservingFormat\\(",
+        "path_glob": "packages/cli/src/**/*.ts"
+      },
+      "why": "Identify the `mcp add` save call and surrounding command flow to determine whether it treats the void return as success and prints an added message.",
+      "provenance": "source_search",
+      "result_chars": 946,
+      "result_excerpt": "packages/cli/src/config/settings.ts:738: updateSettingsFilePreservingFormat(\npackages/cli/src/utils/commentJson.test.ts:46: updateSettingsFilePreservingFormat(testFilePath, {\npackages/cli/src/utils/commentJson.test.ts:79: updateSettingsFilePreservingFormat(\npackages/cli/src/utils/commentJson.test.ts:108: updateSettingsFilePreservingFormat(testFilePath, {\npackages/cli/src/utils/commentJson.test.ts:128: updateSettingsFilePreservingFormat(testFilePath, {\npackages/cli/src/utils/commentJson.test.ts:139: updateSettingsFilePreservingFormat(testFilePath, {\npackages/cli/src/utils/commentJson.test.ts:17"
+    },
+    {
+      "n": 11,
+      "id": "L11",
+      "hypothesis": "H2",
+      "tool": "read_source",
+      "args": {
+        "path": "packages/cli/src/utils/envVarResolver.ts",
+        "start_line": 1,
+        "end_line": 140
+      },
+      "why": "This decides whether production resolution descends into arrays such as MCP args and whether array-element paths can later be restored.",
+      "provenance": "source_read",
+      "result_chars": 3808,
+      "result_excerpt": "1: /**\n2:  * @license\n3:  * Copyright 2025 Google LLC\n4:  * SPDX-License-Identifier: Apache-2.0\n5:  */\n6: \n7: /**\n8:  * Resolves environment variables in a string.\n9:  * Replaces $VAR_NAME and ${VAR_NAME} with their corresponding environment variable values.\n10:  * If the environment variable is not defined, the original placeholder is preserved.\n11:  *\n12:  * @param value - The string that may contain environment variable placeholders\n13:  * @returns The string with environment variables resolved\n14:  *\n15:  * @example\n16:  * resolveEnvVarsInString(\"Token: $API_KEY\") // Returns \"Token: secret"
+    },
+    {
+      "n": 12,
+      "id": "L12",
+      "hypothesis": "H2",
+      "tool": "search_text",
+      "args": {
+        "pattern": "trackEnvVarMappings|updateSettingsFilePreservingFormat|resolveEnvVarsInObject",
+        "path_glob": "packages/cli/src/config/**/*.ts"
+      },
+      "why": "Confirm the production settings load/save path connects array-resolving, mapping tracking, and reference restoration, deciding whether a later save can leak a resolved MCP args token.",
+      "provenance": "source_search",
+      "result_chars": 1437,
+      "result_excerpt": "packages/cli/src/config/extension.ts:26: import { resolveEnvVarsInObject } from '../utils/envVarResolver.js';\npackages/cli/src/config/extension.ts:224: config = resolveEnvVarsInObject(config);\npackages/cli/src/config/settings.ts:30: import { resolveEnvVarsInObject } from '../utils/envVarResolver.js';\npackages/cli/src/config/settings.ts:33: updateSettingsFilePreservingFormat,\npackages/cli/src/config/settings.ts:34: trackEnvVarMappings,\npackages/cli/src/config/settings.ts:362: ReturnType<typeof trackEnvVarMappings>\npackages/cli/src/config/settings.ts:383: ReturnType<typeof trackEnvVarMappings>\np"
+    }
+  ],
+  "outcomes": [
+    {
+      "hypothesis": "H1",
+      "lookups": [
+        "L1",
+        "L2"
+      ],
+      "status": "CONFIRMED",
+      "supported_claim": "When `mcp remove` removes an existing server from a scope backed by an existing settings file, the new format-preserving save path leaves that server in the persisted `mcpServers` object and then reports success; reloading the file therefore restores the supposedly removed server.",
+      "reasoning": "The command deletes the server from the scoped in-memory `mcpServers` object and passes that complete object to `setValue`. The save path uses `settingsFile.settings` as `settingsToSave`, so omission of the deleted server represents the desired persisted deletion. However, the newly added updater parses the old file, aliases it as `result`, and recursively iterates only keys present in the new object. At `mcpServers`, the deleted server is absent from `updates`, so its old on-disk key is never visited or deleted. The resulting structure, still containing that key, is written back before the command prints its success message.",
+      "defect_evidence": [
+        {
+          "source": "E24",
+          "file": "packages/cli/src/commands/mcp/remove.ts",
+          "line": 30,
+          "quote": "delete mcpServers[name];"
+        },
+        {
+          "source": "E24",
+          "file": "packages/cli/src/commands/mcp/remove.ts",
+          "line": 32,
+          "quote": "settings.setValue(settingsScope, 'mcpServers', mcpServers);"
+        },
+        {
+          "source": "E24",
+          "file": "packages/cli/src/commands/mcp/remove.ts",
+          "line": 34,
+          "quote": "console.log(`Server \"${name}\" removed from ${scope} settings.`);"
+        },
+        {
+          "source": "L2",
+          "file": "packages/cli/src/config/settings.ts",
+          "line": 730,
+          "quote": "let settingsToSave = settingsFile.settings;"
+        }
+      ],
+      "changed_evidence": [
+        {
+          "source": "L1",
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "line": 42,
+          "quote": "const updatedStructure = applyUpdates(parsed, updates);"
+        },
+        {
+          "source": "L1",
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "line": 56,
+          "quote": "const result = current;"
+        },
+        {
+          "source": "L1",
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "line": 58,
+          "quote": "for (const [key, value] of Object.entries(updates)) {"
+        },
+        {
+          "source": "L1",
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "line": 71,
+          "quote": "result[key] = applyUpdates("
+        },
+        {
+          "source": "L1",
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "line": 49,
+          "quote": "fs.writeFileSync(filePath, updatedContent, 'utf-8');"
+        }
+      ],
+      "causal_link": "This change replaces whole-document persistence with an overlay onto the parsed old document. Because the overlay starts with the old object and processes only entries present in `settingsToSave`, deleting a nested server merely omits that server from the update; it does not remove the corresponding old key. The stale key is then serialized back to disk, so a subsequent load sees the server again despite the success message.",
+      "refuting": [],
+      "missing": [],
+      "verified_defect_evidence": [
+        {
+          "source": "E24",
+          "file": "packages/cli/src/commands/mcp/remove.ts",
+          "line": 30,
+          "quote": "delete mcpServers[name];",
+          "verification": "citation confirmed near packages/cli/src/commands/mcp/remove.ts:30"
+        },
+        {
+          "source": "E24",
+          "file": "packages/cli/src/commands/mcp/remove.ts",
+          "line": 32,
+          "quote": "settings.setValue(settingsScope, 'mcpServers', mcpServers);",
+          "verification": "citation confirmed near packages/cli/src/commands/mcp/remove.ts:32"
+        },
+        {
+          "source": "E24",
+          "file": "packages/cli/src/commands/mcp/remove.ts",
+          "line": 34,
+          "quote": "console.log(`Server \"${name}\" removed from ${scope} settings.`);",
+          "verification": "citation confirmed near packages/cli/src/commands/mcp/remove.ts:34"
+        },
+        {
+          "source": "L2",
+          "file": "packages/cli/src/config/settings.ts",
+          "line": 730,
+          "quote": "let settingsToSave = settingsFile.settings;",
+          "verification": "citation confirmed near packages/cli/src/config/settings.ts:730"
+        }
+      ],
+      "verified_changed_evidence": [
+        {
+          "source": "L1",
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "line": 42,
+          "quote": "const updatedStructure = applyUpdates(parsed, updates);",
+          "verification": "citation confirmed near packages/cli/src/utils/commentJson.ts:42"
+        },
+        {
+          "source": "L1",
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "line": 56,
+          "quote": "const result = current;",
+          "verification": "citation confirmed near packages/cli/src/utils/commentJson.ts:56"
+        },
+        {
+          "source": "L1",
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "line": 58,
+          "quote": "for (const [key, value] of Object.entries(updates)) {",
+          "verification": "citation confirmed near packages/cli/src/utils/commentJson.ts:58"
+        },
+        {
+          "source": "L1",
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "line": 71,
+          "quote": "result[key] = applyUpdates(",
+          "verification": "citation confirmed near packages/cli/src/utils/commentJson.ts:71"
+        },
+        {
+          "source": "L1",
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "line": 49,
+          "quote": "fs.writeFileSync(filePath, updatedContent, 'utf-8');",
+          "verification": "citation confirmed near packages/cli/src/utils/commentJson.ts:49"
+        }
+      ],
+      "rounds": [
+        {
+          "round": 1,
+          "lookups": [
+            "L1",
+            "L2"
+          ],
+          "status": "CONFIRMED",
+          "missing": []
+        }
+      ]
+    },
+    {
+      "hypothesis": "H2",
+      "lookups": [
+        "L3",
+        "L4",
+        "L11",
+        "L12"
+      ],
+      "status": "CONFIRMED",
+      "supported_claim": "When an existing MCP server in a settings scope has `args: [\"$TOKEN\"]` and `TOKEN` is defined, a later `setValue`-based save in that scope can serialize the resolved token: production resolution processes array elements, while the newly added save updater replaces the entire array and never traverses it to restore the recorded reference.",
+      "reasoning": "Production settings are passed through `resolveEnvVarsInObject`, whose array branch recursively resolves every element. The new mapping tracker also descends into arrays, so it can record a mapping such as `mcpServers.server.args.0`. During saving, however, `applyUpdates` only recursively merges non-arrays and therefore assigns the resolved `args` array wholesale. `restoreEnvVarsRecursive` descends only into non-array objects, so it never reaches index `0`. The resulting structure is then stringified and written. The MCP add path provides a concrete subsequent-save path because it loads existing settings, modifies `mcpServers`, and calls the changed `setValue` save path.",
+      "defect_evidence": [
+        {
+          "source": "L11",
+          "file": "packages/cli/src/utils/envVarResolver.ts",
+          "line": 78,
+          "quote": "if (Array.isArray(obj)) {\n    // Check for circular reference\n    if (visited.has(obj)) {\n      // Return a shallow copy to break the cycle\n      return [...obj] as unknown as T;\n    }\n\n    visited.add(obj);\n    const result = obj.map((item) =>\n      resolveEnvVarsInObjectInternal(item, visited),\n    ) as unknown as T;"
+        },
+        {
+          "source": "L12",
+          "file": "packages/cli/src/config/settings.ts",
+          "line": 669,
+          "quote": "workspaceSettings = resolveEnvVarsInObject(workspaceSettings);"
+        },
+        {
+          "source": "E23",
+          "file": "packages/cli/src/commands/mcp/add.ts",
+          "line": 121,
+          "quote": "settings.setValue(settingsScope, 'mcpServers', mcpServers);"
+        },
+        {
+          "source": "L3",
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "line": 47,
+          "quote": "const updatedContent = stringify(restoredStructure, null, 2);\n\n  fs.writeFileSync(filePath, updatedContent, 'utf-8');"
+        }
+      ],
+      "changed_evidence": [
+        {
+          "source": "L3",
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "line": 63,
+          "quote": "if (\n      typeof value === 'object' &&\n      value !== null &&\n      !Array.isArray(value) &&\n      typeof result[key] === 'object' &&\n      result[key] !== null &&\n      !Array.isArray(result[key])\n    ) {\n      result[key] = applyUpdates(\n        result[key] as Record<string, unknown>,\n        value as Record<string, unknown>,\n      );\n    } else {\n      result[key] = value;\n    }"
+        },
+        {
+          "source": "L3",
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "line": 117,
+          "quote": "} else if (\n      typeof value === 'object' &&\n      value !== null &&\n      !Array.isArray(value)\n    ) {\n      restoreEnvVarsRecursive(value, fullPath, envVarMap);\n    }"
+        },
+        {
+          "source": "L3",
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "line": 162,
+          "quote": "} else if (typeof value === 'object' && value !== null) {\n      const nestedMappings = trackEnvVarMappings(\n        value,\n        originalValue,\n        currentPath,\n      );\n      mappings.push(...nestedMappings);"
+        },
+        {
+          "source": "change",
+          "file": "packages/cli/src/config/settings.ts",
+          "line": 422,
+          "quote": "saveSettings(settingsFile, envMappings);"
+        }
+      ],
+      "causal_link": "The change routes `setValue` saves through the new environment-mapping save logic. In that newly added logic, the resolved `args` array is assigned by `result[key] = value`, while the explicit `!Array.isArray(value)` restoration guard prevents visiting its indexed mapping. The changed writer consequently stringifies the unresolved-to-original restoration failure and writes the resolved secret.",
+      "refuting": [],
+      "missing": [],
+      "verified_defect_evidence": [
+        {
+          "source": "L11",
+          "file": "packages/cli/src/utils/envVarResolver.ts",
+          "line": 78,
+          "quote": "if (Array.isArray(obj)) {\n    // Check for circular reference\n    if (visited.has(obj)) {\n      // Return a shallow copy to break the cycle\n      return [...obj] as unknown as T;\n    }\n\n    visited.add(obj);\n    const result = obj.map((item) =>\n      resolveEnvVarsInObjectInternal(item, visited),\n    ) as unknown as T;",
+          "verification": "citation recovered near packages/cli/src/utils/envVarResolver.ts:78-88 (model cited line 78; the real text was located there instead)"
+        },
+        {
+          "source": "L12",
+          "file": "packages/cli/src/config/settings.ts",
+          "line": 669,
+          "quote": "workspaceSettings = resolveEnvVarsInObject(workspaceSettings);",
+          "verification": "citation confirmed near packages/cli/src/config/settings.ts:669"
+        },
+        {
+          "source": "E23",
+          "file": "packages/cli/src/commands/mcp/add.ts",
+          "line": 121,
+          "quote": "settings.setValue(settingsScope, 'mcpServers', mcpServers);",
+          "verification": "citation confirmed near packages/cli/src/commands/mcp/add.ts:121"
+        },
+        {
+          "source": "L3",
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "line": 47,
+          "quote": "const updatedContent = stringify(restoredStructure, null, 2);\n\n  fs.writeFileSync(filePath, updatedContent, 'utf-8');",
+          "verification": "citation confirmed near packages/cli/src/utils/commentJson.ts:47"
+        }
+      ],
+      "verified_changed_evidence": [
+        {
+          "source": "L3",
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "line": 117,
+          "quote": "} else if (\n      typeof value === 'object' &&\n      value !== null &&\n      !Array.isArray(value)\n    ) {\n      restoreEnvVarsRecursive(value, fullPath, envVarMap);\n    }",
+          "verification": "citation recovered near packages/cli/src/utils/commentJson.ts:113-123 (model cited line 117; the real text was located there instead)"
+        },
+        {
+          "source": "L3",
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "line": 162,
+          "quote": "} else if (typeof value === 'object' && value !== null) {\n      const nestedMappings = trackEnvVarMappings(\n        value,\n        originalValue,\n        currentPath,\n      );\n      mappings.push(...nestedMappings);",
+          "verification": "citation recovered near packages/cli/src/utils/commentJson.ts:158-168 (model cited line 162; the real text was located there instead)"
+        },
+        {
+          "source": "change",
+          "file": "packages/cli/src/config/settings.ts",
+          "line": 422,
+          "quote": "saveSettings(settingsFile, envMappings);",
+          "verification": "citation confirmed near packages/cli/src/config/settings.ts:422"
+        }
+      ],
+      "rounds": [
+        {
+          "round": 1,
+          "lookups": [
+            "L3",
+            "L4"
+          ],
+          "status": "UNKNOWN",
+          "missing": [
+            "The implementation of `packages/cli/src/utils/envVarResolver.ts:resolveEnvVarsInObject` and its internal helper, needed to determine whether production resolves strings contained in arrays.",
+            "Complete evidence of the production load/save data flow showing that an MCP `args` array containing a resolved token is retained in the scoped settings object and passed to `saveSettings`/`updateSettingsFilePreservingFormat` on a subsequent save.",
+            "An integration test or observed file output for `args: [\"$TOKEN\"]` after environment resolution and a later settings save."
+          ]
+        },
+        {
+          "round": 2,
+          "lookups": [
+            "L11",
+            "L12"
+          ],
+          "verified_again": true,
+          "new_nonempty_lookups": [
+            "L11",
+            "L12"
+          ],
+          "status": "CONFIRMED",
+          "status_changed": true,
+          "missing": []
+        }
+      ]
+    },
+    {
+      "hypothesis": "H3",
+      "lookups": [
+        "L5",
+        "L6"
+      ],
+      "status": "UNKNOWN",
+      "supported_claim": "Within updateSettingsFilePreservingFormat, any string currently present at a previously mapped environment-variable path is replaced with the original environment reference, without checking whether it still equals the recorded resolved value. The evidence does not establish that an existing CLI command intentionally replaces such a setting with a literal or that this replacement is required to persist.",
+      "reasoning": "The conditional mechanism is shown: LoadedSettings.setValue saves using the scope's original environment mappings, and restoreEnvVarsRecursive overwrites every string at a mapped path with the original reference. However, the packet provides no existing CLI command or call path demonstrating that a user can intentionally replace an environment-backed MCP header or other setting with a literal. It also does not establish the required semantics; E44 explicitly says it is unknown whether literal replacement is allowed or preserving the reference is intended. Thus the code could produce the alleged result if that operation is supported, but the evidence does not establish a defect.",
+      "defect_evidence": [],
+      "changed_evidence": [
+        {
+          "source": "E7",
+          "file": "packages/cli/src/config/settings.ts",
+          "line": 417,
+          "quote": "setValue(scope: SettingScope, key: string, value: unknown): void { const settingsFile = this.forScope(scope); setNestedProperty(settingsFile.settings, key, value); this._merged = this.computeMergedSettings(); const envMappings = this.envVarMappings.get(scope) || []; saveSettings(settingsFile, envMappings); }"
+        },
+        {
+          "source": "L5",
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "line": 115,
+          "quote": "if (envVarReference && typeof value === 'string') {"
+        },
+        {
+          "source": "L5",
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "line": 116,
+          "quote": "(obj as Record<string, unknown>)[key] = envVarReference;"
+        },
+        {
+          "source": "L5",
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "line": 159,
+          "quote": "resolvedValue: value,"
+        }
+      ],
+      "causal_link": "Conditionally, if setValue is invoked on a path recorded in envVarMappings with a new string literal, the changed save flow passes the stale mapping onward and lines 115-116 restore originalValue solely because the current value is a string; the recorded resolvedValue is never consulted. What is not established is whether a supported user operation reaches this path with that intended meaning.",
+      "refuting": [
+        {
+          "source": "E44",
+          "explanation": "The supplied analysis explicitly states that it is not established whether replacing an environment-backed setting with a literal is allowed or whether preserving the original reference is intended."
+        }
+      ],
+      "missing": [
+        "A concrete existing CLI command and call path that invokes LoadedSettings.setValue to replace an environment-backed MCP header or other mapped setting with a literal.",
+        "Evidence of the command's contract or expected behavior establishing that the literal must be persisted rather than the original environment reference being intentionally preserved.",
+        "An observed save-and-reload result through such a supported command, although the utility code establishes the conditional overwrite behavior."
+      ],
+      "verified_defect_evidence": [],
+      "verified_changed_evidence": [
+        {
+          "source": "L5",
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "line": 115,
+          "quote": "if (envVarReference && typeof value === 'string') {",
+          "verification": "citation confirmed near packages/cli/src/utils/commentJson.ts:115"
+        },
+        {
+          "source": "L5",
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "line": 116,
+          "quote": "(obj as Record<string, unknown>)[key] = envVarReference;",
+          "verification": "citation confirmed near packages/cli/src/utils/commentJson.ts:116"
+        },
+        {
+          "source": "L5",
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "line": 159,
+          "quote": "resolvedValue: value,",
+          "verification": "citation confirmed near packages/cli/src/utils/commentJson.ts:159"
+        }
+      ],
+      "rounds": [
+        {
+          "round": 1,
+          "lookups": [
+            "L5",
+            "L6"
+          ],
+          "status": "UNKNOWN",
+          "missing": [
+            "A concrete existing CLI command and call path that invokes LoadedSettings.setValue to replace an environment-backed MCP header or other mapped setting with a literal.",
+            "Evidence of the command's contract or expected behavior establishing that the literal must be persisted rather than the original environment reference being intentionally preserved.",
+            "An observed save-and-reload result through such a supported command, although the utility code establishes the conditional overwrite behavior."
+          ]
+        }
+      ]
+    },
+    {
+      "hypothesis": "H4",
+      "lookups": [
+        "L7",
+        "L8"
+      ],
+      "status": "CONFIRMED",
+      "supported_claim": "For an existing valid settings file whose layout uses tabs, four-space indentation, or compact JSON, updateSettingsFilePreservingFormat reserializes the whole parsed document with a fixed two-space indentation despite the function's stated formatting-preservation contract.",
+      "reasoning": "The function documentation explicitly says it preserves formatting. However, after applying updates to the parsed document, it passes the entire restored structure to stringify with space=2 and writes that complete serialization back to the file. Thus existing non-two-space layout is normalized rather than preserved. The evidence supports the function-level contract; it does not establish a broader externally documented user-facing guarantee.",
+      "defect_evidence": [
+        {
+          "source": "L7",
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "line": 17,
+          "quote": " * Updates a JSON file while preserving comments, formatting, and environment variable references."
+        }
+      ],
+      "changed_evidence": [
+        {
+          "source": "L7",
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "line": 47,
+          "quote": "  const updatedContent = stringify(restoredStructure, null, 2);"
+        },
+        {
+          "source": "L7",
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "line": 49,
+          "quote": "  fs.writeFileSync(filePath, updatedContent, 'utf-8');"
+        }
+      ],
+      "causal_link": "This newly added persistence function serializes the complete parsed settings object with an explicit two-space indentation argument and overwrites the existing file. Consequently, updating any value rewrites the layout of an existing file that used a different indentation or compact representation, violating the new function's explicit promise to preserve formatting.",
+      "refuting": [],
+      "missing": [
+        "No evidence establishes a broader user-facing formatting contract outside the new function's documentation."
+      ],
+      "verified_defect_evidence": [
+        {
+          "source": "L7",
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "line": 17,
+          "quote": " * Updates a JSON file while preserving comments, formatting, and environment variable references.",
+          "verification": "citation confirmed near packages/cli/src/utils/commentJson.ts:17"
+        }
+      ],
+      "verified_changed_evidence": [
+        {
+          "source": "L7",
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "line": 47,
+          "quote": "  const updatedContent = stringify(restoredStructure, null, 2);",
+          "verification": "citation confirmed near packages/cli/src/utils/commentJson.ts:47"
+        },
+        {
+          "source": "L7",
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "line": 49,
+          "quote": "  fs.writeFileSync(filePath, updatedContent, 'utf-8');",
+          "verification": "citation confirmed near packages/cli/src/utils/commentJson.ts:49"
+        }
+      ],
+      "rounds": [
+        {
+          "round": 1,
+          "lookups": [
+            "L7",
+            "L8"
+          ],
+          "status": "CONFIRMED",
+          "missing": [
+            "No evidence establishes a broader user-facing formatting contract outside the new function's documentation."
+          ]
+        }
+      ]
+    },
+    {
+      "hypothesis": "H5",
+      "lookups": [
+        "L9",
+        "L10"
+      ],
+      "status": "CONFIRMED",
+      "supported_claim": "If an existing MCP server\u2019s settings file becomes malformed after load but before save, the `mcp add` existing-server update path leaves the file unchanged yet prints that the server was updated.",
+      "reasoning": "The changed persistence path reparses an existing file during save. On parse failure, the new helper logs errors and returns normally before reaching the write. Because `saveSettings` and `LoadedSettings.setValue` receive no failure indication, `addMcpServer` continues and prints its update-success message. This confirms the defect for the existing-server update path when malformed content is encountered at save time.",
+      "defect_evidence": [
+        {
+          "source": "L9",
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "line": 34,
+          "quote": "} catch (error) {\n    console.error('Error parsing settings file:', error);\n    console.error(\n      'Settings file may be corrupted. Please check the JSON syntax.',\n    );\n    return;\n  }"
+        },
+        {
+          "source": "L9",
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "line": 49,
+          "quote": "fs.writeFileSync(filePath, updatedContent, 'utf-8');"
+        },
+        {
+          "source": "E23",
+          "file": "packages/cli/src/commands/mcp/add.ts",
+          "line": 116,
+          "quote": "settings.setValue(settingsScope, 'mcpServers', mcpServers);"
+        },
+        {
+          "source": "E23",
+          "file": "packages/cli/src/commands/mcp/add.ts",
+          "line": 119,
+          "quote": "console.log(`MCP server \"${name}\" updated in ${scope} settings.`);"
+        }
+      ],
+      "changed_evidence": [
+        {
+          "source": "E9",
+          "file": "packages/cli/src/config/settings.ts",
+          "line": 738,
+          "quote": "updateSettingsFilePreservingFormat(\n      settingsFile.path,\n      settingsToSave as Record<string, unknown>,\n      envVarMappings,\n    );"
+        },
+        {
+          "source": "L9",
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "line": 34,
+          "quote": "} catch (error) {\n    console.error('Error parsing settings file:', error);\n    console.error(\n      'Settings file may be corrupted. Please check the JSON syntax.',\n    );\n    return;\n  }"
+        }
+      ],
+      "causal_link": "This change routes settings persistence through the newly added format-preserving helper. When that helper encounters malformed save-time content, its changed catch block returns `void` before the only subsequent write. That normal return propagates through the void `saveSettings`/`setValue` APIs, so the unchanged `mcp add` caller cannot detect the failed persistence and executes its success log.",
+      "refuting": [],
+      "missing": [
+        "The evidence does not establish whether `loadSettings()` permits the command to start when the file is already malformed at initial load.",
+        "The packet truncates the new-server branch\u2019s output, so the exact false-success behavior is not established for adding a previously absent server; confirmation is limited to the existing-server update branch."
+      ],
+      "verified_defect_evidence": [
+        {
+          "source": "L9",
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "line": 34,
+          "quote": "} catch (error) {\n    console.error('Error parsing settings file:', error);\n    console.error(\n      'Settings file may be corrupted. Please check the JSON syntax.',\n    );\n    return;\n  }",
+          "verification": "citation recovered near packages/cli/src/utils/commentJson.ts:30-40 (model cited line 34; the real text was located there instead)"
+        },
+        {
+          "source": "L9",
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "line": 49,
+          "quote": "fs.writeFileSync(filePath, updatedContent, 'utf-8');",
+          "verification": "citation confirmed near packages/cli/src/utils/commentJson.ts:49"
+        },
+        {
+          "source": "E23",
+          "file": "packages/cli/src/commands/mcp/add.ts",
+          "line": 116,
+          "quote": "settings.setValue(settingsScope, 'mcpServers', mcpServers);",
+          "verification": "citation confirmed near packages/cli/src/commands/mcp/add.ts:116"
+        },
+        {
+          "source": "E23",
+          "file": "packages/cli/src/commands/mcp/add.ts",
+          "line": 119,
+          "quote": "console.log(`MCP server \"${name}\" updated in ${scope} settings.`);",
+          "verification": "citation confirmed near packages/cli/src/commands/mcp/add.ts:119"
+        }
+      ],
+      "verified_changed_evidence": [
+        {
+          "source": "E9",
+          "file": "packages/cli/src/config/settings.ts",
+          "line": 738,
+          "quote": "updateSettingsFilePreservingFormat(\n      settingsFile.path,\n      settingsToSave as Record<string, unknown>,\n      envVarMappings,\n    );",
+          "verification": "citation confirmed near packages/cli/src/config/settings.ts:738"
+        },
+        {
+          "source": "L9",
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "line": 34,
+          "quote": "} catch (error) {\n    console.error('Error parsing settings file:', error);\n    console.error(\n      'Settings file may be corrupted. Please check the JSON syntax.',\n    );\n    return;\n  }",
+          "verification": "citation recovered near packages/cli/src/utils/commentJson.ts:30-40 (model cited line 34; the real text was located there instead)"
+        }
+      ],
+      "rounds": [
+        {
+          "round": 1,
+          "lookups": [
+            "L9",
+            "L10"
+          ],
+          "status": "CONFIRMED",
+          "missing": [
+            "The evidence does not establish whether `loadSettings()` permits the command to start when the file is already malformed at initial load.",
+            "The packet truncates the new-server branch\u2019s output, so the exact false-success behavior is not established for adding a previously absent server; confirmation is limited to the existing-server update branch."
+          ]
+        }
+      ]
+    }
+  ],
+  "confirmed": [
+    "H1",
+    "H2",
+    "H4",
+    "H5"
+  ],
+  "refuted": [],
+  "unknown": [
+    "H3"
+  ],
+  "findings": [
+    "investigator-H1",
+    "investigator-H2",
+    "investigator-H5",
+    "investigator-H4"
+  ],
+  "budget": {
+    "max_hypotheses": 5,
+    "max_lookups": 12,
+    "used_lookups": 12,
+    "max_lookups_per_hypothesis": 6,
+    "allocation": "two_round",
+    "round1_lookups": 2
+  },
+  "usage": {
+    "llm_calls": 18,
+    "by_stage": {
+      "investigator": 12,
+      "verifier": 6
+    },
+    "prompt_tokens": 58968,
+    "completion_tokens": 16715,
+    "reasoning_tokens": 12048,
+    "llm_seconds": 319.5
+  },
+  "errors": [],
+  "replay": {
+    "snapshot_version": "sydes-investigation-snapshot/1",
+    "allocation": "two_round"
+  }
+}

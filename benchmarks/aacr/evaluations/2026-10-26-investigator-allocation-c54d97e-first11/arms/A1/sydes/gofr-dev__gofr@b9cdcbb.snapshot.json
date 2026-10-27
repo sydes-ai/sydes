@@ -1,0 +1,286 @@
+{
+  "version": "sydes-investigation-snapshot/1",
+  "packet": [
+    {
+      "id": "E1",
+      "kind": "diff",
+      "ref": "docs/advanced-guide/setting-custom-response-headers/page.md",
+      "text": "diff --git a/docs/advanced-guide/setting-custom-response-headers/page.md b/docs/advanced-guide/setting-custom-response-headers/page.md\nindex e7c21e28..e32b3bbc 100644\n--- a/docs/advanced-guide/setting-custom-response-headers/page.md\n+++ b/docs/advanced-guide/setting-custom-response-headers/page.md\n@@ -1,56 +1,118 @@\n-# Setting Custom Response Headers\n+# Custom Response Headers and Metadata in GoFr\n \n-In GoFr, you can customize HTTP response headers using the `Response` struct, allowing you to add extra information to \n-responses sent from your application. This feature can be useful for adding metadata, such as custom headers, security \n-policies, or other contextual information, to improve the client-server communication.\n+GoFr simplifies the process of adding custom HTTP response headers and metadata to API responses using the `Response` struct. This feature allows you to include additional information such as custom headers or metadata to enhance client-server communication while keeping your data payload clean and structured.\n \n-## Using the Response Struct\n+## Features\n \n-To use custom headers in your handler, create and return a Response object within the handler function. This object \n-should contain the response data along with a Headers map for any custom headers you wish to add.\n+1. **Custom Headers**: Add key-value pairs for headers, useful for:\n+    - Security policies\n+    - Debugging information\n+    - Versioning details\n \n-### Example:\n+   **Type**: `map[string]string`\n+    - Keys and values must be strings.\n \n-Below is an example showing how to use the Response struct in a GoFr handler. In this case, the `HelloHandler` function \n-returns a greeting message along with two custom headers: X-Custom-Header and X-Another-Header.\n+2. **Metadata**: Include optional contextual information like:\n+    - Deployment environment\n+    - Request-specific details (e.g., timestamps, tracing IDs)\n+\n+   **Type**: `map[string]any`\n+    - Keys must be strings, and values can be of any type.\n+\n+When metadata is included, the response structure is:\n+```json\n+{\n+  \"data\": {},\n+  \"metadata\": {}\n+}\n+```\n+\n+If metadata is omitted, the response defaults to:\n+\n+```json\n+{\n+  \"data\": {}\n+}\n+```\n+\n+### Example Usage\n+\n+#### Adding Custom Headers and Metadata\n+To include custom headers and metadata in your response, populate the Headers and MetaData fields of the Response struct in your handler function.\n \n ```go\n package main\n \n import (\n-\t\"gofr.dev/pkg/gofr\"\n-\t\"gofr.de\u2026"
+    },
+    {
+      "id": "E2",
+      "kind": "diff",
+      "ref": "pkg/gofr/handler.go",
+      "text": "diff --git a/pkg/gofr/handler.go b/pkg/gofr/handler.go\nindex fee0529c..83cf35b0 100644\n--- a/pkg/gofr/handler.go\n+++ b/pkg/gofr/handler.go\n@@ -99,8 +99,6 @@ func (h handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {\n \t// Handle custom headers if 'result' is a 'Response'.\n \tif resp, ok := result.(response.Response); ok {\n \t\tresp.SetCustomHeaders(w)\n-\n-\t\tresult = resp.Data\n \t}\n \n \t// Handler function completed"
+    },
+    {
+      "id": "E3",
+      "kind": "diff",
+      "ref": "pkg/gofr/http/responder.go",
+      "text": "diff --git a/pkg/gofr/http/responder.go b/pkg/gofr/http/responder.go\nindex 668a55a3..8ad5dd98 100644\n--- a/pkg/gofr/http/responder.go\n+++ b/pkg/gofr/http/responder.go\n@@ -28,6 +28,8 @@ func (r Responder) Respond(data interface{}, err error) {\n \tswitch v := data.(type) {\n \tcase resTypes.Raw:\n \t\tresp = v.Data\n+\tcase resTypes.Response:\n+\t\tresp = response{Data: v.Data, Metadata: v.Metadata, Error: errorObj}\n \tcase resTypes.File:\n \t\tr.w.Header().Set(\"Content-Type\", v.ContentType)\n \t\tr.w.WriteHeader(statusCode)\n@@ -91,8 +93,9 @@ func createErrorResponse(err error) map[string]interface{} {\n \n // response represents an HTTP response.\n type response struct {\n-\tError interface{} `json:\"error,omitempty\"`\n-\tData  interface{} `json:\"data,omitempty\"`\n+\tError    interface{} `json:\"error,omitempty\"`\n+\tMetadata interface{} `json:\"metadata,omitempty\"`\n+\tData     interface{} `json:\"data,omitempty\"`\n }\n \n type statusCodeResponder interface {"
+    },
+    {
+      "id": "E4",
+      "kind": "diff",
+      "ref": "pkg/gofr/http/responder_test.go",
+      "text": "diff --git a/pkg/gofr/http/responder_test.go b/pkg/gofr/http/responder_test.go\nindex c1c532b6..4f2b1ce8 100644\n--- a/pkg/gofr/http/responder_test.go\n+++ b/pkg/gofr/http/responder_test.go\n@@ -6,30 +6,77 @@ import (\n \t\"net/http/httptest\"\n \t\"testing\"\n \n+\tresTypes \"gofr.dev/pkg/gofr/http/response\"\n+\n \t\"github.com/stretchr/testify/assert\"\n \t\"github.com/stretchr/testify/require\"\n-\n-\tresTypes \"gofr.dev/pkg/gofr/http/response\"\n )\n \n-func TestResponder_Respond(t *testing.T) {\n-\tr := NewResponder(httptest.NewRecorder(), http.MethodGet)\n-\n+func TestResponder(t *testing.T) {\n \ttests := []struct {\n-\t\tdesc        string\n-\t\tdata        interface{}\n-\t\tcontentType string\n+\t\tdesc         string\n+\t\tdata         interface{}\n+\t\tcontentType  string\n+\t\texpectedBody []byte\n \t}{\n-\t\t{\"raw response type\", resTypes.Raw{}, \"application/json\"},\n-\t\t{\"file response type\", resTypes.File{ContentType: \"image/png\"}, \"image/png\"},\n-\t\t{\"map response type\", map[string]string{}, \"application/json\"},\n+\t\t{\n+\t\t\tdesc:         \"raw response type\",\n+\t\t\tdata:         resTypes.Raw{Data: []byte(\"raw data\")},\n+\t\t\tcontentType:  \"application/json\",\n+\t\t\texpectedBody: []byte(`\"cmF3IGRhdGE=\"`),\n+\t\t},\n+\t\t{\n+\t\t\tdesc: \"file response type\",\n+\t\t\tdata: resTypes.File{\n+\t\t\t\tContentType: \"image/png\",\n+\t\t\t},\n+\t\t\tcontentType:  \"image/png\",\n+\t\t\texpectedBody: nil,\n+\t\t},\n+\t\t{\n+\t\t\tdesc:         \"map response type\",\n+\t\t\tdata:         map[string]string{\"key\": \"value\"},\n+\t\t\tcontentType:  \"application/json\",\n+\t\t\texpectedBody: []byte(`{\"data\":{\"key\":\"value\"}}`),\n+\t\t},\n+\t\t{\n+\t\t\tdesc: \"gofr response type with metadata\",\n+\t\t\tdata: resTypes.Response{\n+\t\t\t\tData: \"Hello World from new Server\",\n+\t\t\t\tMetadata: map[string]any{\n+\t\t\t\t\t\"environment\": \"stage\",\n+\t\t\t\t},\n+\t\t\t},\n+\t\t\tcontentType:  \"application/json\",\n+\t\t\texpectedBody: []byte(`{\"metadata\":{\"environment\":\"stage\"},\"data\":\"Hello World from new Server\"}`),\n+\t\t},\n+\t\t{\n+\t\t\tdesc: \"gofr response type without metadata\",\n+\t\t\tdata: resTypes.Response{\n+\t\t\t\tData: \"Hello World from new Server\",\n+\t\t\t},\n+\t\t\tcontentType:  \"application/json\",\n+\t\t\texpectedBody: []byte(`{\"metadata\":null,\"data\":\"Hello World from new Server\"}`),\n+\t\t},\n \t}\n \n \tfor i, tc := range tests {\n+\t\trecorder := httptest.NewRecorder()\n+\t\trecorder.Body.Reset()\n+\t\tr := NewResponder(recorder, http.MethodGet)\n+\n \t\tr.Respond(tc.data, nil)\n-\t\tcontentType := r.w.Header().Get(\"Content-Type\")\n \n-\t\tassert.Equal(t, tc.contentType, contentType, \"TEST[%d], Failed.\\n%s\", i, tc.desc)\n+\t\tcontentType := recorder.Header().Get(\"Content-Type\")\n+\t\tass\u2026"
+    },
+    {
+      "id": "E5",
+      "kind": "diff",
+      "ref": "pkg/gofr/http/response/response.go",
+      "text": "diff --git a/pkg/gofr/http/response/response.go b/pkg/gofr/http/response/response.go\nindex 702e513e..f1c83a20 100644\n--- a/pkg/gofr/http/response/response.go\n+++ b/pkg/gofr/http/response/response.go\n@@ -5,8 +5,9 @@ import (\n )\n \n type Response struct {\n-\tData    any               `json:\"data\"`\n-\tHeaders map[string]string `json:\"-\"`\n+\tData     any               `json:\"data\"`\n+\tMetadata map[string]any    `json:\"metadata,omitempty\"`\n+\tHeaders  map[string]string `json:\"-\"`\n }\n \n func (resp Response) SetCustomHeaders(w http.ResponseWriter) {"
+    },
+    {
+      "id": "E6",
+      "kind": "changed_symbol",
+      "ref": "pkg/gofr/handler.go:55-106",
+      "text": "class_method handler.ServeHTTP\n... } // Handle custom headers if 'result' is a 'Response'. if resp, ok := result.(response.Response); ok { resp.SetCustomHeaders(w) } // Handler function completed c.responder.Respond(result, err)"
+    },
+    {
+      "id": "E7",
+      "kind": "changed_symbol",
+      "ref": "pkg/gofr/http/responder.go:24-54",
+      "text": "class_method Responder.Respond\n... var resp interface{} switch v := data.(type) { case resTypes.Raw: resp = v.Data case resTypes.Response: resp = response{Data: v.Data, Metadata: v.Metadata, Error: errorObj} case resTypes.File: r.w.Header().Set(\"Content-Type\", v.ContentType) r.w.WriteHeader(statusCode)"
+    },
+    {
+      "id": "E8",
+      "kind": "changed_symbol",
+      "ref": "pkg/gofr/http/responder_test.go:15-81",
+      "text": "function TestResponder\nfunc TestResponder(t *testing.T) { tests := []struct { desc         string data         interface{} contentType  string expectedBody []byte }{ { desc:         \"raw response type\", data:         resTypes.Raw{Data: []byte(\"raw data\")}, contentType:  \"application/json\", expectedBody: []byte(`\"cmF3IGRhdGE=\"`), }, { desc: \"file response type\", data: resTypes.File{ ContentType: \"image/png\", }, contentType:  \"image/png\", expectedBody: nil, }, { desc:         \"map response type\", data:         map[string]string{\"key\": \"value\"}, contentType:  \"application/json\", expectedBody: []byte(`{\"data\":{\"key\":\"value\"}}`), }, { desc: \"gofr response type with metadata\", data: resTypes.Response{ Data: \"Hello World from new Server\", Metadata: map[string]any{ \"environment\": \"stage\", }, }, contentType:  \"application/json\", expectedBody: []byte(`{\"metadata\":{\"environment\":\"stage\"},\"data\":\"Hello World from new Server\"}`), }, { desc: \"gofr response type without metadata\","
+    },
+    {
+      "id": "E9",
+      "kind": "structural",
+      "ref": "pkg/gofr/http/response/response.go:13-17",
+      "text": "ServeHTTP calls SetCustomHeaders at pkg/gofr/handler.go:101 (a changed line)\nfunc (resp Response) SetCustomHeaders(w http.ResponseWriter) {\n\tfor key, value := range resp.Headers {\n\t\tw.Header().Set(key, value)\n\t}\n}"
+    },
+    {
+      "id": "E10",
+      "kind": "structural",
+      "ref": "pkg/gofr/migration/interface.go:15-15",
+      "text": "Respond calls Set at pkg/gofr/http/responder.go:34 (2 line(s) from a changed line)\n\tSet(ctx context.Context, key string, value interface{}, expiration time.Duration) *goRedis.StatusCmd"
+    },
+    {
+      "id": "E11",
+      "kind": "structural",
+      "ref": "pkg/gofr/responder.go:6-6",
+      "text": "ServeHTTP calls Respond at pkg/gofr/handler.go:105 (4 line(s) from a changed line)\n\tRespond(data interface{}, err error)"
+    },
+    {
+      "id": "E12",
+      "kind": "structural",
+      "ref": "pkg/gofr/datasource/opentsdb/interface.go:13-13",
+      "text": "Respond calls Write at pkg/gofr/http/responder.go:37 (5 line(s) from a changed line)\n\tWrite(b []byte) (n int, err error)"
+    },
+    {
+      "id": "E13",
+      "kind": "structural",
+      "ref": "pkg/gofr/http/responder.go:57-71",
+      "text": "Respond calls getStatusCode at pkg/gofr/http/responder.go:25 (6 line(s) from a changed line)\nfunc getStatusCode(method string, data interface{}, err error) (statusCode int, errResp interface{}) {\n\tif err == nil {\n\t\treturn handleSuccess(method, data)\n\t}\n\n\tif !isNil(data) {\n\t\treturn http.StatusPartialContent, createErrorResponse(err)\n\t}\n\n\tif e, ok := err.(statusCodeResponder); ok {\n\t\treturn e.StatusCode(), createErrorResponse(err)\n\t}\n\n\treturn http.StatusInternalServerError, createErrorResponse(err)\n}"
+    },
+    {
+      "id": "E14",
+      "kind": "structural",
+      "ref": "pkg/gofr/metrics/handler.go:21-35",
+      "text": "systemMetricsHandler calls the changed ServeHTTP\nfunc systemMetricsHandler(m Manager, next http.Handler) http.Handler {\n\treturn http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {\n\t\tvar stats runtime.MemStats\n\n\t\truntime.ReadMemStats(&stats)\n\n\t\tm.SetGauge(\"app_go_routines\", float64(runtime.NumGoroutine()))\n\t\tm.SetGauge(\"app_sys_memory_alloc\", float64(stats.Alloc))\n\t\tm.SetGauge(\"app_sys_total_alloc\", float64(stats.TotalAlloc))\n\t\tm.SetGauge(\"app_go_numGC\", float64(stats.NumGC))\n\t\tm.SetGauge(\"app_go_sys\", float64(stats.Sys))\n\n\t\tnext.ServeHTTP(w, r)\n\t})\n}"
+    },
+    {
+      "id": "E15",
+      "kind": "test_execution",
+      "ref": "ci_suite",
+      "text": "unknown The runner exited with code 1 without a usable result"
+    },
+    {
+      "id": "E16",
+      "kind": "gap",
+      "ref": "unresolved:Respond",
+      "text": "changed symbol Respond: no structural path to an entrypoint was established"
+    },
+    {
+      "id": "E17",
+      "kind": "gap",
+      "ref": "unresolved:ServeHTTP",
+      "text": "changed symbol ServeHTTP: no structural path to an entrypoint was established"
+    },
+    {
+      "id": "E18",
+      "kind": "change_analysis",
+      "ref": "summary",
+      "text": "HTTP handlers returning response.Response now preserve that value through the handler pipeline so the responder can serialize both its data and metadata, while custom headers continue to be applied. The resulting JSON includes a metadata property when populated, but currently emits metadata:null when Metadata is unset, contrary to the updated documentation's omission example."
+    },
+    {
+      "id": "E19",
+      "kind": "change_analysis",
+      "ref": "local_risk",
+      "text": "[inference, not verified] The implementation and test emit metadata:null when no metadata is supplied, while the updated documentation says an omitted metadata value produces a body containing only data. Clients or schemas that distinguish an absent optional property from null may therefore observe behavior inconsistent with the documented contract."
+    },
+    {
+      "id": "E20",
+      "kind": "change_analysis",
+      "ref": "uncertainty",
+      "text": "The supplied context does not identify which registered HTTP routes, if any, return response.Response and therefore expose the changed JSON shape."
+    },
+    {
+      "id": "E21",
+      "kind": "change_analysis",
+      "ref": "uncertainty",
+      "text": "It is not established which production handlers or non-route callers reach Responder.Respond with a response.Response value rather than another supported response type."
+    },
+    {
+      "id": "E22",
+      "kind": "change_analysis",
+      "ref": "uncertainty",
+      "text": "The diff does not establish whether real handler executions populate Metadata; populated metadata depends on the response values constructed at runtime."
+    },
+    {
+      "id": "E23",
+      "kind": "change_analysis",
+      "ref": "uncertainty",
+      "text": "The supplied files do not identify external clients, schemas, or middleware that depend on metadata being absent, null, or populated."
+    },
+    {
+      "id": "E24",
+      "kind": "change_analysis",
+      "ref": "uncertainty",
+      "text": "The wider context is needed to determine whether pointer values such as *response.Response are supported elsewhere or bypass both the custom-header and metadata-specific type assertions shown here."
+    }
+  ],
+  "hypotheses": [
+    {
+      "id": "H1",
+      "claim": "When a handler returns response.Response with Metadata unset, the serialized JSON violates the documented optional-metadata contract by emitting \"metadata\":null instead of omitting the metadata property.",
+      "why_suspected": "Responder copies the nil map into an interface-typed response.Metadata field; that interface has a dynamic map type and is therefore not empty for encoding/json's omitempty handling. The new test explicitly expects metadata:null, while the updated documentation says the response contains only data when metadata is omitted.",
+      "file": "pkg/gofr/http/responder.go",
+      "line": 32,
+      "severity": "P2",
+      "initial_evidence": [
+        "E1",
+        "E3",
+        "E4",
+        "E5",
+        "E18",
+        "E19"
+      ],
+      "questions_to_resolve": [
+        "Does serializing response.Response{Data: \"x\"} currently produce {\"metadata\":null,\"data\":\"x\"}?",
+        "Is the documentation's absent metadata property the intended public wire contract?"
+      ]
+    }
+  ],
+  "changed_ranges": {
+    "pkg/gofr/handler.go": [
+      [
+        101,
+        101
+      ]
+    ],
+    "pkg/gofr/http/responder.go": [
+      [
+        31,
+        32
+      ],
+      [
+        96,
+        98
+      ]
+    ],
+    "pkg/gofr/http/response/response.go": [
+      [
+        8,
+        10
+      ]
+    ],
+    "pkg/gofr/http/responder_test.go": [
+      [
+        9,
+        10
+      ],
+      [
+        12,
+        12
+      ],
+      [
+        15,
+        15
+      ],
+      [
+        17,
+        20
+      ],
+      [
+        22,
+        60
+      ],
+      [
+        64,
+        67
+      ],
+      [
+        68,
+        68
+      ],
+      [
+        70,
+        79
+      ]
+    ],
+    "docs/advanced-guide/setting-custom-response-headers/page.md": [
+      [
+        1,
+        1
+      ],
+      [
+        3,
+        3
+      ],
+      [
+        5,
+        5
+      ],
+      [
+        7,
+        10
+      ],
+      [
+        12,
+        13
+      ],
+      [
+        15,
+        41
+      ],
+      [
+        47,
+        50
+      ],
+      [
+        54,
+        54
+      ],
+      [
+        56,
+        56
+      ],
+      [
+        58,
+        58
+      ],
+      [
+        62,
+        85
+      ],
+      [
+        89,
+        116
+      ]
+    ]
+  },
+  "finder_errors": [],
+  "finder_usage": {
+    "llm_calls": 1,
+    "prompt_tokens": 4564,
+    "completion_tokens": 1005,
+    "reasoning_tokens": 791
+  }
+}

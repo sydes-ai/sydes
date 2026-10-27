@@ -1,0 +1,164 @@
+{
+  "code_findings": [
+    {
+      "id": "investigator-H1",
+      "severity": "P1",
+      "title": "When `mcp remove` removes an existing server from a scope backed by an existing settings file, the new format-preserving save path leaves that server in the persisted `mcpServers` object and then repo",
+      "file": "packages/cli/src/utils/commentJson.ts",
+      "line": 58,
+      "repo": null,
+      "explanation": "The command deletes the server from the scoped in-memory `mcpServers` object and passes that complete object to `setValue`. The save path uses `settingsFile.settings` as `settingsToSave`, so omission of the deleted server represents the desired persisted deletion. However, the newly added updater parses the old file, aliases it as `result`, and recursively iterates only keys present in the new object. At `mcpServers`, the deleted server is absent from `updates`, so its old on-disk key is never visited or deleted. The resulting structure, still containing that key, is written back before the command prints its success message.",
+      "impact": "Caused by the change: This change replaces whole-document persistence with an overlay onto the parsed old document. Because the overlay starts with the old object and processes only entries present in `settingsToSave`, deleting a nested server merely omits that server from the update; it does not remove the corresponding old key. The stale key is then serialized back to disk, so a subsequent load sees the server again despite the success message.",
+      "suggested_fix": null,
+      "source": "investigator",
+      "evidence": [
+        {
+          "file": "packages/cli/src/commands/mcp/remove.ts",
+          "symbol": null,
+          "label": "verified_quote:30",
+          "snippet": "delete mcpServers[name];"
+        },
+        {
+          "file": "packages/cli/src/commands/mcp/remove.ts",
+          "symbol": null,
+          "label": "verified_quote:32",
+          "snippet": "settings.setValue(settingsScope, 'mcpServers', mcpServers);"
+        },
+        {
+          "file": "packages/cli/src/commands/mcp/remove.ts",
+          "symbol": null,
+          "label": "verified_quote:34",
+          "snippet": "console.log(`Server \"${name}\" removed from ${scope} settings.`);"
+        },
+        {
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "symbol": null,
+          "label": "verified_quote:42",
+          "snippet": "const updatedStructure = applyUpdates(parsed, updates);"
+        }
+      ]
+    },
+    {
+      "id": "investigator-H2",
+      "severity": "P1",
+      "title": "When an existing MCP server in a settings scope has `args: [\"$TOKEN\"]` and `TOKEN` is defined, a later `setValue`-based save in that scope can serialize the resolved token: production resolution proce",
+      "file": "packages/cli/src/utils/commentJson.ts",
+      "line": 120,
+      "repo": null,
+      "explanation": "Production settings are passed through `resolveEnvVarsInObject`, whose array branch recursively resolves every element. The new mapping tracker also descends into arrays, so it can record a mapping such as `mcpServers.server.args.0`. During saving, however, `applyUpdates` only recursively merges non-arrays and therefore assigns the resolved `args` array wholesale. `restoreEnvVarsRecursive` descends only into non-array objects, so it never reaches index `0`. The resulting structure is then stringified and written. The MCP add path provides a concrete subsequent-save path because it loads existing settings, modifies `mcpServers`, and calls the changed `setValue` save path.",
+      "impact": "Caused by the change: The change routes `setValue` saves through the new environment-mapping save logic. In that newly added logic, the resolved `args` array is assigned by `result[key] = value`, while the explicit `!Array.isArray(value)` restoration guard prevents visiting its indexed mapping. The changed writer consequently stringifies the unresolved-to-original restoration failure and writes the resolved secret.",
+      "suggested_fix": null,
+      "source": "investigator",
+      "evidence": [
+        {
+          "file": "packages/cli/src/utils/envVarResolver.ts",
+          "symbol": null,
+          "label": "verified_quote:78",
+          "snippet": "if (Array.isArray(obj)) {\n    // Check for circular reference\n    if (visited.has(obj)) {\n      // Return a shallow copy to break the cycle\n      return [...obj] as unknown as T;\n    }\n\n    visited.add(obj);\n    const result = obj.map((item) =>\n      resolveEnvVarsInObjectInternal(item, visited),\n  "
+        },
+        {
+          "file": "packages/cli/src/config/settings.ts",
+          "symbol": null,
+          "label": "verified_quote:669",
+          "snippet": "workspaceSettings = resolveEnvVarsInObject(workspaceSettings);"
+        },
+        {
+          "file": "packages/cli/src/commands/mcp/add.ts",
+          "symbol": null,
+          "label": "verified_quote:121",
+          "snippet": "settings.setValue(settingsScope, 'mcpServers', mcpServers);"
+        },
+        {
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "symbol": null,
+          "label": "verified_quote:117",
+          "snippet": "} else if (\n      typeof value === 'object' &&\n      value !== null &&\n      !Array.isArray(value)\n    ) {\n      restoreEnvVarsRecursive(value, fullPath, envVarMap);\n    }"
+        }
+      ]
+    },
+    {
+      "id": "investigator-H5",
+      "severity": "P2",
+      "title": "If an existing MCP server\u2019s settings file becomes malformed after load but before save, the `mcp add` existing-server update path leaves the file unchanged yet prints that the server was updated.",
+      "file": "packages/cli/src/utils/commentJson.ts",
+      "line": 39,
+      "repo": null,
+      "explanation": "The changed persistence path reparses an existing file during save. On parse failure, the new helper logs errors and returns normally before reaching the write. Because `saveSettings` and `LoadedSettings.setValue` receive no failure indication, `addMcpServer` continues and prints its update-success message. This confirms the defect for the existing-server update path when malformed content is encountered at save time.",
+      "impact": "Caused by the change: This change routes settings persistence through the newly added format-preserving helper. When that helper encounters malformed save-time content, its changed catch block returns `void` before the only subsequent write. That normal return propagates through the void `saveSettings`/`setValue` APIs, so the unchanged `mcp add` caller cannot detect the failed persistence and executes its success log.",
+      "suggested_fix": null,
+      "source": "investigator",
+      "evidence": [
+        {
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "symbol": null,
+          "label": "verified_quote:34",
+          "snippet": "} catch (error) {\n    console.error('Error parsing settings file:', error);\n    console.error(\n      'Settings file may be corrupted. Please check the JSON syntax.',\n    );\n    return;\n  }"
+        },
+        {
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "symbol": null,
+          "label": "verified_quote:49",
+          "snippet": "fs.writeFileSync(filePath, updatedContent, 'utf-8');"
+        },
+        {
+          "file": "packages/cli/src/commands/mcp/add.ts",
+          "symbol": null,
+          "label": "verified_quote:116",
+          "snippet": "settings.setValue(settingsScope, 'mcpServers', mcpServers);"
+        },
+        {
+          "file": "packages/cli/src/config/settings.ts",
+          "symbol": null,
+          "label": "verified_quote:738",
+          "snippet": "updateSettingsFilePreservingFormat(\n      settingsFile.path,\n      settingsToSave as Record<string, unknown>,\n      envVarMappings,\n    );"
+        }
+      ]
+    },
+    {
+      "id": "investigator-H4",
+      "severity": "P3",
+      "title": "For an existing valid settings file whose layout uses tabs, four-space indentation, or compact JSON, updateSettingsFilePreservingFormat reserializes the whole parsed document with a fixed two-space in",
+      "file": "packages/cli/src/utils/commentJson.ts",
+      "line": 47,
+      "repo": null,
+      "explanation": "The function documentation explicitly says it preserves formatting. However, after applying updates to the parsed document, it passes the entire restored structure to stringify with space=2 and writes that complete serialization back to the file. Thus existing non-two-space layout is normalized rather than preserved. The evidence supports the function-level contract; it does not establish a broader externally documented user-facing guarantee.",
+      "impact": "Caused by the change: This newly added persistence function serializes the complete parsed settings object with an explicit two-space indentation argument and overwrites the existing file. Consequently, updating any value rewrites the layout of an existing file that used a different indentation or compact representation, violating the new function's explicit promise to preserve formatting.",
+      "suggested_fix": null,
+      "source": "investigator",
+      "evidence": [
+        {
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "symbol": null,
+          "label": "verified_quote:17",
+          "snippet": " * Updates a JSON file while preserving comments, formatting, and environment variable references."
+        },
+        {
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "symbol": null,
+          "label": "verified_quote:47",
+          "snippet": "  const updatedContent = stringify(restoredStructure, null, 2);"
+        }
+      ]
+    }
+  ],
+  "code_review_status": "completed",
+  "run_metrics": {
+    "llm_totals": {
+      "calls": 18,
+      "input_tokens": 58968,
+      "output_tokens": 16715,
+      "errors": 0
+    },
+    "llm_by_purpose": {
+      "investigator": {
+        "calls": 12
+      },
+      "verifier": {
+        "calls": 6
+      }
+    }
+  },
+  "diagnostics": [
+    "investigator: hypotheses=5 lookups=12/12 confirmed=4 refuted=0 unknown=1 findings=4 llm_calls=18 errors=0"
+  ]
+}

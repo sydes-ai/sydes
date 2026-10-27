@@ -1,0 +1,22 @@
+{
+  "instance_id": "gofr-dev__gofr@b9cdcbb",
+  "reviewer": "sydes",
+  "boundary": "code_findings",
+  "status": "completed",
+  "duration_seconds": 34.9,
+  "review": {
+    "comments": [
+      {
+        "path": "pkg/gofr/http/responder.go",
+        "start_line": 32,
+        "end_line": 32,
+        "content": "For a handler result of response.Response whose Metadata map is nil, the changed response path serializes the body with \"metadata\":null rather than omitting metadata, contrary to the updated documenta\nThe updated test explicitly expects `{\"metadata\":null,\"data\":\"Hello World from new Server\"}` for a Response without metadata, while the updated documentation shows only the data property when metadata is omitted. The new responder case copies `v.Metadata` (a nil `map[string]any`) into the internal response\u2019s interface-typed Metadata field. That interface value retains the typed nil map, so the internal field\u2019s `omitempty` does not omit it and JSON encodes it as null. The handler change also removes the previous unwrapping to `resp.Data`, exposing Response to this new responder case.\nImpact: Caused by the change: This change removes the handler\u2019s previous replacement of Response with `resp.Data` and adds dedicated Response serialization. On that new path, nil map-valued `v.Metadata` is assigned to an interface-typed field; the resulting typed-nil interface is serialized as `null` instead of being removed by `omitempty`, producing the body asserted by the changed test and conflicting with the changed documentation.",
+        "severity": "P2"
+      }
+    ],
+    "summary": {
+      "input_tokens": 5954,
+      "output_tokens": 2237
+    }
+  }
+}

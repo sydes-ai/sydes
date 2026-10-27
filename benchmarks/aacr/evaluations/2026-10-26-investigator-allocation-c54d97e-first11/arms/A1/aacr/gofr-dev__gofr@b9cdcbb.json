@@ -1,0 +1,22 @@
+{
+  "instance_id": "gofr-dev__gofr@b9cdcbb",
+  "reviewer": "sydes",
+  "boundary": "code_findings",
+  "status": "completed",
+  "duration_seconds": 220.6,
+  "review": {
+    "comments": [
+      {
+        "path": "pkg/gofr/http/responder.go",
+        "start_line": 32,
+        "end_line": 32,
+        "content": "For a handler returning a concrete response.Response with nonempty Data and nil Metadata, this change serializes the response with \"metadata\":null, while the updated documentation specifies that the m\nThe changed handler no longer replaces response.Response with its Data, so the concrete response reaches the responder. The new responder branch copies the nil map Metadata into the internal response.Metadata interface field. Because that interface contains a typed nil map, its `omitempty` tag does not omit the field; the added test records the resulting `\"metadata\":null`. The updated documentation explicitly says a response without metadata includes only the data field.\nImpact: Caused by the change: Deleting `result = resp.Data` preserves the returned response.Response through the handler pipeline. The newly added responder case then assigns its nil `map[string]any` Metadata to an interface-typed field; that typed-nil interface is serialized as JSON null rather than removed by `omitempty`, producing the test's `\"metadata\":null` and contradicting the newly documented omission contract.",
+        "severity": "P2"
+      }
+    ],
+    "summary": {
+      "input_tokens": 116904,
+      "output_tokens": 11213
+    }
+  }
+}

@@ -1,0 +1,1468 @@
+{
+ "valid": [
+  "browser-use__browser-use@0b21e50",
+  "browser-use__browser-use@72f1585",
+  "cline__cline@cb4d5c9",
+  "dbeaver__dbeaver@bc3ac7b",
+  "dbeaver__dbeaver@ed40132",
+  "dbeaver__dbeaver@8224826",
+  "facebook__react@be58f26",
+  "gofr-dev__gofr@b9cdcbb",
+  "google-gemini__gemini-cli@0fa1bd7",
+  "immich-app__immich@d38f1f5"
+ ],
+ "invalid": [
+  "facebook__react@b045f18"
+ ],
+ "targets": [
+  [
+   "browser-use__browser-use@0b21e50",
+   "H1",
+   "cap"
+  ],
+  [
+   "browser-use__browser-use@0b21e50",
+   "H2",
+   "cap"
+  ],
+  [
+   "browser-use__browser-use@0b21e50",
+   "H3",
+   "cap"
+  ],
+  [
+   "browser-use__browser-use@72f1585",
+   "H2",
+   "cap"
+  ],
+  [
+   "browser-use__browser-use@72f1585",
+   "H3",
+   "cap"
+  ],
+  [
+   "browser-use__browser-use@72f1585",
+   "H4",
+   "zero"
+  ],
+  [
+   "cline__cline@cb4d5c9",
+   "H1",
+   "cap"
+  ],
+  [
+   "cline__cline@cb4d5c9",
+   "H2",
+   "cap"
+  ],
+  [
+   "dbeaver__dbeaver@bc3ac7b",
+   "H1",
+   "cap"
+  ],
+  [
+   "dbeaver__dbeaver@bc3ac7b",
+   "H2",
+   "cap"
+  ],
+  [
+   "dbeaver__dbeaver@bc3ac7b",
+   "H3",
+   "cap"
+  ],
+  [
+   "dbeaver__dbeaver@bc3ac7b",
+   "H4",
+   "zero"
+  ],
+  [
+   "dbeaver__dbeaver@bc3ac7b",
+   "H5",
+   "zero"
+  ],
+  [
+   "dbeaver__dbeaver@ed40132",
+   "H1",
+   "cap"
+  ],
+  [
+   "dbeaver__dbeaver@ed40132",
+   "H2",
+   "cap"
+  ],
+  [
+   "dbeaver__dbeaver@8224826",
+   "H1",
+   "cap"
+  ],
+  [
+   "dbeaver__dbeaver@8224826",
+   "H2",
+   "cap"
+  ],
+  [
+   "dbeaver__dbeaver@8224826",
+   "H3",
+   "cap"
+  ],
+  [
+   "dbeaver__dbeaver@8224826",
+   "H4",
+   "zero"
+  ],
+  [
+   "facebook__react@be58f26",
+   "H2",
+   "cap"
+  ],
+  [
+   "google-gemini__gemini-cli@0fa1bd7",
+   "H2",
+   "cap"
+  ],
+  [
+   "google-gemini__gemini-cli@0fa1bd7",
+   "H3",
+   "cap"
+  ],
+  [
+   "google-gemini__gemini-cli@0fa1bd7",
+   "H4",
+   "zero"
+  ],
+  [
+   "google-gemini__gemini-cli@0fa1bd7",
+   "H5",
+   "zero"
+  ],
+  [
+   "immich-app__immich@d38f1f5",
+   "H1",
+   "cap"
+  ],
+  [
+   "immich-app__immich@d38f1f5",
+   "H2",
+   "cap"
+  ],
+  [
+   "immich-app__immich@d38f1f5",
+   "H5",
+   "zero"
+  ]
+ ],
+ "arms": {
+  "A1": {
+   "H": 33,
+   "C": 6,
+   "R": 0,
+   "U": 27,
+   "decided": 6,
+   "decided_frac": 0.182,
+   "L": 100,
+   "zero": 7,
+   "findings": 6,
+   "matched": 4,
+   "refs": 56,
+   "P": 0.667,
+   "Rc": 0.071,
+   "balanced": 0.129,
+   "inv_ver_calls_per_pr": 13.4,
+   "inv_ver_in_per_pr": 33146,
+   "inv_ver_out_per_pr": 6696,
+   "seconds_per_pr": 431.8,
+   "rounds": {},
+   "round2_read_missing_term": [
+    0,
+    0
+   ],
+   "per_case": {
+    "browser-use__browser-use@0b21e50": {
+     "H": 3,
+     "L": 12,
+     "C": 0,
+     "R": 0,
+     "U": 3,
+     "zero": 0,
+     "per": {
+      "H1": 4,
+      "H2": 4,
+      "H3": 4
+     },
+     "findings": 0,
+     "matched": 0,
+     "calls": 15,
+     "seconds": 376.5
+    },
+    "browser-use__browser-use@72f1585": {
+     "H": 4,
+     "L": 12,
+     "C": 1,
+     "R": 0,
+     "U": 3,
+     "zero": 1,
+     "per": {
+      "H1": 4,
+      "H2": 4,
+      "H3": 4,
+      "H4": 0
+     },
+     "findings": 1,
+     "matched": 1,
+     "calls": 16,
+     "seconds": 239.2
+    },
+    "cline__cline@cb4d5c9": {
+     "H": 2,
+     "L": 8,
+     "C": 0,
+     "R": 0,
+     "U": 2,
+     "zero": 0,
+     "per": {
+      "H1": 4,
+      "H2": 4
+     },
+     "findings": 0,
+     "matched": 0,
+     "calls": 10,
+     "seconds": 207.0
+    },
+    "dbeaver__dbeaver@bc3ac7b": {
+     "H": 5,
+     "L": 12,
+     "C": 0,
+     "R": 0,
+     "U": 5,
+     "zero": 2,
+     "per": {
+      "H1": 4,
+      "H2": 4,
+      "H3": 4,
+      "H4": 0,
+      "H5": 0
+     },
+     "findings": 0,
+     "matched": 0,
+     "calls": 17,
+     "seconds": 621.2
+    },
+    "dbeaver__dbeaver@ed40132": {
+     "H": 2,
+     "L": 8,
+     "C": 0,
+     "R": 0,
+     "U": 2,
+     "zero": 0,
+     "per": {
+      "H1": 4,
+      "H2": 4
+     },
+     "findings": 0,
+     "matched": 0,
+     "calls": 10,
+     "seconds": 593.6
+    },
+    "dbeaver__dbeaver@8224826": {
+     "H": 4,
+     "L": 12,
+     "C": 0,
+     "R": 0,
+     "U": 4,
+     "zero": 1,
+     "per": {
+      "H1": 4,
+      "H2": 4,
+      "H3": 4,
+      "H4": 0
+     },
+     "findings": 0,
+     "matched": 0,
+     "calls": 16,
+     "seconds": 615.4
+    },
+    "facebook__react@be58f26": {
+     "H": 2,
+     "L": 8,
+     "C": 1,
+     "R": 0,
+     "U": 1,
+     "zero": 0,
+     "per": {
+      "H1": 4,
+      "H2": 4
+     },
+     "findings": 1,
+     "matched": 0,
+     "calls": 10,
+     "seconds": 214.0
+    },
+    "gofr-dev__gofr@b9cdcbb": {
+     "H": 1,
+     "L": 4,
+     "C": 1,
+     "R": 0,
+     "U": 0,
+     "zero": 0,
+     "per": {
+      "H1": 4
+     },
+     "findings": 1,
+     "matched": 1,
+     "calls": 5,
+     "seconds": 220.6
+    },
+    "google-gemini__gemini-cli@0fa1bd7": {
+     "H": 5,
+     "L": 12,
+     "C": 3,
+     "R": 0,
+     "U": 2,
+     "zero": 2,
+     "per": {
+      "H1": 4,
+      "H2": 4,
+      "H3": 4,
+      "H4": 0,
+      "H5": 0
+     },
+     "findings": 3,
+     "matched": 2,
+     "calls": 17,
+     "seconds": 446.7
+    },
+    "immich-app__immich@d38f1f5": {
+     "H": 5,
+     "L": 12,
+     "C": 0,
+     "R": 0,
+     "U": 5,
+     "zero": 1,
+     "per": {
+      "H1": 4,
+      "H2": 4,
+      "H3": 2,
+      "H4": 2,
+      "H5": 0
+     },
+     "findings": 0,
+     "matched": 0,
+     "calls": 18,
+     "seconds": 783.6
+    }
+   },
+   "targets": {
+    "browser-use__browser-use@0b21e50:H1(cap)": [
+     "UNKNOWN",
+     4
+    ],
+    "browser-use__browser-use@0b21e50:H2(cap)": [
+     "UNKNOWN",
+     4
+    ],
+    "browser-use__browser-use@0b21e50:H3(cap)": [
+     "UNKNOWN",
+     4
+    ],
+    "browser-use__browser-use@72f1585:H2(cap)": [
+     "UNKNOWN",
+     4
+    ],
+    "browser-use__browser-use@72f1585:H3(cap)": [
+     "UNKNOWN",
+     4
+    ],
+    "browser-use__browser-use@72f1585:H4(zero)": [
+     "UNKNOWN",
+     0
+    ],
+    "cline__cline@cb4d5c9:H1(cap)": [
+     "UNKNOWN",
+     4
+    ],
+    "cline__cline@cb4d5c9:H2(cap)": [
+     "UNKNOWN",
+     4
+    ],
+    "dbeaver__dbeaver@bc3ac7b:H1(cap)": [
+     "UNKNOWN",
+     4
+    ],
+    "dbeaver__dbeaver@bc3ac7b:H2(cap)": [
+     "UNKNOWN",
+     4
+    ],
+    "dbeaver__dbeaver@bc3ac7b:H3(cap)": [
+     "UNKNOWN",
+     4
+    ],
+    "dbeaver__dbeaver@bc3ac7b:H4(zero)": [
+     "UNKNOWN",
+     0
+    ],
+    "dbeaver__dbeaver@bc3ac7b:H5(zero)": [
+     "UNKNOWN",
+     0
+    ],
+    "dbeaver__dbeaver@ed40132:H1(cap)": [
+     "UNKNOWN",
+     4
+    ],
+    "dbeaver__dbeaver@ed40132:H2(cap)": [
+     "UNKNOWN",
+     4
+    ],
+    "dbeaver__dbeaver@8224826:H1(cap)": [
+     "UNKNOWN",
+     4
+    ],
+    "dbeaver__dbeaver@8224826:H2(cap)": [
+     "UNKNOWN",
+     4
+    ],
+    "dbeaver__dbeaver@8224826:H3(cap)": [
+     "UNKNOWN",
+     4
+    ],
+    "dbeaver__dbeaver@8224826:H4(zero)": [
+     "UNKNOWN",
+     0
+    ],
+    "facebook__react@be58f26:H2(cap)": [
+     "UNKNOWN",
+     4
+    ],
+    "google-gemini__gemini-cli@0fa1bd7:H2(cap)": [
+     "UNKNOWN",
+     4
+    ],
+    "google-gemini__gemini-cli@0fa1bd7:H3(cap)": [
+     "UNKNOWN",
+     4
+    ],
+    "google-gemini__gemini-cli@0fa1bd7:H4(zero)": [
+     "CONFIRMED",
+     0
+    ],
+    "google-gemini__gemini-cli@0fa1bd7:H5(zero)": [
+     "CONFIRMED",
+     0
+    ],
+    "immich-app__immich@d38f1f5:H1(cap)": [
+     "UNKNOWN",
+     4
+    ],
+    "immich-app__immich@d38f1f5:H2(cap)": [
+     "UNKNOWN",
+     4
+    ],
+    "immich-app__immich@d38f1f5:H5(zero)": [
+     "UNKNOWN",
+     0
+    ]
+   },
+   "unmatched_confirmed": [
+    [
+     "facebook__react@be58f26",
+     "packages/react-dom/src/__tests__/ReactDOMForm-test.js",
+     ""
+    ],
+    [
+     "google-gemini__gemini-cli@0fa1bd7",
+     "packages/cli/src/utils/commentJson.ts",
+     ""
+    ]
+   ]
+  },
+  "A2": {
+   "H": 33,
+   "C": 7,
+   "R": 0,
+   "U": 26,
+   "decided": 7,
+   "decided_frac": 0.212,
+   "L": 100,
+   "zero": 7,
+   "findings": 7,
+   "matched": 5,
+   "refs": 56,
+   "P": 0.714,
+   "Rc": 0.089,
+   "balanced": 0.159,
+   "inv_ver_calls_per_pr": 13.4,
+   "inv_ver_in_per_pr": 32541,
+   "inv_ver_out_per_pr": 6171,
+   "seconds_per_pr": 115.7,
+   "rounds": {},
+   "round2_read_missing_term": [
+    0,
+    0
+   ],
+   "per_case": {
+    "browser-use__browser-use@0b21e50": {
+     "H": 3,
+     "L": 12,
+     "C": 2,
+     "R": 0,
+     "U": 1,
+     "zero": 0,
+     "per": {
+      "H1": 4,
+      "H2": 4,
+      "H3": 4
+     },
+     "findings": 2,
+     "matched": 1,
+     "calls": 15,
+     "seconds": 166.3
+    },
+    "browser-use__browser-use@72f1585": {
+     "H": 4,
+     "L": 12,
+     "C": 1,
+     "R": 0,
+     "U": 3,
+     "zero": 1,
+     "per": {
+      "H1": 4,
+      "H2": 4,
+      "H3": 4,
+      "H4": 0
+     },
+     "findings": 1,
+     "matched": 1,
+     "calls": 16,
+     "seconds": 93.8
+    },
+    "cline__cline@cb4d5c9": {
+     "H": 2,
+     "L": 8,
+     "C": 0,
+     "R": 0,
+     "U": 2,
+     "zero": 0,
+     "per": {
+      "H1": 4,
+      "H2": 4
+     },
+     "findings": 0,
+     "matched": 0,
+     "calls": 10,
+     "seconds": 55.5
+    },
+    "dbeaver__dbeaver@bc3ac7b": {
+     "H": 5,
+     "L": 12,
+     "C": 0,
+     "R": 0,
+     "U": 5,
+     "zero": 2,
+     "per": {
+      "H1": 4,
+      "H2": 4,
+      "H3": 4,
+      "H4": 0,
+      "H5": 0
+     },
+     "findings": 0,
+     "matched": 0,
+     "calls": 17,
+     "seconds": 140.5
+    },
+    "dbeaver__dbeaver@ed40132": {
+     "H": 2,
+     "L": 8,
+     "C": 0,
+     "R": 0,
+     "U": 2,
+     "zero": 0,
+     "per": {
+      "H1": 4,
+      "H2": 4
+     },
+     "findings": 0,
+     "matched": 0,
+     "calls": 10,
+     "seconds": 94.6
+    },
+    "dbeaver__dbeaver@8224826": {
+     "H": 4,
+     "L": 12,
+     "C": 0,
+     "R": 0,
+     "U": 4,
+     "zero": 1,
+     "per": {
+      "H1": 4,
+      "H2": 4,
+      "H3": 4,
+      "H4": 0
+     },
+     "findings": 0,
+     "matched": 0,
+     "calls": 16,
+     "seconds": 131.0
+    },
+    "facebook__react@be58f26": {
+     "H": 2,
+     "L": 8,
+     "C": 0,
+     "R": 0,
+     "U": 2,
+     "zero": 0,
+     "per": {
+      "H1": 4,
+      "H2": 4
+     },
+     "findings": 0,
+     "matched": 0,
+     "calls": 10,
+     "seconds": 58.7
+    },
+    "gofr-dev__gofr@b9cdcbb": {
+     "H": 1,
+     "L": 4,
+     "C": 1,
+     "R": 0,
+     "U": 0,
+     "zero": 0,
+     "per": {
+      "H1": 4
+     },
+     "findings": 1,
+     "matched": 1,
+     "calls": 5,
+     "seconds": 41.7
+    },
+    "google-gemini__gemini-cli@0fa1bd7": {
+     "H": 5,
+     "L": 12,
+     "C": 3,
+     "R": 0,
+     "U": 2,
+     "zero": 2,
+     "per": {
+      "H1": 4,
+      "H2": 4,
+      "H3": 4,
+      "H4": 0,
+      "H5": 0
+     },
+     "findings": 3,
+     "matched": 2,
+     "calls": 17,
+     "seconds": 249.5
+    },
+    "immich-app__immich@d38f1f5": {
+     "H": 5,
+     "L": 12,
+     "C": 0,
+     "R": 0,
+     "U": 5,
+     "zero": 1,
+     "per": {
+      "H1": 4,
+      "H2": 4,
+      "H3": 3,
+      "H4": 1,
+      "H5": 0
+     },
+     "findings": 0,
+     "matched": 0,
+     "calls": 18,
+     "seconds": 125.4
+    }
+   },
+   "targets": {
+    "browser-use__browser-use@0b21e50:H1(cap)": [
+     "CONFIRMED",
+     4
+    ],
+    "browser-use__browser-use@0b21e50:H2(cap)": [
+     "UNKNOWN",
+     4
+    ],
+    "browser-use__browser-use@0b21e50:H3(cap)": [
+     "CONFIRMED",
+     4
+    ],
+    "browser-use__browser-use@72f1585:H2(cap)": [
+     "UNKNOWN",
+     4
+    ],
+    "browser-use__browser-use@72f1585:H3(cap)": [
+     "UNKNOWN",
+     4
+    ],
+    "browser-use__browser-use@72f1585:H4(zero)": [
+     "UNKNOWN",
+     0
+    ],
+    "cline__cline@cb4d5c9:H1(cap)": [
+     "UNKNOWN",
+     4
+    ],
+    "cline__cline@cb4d5c9:H2(cap)": [
+     "UNKNOWN",
+     4
+    ],
+    "dbeaver__dbeaver@bc3ac7b:H1(cap)": [
+     "UNKNOWN",
+     4
+    ],
+    "dbeaver__dbeaver@bc3ac7b:H2(cap)": [
+     "UNKNOWN",
+     4
+    ],
+    "dbeaver__dbeaver@bc3ac7b:H3(cap)": [
+     "UNKNOWN",
+     4
+    ],
+    "dbeaver__dbeaver@bc3ac7b:H4(zero)": [
+     "UNKNOWN",
+     0
+    ],
+    "dbeaver__dbeaver@bc3ac7b:H5(zero)": [
+     "UNKNOWN",
+     0
+    ],
+    "dbeaver__dbeaver@ed40132:H1(cap)": [
+     "UNKNOWN",
+     4
+    ],
+    "dbeaver__dbeaver@ed40132:H2(cap)": [
+     "UNKNOWN",
+     4
+    ],
+    "dbeaver__dbeaver@8224826:H1(cap)": [
+     "UNKNOWN",
+     4
+    ],
+    "dbeaver__dbeaver@8224826:H2(cap)": [
+     "UNKNOWN",
+     4
+    ],
+    "dbeaver__dbeaver@8224826:H3(cap)": [
+     "UNKNOWN",
+     4
+    ],
+    "dbeaver__dbeaver@8224826:H4(zero)": [
+     "UNKNOWN",
+     0
+    ],
+    "facebook__react@be58f26:H2(cap)": [
+     "UNKNOWN",
+     4
+    ],
+    "google-gemini__gemini-cli@0fa1bd7:H2(cap)": [
+     "UNKNOWN",
+     4
+    ],
+    "google-gemini__gemini-cli@0fa1bd7:H3(cap)": [
+     "UNKNOWN",
+     4
+    ],
+    "google-gemini__gemini-cli@0fa1bd7:H4(zero)": [
+     "CONFIRMED",
+     0
+    ],
+    "google-gemini__gemini-cli@0fa1bd7:H5(zero)": [
+     "CONFIRMED",
+     0
+    ],
+    "immich-app__immich@d38f1f5:H1(cap)": [
+     "UNKNOWN",
+     4
+    ],
+    "immich-app__immich@d38f1f5:H2(cap)": [
+     "UNKNOWN",
+     4
+    ],
+    "immich-app__immich@d38f1f5:H5(zero)": [
+     "UNKNOWN",
+     0
+    ]
+   },
+   "unmatched_confirmed": [
+    [
+     "browser-use__browser-use@0b21e50",
+     "tests/test_browser.py",
+     ""
+    ],
+    [
+     "google-gemini__gemini-cli@0fa1bd7",
+     "packages/cli/src/utils/commentJson.ts",
+     ""
+    ]
+   ]
+  },
+  "C1": {
+   "H": 33,
+   "C": 7,
+   "R": 0,
+   "U": 26,
+   "decided": 7,
+   "decided_frac": 0.212,
+   "L": 108,
+   "zero": 0,
+   "findings": 7,
+   "matched": 5,
+   "refs": 56,
+   "P": 0.714,
+   "Rc": 0.089,
+   "balanced": 0.159,
+   "inv_ver_calls_per_pr": 15.8,
+   "inv_ver_in_per_pr": 43526,
+   "inv_ver_out_per_pr": 9190,
+   "seconds_per_pr": 146.7,
+   "rounds": {
+    "round2": 14,
+    "verified_again": 14,
+    "status_changed": 2,
+    "changed_with_new_nonempty": 2,
+    "change UNKNOWN->CONFIRMED": 2
+   },
+   "round2_read_missing_term": [
+    8,
+    11
+   ],
+   "per_case": {
+    "browser-use__browser-use@0b21e50": {
+     "H": 3,
+     "L": 12,
+     "C": 1,
+     "R": 0,
+     "U": 2,
+     "zero": 0,
+     "per": {
+      "H1": 2,
+      "H2": 6,
+      "H3": 4
+     },
+     "findings": 1,
+     "matched": 1,
+     "calls": 17,
+     "seconds": 222.9
+    },
+    "browser-use__browser-use@72f1585": {
+     "H": 4,
+     "L": 12,
+     "C": 1,
+     "R": 0,
+     "U": 3,
+     "zero": 0,
+     "per": {
+      "H1": 2,
+      "H2": 5,
+      "H3": 3,
+      "H4": 2
+     },
+     "findings": 1,
+     "matched": 1,
+     "calls": 19,
+     "seconds": 140.9
+    },
+    "cline__cline@cb4d5c9": {
+     "H": 2,
+     "L": 12,
+     "C": 0,
+     "R": 0,
+     "U": 2,
+     "zero": 0,
+     "per": {
+      "H1": 6,
+      "H2": 6
+     },
+     "findings": 0,
+     "matched": 0,
+     "calls": 16,
+     "seconds": 97.2
+    },
+    "dbeaver__dbeaver@bc3ac7b": {
+     "H": 5,
+     "L": 12,
+     "C": 0,
+     "R": 0,
+     "U": 5,
+     "zero": 0,
+     "per": {
+      "H1": 4,
+      "H2": 2,
+      "H3": 2,
+      "H4": 2,
+      "H5": 2
+     },
+     "findings": 0,
+     "matched": 0,
+     "calls": 18,
+     "seconds": 165.3
+    },
+    "dbeaver__dbeaver@ed40132": {
+     "H": 2,
+     "L": 11,
+     "C": 0,
+     "R": 0,
+     "U": 2,
+     "zero": 0,
+     "per": {
+      "H1": 6,
+      "H2": 5
+     },
+     "findings": 0,
+     "matched": 0,
+     "calls": 16,
+     "seconds": 176.4
+    },
+    "dbeaver__dbeaver@8224826": {
+     "H": 4,
+     "L": 12,
+     "C": 0,
+     "R": 0,
+     "U": 4,
+     "zero": 0,
+     "per": {
+      "H1": 6,
+      "H2": 2,
+      "H3": 2,
+      "H4": 2
+     },
+     "findings": 0,
+     "matched": 0,
+     "calls": 17,
+     "seconds": 111.7
+    },
+    "facebook__react@be58f26": {
+     "H": 2,
+     "L": 11,
+     "C": 1,
+     "R": 0,
+     "U": 1,
+     "zero": 0,
+     "per": {
+      "H1": 5,
+      "H2": 6
+     },
+     "findings": 1,
+     "matched": 0,
+     "calls": 16,
+     "seconds": 127.7
+    },
+    "gofr-dev__gofr@b9cdcbb": {
+     "H": 1,
+     "L": 2,
+     "C": 1,
+     "R": 0,
+     "U": 0,
+     "zero": 0,
+     "per": {
+      "H1": 2
+     },
+     "findings": 1,
+     "matched": 1,
+     "calls": 3,
+     "seconds": 50.4
+    },
+    "google-gemini__gemini-cli@0fa1bd7": {
+     "H": 5,
+     "L": 12,
+     "C": 3,
+     "R": 0,
+     "U": 2,
+     "zero": 0,
+     "per": {
+      "H1": 4,
+      "H2": 2,
+      "H3": 2,
+      "H4": 2,
+      "H5": 2
+     },
+     "findings": 3,
+     "matched": 2,
+     "calls": 18,
+     "seconds": 199.0
+    },
+    "immich-app__immich@d38f1f5": {
+     "H": 5,
+     "L": 12,
+     "C": 0,
+     "R": 0,
+     "U": 5,
+     "zero": 0,
+     "per": {
+      "H1": 4,
+      "H2": 2,
+      "H3": 2,
+      "H4": 2,
+      "H5": 2
+     },
+     "findings": 0,
+     "matched": 0,
+     "calls": 18,
+     "seconds": 175.2
+    }
+   },
+   "targets": {
+    "browser-use__browser-use@0b21e50:H1(cap)": [
+     "CONFIRMED",
+     2
+    ],
+    "browser-use__browser-use@0b21e50:H2(cap)": [
+     "UNKNOWN",
+     6
+    ],
+    "browser-use__browser-use@0b21e50:H3(cap)": [
+     "UNKNOWN",
+     4
+    ],
+    "browser-use__browser-use@72f1585:H2(cap)": [
+     "UNKNOWN",
+     5
+    ],
+    "browser-use__browser-use@72f1585:H3(cap)": [
+     "UNKNOWN",
+     3
+    ],
+    "browser-use__browser-use@72f1585:H4(zero)": [
+     "UNKNOWN",
+     2
+    ],
+    "cline__cline@cb4d5c9:H1(cap)": [
+     "UNKNOWN",
+     6
+    ],
+    "cline__cline@cb4d5c9:H2(cap)": [
+     "UNKNOWN",
+     6
+    ],
+    "dbeaver__dbeaver@bc3ac7b:H1(cap)": [
+     "UNKNOWN",
+     4
+    ],
+    "dbeaver__dbeaver@bc3ac7b:H2(cap)": [
+     "UNKNOWN",
+     2
+    ],
+    "dbeaver__dbeaver@bc3ac7b:H3(cap)": [
+     "UNKNOWN",
+     2
+    ],
+    "dbeaver__dbeaver@bc3ac7b:H4(zero)": [
+     "UNKNOWN",
+     2
+    ],
+    "dbeaver__dbeaver@bc3ac7b:H5(zero)": [
+     "UNKNOWN",
+     2
+    ],
+    "dbeaver__dbeaver@ed40132:H1(cap)": [
+     "UNKNOWN",
+     6
+    ],
+    "dbeaver__dbeaver@ed40132:H2(cap)": [
+     "UNKNOWN",
+     5
+    ],
+    "dbeaver__dbeaver@8224826:H1(cap)": [
+     "UNKNOWN",
+     6
+    ],
+    "dbeaver__dbeaver@8224826:H2(cap)": [
+     "UNKNOWN",
+     2
+    ],
+    "dbeaver__dbeaver@8224826:H3(cap)": [
+     "UNKNOWN",
+     2
+    ],
+    "dbeaver__dbeaver@8224826:H4(zero)": [
+     "UNKNOWN",
+     2
+    ],
+    "facebook__react@be58f26:H2(cap)": [
+     "UNKNOWN",
+     6
+    ],
+    "google-gemini__gemini-cli@0fa1bd7:H2(cap)": [
+     "UNKNOWN",
+     2
+    ],
+    "google-gemini__gemini-cli@0fa1bd7:H3(cap)": [
+     "UNKNOWN",
+     2
+    ],
+    "google-gemini__gemini-cli@0fa1bd7:H4(zero)": [
+     "CONFIRMED",
+     2
+    ],
+    "google-gemini__gemini-cli@0fa1bd7:H5(zero)": [
+     "CONFIRMED",
+     2
+    ],
+    "immich-app__immich@d38f1f5:H1(cap)": [
+     "UNKNOWN",
+     4
+    ],
+    "immich-app__immich@d38f1f5:H2(cap)": [
+     "UNKNOWN",
+     2
+    ],
+    "immich-app__immich@d38f1f5:H5(zero)": [
+     "UNKNOWN",
+     2
+    ]
+   },
+   "unmatched_confirmed": [
+    [
+     "facebook__react@be58f26",
+     "packages/react-dom/src/__tests__/ReactDOMForm-test.js",
+     ""
+    ],
+    [
+     "google-gemini__gemini-cli@0fa1bd7",
+     "packages/cli/src/utils/commentJson.ts",
+     ""
+    ]
+   ]
+  },
+  "C2": {
+   "H": 33,
+   "C": 10,
+   "R": 0,
+   "U": 23,
+   "decided": 10,
+   "decided_frac": 0.303,
+   "L": 102,
+   "zero": 0,
+   "findings": 10,
+   "matched": 7,
+   "refs": 56,
+   "P": 0.7,
+   "Rc": 0.125,
+   "balanced": 0.212,
+   "inv_ver_calls_per_pr": 15.0,
+   "inv_ver_in_per_pr": 39393,
+   "inv_ver_out_per_pr": 7951,
+   "seconds_per_pr": 134.2,
+   "rounds": {
+    "round2": 12,
+    "verified_again": 12,
+    "status_changed": 2,
+    "changed_with_new_nonempty": 2,
+    "change UNKNOWN->CONFIRMED": 2
+   },
+   "round2_read_missing_term": [
+    7,
+    9
+   ],
+   "per_case": {
+    "browser-use__browser-use@0b21e50": {
+     "H": 3,
+     "L": 9,
+     "C": 2,
+     "R": 0,
+     "U": 1,
+     "zero": 0,
+     "per": {
+      "H1": 2,
+      "H2": 5,
+      "H3": 2
+     },
+     "findings": 2,
+     "matched": 1,
+     "calls": 14,
+     "seconds": 168.8
+    },
+    "browser-use__browser-use@72f1585": {
+     "H": 4,
+     "L": 12,
+     "C": 1,
+     "R": 0,
+     "U": 3,
+     "zero": 0,
+     "per": {
+      "H1": 2,
+      "H2": 6,
+      "H3": 2,
+      "H4": 2
+     },
+     "findings": 1,
+     "matched": 1,
+     "calls": 17,
+     "seconds": 93.5
+    },
+    "cline__cline@cb4d5c9": {
+     "H": 2,
+     "L": 12,
+     "C": 0,
+     "R": 0,
+     "U": 2,
+     "zero": 0,
+     "per": {
+      "H1": 6,
+      "H2": 6
+     },
+     "findings": 0,
+     "matched": 0,
+     "calls": 16,
+     "seconds": 87.5
+    },
+    "dbeaver__dbeaver@bc3ac7b": {
+     "H": 5,
+     "L": 12,
+     "C": 0,
+     "R": 0,
+     "U": 5,
+     "zero": 0,
+     "per": {
+      "H1": 3,
+      "H2": 3,
+      "H3": 2,
+      "H4": 2,
+      "H5": 2
+     },
+     "findings": 0,
+     "matched": 0,
+     "calls": 20,
+     "seconds": 175.6
+    },
+    "dbeaver__dbeaver@ed40132": {
+     "H": 2,
+     "L": 8,
+     "C": 1,
+     "R": 0,
+     "U": 1,
+     "zero": 0,
+     "per": {
+      "H1": 2,
+      "H2": 6
+     },
+     "findings": 1,
+     "matched": 0,
+     "calls": 11,
+     "seconds": 112.1
+    },
+    "dbeaver__dbeaver@8224826": {
+     "H": 4,
+     "L": 12,
+     "C": 1,
+     "R": 0,
+     "U": 3,
+     "zero": 0,
+     "per": {
+      "H1": 6,
+      "H2": 2,
+      "H3": 2,
+      "H4": 2
+     },
+     "findings": 1,
+     "matched": 1,
+     "calls": 17,
+     "seconds": 128.2
+    },
+    "facebook__react@be58f26": {
+     "H": 2,
+     "L": 11,
+     "C": 0,
+     "R": 0,
+     "U": 2,
+     "zero": 0,
+     "per": {
+      "H1": 5,
+      "H2": 6
+     },
+     "findings": 0,
+     "matched": 0,
+     "calls": 16,
+     "seconds": 93.3
+    },
+    "gofr-dev__gofr@b9cdcbb": {
+     "H": 1,
+     "L": 2,
+     "C": 1,
+     "R": 0,
+     "U": 0,
+     "zero": 0,
+     "per": {
+      "H1": 2
+     },
+     "findings": 1,
+     "matched": 1,
+     "calls": 3,
+     "seconds": 34.9
+    },
+    "google-gemini__gemini-cli@0fa1bd7": {
+     "H": 5,
+     "L": 12,
+     "C": 4,
+     "R": 0,
+     "U": 1,
+     "zero": 0,
+     "per": {
+      "H1": 2,
+      "H2": 4,
+      "H3": 2,
+      "H4": 2,
+      "H5": 2
+     },
+     "findings": 4,
+     "matched": 3,
+     "calls": 18,
+     "seconds": 324.3
+    },
+    "immich-app__immich@d38f1f5": {
+     "H": 5,
+     "L": 12,
+     "C": 0,
+     "R": 0,
+     "U": 5,
+     "zero": 0,
+     "per": {
+      "H1": 4,
+      "H2": 2,
+      "H3": 2,
+      "H4": 2,
+      "H5": 2
+     },
+     "findings": 0,
+     "matched": 0,
+     "calls": 18,
+     "seconds": 123.4
+    }
+   },
+   "targets": {
+    "browser-use__browser-use@0b21e50:H1(cap)": [
+     "CONFIRMED",
+     2
+    ],
+    "browser-use__browser-use@0b21e50:H2(cap)": [
+     "UNKNOWN",
+     5
+    ],
+    "browser-use__browser-use@0b21e50:H3(cap)": [
+     "CONFIRMED",
+     2
+    ],
+    "browser-use__browser-use@72f1585:H2(cap)": [
+     "UNKNOWN",
+     6
+    ],
+    "browser-use__browser-use@72f1585:H3(cap)": [
+     "UNKNOWN",
+     2
+    ],
+    "browser-use__browser-use@72f1585:H4(zero)": [
+     "UNKNOWN",
+     2
+    ],
+    "cline__cline@cb4d5c9:H1(cap)": [
+     "UNKNOWN",
+     6
+    ],
+    "cline__cline@cb4d5c9:H2(cap)": [
+     "UNKNOWN",
+     6
+    ],
+    "dbeaver__dbeaver@bc3ac7b:H1(cap)": [
+     "UNKNOWN",
+     3
+    ],
+    "dbeaver__dbeaver@bc3ac7b:H2(cap)": [
+     "UNKNOWN",
+     3
+    ],
+    "dbeaver__dbeaver@bc3ac7b:H3(cap)": [
+     "UNKNOWN",
+     2
+    ],
+    "dbeaver__dbeaver@bc3ac7b:H4(zero)": [
+     "UNKNOWN",
+     2
+    ],
+    "dbeaver__dbeaver@bc3ac7b:H5(zero)": [
+     "UNKNOWN",
+     2
+    ],
+    "dbeaver__dbeaver@ed40132:H1(cap)": [
+     "CONFIRMED",
+     2
+    ],
+    "dbeaver__dbeaver@ed40132:H2(cap)": [
+     "UNKNOWN",
+     6
+    ],
+    "dbeaver__dbeaver@8224826:H1(cap)": [
+     "CONFIRMED",
+     6
+    ],
+    "dbeaver__dbeaver@8224826:H2(cap)": [
+     "UNKNOWN",
+     2
+    ],
+    "dbeaver__dbeaver@8224826:H3(cap)": [
+     "UNKNOWN",
+     2
+    ],
+    "dbeaver__dbeaver@8224826:H4(zero)": [
+     "UNKNOWN",
+     2
+    ],
+    "facebook__react@be58f26:H2(cap)": [
+     "UNKNOWN",
+     6
+    ],
+    "google-gemini__gemini-cli@0fa1bd7:H2(cap)": [
+     "CONFIRMED",
+     4
+    ],
+    "google-gemini__gemini-cli@0fa1bd7:H3(cap)": [
+     "UNKNOWN",
+     2
+    ],
+    "google-gemini__gemini-cli@0fa1bd7:H4(zero)": [
+     "CONFIRMED",
+     2
+    ],
+    "google-gemini__gemini-cli@0fa1bd7:H5(zero)": [
+     "CONFIRMED",
+     2
+    ],
+    "immich-app__immich@d38f1f5:H1(cap)": [
+     "UNKNOWN",
+     4
+    ],
+    "immich-app__immich@d38f1f5:H2(cap)": [
+     "UNKNOWN",
+     2
+    ],
+    "immich-app__immich@d38f1f5:H5(zero)": [
+     "UNKNOWN",
+     2
+    ]
+   },
+   "unmatched_confirmed": [
+    [
+     "browser-use__browser-use@0b21e50",
+     "tests/test_browser.py",
+     ""
+    ],
+    [
+     "dbeaver__dbeaver@ed40132",
+     "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/struct/DBSObjectFilter.java",
+     ""
+    ],
+    [
+     "google-gemini__gemini-cli@0fa1bd7",
+     "packages/cli/src/utils/commentJson.ts",
+     ""
+    ]
+   ]
+  }
+ },
+ "decision_inputs": {
+  "mean_A_decided_frac": 0.197,
+  "noise_A1_A2": 0.03,
+  "C1_minus_meanA": 0.015,
+  "C2_minus_meanA": 0.106,
+  "calls_ratio_C_over_A": 1.149
+ }
+}

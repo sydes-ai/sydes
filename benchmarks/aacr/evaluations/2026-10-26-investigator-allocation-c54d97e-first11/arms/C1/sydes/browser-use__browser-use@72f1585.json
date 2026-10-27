@@ -1,0 +1,62 @@
+{
+  "code_findings": [
+    {
+      "id": "investigator-H1",
+      "severity": "P2",
+      "title": "In ChatGoogle.ainvoke, whenever self.thinking_budget is non-None\u2014including explicitly supplied 0 or positive values\u2014the generated request config uses thinking_budget=-1 instead of the supplied value.",
+      "file": "browser_use/llm/google/chat.py",
+      "line": 202,
+      "repo": null,
+      "explanation": "The condition accepts every non-None integer, but the assigned configuration value is the literal -1. The resulting config is passed to generate_content. The diff shows this was changed from using self.thinking_budget, so this change directly causes explicit values to be discarded during request serialization.",
+      "impact": "Caused by the change: The changed assignment replaced {'thinking_budget': self.thinking_budget} with {'thinking_budget': -1}. Consequently, any non-None caller value passes the guard but is replaced by -1 before config is sent to the provider.",
+      "suggested_fix": null,
+      "source": "investigator",
+      "evidence": [
+        {
+          "file": "browser_use/llm/google/chat.py",
+          "symbol": null,
+          "label": "verified_quote:201",
+          "snippet": "\t\tif self.thinking_budget is not None:"
+        },
+        {
+          "file": "browser_use/llm/google/chat.py",
+          "symbol": null,
+          "label": "verified_quote:202",
+          "snippet": "\t\t\tthinking_config_dict: types.ThinkingConfigDict = {'thinking_budget': -1}"
+        },
+        {
+          "file": "browser_use/llm/google/chat.py",
+          "symbol": null,
+          "label": "verified_quote:220",
+          "snippet": "\t\t\t\t\t\tconfig=config,"
+        },
+        {
+          "file": "browser_use/llm/google/chat.py",
+          "symbol": null,
+          "label": "verified_quote:202",
+          "snippet": "thinking_config_dict: types.ThinkingConfigDict = {'thinking_budget': -1}"
+        }
+      ]
+    }
+  ],
+  "code_review_status": "completed",
+  "run_metrics": {
+    "llm_totals": {
+      "calls": 19,
+      "input_tokens": 62567,
+      "output_tokens": 8338,
+      "errors": 0
+    },
+    "llm_by_purpose": {
+      "investigator": {
+        "calls": 13
+      },
+      "verifier": {
+        "calls": 6
+      }
+    }
+  },
+  "diagnostics": [
+    "investigator: hypotheses=4 lookups=12/12 confirmed=1 refuted=0 unknown=3 findings=1 llm_calls=19 errors=0"
+  ]
+}

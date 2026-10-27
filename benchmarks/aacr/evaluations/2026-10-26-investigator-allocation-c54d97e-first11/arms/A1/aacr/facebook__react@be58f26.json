@@ -1,0 +1,22 @@
+{
+  "instance_id": "facebook__react@be58f26",
+  "reviewer": "sydes",
+  "boundary": "code_findings",
+  "status": "completed",
+  "duration_seconds": 214.0,
+  "review": {
+    "comments": [
+      {
+        "path": "packages/react-dom/src/__tests__/ReactDOMForm-test.js",
+        "start_line": 1673,
+        "end_line": 1673,
+        "content": "When ReactDOMForm-test.js is run by the repository's Jest setup, the newly added focused case excludes the file's ordinary sibling tests from that run.\nThe change adds `it.only`, and repository evidence explicitly identifies `.only` as the mechanism for focusing a test. The focused-test helper delegates to `test.only`, while the ESLint rule that would reject focused tests is disabled. Thus this is not merely an ordinary added test: it selects the new case over non-focused sibling cases in ReactDOMForm-test.js.\nImpact: Caused by the change: The changed line introduces the only focused marker in this file. The repository uses `.only` to focus tests and does not enable its no-focused-tests lint rule, so this new marker causes Jest to select this case rather than the file's ordinary `it` cases, reducing execution of the form regression suite.",
+        "severity": "P2"
+      }
+    ],
+    "summary": {
+      "input_tokens": 48540,
+      "output_tokens": 11433
+    }
+  }
+}

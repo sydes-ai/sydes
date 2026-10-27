@@ -1,0 +1,57 @@
+{
+  "path_recovery": {
+    "status": "unresolved",
+    "paths": [
+      {
+        "entrypoint": "Database Navigator tree expansion in the DBeaver UI",
+        "target_node": "DBNDatabaseNode.loadTreeItems",
+        "status": "unresolved",
+        "root_boundary_status": "candidate_boundary",
+        "nodes": [
+          {
+            "symbol": "Database Navigator tree expansion",
+            "file": "plugins/org.jkiss.dbeaver.ui.navigator/src/org/jkiss/dbeaver/ui/navigator/itemlist/ItemListControl.java",
+            "qualified_name": null
+          }
+        ],
+        "edges": [],
+        "unresolved_suffix": [
+          {
+            "from": {
+              "symbol": "Database Navigator tree expansion",
+              "file": "plugins/org.jkiss.dbeaver.ui.navigator/src/org/jkiss/dbeaver/ui/navigator/itemlist/ItemListControl.java",
+              "qualified_name": null
+            },
+            "to": {
+              "symbol": "DBNDatabaseNode.getChildren",
+              "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/DBNDatabaseNode.java",
+              "qualified_name": null
+            },
+            "relationship": "no relationship found",
+            "rejection_reason": "no evidence is located in either entity's own declared file ('plugins/org.jkiss.dbeaver.ui.navigator/src/org/jkiss/dbeaver/ui/navigator/itemlist/ItemListControl.java' or 'plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/DBNDatabaseNode.java') -- possible wrong-file/wrong-module substitution"
+          },
+          {
+            "from": {
+              "symbol": "DBNDatabaseNode.getChildren",
+              "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/DBNDatabaseNode.java",
+              "qualified_name": "org.jkiss.dbeaver.model.navigator.DBNDatabaseNode.getChildren"
+            },
+            "to": {
+              "symbol": "DBNDatabaseNode.loadTreeItems",
+              "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/navigator/DBNDatabaseNode.java",
+              "qualified_name": "org.jkiss.dbeaver.model.navigator.DBNDatabaseNode.loadTreeItems"
+            },
+            "relationship": "getChildren invokes loadChildren, whose child-loading flow invokes loadTreeItems.",
+            "rejection_reason": null
+          }
+        ]
+      }
+    ],
+    "corrected_first_pass_claims": [],
+    "unresolved": []
+  },
+  "test_recovery": {
+    "status": "unresolved",
+    "tests": []
+  }
+}

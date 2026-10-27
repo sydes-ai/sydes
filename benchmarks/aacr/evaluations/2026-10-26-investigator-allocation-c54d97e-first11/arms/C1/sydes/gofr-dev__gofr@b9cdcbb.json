@@ -1,0 +1,62 @@
+{
+  "code_findings": [
+    {
+      "id": "investigator-H1",
+      "severity": "P2",
+      "title": "On the standard handler/responder path, a response.Response value whose Metadata map is unset (nil) is serialized with a \"metadata\":null property, contradicting the updated documentation\u2019s example tha",
+      "file": "pkg/gofr/http/responder.go",
+      "line": 32,
+      "repo": null,
+      "explanation": "The updated documentation explicitly says that omitted metadata produces a JSON object containing only data. However, the added test expects \"metadata\":null for a Response with no Metadata, confirming the implemented wire shape. The new responder branch assigns v.Metadata, whose declared type is map[string]any, into the internal response.Metadata interface field. For an unset map, that produces an interface containing a typed nil map; it is therefore not omitted by the interface field's omitempty handling and is encoded as null. The handler change also stops replacing Response with resp.Data, exposing this newly added responder branch to handler returns.",
+      "impact": "Caused by the change: Previously, ServeHTTP replaced a returned response.Response with resp.Data before responding. This change removes that replacement and adds the resTypes.Response branch that copies the nil map into an interface-typed Metadata field. That changed path serializes the typed nil map as null, producing the documented-contract violation shown by the new test expectation.",
+      "suggested_fix": null,
+      "source": "investigator",
+      "evidence": [
+        {
+          "file": "pkg/gofr/http/responder_test.go",
+          "symbol": null,
+          "label": "verified_quote:59",
+          "snippet": "expectedBody: []byte(`{\"metadata\":null,\"data\":\"Hello World from new Server\"}`),"
+        },
+        {
+          "file": "docs/advanced-guide/setting-custom-response-headers/page.md",
+          "symbol": null,
+          "label": "verified_quote:30",
+          "snippet": "If metadata is omitted, the response defaults to:"
+        },
+        {
+          "file": "docs/advanced-guide/setting-custom-response-headers/page.md",
+          "symbol": null,
+          "label": "verified_quote:33",
+          "snippet": "{\n  \"data\": {}\n}"
+        },
+        {
+          "file": "pkg/gofr/http/responder.go",
+          "symbol": null,
+          "label": "verified_quote:31",
+          "snippet": "case resTypes.Response:\n\t\tresp = response{Data: v.Data, Metadata: v.Metadata, Error: errorObj}"
+        }
+      ]
+    }
+  ],
+  "code_review_status": "completed",
+  "run_metrics": {
+    "llm_totals": {
+      "calls": 3,
+      "input_tokens": 6825,
+      "output_tokens": 3304,
+      "errors": 0
+    },
+    "llm_by_purpose": {
+      "investigator": {
+        "calls": 2
+      },
+      "verifier": {
+        "calls": 1
+      }
+    }
+  },
+  "diagnostics": [
+    "investigator: hypotheses=1 lookups=2/12 confirmed=1 refuted=0 unknown=0 findings=1 llm_calls=3 errors=0"
+  ]
+}

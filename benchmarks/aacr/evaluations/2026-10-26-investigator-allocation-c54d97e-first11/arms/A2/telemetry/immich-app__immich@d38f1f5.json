@@ -1,0 +1,56 @@
+{
+  "case_id": "immich-app__immich-16893",
+  "instance_id": "immich-app__immich@d38f1f5",
+  "language": "TypeScript",
+  "status": "completed",
+  "wall_seconds": 125.4,
+  "review_base": "f659ef4b7aeb20f2fe433abb7fc6f7b4d95bb0ea",
+  "review_base_info": {
+    "rule": "merge base (newest committer date, then smallest id)",
+    "merge_bases": [
+      "f659ef4b7aeb20f2fe433abb7fc6f7b4d95bb0ea"
+    ]
+  },
+  "code_review_status": "completed",
+  "code_findings": 0,
+  "not_submitted": {
+    "local_risks": 0,
+    "affected_flows": 0
+  },
+  "llm_totals": {
+    "calls": 18,
+    "input_tokens": 37734,
+    "output_tokens": 7481,
+    "errors": 0
+  },
+  "llm_calls_by_purpose": {
+    "investigator": 13,
+    "verifier": 5
+  },
+  "cbm": null,
+  "sydes_wall_seconds": null,
+  "verdict": null,
+  "invalid_reasons": [],
+  "replay": {
+    "source_run": "alloc-A1-snapshot-c54d97e-first11-2026-10-26",
+    "allocation": "sequential"
+  },
+  "investigation": {
+    "hypotheses": 5,
+    "lookups": 12,
+    "confirmed": 0,
+    "refuted": 0,
+    "unknown": 5,
+    "usage": {
+      "llm_calls": 18,
+      "by_stage": {
+        "investigator": 13,
+        "verifier": 5
+      },
+      "prompt_tokens": 37734,
+      "completion_tokens": 7481,
+      "reasoning_tokens": 3688,
+      "llm_seconds": 119.4
+    }
+  }
+}

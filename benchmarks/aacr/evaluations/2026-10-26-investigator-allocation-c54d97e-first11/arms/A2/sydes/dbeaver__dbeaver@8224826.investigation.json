@@ -1,0 +1,684 @@
+{
+  "version": "sydes-investigation/1",
+  "packet": [
+    {
+      "id": "E1",
+      "kind": "diff",
+      "ref": "plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksDataSource.java",
+      "chars": 2500
+    },
+    {
+      "id": "E2",
+      "kind": "diff",
+      "ref": "plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksExecutionContext.java",
+      "chars": 2500
+    },
+    {
+      "id": "E3",
+      "kind": "changed_symbol",
+      "ref": "plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksDataSource.java:81-95",
+      "chars": 673
+    },
+    {
+      "id": "E4",
+      "kind": "changed_symbol",
+      "ref": "plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksDataSource.java:97-100",
+      "chars": 218
+    },
+    {
+      "id": "E5",
+      "kind": "changed_symbol",
+      "ref": "plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksExecutionContext.java:43-44",
+      "chars": 70
+    },
+    {
+      "id": "E6",
+      "kind": "changed_symbol",
+      "ref": "plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksExecutionContext.java:46-48",
+      "chars": 168
+    },
+    {
+      "id": "E7",
+      "kind": "changed_symbol",
+      "ref": "plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksExecutionContext.java:50-57",
+      "chars": 259
+    },
+    {
+      "id": "E8",
+      "kind": "changed_symbol",
+      "ref": "plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksExecutionContext.java:59-71",
+      "chars": 412
+    },
+    {
+      "id": "E9",
+      "kind": "changed_symbol",
+      "ref": "plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksExecutionContext.java:73-106",
+      "chars": 1200
+    },
+    {
+      "id": "E10",
+      "kind": "structural",
+      "ref": "plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksExecutionContext.java:39-107",
+      "chars": 2500
+    },
+    {
+      "id": "E11",
+      "kind": "structural",
+      "ref": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/GenericProcedure.java:88-92",
+      "chars": 366
+    },
+    {
+      "id": "E12",
+      "kind": "structural",
+      "ref": "plugins/org.jkiss.dbeaver.ext.mysql/src/org/jkiss/dbeaver/ext/mysql/model/MySQLGrant.java:176-179",
+      "chars": 284
+    },
+    {
+      "id": "E13",
+      "kind": "structural",
+      "ref": "plugins/org.jkiss.dbeaver.ext.oracle/src/org/jkiss/dbeaver/ext/oracle/data/OracleXMLWrapper.java:97-110",
+      "chars": 657
+    },
+    {
+      "id": "E14",
+      "kind": "structural",
+      "ref": "plugins/org.jkiss.dbeaver.ext.wmi/src/org/jkiss/dbeaver/ext/wmi/model/WMIDataSource.java:101-106",
+      "chars": 397
+    },
+    {
+      "id": "E15",
+      "kind": "structural",
+      "ref": "plugins/org.jkiss.dbeaver.ext.wmi/src/org/jkiss/wmi/service/WMIService.java:50-51",
+      "chars": 278
+    },
+    {
+      "id": "E16",
+      "kind": "structural",
+      "ref": "plugins/org.jkiss.dbeaver.model.jdbc/src/org/jkiss/dbeaver/model/exec/jdbc/JDBCSession.java:66-69",
+      "chars": 331
+    },
+    {
+      "id": "E17",
+      "kind": "structural",
+      "ref": "plugins/org.jkiss.dbeaver.model.sql/src/org/jkiss/dbeaver/model/sql/semantics/OffsetKeyedTreeMap.java:40-40",
+      "chars": 183
+    },
+    {
+      "id": "E18",
+      "kind": "test_execution",
+      "ref": "ci_suite",
+      "chars": 52
+    },
+    {
+      "id": "E19",
+      "kind": "gap",
+      "ref": "unresolved:DatabricksExecutionContext",
+      "chars": 94
+    },
+    {
+      "id": "E20",
+      "kind": "change_analysis",
+      "ref": "summary",
+      "chars": 290
+    },
+    {
+      "id": "E21",
+      "kind": "change_analysis",
+      "ref": "local_risk",
+      "chars": 339
+    },
+    {
+      "id": "E22",
+      "kind": "change_analysis",
+      "ref": "local_risk",
+      "chars": 274
+    },
+    {
+      "id": "E23",
+      "kind": "change_analysis",
+      "ref": "uncertainty",
+      "chars": 178
+    },
+    {
+      "id": "E24",
+      "kind": "change_analysis",
+      "ref": "uncertainty",
+      "chars": 211
+    },
+    {
+      "id": "E25",
+      "kind": "change_analysis",
+      "ref": "uncertainty",
+      "chars": 178
+    },
+    {
+      "id": "E26",
+      "kind": "change_analysis",
+      "ref": "uncertainty",
+      "chars": 236
+    },
+    {
+      "id": "E27",
+      "kind": "change_analysis",
+      "ref": "uncertainty",
+      "chars": 169
+    }
+  ],
+  "hypotheses": [
+    {
+      "id": "H1",
+      "claim": "setDefaultCatalog must propagate a failed catalog switch to its caller; suppressing DBCException can let execution continue against the previously active catalog after the caller believes the requested catalog was selected.",
+      "why_suspected": "The override declares DBCException but catches and only logs it, leaving activeCatalogName unchanged. Callers therefore cannot distinguish success from failure, which can route subsequent statements to an unintended catalog.",
+      "file": "plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksExecutionContext.java",
+      "line": 67,
+      "severity": "P1",
+      "initial_evidence": [
+        "E8",
+        "E20",
+        "E21"
+      ],
+      "questions_to_resolve": [
+        "Which callers rely on DBCException from setDefaultCatalog to abort execution?",
+        "Can super.setDefaultCatalog fail during user catalog changes or derived-context initialization while leaving the connection on its prior catalog?"
+      ]
+    },
+    {
+      "id": "H2",
+      "claim": "getDefaultCatalog must not return null solely because activeCatalogName is nonempty but the data-source metadata cache cannot resolve that name; it should retain the superclass default as a fallback.",
+      "why_suspected": "The new override bypasses super.getDefaultCatalog whenever activeCatalogName is set and directly returns getDataSource().getCatalog(activeCatalogName), whose result may be null when metadata is not loaded, filtered, stale, or case-mismatched.",
+      "file": "plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksExecutionContext.java",
+      "line": 56,
+      "severity": "P2",
+      "initial_evidence": [
+        "E7",
+        "E22",
+        "E27"
+      ],
+      "questions_to_resolve": [
+        "Can getDataSource().getCatalog return null before catalogs are loaded or for a valid server-reported catalog?",
+        "Do consumers of getDefaultCatalog assume a non-null inherited default when one was previously available?"
+      ]
+    },
+    {
+      "id": "H3",
+      "claim": "A derived Databricks execution context must inherit the source context's default schema as well as its catalog; initializing it by calling setDefaultCatalog with a null schema may leave unqualified SQL executing in a different schema.",
+      "why_suspected": "The new initializeContextState override does not delegate to inherited initialization when initFrom is present and copies only getDefaultCatalog, explicitly passing null for the schema argument.",
+      "file": "plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksDataSource.java",
+      "line": 92,
+      "severity": "P2",
+      "initial_evidence": [
+        "E3",
+        "E8",
+        "E20"
+      ],
+      "questions_to_resolve": [
+        "Does the superclass initializeContextState copy both catalog and schema from initFrom?",
+        "When setDefaultCatalog receives null schema, does it preserve, infer, or clear the source context's active schema?",
+        "Are derived contexts used for statements containing unqualified object names?"
+      ]
+    },
+    {
+      "id": "H4",
+      "claim": "initializeContextState must accept every legal initFrom context supplied by the inherited lifecycle; the unconditional DatabricksExecutionContext cast must not throw ClassCastException for an inherited or alternately constructed JDBCExecutionContext.",
+      "why_suspected": "Although the new factory creates DatabricksExecutionContext instances, initializeContextState also casts the independently supplied initFrom value without checking its type, and the available evidence does not establish that all lifecycle paths obtain it from this factory.",
+      "file": "plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksDataSource.java",
+      "line": 88,
+      "severity": "P2",
+      "initial_evidence": [
+        "E3",
+        "E4",
+        "E23",
+        "E24"
+      ],
+      "questions_to_resolve": [
+        "Which lifecycle paths call initializeContextState, and how is initFrom constructed on each path?",
+        "Can inherited initialization, metadata contexts, reconnection, or context cloning supply a plain GenericExecutionContext or JDBCExecutionContext?"
+      ]
+    }
+  ],
+  "lookups": [
+    {
+      "n": 1,
+      "id": "L1",
+      "hypothesis": "H1",
+      "tool": "read_source",
+      "args": {
+        "path": "plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksExecutionContext.java",
+        "start_line": 1,
+        "end_line": 130
+      },
+      "why": "Inspect the implementation, override signature, and nearby initialization flow to see where DBCException is suppressed and what state may remain unchanged.",
+      "provenance": "source_read",
+      "result_chars": 4763,
+      "result_excerpt": "1: \n2: /*\n3:  * DBeaver - Universal Database Manager\n4:  * Copyright (C) 2010-2025 DBeaver Corp and others\n5:  *\n6:  * Licensed under the Apache License, Version 2.0 (the \"License\");\n7:  * you may not use this file except in compliance with the License.\n8:  * You may obtain a copy of the License at\n9:  *\n10:  *     http://www.apache.org/licenses/LICENSE-2.0\n11:  *\n12:  * Unless required by applicable law or agreed to in writing, software\n13:  * distributed under the License is distributed on an \"AS IS\" BASIS,\n14:  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n15:  "
+    },
+    {
+      "n": 2,
+      "id": "L2",
+      "hypothesis": "H1",
+      "tool": "find_symbol",
+      "args": {
+        "name_pattern": "GenericExecutionContext\\.setDefaultCatalog|setDefaultCatalog"
+      },
+      "why": "Locate the superclass implementation and relevant overrides/call sites to determine failure behavior and exception contracts.",
+      "provenance": "structural_query",
+      "result_chars": 4849,
+      "result_excerpt": "{\"qn_rule\":\"qn = qn_prefix == \\\"\\\" ? name : qn_prefix + \\\".\\\" + name\",\"cols\":[\"name\",\"label\",\"lines\",\"in\",\"out\"],\"groups\":[{\"qn_prefix\":\"Users-ksnaik-.cache-sydes-aacr-repos-dbeaver__dbeaver.plugins.org.jkiss.dbeaver.ext.postgresql.src.org.jkiss.dbeaver.ext.postgresql.model.PostgreExecutionContext\",\"file\":\"plugins/org.jkiss.dbeaver.ext.postgresql/src/org/jkiss/dbeaver/ext/postgresql/model/PostgreExecutionContext.java\",\"rows\":[[\"setDefaultCatalog\",\"Method\",\"96-131\",2,22]]},{\"qn_prefix\":\"Users-ksnaik-.cache-sydes-aacr-repos-dbeaver__dbeaver.plugins.org.jkiss.dbeaver.ext.mssql.src.org.jkiss.dbeav"
+    },
+    {
+      "n": 3,
+      "id": "L3",
+      "hypothesis": "H1",
+      "tool": "read_source",
+      "args": {
+        "path": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/GenericExecutionContext.java",
+        "start_line": 230,
+        "end_line": 320
+      },
+      "why": "Determine exactly how super.setDefaultCatalog performs the switch, when it throws DBCException, and whether its state update occurs only after a successful database operation.",
+      "provenance": "source_read",
+      "result_chars": 4585,
+      "result_excerpt": "230:             if (dataSource.hasCatalogs()) {\n231:                 return (GenericConstants.ENTITY_TYPE_CATALOG.equals(dataSource.getSelectedEntityType()) || !dataSource.hasSchemas()) && info.supportsCatalogSelection();\n232:             }\n233:         }\n234:         return false;\n235:     }\n236: \n237:     @Override\n238:     public boolean supportsSchemaChange() {\n239:         GenericDataSource dataSource = getDataSource();\n240:         if (!(dataSource.getInfo() instanceof GenericDataSourceInfo info)) {\n241:             if (dataSource.isSelectedEntityFromAPI()) {\n242:                 return"
+    },
+    {
+      "n": 4,
+      "id": "L4",
+      "hypothesis": "H1",
+      "tool": "callers",
+      "args": {
+        "symbol": "org.jkiss.dbeaver.ext.databricks.DatabricksExecutionContext.setDefaultCatalog"
+      },
+      "why": "Identify direct callers and whether they use the declared DBCException to abort user catalog changes or context initialization.",
+      "provenance": "structural_query",
+      "result_chars": 292,
+      "result_excerpt": "ERROR: Codebase Memory tool 'trace_path' reported an error: {\"error\":\"function not found\",\"function_name\":\"org.jkiss.dbeaver.ext.databricks.DatabricksExecutionContext.setDefaultCatalog\",\"hint\":\"Use search_graph(name_pattern=...) to find the exact qualified name, then pass it to trace_path.\"}"
+    },
+    {
+      "n": 5,
+      "id": "L5",
+      "hypothesis": "H2",
+      "tool": "read_source",
+      "args": {
+        "path": "plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksExecutionContext.java",
+        "start_line": 1,
+        "end_line": 120
+      },
+      "why": "Inspect getDefaultCatalog implementation and surrounding initialization to see whether an unresolved active catalog currently replaces an inherited default with null.",
+      "provenance": "source_read",
+      "result_chars": 4763,
+      "result_excerpt": "1: \n2: /*\n3:  * DBeaver - Universal Database Manager\n4:  * Copyright (C) 2010-2025 DBeaver Corp and others\n5:  *\n6:  * Licensed under the Apache License, Version 2.0 (the \"License\");\n7:  * you may not use this file except in compliance with the License.\n8:  * You may obtain a copy of the License at\n9:  *\n10:  *     http://www.apache.org/licenses/LICENSE-2.0\n11:  *\n12:  * Unless required by applicable law or agreed to in writing, software\n13:  * distributed under the License is distributed on an \"AS IS\" BASIS,\n14:  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n15:  "
+    },
+    {
+      "n": 6,
+      "id": "L6",
+      "hypothesis": "H2",
+      "tool": "find_symbol",
+      "args": {
+        "name_pattern": "getCatalog"
+      },
+      "why": "Locate the data-source getCatalog implementation to determine whether unresolved or not-yet-loaded catalog metadata can return null.",
+      "provenance": "structural_query",
+      "result_chars": 6000,
+      "result_excerpt": "{\"qn_rule\":\"qn = qn_prefix == \\\"\\\" ? name : qn_prefix + \\\".\\\" + name\",\"cols\":[\"name\",\"label\",\"lines\",\"in\",\"out\"],\"groups\":[{\"qn_prefix\":\"Users-ksnaik-.cache-sydes-aacr-repos-dbeaver__dbeaver.plugins.org.jkiss.dbeaver.ext.generic.src.org.jkiss.dbeaver.ext.generic.model.GenericDataSource\",\"file\":\"plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/GenericDataSource.java\",\"rows\":[[\"getCatalog\",\"Method\",\"339-342\",5,5]]},{\"qn_prefix\":\"Users-ksnaik-.cache-sydes-aacr-repos-dbeaver__dbeaver.plugins.org.jkiss.dbeaver.ext.hana.src.org.jkiss.dbeaver.ext.hana.model.HANAProcedure\""
+    },
+    {
+      "n": 7,
+      "id": "L7",
+      "hypothesis": "H2",
+      "tool": "read_source",
+      "args": {
+        "path": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/GenericDataSource.java",
+        "start_line": 300,
+        "end_line": 355
+      },
+      "why": "Determine whether getCatalog is only a nullable cache lookup and can therefore fail before catalog metadata is loaded or when the server-reported name is absent from the cache.",
+      "provenance": "source_read",
+      "result_chars": 1562,
+      "result_excerpt": "300:         return catalogs;\n301:     }\n302: \n303:     public GenericCatalog getCatalog(String name) {\n304:         return DBUtils.findObject(getCatalogs(), name);\n305:     }\n306: \n307:     public final Collection<GenericCatalog> getCatalogList() {\n308: //        if (getDataSource().isMergeEntities()) {\n309: //            return null;\n310: //        }\n311:         return getCatalogs();\n312:     }\n313: \n314:     public final Collection<GenericSchema> getSchemaList() {\n315:         if (getDataSource().isMergeEntities()) {\n316:             return null;\n317:         }\n318:         return getSchem"
+    },
+    {
+      "n": 8,
+      "id": "L8",
+      "hypothesis": "H2",
+      "tool": "read_source",
+      "args": {
+        "path": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/GenericDataSource.java",
+        "start_line": 250,
+        "end_line": 305
+      },
+      "why": "Determine whether getCatalogs exposes only already-cached objects or triggers metadata loading; this decides whether getCatalog(activeCatalogName) can return null before catalogs are loaded.",
+      "provenance": "source_read",
+      "result_chars": 2782,
+      "result_excerpt": "250:         if (!CommonUtils.isEmpty(queryShutdown)) {\n251:             for (JDBCRemoteInstance instance : getAvailableInstances()) {\n252:                 for (JDBCExecutionContext context : instance.getAllContexts()) {\n253:                     try (JDBCSession session = context.openSession(monitor, DBCExecutionPurpose.UTIL, \"Shutdown database\")) {\n254:                         JDBCUtils.executeStatement(session, queryShutdown);\n255:                     } catch (Throwable e) {\n256:                         log.error(\"Error shutting down database\", e);\n257:                     }\n258:            "
+    },
+    {
+      "n": 9,
+      "id": "L9",
+      "hypothesis": "H3",
+      "tool": "read_source",
+      "args": {
+        "path": "plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksDataSource.java",
+        "start_line": 60,
+        "end_line": 115
+      },
+      "why": "Inspect the changed initialization path, its superclass call, and the exact arguments passed to setDefaultCatalog.",
+      "provenance": "source_read",
+      "result_chars": 1921,
+      "result_excerpt": "60: \n61:     private boolean isLegacyDriver() {\n62:         return CommonUtils.equalObjects(DatabricksConstants.DRIVER_CLASS_LEGACY, getContainer().getDriver().getDriverClassName());\n63:     }\n64: \n65:     @NotNull\n66:     @Override\n67:     protected Properties getAllConnectionProperties(\n68:         @NotNull DBRProgressMonitor monitor,\n69:         JDBCExecutionContext context,\n70:         String purpose,\n71:         DBPConnectionConfiguration connectionInfo\n72:     ) throws DBCException {\n73:         String userAgent = URLEncoder.encode(\n74:             GeneralUtils.getProductName() + \"/\" + G"
+    },
+    {
+      "n": 10,
+      "id": "L10",
+      "hypothesis": "H3",
+      "tool": "find_symbol",
+      "args": {
+        "name_pattern": "initializeContextState"
+      },
+      "why": "Locate the superclass implementation to determine whether it already copies both catalog and schema from initFrom.",
+      "provenance": "structural_query",
+      "result_chars": 4844,
+      "result_excerpt": "{\"qn_rule\":\"qn = qn_prefix == \\\"\\\" ? name : qn_prefix + \\\".\\\" + name\",\"cols\":[\"name\",\"label\",\"lines\",\"in\",\"out\"],\"groups\":[{\"qn_prefix\":\"Users-ksnaik-.cache-sydes-aacr-repos-dbeaver__dbeaver.plugins.org.jkiss.dbeaver.ext.generic.src.org.jkiss.dbeaver.ext.generic.model.GenericDataSource\",\"file\":\"plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/GenericDataSource.java\",\"rows\":[[\"initializeContextState\",\"Method\",\"218-226\",0,7]]},{\"qn_prefix\":\"Users-ksnaik-.cache-sydes-aacr-repos-dbeaver__dbeaver.plugins.org.jkiss.dbeaver.model.jdbc.src.org.jkiss.dbeaver.model.impl.jdbc"
+    },
+    {
+      "n": 11,
+      "id": "L11",
+      "hypothesis": "H3",
+      "tool": "read_source",
+      "args": {
+        "path": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/GenericDataSource.java",
+        "start_line": 205,
+        "end_line": 235
+      },
+      "why": "Determine whether the immediate superclass copies catalog and schema from initFrom, and whether Databricks bypasses that behavior.",
+      "provenance": "source_read",
+      "result_chars": 1342,
+      "result_excerpt": "205:     /**\n206:      * Disable by default. Some drivers fail to connect when client app name is specified\n207:      * Enable for all derived classes.\n208:      */\n209:     protected boolean isPopulateClientAppName() {\n210:         return getClass() != GenericDataSource.class;\n211:     }\n212: \n213:     @Override\n214:     protected JDBCExecutionContext createExecutionContext(JDBCRemoteInstance instance, String type) throws DBCException {\n215:         return new GenericExecutionContext(instance, type);\n216:     }\n217: \n218:     protected void initializeContextState(@NotNull DBRProgressMonitor m"
+    },
+    {
+      "n": 12,
+      "id": "L12",
+      "hypothesis": "H3",
+      "tool": "search_text",
+      "args": {
+        "pattern": "(void\\s+setDefaultCatalog|setDefaultCatalog\\s*\\(|initDefaultsFrom\\s*\\()",
+        "path_glob": "plugins/org.jkiss.dbeaver.ext.{generic,databricks}/src/**/*.java"
+      },
+      "why": "Determine how null schema is handled by setDefaultCatalog and compare it with the superclass path initDefaultsFrom that Databricks bypasses.",
+      "provenance": "source_search",
+      "result_chars": 1535,
+      "result_excerpt": "plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksDataSource.java:93: executionContext.setDefaultCatalog(monitor, defaultCatalog, null);\nplugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksExecutionContext.java:60: public void setDefaultCatalog(\nplugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksExecutionContext.java:66: super.setDefaultCatalog(monitor, catalog, schema);\nplugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/model/DatabricksMetaModel.java:128: c"
+    }
+  ],
+  "outcomes": [
+    {
+      "hypothesis": "H1",
+      "lookups": [
+        "L1",
+        "L2",
+        "L3",
+        "L4"
+      ],
+      "status": "UNKNOWN",
+      "supported_claim": "The new Databricks override suppresses every DBCException thrown by GenericExecutionContext.setDefaultCatalog, so the new derived-context initialization call cannot observe such a failure; however, the evidence does not establish a Databricks path where that failure leaves the connection on its prior catalog and subsequent work executes there.",
+      "reasoning": "L3 shows that the superclass can report catalog-selection failure, either explicitly when catalog changes are unsupported or by wrapping SQLException. L1/E8 shows the changed override catches that DBCException and returns normally. The change also calls this method while initializing a derived context, so propagation would abort that method whereas suppression allows it to return. However, the packet does not establish that Databricks reaches the explicit pre-switch failure branch, nor that a Databricks JDBC setCatalog failure leaves the physical connection on its previous catalog. It also provides no outer caller or subsequent operation demonstrating execution against that stale catalog. Therefore the exception suppression is established, but the claimed stale-catalog defect is not conclusively established.",
+      "defect_evidence": [
+        {
+          "source": "L3",
+          "file": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/GenericExecutionContext.java",
+          "line": 278,
+          "quote": "throw new DBCException(\"Active catalog can't be changed for this kind of datasource!\");"
+        },
+        {
+          "source": "L3",
+          "file": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/GenericExecutionContext.java",
+          "line": 294,
+          "quote": "throw new DBCException(e, this);"
+        }
+      ],
+      "changed_evidence": [
+        {
+          "source": "L1",
+          "file": "plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksExecutionContext.java",
+          "line": 68,
+          "quote": "} catch (DBCException e) {"
+        },
+        {
+          "source": "L1",
+          "file": "plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksExecutionContext.java",
+          "line": 69,
+          "quote": "log.debug(\"Error setting default catalog for Databricks\", e);"
+        }
+      ],
+      "causal_link": "If the inherited catalog switch throws DBCException, the changed catch block logs it and makes setDefaultCatalog return normally. This would prevent callers, including derived-context initialization, from aborting based on that exception. The evidence does not prove the additional condition that the relevant Databricks failure leaves a usable connection on its prior catalog followed by continued execution.",
+      "refuting": [],
+      "missing": [
+        "Databricks configuration evidence showing whether isSelectedEntityFromAPI() is false and getQuerySetActiveDB() is empty, which would make the explicit pre-switch failure at L3:278 applicable.",
+        "Evidence that a Databricks JDBC session.setCatalog failure can occur while leaving the connection on its previously active catalog.",
+        "Call-site or runtime evidence showing that user catalog changes or the outer derived-context initialization flow continues with database work after the suppressed failure.",
+        "The failed callers lookup (L4) did not identify framework callers that rely on DBCException to stop user-initiated catalog changes."
+      ],
+      "verified_defect_evidence": [
+        {
+          "source": "L3",
+          "file": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/GenericExecutionContext.java",
+          "line": 278,
+          "quote": "throw new DBCException(\"Active catalog can't be changed for this kind of datasource!\");",
+          "verification": "citation confirmed near plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/GenericExecutionContext.java:278"
+        },
+        {
+          "source": "L3",
+          "file": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/GenericExecutionContext.java",
+          "line": 294,
+          "quote": "throw new DBCException(e, this);",
+          "verification": "citation confirmed near plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/GenericExecutionContext.java:294"
+        }
+      ],
+      "verified_changed_evidence": [
+        {
+          "source": "L1",
+          "file": "plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksExecutionContext.java",
+          "line": 68,
+          "quote": "} catch (DBCException e) {",
+          "verification": "citation confirmed near plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksExecutionContext.java:68"
+        },
+        {
+          "source": "L1",
+          "file": "plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksExecutionContext.java",
+          "line": 69,
+          "quote": "log.debug(\"Error setting default catalog for Databricks\", e);",
+          "verification": "citation confirmed near plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksExecutionContext.java:69"
+        }
+      ]
+    },
+    {
+      "hypothesis": "H2",
+      "lookups": [
+        "L5",
+        "L6",
+        "L7",
+        "L8"
+      ],
+      "status": "UNKNOWN",
+      "supported_claim": "When activeCatalogName is nonempty, the new override returns the data-source catalog lookup directly without falling back to the superclass default; the evidence does not establish that this lookup is null while a superclass default is available on any actual path.",
+      "reasoning": "L5 shows the changed method bypasses super.getDefaultCatalog() whenever activeCatalogName is nonempty. L7 shows that the selected value comes from DBUtils.findObject(getCatalogs(), name). However, the supplied evidence does not establish an execution state where activeCatalogName is nonempty, that lookup returns null, and super.getDefaultCatalog() would simultaneously return a non-null catalog. E27 explicitly identifies the unresolved metadata condition. No consumer evidence establishes harmful behavior or reliance on the inherited non-null default.",
+      "defect_evidence": [],
+      "changed_evidence": [
+        {
+          "source": "L5",
+          "file": "plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksExecutionContext.java",
+          "line": 53,
+          "quote": "if (CommonUtils.isEmpty(activeCatalogName)) {"
+        },
+        {
+          "source": "L5",
+          "file": "plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksExecutionContext.java",
+          "line": 56,
+          "quote": "return getDataSource().getCatalog(activeCatalogName);"
+        },
+        {
+          "source": "L7",
+          "file": "plugins/org.jkiss.dbeaver.ext.generic/src/org/jkiss/dbeaver/ext/generic/model/GenericDataSource.java",
+          "line": 304,
+          "quote": "return DBUtils.findObject(getCatalogs(), name);"
+        }
+      ],
+      "causal_link": "The direct lookup could suppress an inherited fallback only if it returns null while super.getDefaultCatalog() is non-null, but that conjunction is not established by the evidence.",
+      "refuting": [],
+      "missing": [
+        "Evidence that GenericDataSource.getCatalog(activeCatalogName) can return null before catalog metadata is loaded or for a valid Databricks server-reported catalog name.",
+        "Evidence of a reachable state where activeCatalogName is nonempty and super.getDefaultCatalog() is non-null while the data-source lookup returns null.",
+        "Evidence that a consumer is adversely affected by the resulting null or assumes the inherited default remains available."
+      ],
+      "verified_defect_evidence": [],
+      "verified_changed_evidence": [
+        {
+          "source": "L5",
+          "file": "plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksExecutionContext.java",
+          "line": 53,
+          "quote": "if (CommonUtils.isEmpty(activeCatalogName)) {",
+          "verification": "citation confirmed near plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksExecutionContext.java:53"
+        },
+        {
+          "source": "L5",
+          "file": "plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksExecutionContext.java",
+          "line": 56,
+          "quote": "return getDataSource().getCatalog(activeCatalogName);",
+          "verification": "citation confirmed near plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksExecutionContext.java:56"
+        }
+      ]
+    },
+    {
+      "hypothesis": "H3",
+      "lookups": [
+        "L9",
+        "L10",
+        "L11",
+        "L12"
+      ],
+      "status": "UNKNOWN",
+      "supported_claim": "The new Databricks override initializes a derived context by passing the source catalog and a null schema to setDefaultCatalog instead of using GenericDataSource.initDefaultsFrom; the evidence does not establish that this changes the derived context's active schema or affects unqualified SQL.",
+      "reasoning": "L11 shows that GenericDataSource.initializeContextState delegates derived-context initialization to initDefaultsFrom, while the changed Databricks override instead calls setDefaultCatalog(monitor, defaultCatalog, null). E8 shows that the null schema is forwarded to the superclass implementation. However, the supplied evidence does not include the implementations of GenericExecutionContext.initDefaultsFrom or GenericExecutionContext.setDefaultCatalog, so it cannot establish whether the former copies a schema or whether the latter preserves, infers, or clears one when passed null. It also provides no execution path showing a derived context running unqualified SQL and resolving it against a different schema. Thus the behavioral defect and its consequence are not established.",
+      "defect_evidence": [],
+      "changed_evidence": [
+        {
+          "source": "L9",
+          "file": "plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksDataSource.java",
+          "line": 93,
+          "quote": "executionContext.setDefaultCatalog(monitor, defaultCatalog, null);"
+        },
+        {
+          "source": "E8",
+          "file": "plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksExecutionContext.java",
+          "line": 66,
+          "quote": "super.setDefaultCatalog(monitor, catalog, schema);"
+        }
+      ],
+      "causal_link": "The change replaces the inherited derived-context initialization path with a catalog-setting call that receives a null schema, but the available evidence does not establish that this call loses the source schema or changes SQL name resolution.",
+      "refuting": [],
+      "missing": [
+        "The implementation of GenericExecutionContext.initDefaultsFrom, needed to determine whether it copies both catalog and schema from the source context.",
+        "The implementation and runtime semantics of GenericExecutionContext.setDefaultCatalog when its schema argument is null, needed to determine whether the schema is preserved, inferred, reset, or cleared.",
+        "Evidence that a derived Databricks context initialized through this path executes statements with unqualified object names and resolves them against a schema different from the source context."
+      ],
+      "verified_defect_evidence": [],
+      "verified_changed_evidence": [
+        {
+          "source": "L9",
+          "file": "plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksDataSource.java",
+          "line": 93,
+          "quote": "executionContext.setDefaultCatalog(monitor, defaultCatalog, null);",
+          "verification": "citation confirmed near plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksDataSource.java:93"
+        },
+        {
+          "source": "E8",
+          "file": "plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksExecutionContext.java",
+          "line": 66,
+          "quote": "super.setDefaultCatalog(monitor, catalog, schema);",
+          "verification": "citation confirmed near plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksExecutionContext.java:66"
+        }
+      ]
+    },
+    {
+      "hypothesis": "H4",
+      "lookups": [],
+      "status": "UNKNOWN",
+      "supported_claim": "The added cast of initFrom can throw ClassCastException if a legal non-Databricks JDBCExecutionContext reaches this override, but the supplied evidence does not establish that any lifecycle path can supply such a value.",
+      "reasoning": "E3 shows unconditional casts of both context and non-null initFrom to DatabricksExecutionContext. E4 shows that the changed DatabricksDataSource factory creates DatabricksExecutionContext instances, which supports safety for contexts produced through that factory. However, E23 and E24 explicitly state that the lifecycle call paths and alternate construction paths were not established. There is therefore no evidence of an actual legal path passing a plain GenericExecutionContext or JDBCExecutionContext, and no evidence proving that all paths must use the overridden factory.",
+      "defect_evidence": [],
+      "changed_evidence": [
+        {
+          "source": "E3",
+          "file": "plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksDataSource.java",
+          "line": 88,
+          "quote": "DatabricksExecutionContext executionMetaContext = (DatabricksExecutionContext) initFrom;"
+        },
+        {
+          "source": "E4",
+          "file": "plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksDataSource.java",
+          "line": 99,
+          "quote": "return new DatabricksExecutionContext(instance, type);"
+        }
+      ],
+      "causal_link": "The changed cast would cause ClassCastException only on a path where non-null initFrom is not a DatabricksExecutionContext. No such path is established by the packet, while the one shown creation method returns the required subtype.",
+      "refuting": [
+        {
+          "source": "E4",
+          "explanation": "The overridden createExecutionContext factory always returns DatabricksExecutionContext, so contexts created through this shown path satisfy the casts; this does not establish that every lifecycle path uses the factory."
+        }
+      ],
+      "missing": [
+        "Call sites and inherited implementation of initializeContextState showing how context and initFrom are selected.",
+        "Evidence whether metadata initialization, reconnection, cloning, or other inherited paths can construct or pass a plain GenericExecutionContext or JDBCExecutionContext.",
+        "Evidence that all Databricks contexts reaching this override are necessarily created through DatabricksDataSource.createExecutionContext."
+      ],
+      "verified_defect_evidence": [],
+      "verified_changed_evidence": [
+        {
+          "source": "E3",
+          "file": "plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksDataSource.java",
+          "line": 88,
+          "quote": "DatabricksExecutionContext executionMetaContext = (DatabricksExecutionContext) initFrom;",
+          "verification": "citation confirmed near plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksDataSource.java:88"
+        },
+        {
+          "source": "E4",
+          "file": "plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksDataSource.java",
+          "line": 99,
+          "quote": "return new DatabricksExecutionContext(instance, type);",
+          "verification": "citation confirmed near plugins/org.jkiss.dbeaver.ext.databricks/src/org/jkiss/dbeaver/ext/databricks/DatabricksDataSource.java:99"
+        }
+      ]
+    }
+  ],
+  "confirmed": [],
+  "refuted": [],
+  "unknown": [
+    "H1",
+    "H2",
+    "H3",
+    "H4"
+  ],
+  "findings": [],
+  "budget": {
+    "max_hypotheses": 5,
+    "max_lookups": 12,
+    "used_lookups": 12,
+    "max_lookups_per_hypothesis": 4
+  },
+  "usage": {
+    "llm_calls": 16,
+    "by_stage": {
+      "investigator": 12,
+      "verifier": 4
+    },
+    "prompt_tokens": 45837,
+    "completion_tokens": 7194,
+    "reasoning_tokens": 4184,
+    "llm_seconds": 115.6
+  },
+  "errors": [],
+  "replay": {
+    "snapshot_version": "sydes-investigation-snapshot/1",
+    "allocation": "sequential"
+  }
+}

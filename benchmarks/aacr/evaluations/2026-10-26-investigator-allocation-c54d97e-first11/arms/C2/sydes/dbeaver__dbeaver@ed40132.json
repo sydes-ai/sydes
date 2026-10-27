@@ -1,0 +1,56 @@
+{
+  "code_findings": [
+    {
+      "id": "investigator-H1",
+      "severity": "P1",
+      "title": "A pre-change binary of the separate `org.jkiss.dbeaver.erd.model` plugin containing `DiagramObjectCollector.collectTables` is binary-incompatible with the changed `DBSObjectFilter`; if that call path ",
+      "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/struct/DBSObjectFilter.java",
+      "line": 153,
+      "repo": null,
+      "explanation": "The diff replaces the public one-argument method with a varargs method. Although source calls with one `String` still compile, `String...` has the JVM descriptor `String[]`, not `String`; it does not preserve the old method descriptor. E15 shows a caller in another plugin making the one-argument call, and L2 shows that the containing package is exported. A binary of that caller compiled before the change references `matches(Ljava/lang/String;)Z`, while the changed class supplies `matches([Ljava/lang/String;)Z`.",
+      "impact": "Caused by the change: The changed declaration removes the `matches(String)` JVM method and introduces `matches(String[])`. Therefore an unchanged, previously compiled cross-plugin invocation targeting the former descriptor cannot resolve against the new class and can throw `NoSuchMethodError` when executed.",
+      "suggested_fix": null,
+      "source": "investigator",
+      "evidence": [
+        {
+          "file": "plugins/org.jkiss.dbeaver.erd.model/src/org/jkiss/dbeaver/erd/model/DiagramObjectCollector.java",
+          "symbol": null,
+          "label": "verified_quote:122",
+          "snippet": "if (objectFilter != null && !objectFilter.matches(entity.getName())) {"
+        },
+        {
+          "file": "plugins/org.jkiss.dbeaver.model/META-INF/MANIFEST.MF",
+          "symbol": null,
+          "label": "verified_quote:74",
+          "snippet": "org.jkiss.dbeaver.model.struct,"
+        },
+        {
+          "file": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/struct/DBSObjectFilter.java",
+          "symbol": null,
+          "label": "verified_quote:153",
+          "snippet": "public synchronized boolean matches(String... names) {"
+        }
+      ]
+    }
+  ],
+  "code_review_status": "completed",
+  "run_metrics": {
+    "llm_totals": {
+      "calls": 11,
+      "input_tokens": 19753,
+      "output_tokens": 7025,
+      "errors": 0
+    },
+    "llm_by_purpose": {
+      "investigator": {
+        "calls": 8
+      },
+      "verifier": {
+        "calls": 3
+      }
+    }
+  },
+  "diagnostics": [
+    "investigator: hypotheses=2 lookups=8/12 confirmed=1 refuted=0 unknown=1 findings=1 llm_calls=11 errors=0"
+  ]
+}

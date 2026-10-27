@@ -1,0 +1,527 @@
+{
+  "version": "sydes-investigation/1",
+  "packet": [
+    {
+      "id": "E1",
+      "kind": "diff",
+      "ref": "packages/react-dom/src/__tests__/ReactDOMForm-test.js",
+      "chars": 2002
+    },
+    {
+      "id": "E2",
+      "kind": "diff",
+      "ref": "packages/react-reconciler/src/ReactFiberHooks.js",
+      "chars": 650
+    },
+    {
+      "id": "E3",
+      "kind": "test_execution",
+      "ref": "ci_suite",
+      "chars": 76
+    },
+    {
+      "id": "E4",
+      "kind": "change_analysis",
+      "ref": "summary",
+      "chars": 310
+    },
+    {
+      "id": "E5",
+      "kind": "change_analysis",
+      "ref": "local_risk",
+      "chars": 248
+    },
+    {
+      "id": "E6",
+      "kind": "change_analysis",
+      "ref": "local_risk",
+      "chars": 259
+    },
+    {
+      "id": "E7",
+      "kind": "change_analysis",
+      "ref": "uncertainty",
+      "chars": 200
+    },
+    {
+      "id": "E8",
+      "kind": "change_analysis",
+      "ref": "uncertainty",
+      "chars": 212
+    },
+    {
+      "id": "E9",
+      "kind": "change_analysis",
+      "ref": "uncertainty",
+      "chars": 209
+    },
+    {
+      "id": "E10",
+      "kind": "change_analysis",
+      "ref": "uncertainty",
+      "chars": 197
+    }
+  ],
+  "hypotheses": [
+    {
+      "id": "H1",
+      "claim": "The committed `it.only` causes the other tests in `ReactDOMForm-test.js` to be skipped when the file runs, violating the requirement that the full form regression suite execute.",
+      "why_suspected": "The new regression case is explicitly marked exclusive, and focused-test semantics ordinarily suppress neighboring tests.",
+      "file": "packages/react-dom/src/__tests__/ReactDOMForm-test.js",
+      "line": 1673,
+      "severity": "P2",
+      "initial_evidence": [
+        "E1",
+        "E5"
+      ],
+      "questions_to_resolve": [
+        "Does this repository's Jest configuration reject focused tests, or does running this file silently skip its other cases?"
+      ]
+    },
+    {
+      "id": "H2",
+      "claim": "The new regression test can pass without submitting the form a second time while the first action is pending, so it does not reliably exercise the concurrent-submission behavior that the production change is intended to fix.",
+      "why_suspected": "Both the action and the delay before the second submission use one-millisecond timers, and the only assertion checks that both actions were invoked; it never asserts that the first action remained pending when the second submission occurred.",
+      "file": "packages/react-dom/src/__tests__/ReactDOMForm-test.js",
+      "line": 1682,
+      "severity": "P2",
+      "initial_evidence": [
+        "E1",
+        "E4",
+        "E6"
+      ],
+      "questions_to_resolve": [
+        "Can the first action's timer resolve before the second `requestSubmit` under supported schedulers?",
+        "Would replacing the action timer with a manually controlled promise demonstrate that the second submission definitely occurs while the first is pending?"
+      ]
+    }
+  ],
+  "lookups": [
+    {
+      "n": 1,
+      "id": "L1",
+      "hypothesis": "H1",
+      "tool": "read_source",
+      "args": {
+        "path": "packages/react-dom/src/__tests__/ReactDOMForm-test.js",
+        "start_line": 1658,
+        "end_line": 1685
+      },
+      "why": "Confirm that line 1673 contains an active `it.only` test declaration rather than a comment or conditional construct.",
+      "provenance": "source_read",
+      "result_chars": 1335,
+      "result_excerpt": "1658:     await act(() => resolveText('Wait'));\n1659:     assertLog([]);\n1660:     // The DOM input is still dirty.\n1661:     expect(inputRef.current.value).toBe('  AcdLite  ');\n1662:     // The React tree is suspended.\n1663:     expect(divRef.current.textContent).toEqual('Current username: (empty)');\n1664: \n1665:     // Unsuspend and finish rendering. Now the form should be reset.\n1666:     await act(() => resolveText('acdlite'));\n1667:     assertLog(['Current username: acdlite']);\n1668:     // The form was reset to the new value from the server.\n1669:     expect(inputRef.current.value).toBe("
+    },
+    {
+      "n": 2,
+      "id": "L2",
+      "hypothesis": "H1",
+      "tool": "search_text",
+      "args": {
+        "pattern": "forbidOnly|forbidFocused|\\.only\\b|focused test",
+        "path_glob": "**/*{jest,Jest,test,Test}*"
+      },
+      "why": "Determine whether the repository\u2019s Jest setup explicitly rejects focused tests instead of allowing `it.only` to skip sibling cases.",
+      "provenance": "source_search",
+      "result_chars": 3281,
+      "result_excerpt": "packages/eslint-plugin-react-hooks/__tests__/ESLintRuleExhaustiveDeps-test.js:8269: if (t.only) {\npackages/eslint-plugin-react-hooks/__tests__/ESLintRuleExhaustiveDeps-test.js:8270: delete t.only;\npackages/eslint-plugin-react-hooks/__tests__/ESLintRulesOfHooks-test.js:1544: if (t.only) {\npackages/eslint-plugin-react-hooks/__tests__/ESLintRulesOfHooks-test.js:1545: delete t.only;\npackages/react/src/__tests__/onlyChild-test.js:22: {React.Children.only(this.props.children, this.props.mapFn, this)}\npackages/react/src/__tests__/onlyChild-test.js:37: React.Children.only(instance.props.children);\npac"
+    },
+    {
+      "n": 3,
+      "id": "L3",
+      "hypothesis": "H2",
+      "tool": "read_source",
+      "args": {
+        "path": "packages/react-dom/src/__tests__/ReactDOMForm-test.js",
+        "start_line": 1640,
+        "end_line": 1725
+      },
+      "why": "Inspect the new regression test\u2019s exact sequencing, timer duration, scheduler calls, and assertions to determine whether the first action can settle before the second requestSubmit.",
+      "provenance": "source_read",
+      "result_chars": 3675,
+      "result_excerpt": "1640:         Scheduler.log(`Async action started`);\n1641:         await getText('Wait');\n1642: \n1643:         // Update the app with new data. This is analagous to re-rendering\n1644:         // from the root with a new RSC payload.\n1645:         startTransition(() => {\n1646:           root.render(<App promiseForUsername={getText(normalizedUsername)} />);\n1647:         });\n1648:       });\n1649:     });\n1650:     assertLog(['Async action started']);\n1651:     expect(inputRef.current.value).toBe('  AcdLite  ');\n1652: \n1653:     // Finish the async action. This will trigger a re-render from the r"
+    },
+    {
+      "n": 4,
+      "id": "L4",
+      "hypothesis": "H2",
+      "tool": "search_text",
+      "args": {
+        "pattern": "setTimeout\\(res, 1\\)|requestSubmit\\(\\);[\\s\\S]{0,200}requestSubmit",
+        "path_glob": "packages/react-dom/src/__tests__/*-test.js"
+      },
+      "why": "Find comparable tests and timing patterns that reveal whether equal-delay timers are relied on to preserve pending-action overlap.",
+      "provenance": "source_search",
+      "result_chars": 212,
+      "result_excerpt": "packages/react-dom/src/__tests__/ReactDOMForm-test.js:1682: await new Promise(res => setTimeout(res, 1));\npackages/react-dom/src/__tests__/ReactDOMForm-test.js:1691: return new Promise(res => setTimeout(res, 1));"
+    },
+    {
+      "n": 5,
+      "id": "L5",
+      "hypothesis": "H1",
+      "tool": "read_source",
+      "args": {
+        "path": "scripts/jest/setupTests.js",
+        "start_line": 230,
+        "end_line": 285
+      },
+      "why": "Inspect the Jest setup's uses or overrides of `test.only` to determine whether focused tests are rejected or executed with normal Jest focus semantics.",
+      "provenance": "source_read",
+      "result_chars": 1735,
+      "result_excerpt": "230:     let shouldPass;\n231:     try {\n232:       const flags = getTestFlags();\n233:       shouldPass = gateFn(flags);\n234:     } catch (e) {\n235:       test(\n236:         testName,\n237:         () => {\n238:           throw e;\n239:         },\n240:         timeoutMS\n241:       );\n242:       return;\n243:     }\n244:     if (shouldPass) {\n245:       test(testName, callback, timeoutMS);\n246:     } else {\n247:       const error = new Error(gatedErrorMessage);\n248:       Error.captureStackTrace(error, global._test_gate);\n249:       test(`[GATED, SHOULD FAIL] ${testName}`, () =>\n250:         expectTe"
+    },
+    {
+      "n": 6,
+      "id": "L6",
+      "hypothesis": "H1",
+      "tool": "search_text",
+      "args": {
+        "pattern": "forbidOnly|hasFocusedTests|no-focused-tests|forbid.*focus|focused.*(?:reject|fail|error)|(?:reject|fail|error).*focused",
+        "path_glob": "**/*"
+      },
+      "why": "Check globally for Jest options, custom runners/reporters, or lint/CI rules that turn focused tests into errors; absent such handling, the setup\u2019s direct use of test.only indicates normal skip semantics.",
+      "provenance": "source_search",
+      "result_chars": 600,
+      "result_excerpt": ".eslintrc.js:407: 'jest/no-focused-tests': OFF,\nfixtures/flight/playwright.config.js:10: forbidOnly: !isCI,\npackages/react-devtools-shared/src/__tests__/transform-react-version-pragma-test.js:96: /* eslint-disable jest/no-focused-tests */\npackages/react-devtools-shared/src/__tests__/transform-react-version-pragma-test.js:126: it.only('reactVersion focused multiple pragmas fail', () => {\nscripts/babel/__tests__/transform-test-gate-pragma-test.js:72: /* eslint-disable jest/no-focused-tests */\nscripts/babel/__tests__/transform-test-gate-pragma-test.js:92: /* eslint-enable jest/no-focused-tests */"
+    },
+    {
+      "n": 7,
+      "id": "L7",
+      "hypothesis": "H1",
+      "tool": "runtime_for",
+      "args": {
+        "term": "packages/react-dom/src/__tests__/ReactDOMForm-test.js"
+      },
+      "why": "Confirm from the actual test run whether Jest accepted the focused test and skipped the file\u2019s other cases rather than rejecting `it.only`.",
+      "provenance": "runtime_evidence",
+      "result_chars": 84,
+      "result_excerpt": "no runtime evidence mentions 'packages/react-dom/src/__tests__/ReactDOMForm-test.js'"
+    },
+    {
+      "n": 8,
+      "id": "L8",
+      "hypothesis": "H2",
+      "tool": "runtime_for",
+      "args": {
+        "term": "multiple form submissions in rapid succession do not throw"
+      },
+      "why": "Determine whether runtime traces show the first action settling before the second requestSubmit, directly deciding whether the test reliably creates overlapping submissions.",
+      "provenance": "runtime_evidence",
+      "result_chars": 89,
+      "result_excerpt": "no runtime evidence mentions 'multiple form submissions in rapid succession do not throw'"
+    },
+    {
+      "n": 9,
+      "id": "L9",
+      "hypothesis": "H2",
+      "tool": "tests_for",
+      "args": {
+        "term": "packages/react-dom/src/__tests__/ReactDOMForm-test.js"
+      },
+      "why": "Check whether this regression test was run against the pre-fix implementation and whether results distinguish overlapping submissions from sequential ones.",
+      "provenance": "test_evidence",
+      "result_chars": 104,
+      "result_excerpt": "no test_mapping/test_execution evidence mentions 'packages/react-dom/src/__tests__/ReactDOMForm-test.js'"
+    },
+    {
+      "n": 10,
+      "id": "L10",
+      "hypothesis": "H2",
+      "tool": "search_text",
+      "args": {
+        "pattern": "jest\\.useFakeTimers|useFakeTimers|setTimeout|act\\(",
+        "path_glob": "packages/react-dom/src/__tests__/ReactDOMForm-test.js"
+      },
+      "why": "Determine whether this test file uses fake timers or a custom scheduler/act configuration that controls ordering between the two equal-delay timers.",
+      "provenance": "source_search",
+      "result_chars": 3856,
+      "result_excerpt": "packages/react-dom/src/__tests__/ReactDOMForm-test.js:188: await act(() => {\npackages/react-dom/src/__tests__/ReactDOMForm-test.js:219: await act(async () => {\npackages/react-dom/src/__tests__/ReactDOMForm-test.js:237: await act(async () => {\npackages/react-dom/src/__tests__/ReactDOMForm-test.js:270: await act(async () => {\npackages/react-dom/src/__tests__/ReactDOMForm-test.js:310: await act(async () => {\npackages/react-dom/src/__tests__/ReactDOMForm-test.js:351: await act(async () => {\npackages/react-dom/src/__tests__/ReactDOMForm-test.js:376: await act(async () => {\npackages/react-dom/src/__"
+    },
+    {
+      "n": 11,
+      "id": "L11",
+      "hypothesis": "H2",
+      "tool": "search_text",
+      "args": {
+        "pattern": "action\\(formData\\)|startHostTransition\\(",
+        "path_glob": "packages/react-dom-bindings/src/**/*.js"
+      },
+      "why": "Determine whether requestSubmit invokes the userspace action synchronously enough to register its 1ms timer before the test registers the timer that gates the second requestSubmit; this directly decides whether the first action may settle first.",
+      "provenance": "source_search",
+      "result_chars": 377,
+      "result_excerpt": "packages/react-dom-bindings/src/events/plugins/FormActionEventPlugin.js:144: startHostTransition(\npackages/react-dom-bindings/src/events/plugins/FormActionEventPlugin.js:175: startHostTransition(formInst, pendingState, action, formData);\npackages/react-dom-bindings/src/events/plugins/FormActionEventPlugin.js:211: startHostTransition(formInst, pendingState, action, formData);"
+    }
+  ],
+  "outcomes": [
+    {
+      "hypothesis": "H1",
+      "lookups": [
+        "L1",
+        "L2",
+        "L5",
+        "L6",
+        "L7"
+      ],
+      "status": "CONFIRMED",
+      "supported_claim": "When ReactDOMForm-test.js is run under the repository's Jest setup, the newly added focused test causes its ordinary sibling tests not to execute, so the full form regression file is not exercised.",
+      "reasoning": "The change adds `it.only` at line 1673 while the file contains ordinary sibling `it` cases. Repository evidence explicitly describes `.only` as the way to focus a test, and the Jest setup implements its focus helper with `test.only`. The ESLint protection against committed focused tests is disabled, so it does not reject this line before execution. Thus the added focus marker selects this test instead of the ordinary sibling cases.",
+      "defect_evidence": [
+        {
+          "source": "L2",
+          "file": "scripts/babel/__tests__/transform-test-gate-pragma-test.js",
+          "line": 24,
+          "quote": "// to focus something, swap the following `test` call for `test.only`."
+        },
+        {
+          "source": "L5",
+          "file": "scripts/jest/setupTests.js",
+          "line": 270,
+          "quote": "test.only(testName, callback, timeoutMS);"
+        },
+        {
+          "source": "L6",
+          "file": ".eslintrc.js",
+          "line": 407,
+          "quote": "'jest/no-focused-tests': OFF,"
+        },
+        {
+          "source": "change",
+          "file": "packages/react-dom/src/__tests__/ReactDOMForm-test.js",
+          "line": 1715,
+          "quote": "  it("
+        }
+      ],
+      "changed_evidence": [
+        {
+          "source": "L1",
+          "file": "packages/react-dom/src/__tests__/ReactDOMForm-test.js",
+          "line": 1673,
+          "quote": "  it.only('multiple form submissions in rapid succession do not throw', async () => {"
+        }
+      ],
+      "causal_link": "The changed line introduces the focus marker `.only`. The repository's own test infrastructure uses `test.only` for focused execution, while neighboring form regressions remain ordinary `it` cases; therefore selecting the new focused case prevents those ordinary cases from running. The disabled `jest/no-focused-tests` rule does not block the committed marker.",
+      "refuting": [],
+      "missing": [],
+      "verified_defect_evidence": [
+        {
+          "source": "L2",
+          "file": "scripts/babel/__tests__/transform-test-gate-pragma-test.js",
+          "line": 24,
+          "quote": "// to focus something, swap the following `test` call for `test.only`.",
+          "verification": "citation confirmed near scripts/babel/__tests__/transform-test-gate-pragma-test.js:24"
+        },
+        {
+          "source": "L5",
+          "file": "scripts/jest/setupTests.js",
+          "line": 270,
+          "quote": "test.only(testName, callback, timeoutMS);",
+          "verification": "citation confirmed near scripts/jest/setupTests.js:270"
+        },
+        {
+          "source": "L6",
+          "file": ".eslintrc.js",
+          "line": 407,
+          "quote": "'jest/no-focused-tests': OFF,",
+          "verification": "citation confirmed near .eslintrc.js:407"
+        }
+      ],
+      "verified_changed_evidence": [
+        {
+          "source": "L1",
+          "file": "packages/react-dom/src/__tests__/ReactDOMForm-test.js",
+          "line": 1673,
+          "quote": "  it.only('multiple form submissions in rapid succession do not throw', async () => {",
+          "verification": "citation confirmed near packages/react-dom/src/__tests__/ReactDOMForm-test.js:1673"
+        }
+      ],
+      "rounds": [
+        {
+          "round": 1,
+          "lookups": [
+            "L1",
+            "L2"
+          ],
+          "status": "UNKNOWN",
+          "missing": [
+            "The applicable Jest configuration or test setup showing how `it.only` is handled for this test file.",
+            "A test-run result showing either that sibling cases are skipped or that the run fails because focused tests are forbidden.",
+            "The contents and effect of the `test.only` handling referenced by L2 in `scripts/jest/setupTests.js`."
+          ]
+        },
+        {
+          "round": 2,
+          "lookups": [
+            "L5",
+            "L6",
+            "L7"
+          ],
+          "verified_again": true,
+          "new_nonempty_lookups": [
+            "L5",
+            "L6"
+          ],
+          "status": "CONFIRMED",
+          "status_changed": true,
+          "missing": []
+        }
+      ]
+    },
+    {
+      "hypothesis": "H2",
+      "lookups": [
+        "L3",
+        "L4",
+        "L8",
+        "L9",
+        "L10",
+        "L11"
+      ],
+      "status": "UNKNOWN",
+      "supported_claim": "The added test uses independent one-millisecond timers for the interval between submissions and for completion of each action, and it asserts only that both actions started; the supplied evidence does not establish whether the first action is still pending when the second submission occurs.",
+      "reasoning": "The test schedules the second requestSubmit only after a one-millisecond timer, while submitForm also completes through a one-millisecond timer. Its final assertion checks actionCounter === 2 but does not observe or assert that the first action remained pending at the second requestSubmit. However, confirming the hypothesis requires evidence about when the first action is invoked and its timer registered, plus timer/microtask ordering under supported schedulers. E6 labels the scheduling concern as an unverified inference, and L8/L9 provide no execution evidence. Therefore the available evidence neither proves that the first action can finish before the second submission nor proves that overlap is guaranteed.",
+      "defect_evidence": [
+        {
+          "source": "L3",
+          "file": "packages/react-dom/src/__tests__/ReactDOMForm-test.js",
+          "line": 1712,
+          "quote": "expect(actionCounter).toBe(2);"
+        }
+      ],
+      "changed_evidence": [
+        {
+          "source": "L3",
+          "file": "packages/react-dom/src/__tests__/ReactDOMForm-test.js",
+          "line": 1682,
+          "quote": "await new Promise(res => setTimeout(res, 1));"
+        },
+        {
+          "source": "L3",
+          "file": "packages/react-dom/src/__tests__/ReactDOMForm-test.js",
+          "line": 1691,
+          "quote": "return new Promise(res => setTimeout(res, 1));"
+        }
+      ],
+      "causal_link": "The changed test introduces two equal-duration timers without an explicit pending-state assertion or manually controlled action promise. This creates the alleged timing question, but the supplied evidence does not establish the action-dispatch and timer ordering needed to show that the test can pass without overlap.",
+      "refuting": [
+        {
+          "source": "E4",
+          "explanation": "The change summary states that the test targets a second submission while the first action is pending, but it does not provide execution or scheduler evidence proving that this ordering occurs."
+        },
+        {
+          "source": "E6",
+          "explanation": "The reported scheduling risk is explicitly marked '[inference, not verified]' and therefore cannot confirm the defect."
+        },
+        {
+          "source": "L8",
+          "explanation": "No runtime evidence is available for this test."
+        },
+        {
+          "source": "L9",
+          "explanation": "No test-execution evidence is available for this file."
+        }
+      ],
+      "missing": [
+        "Evidence establishing whether the first requestSubmit invokes submitForm synchronously and when its timer is registered relative to the timer at line 1682.",
+        "Supported scheduler/event-loop semantics or a runtime trace showing whether the first action's one-millisecond timer may resolve before the continuation that performs the second requestSubmit.",
+        "A trace or assertion recording that the first action is pending at the exact point of the second requestSubmit.",
+        "Results from an equivalent test using a manually controlled promise, which would establish overlap independently of timer ordering."
+      ],
+      "verified_defect_evidence": [
+        {
+          "source": "L3",
+          "file": "packages/react-dom/src/__tests__/ReactDOMForm-test.js",
+          "line": 1712,
+          "quote": "expect(actionCounter).toBe(2);",
+          "verification": "citation confirmed near packages/react-dom/src/__tests__/ReactDOMForm-test.js:1712"
+        }
+      ],
+      "verified_changed_evidence": [
+        {
+          "source": "L3",
+          "file": "packages/react-dom/src/__tests__/ReactDOMForm-test.js",
+          "line": 1682,
+          "quote": "await new Promise(res => setTimeout(res, 1));",
+          "verification": "citation confirmed near packages/react-dom/src/__tests__/ReactDOMForm-test.js:1682"
+        },
+        {
+          "source": "L3",
+          "file": "packages/react-dom/src/__tests__/ReactDOMForm-test.js",
+          "line": 1691,
+          "quote": "return new Promise(res => setTimeout(res, 1));",
+          "verification": "citation confirmed near packages/react-dom/src/__tests__/ReactDOMForm-test.js:1691"
+        }
+      ],
+      "rounds": [
+        {
+          "round": 1,
+          "lookups": [
+            "L3",
+            "L4"
+          ],
+          "status": "UNKNOWN",
+          "missing": [
+            "Evidence showing whether the first form action is invoked synchronously or scheduled after the first requestSubmit call.",
+            "Supported scheduler semantics or an execution trace establishing the relative order of the action-resolution timer and the timer preceding the second requestSubmit.",
+            "A pending-state assertion or manually controlled action promise demonstrating that the second requestSubmit occurs before the first action resolves."
+          ]
+        },
+        {
+          "round": 2,
+          "lookups": [
+            "L8",
+            "L9",
+            "L10",
+            "L11"
+          ],
+          "verified_again": true,
+          "new_nonempty_lookups": [
+            "L10",
+            "L11"
+          ],
+          "status": "UNKNOWN",
+          "status_changed": false,
+          "missing": [
+            "Evidence establishing whether the first requestSubmit invokes submitForm synchronously and when its timer is registered relative to the timer at line 1682.",
+            "Supported scheduler/event-loop semantics or a runtime trace showing whether the first action's one-millisecond timer may resolve before the continuation that performs the second requestSubmit.",
+            "A trace or assertion recording that the first action is pending at the exact point of the second requestSubmit.",
+            "Results from an equivalent test using a manually controlled promise, which would establish overlap independently of timer ordering."
+          ]
+        }
+      ]
+    }
+  ],
+  "confirmed": [
+    "H1"
+  ],
+  "refuted": [],
+  "unknown": [
+    "H2"
+  ],
+  "findings": [
+    "investigator-H1"
+  ],
+  "budget": {
+    "max_hypotheses": 5,
+    "max_lookups": 12,
+    "used_lookups": 11,
+    "max_lookups_per_hypothesis": 6,
+    "allocation": "two_round",
+    "round1_lookups": 2
+  },
+  "usage": {
+    "llm_calls": 16,
+    "by_stage": {
+      "investigator": 12,
+      "verifier": 4
+    },
+    "prompt_tokens": 32823,
+    "completion_tokens": 7748,
+    "reasoning_tokens": 4932,
+    "llm_seconds": 122.5
+  },
+  "errors": [],
+  "replay": {
+    "snapshot_version": "sydes-investigation-snapshot/1",
+    "allocation": "two_round"
+  }
+}

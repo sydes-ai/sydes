@@ -1,0 +1,56 @@
+{
+  "case_id": "google-gemini__gemini-cli-8154",
+  "instance_id": "google-gemini__gemini-cli@0fa1bd7",
+  "language": "TypeScript",
+  "status": "completed",
+  "wall_seconds": 199.0,
+  "review_base": "bd0f085ae896e97373b451180f70ff551142fd7e",
+  "review_base_info": {
+    "rule": "merge base (newest committer date, then smallest id)",
+    "merge_bases": [
+      "bd0f085ae896e97373b451180f70ff551142fd7e"
+    ]
+  },
+  "code_review_status": "completed",
+  "code_findings": 3,
+  "not_submitted": {
+    "local_risks": 0,
+    "affected_flows": 0
+  },
+  "llm_totals": {
+    "calls": 18,
+    "input_tokens": 55101,
+    "output_tokens": 14936,
+    "errors": 0
+  },
+  "llm_calls_by_purpose": {
+    "investigator": 12,
+    "verifier": 6
+  },
+  "cbm": null,
+  "sydes_wall_seconds": null,
+  "verdict": null,
+  "invalid_reasons": [],
+  "replay": {
+    "source_run": "alloc-A1-snapshot-c54d97e-first11-2026-10-26",
+    "allocation": "two_round"
+  },
+  "investigation": {
+    "hypotheses": 5,
+    "lookups": 12,
+    "confirmed": 3,
+    "refuted": 0,
+    "unknown": 2,
+    "usage": {
+      "llm_calls": 18,
+      "by_stage": {
+        "investigator": 12,
+        "verifier": 6
+      },
+      "prompt_tokens": 55101,
+      "completion_tokens": 14936,
+      "reasoning_tokens": 10627,
+      "llm_seconds": 194.3
+    }
+  }
+}

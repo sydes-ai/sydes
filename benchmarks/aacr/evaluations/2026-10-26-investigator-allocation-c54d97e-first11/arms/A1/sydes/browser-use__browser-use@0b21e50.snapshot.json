@@ -1,0 +1,349 @@
+{
+  "version": "sydes-investigation-snapshot/1",
+  "packet": [
+    {
+      "id": "E1",
+      "kind": "diff",
+      "ref": "browser_use/agent/service.py",
+      "text": "diff --git a/browser_use/agent/service.py b/browser_use/agent/service.py\nindex 82131b9b..e2a057b9 100644\n--- a/browser_use/agent/service.py\n+++ b/browser_use/agent/service.py\n@@ -1222,7 +1222,7 @@ class Agent(Generic[Context]):\n \t\ttest_answer = 'paris'\n \t\ttry:\n \t\t\t# dont convert this to async! it *should* block any subsequent llm calls from running\n-\t\t\tresponse = self.llm.invoke([HumanMessage(content=test_prompt)])  # noqa: ASYNC\n+\t\t\tresponse = self.llm.invoke([HumanMessage(content=test_prompt)])  # noqa: RUF006\n \t\t\tresponse_text = str(response.content).lower()\n \n \t\t\tif test_answer in response_text:"
+    },
+    {
+      "id": "E2",
+      "kind": "diff",
+      "ref": "browser_use/browser/browser.py",
+      "text": "diff --git a/browser_use/browser/browser.py b/browser_use/browser/browser.py\nindex 38a86b67..b7448e9d 100644\n--- a/browser_use/browser/browser.py\n+++ b/browser_use/browser/browser.py\n@@ -21,6 +21,8 @@ load_dotenv()\n \n from browser_use.browser.chrome import (\n \tCHROME_ARGS,\n+\tCHROME_DEBUG_PORT,\n+\tCHROME_DEBUGGING_ARG,\n \tCHROME_DETERMINISTIC_RENDERING_ARGS,\n \tCHROME_DISABLE_SECURITY_ARGS,\n \tCHROME_DOCKER_ARGS,\n@@ -77,6 +79,12 @@ class BrowserConfig(BaseModel):\n \t\t\tPath to a Browser instance to use to connect to your normal browser\n \t\t\te.g. '/Applications/Google\\ Chrome.app/Contents/MacOS/Google\\ Chrome'\n \n+\t\tchrome_remote_debugging_port: 9222\n+\t\t\tChrome remote debugging port to use to when browser_binary_path is supplied.\n+\t\t\tThis allows running multiple chrome browsers with same browser_binary_path but running on different ports.\n+\t\t\tAlso, makes it possible to launch new user provided chrome browser without closing already opened chrome instances,\n+\t\t\tby providing non-default chrome debugging port.\n+\n \t\tkeep_alive: False\n \t\t\tKeep the browser alive after the agent has finished running\n \n@@ -100,6 +108,7 @@ class BrowserConfig(BaseModel):\n \tbrowser_binary_path: str | None = Field(\n \t\tdefault=None, validation_alias=AliasChoices('browser_instance_path', 'chrome_instance_path')\n \t)\n+\tchrome_remote_debugging_port: int | None = CHROME_DEBUG_PORT\n \textra_browser_args: list[str] = Field(default_factory=list)\n \n \theadless: bool = False\n@@ -189,12 +198,16 @@ class Browser:\n \t\ttry:\n \t\t\t# Check if browser is already running\n \t\t\tasync with httpx.AsyncClient() as client:\n-\t\t\t\tresponse = await client.get('http://localhost:9222/json/version', timeout=2)\n+\t\t\t\tresponse = await client.get(\n+\t\t\t\t\tf'http://localhost:{self.config.chrome_remote_debugging_port}/json/version', timeout=2\n+\t\t\t\t)\n \t\t\t\tif response.status_code == 200:\n-\t\t\t\t\tlogger.info('\ud83d\udd0c  Reusing existing browser found running on http://localhost:9222')\n+\t\t\t\t\tlogger.info(\n+\t\t\t\t\t\tf'\ud83d\udd0c  Reusing existing browser found running on http://localhost:{self.config.chrome_remote_debugging_port}'\n+\t\t\t\t\t)\n \t\t\t\t\tbrowser_class = getattr(playwright, self.config.browser_class)\n \t\t\t\t\tbrowser = await browser_class.connect_over_cdp(\n-\t\t\t\t\t\tendpoint_url='http://localhost:9222',\n+\t\t\t\t\t\tendpoint_url=f'http://localhost:{self.config.chrome_remote_debugging_port}',\n \t\t\t\t\t\ttimeout=20000,  # 20 second timeout for connection\n \t\t\t\t\t)\n \t\t\t\t\treturn browser\n@@ -202,9 +215,9 @@ class Browser:\n \t\t\tlogger.debug('\ud83c\udf0e  No existing Chrome instance found, star\u2026"
+    },
+    {
+      "id": "E3",
+      "kind": "diff",
+      "ref": "browser_use/browser/chrome.py",
+      "text": "diff --git a/browser_use/browser/chrome.py b/browser_use/browser/chrome.py\nindex a829fc4e..2f962c3e 100644\n--- a/browser_use/browser/chrome.py\n+++ b/browser_use/browser/chrome.py\n@@ -94,6 +94,8 @@ CHROME_DETERMINISTIC_RENDERING_ARGS = [\n \t'--disable-back-forward-cache',  # disable browsing navigation cache\n ]\n \n+CHROME_DEBUGGING_ARG = '--remote-debugging-port=%(chrome_remote_debugging_port)s'\n+\n CHROME_ARGS = [\n \t# Profile data dir setup\n \t# chrome://profile-internals\n@@ -128,7 +130,6 @@ CHROME_ARGS = [\n \t'--log-level=2',  # 1=DEBUG 2=WARNING 3=ERROR\n \t'--enable-logging=stderr',\n \t# '--remote-debugging-address=127.0.0.1',         <- never expose to non-localhost, would allow attacker to drive your browser from any machine\n-\tf'--remote-debugging-port={CHROME_DEBUG_PORT}',\n \t'--enable-experimental-extension-apis',  # add support for tab groups\n \t'--disable-focus-on-load',  # prevent browser from hijacking focus\n \t'--disable-window-activation',"
+    },
+    {
+      "id": "E4",
+      "kind": "diff",
+      "ref": "examples/custom-functions/file_upload.py",
+      "text": "diff --git a/examples/custom-functions/file_upload.py b/examples/custom-functions/file_upload.py\nindex 827c0b63..d79f33cd 100644\n--- a/examples/custom-functions/file_upload.py\n+++ b/examples/custom-functions/file_upload.py\n@@ -70,7 +70,7 @@ async def read_file(path: str, available_file_paths: list[str]):\n \tif path not in available_file_paths:\n \t\treturn ActionResult(error=f'File path {path} is not available')\n \n-\tasync with (await anyio.open_file(path, 'r')) as f:\n+\tasync with await anyio.open_file(path, 'r') as f:\n \t\tcontent = await f.read()\n \tmsg = f'File content: {content}'\n \tlogger.info(msg)"
+    },
+    {
+      "id": "E5",
+      "kind": "diff",
+      "ref": "tests/test_browser.py",
+      "text": "diff --git a/tests/test_browser.py b/tests/test_browser.py\nindex 9a24d6d5..4b2d56d0 100644\n--- a/tests/test_browser.py\n+++ b/tests/test_browser.py\n@@ -1,6 +1,7 @@\n import asyncio\n import subprocess\n \n+import psutil\n import pytest\n import requests\n \n@@ -156,6 +157,82 @@ async def test_user_provided_browser_launch(monkeypatch):\n \tawait browser_obj.close()\n \n \n+@pytest.mark.asyncio\n+async def test_user_provided_browser_launch_on_custom_chrome_remote_debugging_port(monkeypatch):\n+\t\"\"\"\n+\tTest that when a browser_binary_path and chrome_remote_debugging_port are provided, the Browser class uses\n+\t_setup_user_provided_browser branch and returns the expected DummyBrowser object\n+\tby launching a new Chrome instance with --remote-debugging-port=chrome_remote_debugging_port argument.\n+\t\"\"\"\n+\n+\t# Custom remote debugging port\n+\tcustom_chrome_remote_debugging_port = 9223\n+\n+\t# Dummy response for requests.get when checking chrome debugging endpoint.\n+\tclass DummyResponse:\n+\t\tstatus_code = 200\n+\n+\tdef dummy_get(url, timeout):\n+\t\tif url == f'http://localhost:{custom_chrome_remote_debugging_port}/json/version':\n+\t\t\treturn DummyResponse()\n+\t\traise requests.ConnectionError('Connection failed')\n+\n+\tmonkeypatch.setattr(requests, 'get', dummy_get)\n+\n+\tclass DummyProcess:\n+\t\tdef __init__(self, *args, **kwargs):\n+\t\t\tpass\n+\n+\tclass DummySubProcess:\n+\t\tpid = 1234\n+\n+\tasync def dummy_create_subprocess_exec(browser_binary_path, *args, **kwargs):\n+\t\tassert f'--remote-debugging-port={custom_chrome_remote_debugging_port}' in args, (\n+\t\t\tf'Chrome must be started with with --remote-debugging-port={custom_chrome_remote_debugging_port} argument'\n+\t\t)\n+\n+\t\treturn DummySubProcess()\n+\n+\tmonkeypatch.setattr(asyncio, 'create_subprocess_exec', dummy_create_subprocess_exec)\n+\tmonkeypatch.setattr(psutil, 'Process', DummyProcess)\n+\n+\tclass DummyBrowser:\n+\t\tpass\n+\n+\tclass DummyChromium:\n+\t\tasync def connect_over_cdp(self, endpoint_url, timeout=20000):\n+\t\t\tassert endpoint_url == f'http://localhost:{custom_chrome_remote_debugging_port}', (\n+\t\t\t\tf\"Endpoint URL must be 'http://localhost:{custom_chrome_remote_debugging_port}'\"\n+\t\t\t)\n+\t\t\treturn DummyBrowser()\n+\n+\tclass DummyPlaywright:\n+\t\tdef __init__(self):\n+\t\t\tself.chromium = DummyChromium()\n+\n+\t\tasync def stop(self):\n+\t\t\tpass\n+\n+\tclass DummyAsyncPlaywrightContext:\n+\t\tasync def start(self):\n+\t\t\treturn DummyPlaywright()\n+\n+\tmonkeypatch.setattr('browser_use.browser.browser.async_playwright', lambda: DummyAsyncPlaywrightContext())\n+\n+\tconfig = BrowserConfig(\u2026"
+    },
+    {
+      "id": "E6",
+      "kind": "changed_symbol",
+      "ref": "browser_use/agent/service.py:1201-1250",
+      "text": "class_method Agent._verify_llm_connection\n... test_prompt = 'What is the capital of France? Respond with a single word.' test_answer = 'paris' try: # dont convert this to async! it *should* block any subsequent llm calls from running response = self.llm.invoke([HumanMessage(content=test_prompt)])  # noqa: RUF006 response_text = str(response.content).lower() if test_answer in response_text: logger.debug("
+    },
+    {
+      "id": "E7",
+      "kind": "changed_symbol",
+      "ref": "browser_use/browser/browser.py:58-120",
+      "text": "class BrowserConfig\n... browser_binary_path: None Path to a Browser instance to use to connect to your normal browser e.g. '/Applications/Google\\ Chrome.app/Contents/MacOS/Google\\ Chrome' chrome_remote_debugging_port: 9222 Chrome remote debugging port to use to when browser_binary_path is supplied. This allows running multiple chrome browsers with same browser_binary_path but running on different ports. Also, makes it possible to launch new user provided chrome browser without closing already opened chrome instances, by providing non-default chrome debugging port. keep_alive: False Keep the browser alive after the agent has finished running deterministic_rendering: False ... browser_class: Literal['chromium', 'firefox', 'webkit'] = 'chromium' browser_binary_path: str | None = Field( default=None, validation_alias=AliasChoices('browser_instance_path', 'chrome_instance_path') ) chrome_remote_debugging_port: int | None = CHROME_DEBUG_PORT extra_browser_args: list[str] = Field(default_factory=list) headless: bool = False disable_security: bool = False  # disable_security=True is dangerous as any malicious URL visited could embed an iframe for the user's bank, and use their cookies to steal money"
+    },
+    {
+      "id": "E8",
+      "kind": "changed_symbol",
+      "ref": "browser_use/browser/browser.py:189-263",
+      "text": "class_method Browser._setup_user_provided_browser\n... try: # Check if browser is already running async with httpx.AsyncClient() as client: response = await client.get( f'http://localhost:{self.config.chrome_remote_debugging_port}/json/version', timeout=2 ) if response.status_code == 200: logger.info( f'\ud83d\udd0c  Reusing existing browser found running on http://localhost:{self.config.chrome_remote_debugging_port}' ) browser_class = getattr(playwright, self.config.browser_class) browser = await browser_class.connect_over_cdp( endpoint_url=f'http://localhost:{self.config.chrome_remote_debugging_port}', timeout=20000,  # 20 second timeout for connection ) return browser except httpx.RequestError: logger.debug('\ud83c\udf0e  No existing Chrome instance found, starting a new one') # Start a new Chrome instance chrome_launch_args = [ *{  # remove duplicates (usually preserves the order, but not guaranteed) CHROME_DEBUGGING_ARG % {'chrome_remote_debugging_port': self.config.chrome_remote_debugging_port}, *CHROME_ARGS, *(CHROME_DOCKER_ARGS if IN_DOCKER else []), *(CHROME_HEADLESS_ARGS if self.config.headless else []), *(CHROME_DISABLE_SECURITY_ARGS if self.config.disable_security else []), *(CHROME_DETERMINISTIC_RENDERING_ARGS if self.config.deterministic_rendering else []), *self.config.extra_browser_args, }, ] chrome_sub_process = await asyncio.create_subprocess_exec( self.config.browser_binary_path, *chrome_launch_args, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, shell=False, ) self._chrome_subprocess = psutil.Process(chrome_sub_process.pid) # Attempt to connect again after starting a new instance for _ in range(10):"
+    },
+    {
+      "id": "E9",
+      "kind": "changed_symbol",
+      "ref": "browser_use/browser/browser.py:265-319",
+      "text": "class_method Browser._setup_builtin_browser\n... screen_size = get_screen_resolution() offset_x, offset_y = get_window_adjustments() chrome_args = { CHROME_DEBUGGING_ARG % {'chrome_remote_debugging_port': self.config.chrome_remote_debugging_port}, *CHROME_ARGS, *(CHROME_DOCKER_ARGS if IN_DOCKER else []), *(CHROME_HEADLESS_ARGS if self.config.headless else []), *(CHROME_DISABLE_SECURITY_ARGS if self.config.disable_security else []), ... f'--window-size={screen_size[\"width\"]},{screen_size[\"height\"]}', *self.config.extra_browser_args, } # check if chrome remote debugging port is already taken, # if so remove the remote-debugging-port arg to prevent conflicts with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s: if s.connect_ex(('localhost', self.config.chrome_remote_debugging_port)) == 0: chrome_args.remove(f'--remote-debugging-port={self.config.chrome_remote_debugging_port}') browser_class = getattr(playwright, self.config.browser_class) args = { 'chromium': list(chrome_args),"
+    },
+    {
+      "id": "E10",
+      "kind": "changed_symbol",
+      "ref": "browser_use/browser/chrome.py:97-97",
+      "text": "variable CHROME_DEBUGGING_ARG\nCHROME_DEBUGGING_ARG = '--remote-debugging-port=%(chrome_remote_debugging_port)s'"
+    },
+    {
+      "id": "E11",
+      "kind": "changed_symbol",
+      "ref": "browser_use/browser/chrome.py:99-185",
+      "text": "variable CHROME_ARGS\n... # IO: stdin/stdout, debug port config # chrome://inspect '--log-level=2',  # 1=DEBUG 2=WARNING 3=ERROR '--enable-logging=stderr', # '--remote-debugging-address=127.0.0.1',         <- never expose to non-localhost, would allow attacker to drive your browser from any machine '--enable-experimental-extension-apis',  # add support for tab groups '--disable-focus-on-load',  # prevent browser from hijacking focus '--disable-window-activation', # '--in-process-gpu',                            <- DONT USE THIS, makes headful startup time ~5-10s slower (tested v121 Google Chrome.app on macOS)"
+    },
+    {
+      "id": "E12",
+      "kind": "changed_symbol",
+      "ref": "examples/custom-functions/file_upload.py:69-77",
+      "text": "function read_file\n... async def read_file(path: str, available_file_paths: list[str]): if path not in available_file_paths: return ActionResult(error=f'File path {path} is not available') async with await anyio.open_file(path, 'r') as f: content = await f.read() msg = f'File content: {content}' logger.info(msg) return ActionResult(extracted_content=msg, include_in_memory=True)"
+    },
+    {
+      "id": "E13",
+      "kind": "changed_symbol",
+      "ref": "tests/test_browser.py:161-233",
+      "text": "function test_user_provided_browser_launch_on_custom_chrome_remote_debugging_port\n@pytest.mark.asyncio async def test_user_provided_browser_launch_on_custom_chrome_remote_debugging_port(monkeypatch): \"\"\" Test that when a browser_binary_path and chrome_remote_debugging_port are provided, the Browser class uses _setup_user_provided_browser branch and returns the expected DummyBrowser object by launching a new Chrome instance with --remote-debugging-port=chrome_remote_debugging_port argument. \"\"\" # Custom remote debugging port custom_chrome_remote_debugging_port = 9223 # Dummy response for requests.get when checking chrome debugging endpoint. class DummyResponse: status_code = 200 def dummy_get(url, timeout): if url == f'http://localhost:{custom_chrome_remote_debugging_port}/json/version': return DummyResponse() raise requests.ConnectionError('Connection failed') monkeypatch.setattr(requests, 'get', dummy_get) class DummyProcess: def __init__(self, *args, **kwargs): pass class DummySubProcess: pid = 1234 async def dummy_create_subprocess_exec(browser_binary_path, *args, **kwargs): assert f'--remote-debugging-port={custom_chrome_remote_debugging_port}' in args, ( f'Chrome must be started with with --remote-debugging-port={custom_chrome_remote_debugging_port} argument' ) return DummySubProcess() monkeypatch.setattr(asyncio, 'create_subprocess_exec', dummy_create_subprocess_exec) monkeypatch.setattr(psutil, 'Process', DummyProcess) class DummyBrowser: pass class DummyChromium: async def connect_over_cdp(self, endpoint_url, timeout=20000): assert endpoint_url == f'http://localhost:{custom_chrome_remote_debugging_port}', ( f\"Endpoint URL must be 'http://localhos"
+    },
+    {
+      "id": "E14",
+      "kind": "structural",
+      "ref": "browser_use/browser/utils/screen_resolution.py:34-41",
+      "text": "_setup_builtin_browser calls get_window_adjustments at browser_use/browser/browser.py:274 (3 line(s) from a changed line)\ndef get_window_adjustments():\n\t\"\"\"Returns recommended x, y offsets for window positioning\"\"\"\n\tif sys.platform == 'darwin':  # macOS\n\t\treturn -4, 24  # macOS has a small title bar, no border\n\telif sys.platform == 'win32':  # Windows\n\t\treturn -8, 0  # Windows has a border on the left\n\telse:  # Linux\n\t\treturn 0, 0"
+    },
+    {
+      "id": "E15",
+      "kind": "structural",
+      "ref": "browser_use/agent/views.py:103-110",
+      "text": "read_file constructs ActionResult at examples/custom-functions/file_upload.py:77 (4 line(s) from a changed line)\nclass ActionResult(BaseModel):\n\t\"\"\"Result of executing an action\"\"\"\n\n\tis_done: Optional[bool] = False\n\tsuccess: Optional[bool] = None\n\textracted_content: Optional[str] = None\n\terror: Optional[str] = None\n\tinclude_in_memory: bool = False  # whether to include in past messages as context or not"
+    },
+    {
+      "id": "E16",
+      "kind": "structural",
+      "ref": "browser_use/browser/utils/screen_resolution.py:4-31",
+      "text": "_setup_builtin_browser calls get_screen_resolution at browser_use/browser/browser.py:273 (4 line(s) from a changed line)\ndef get_screen_resolution():\n\tif sys.platform == 'darwin':  # macOS\n\t\ttry:\n\t\t\tfrom AppKit import NSScreen\n\n\t\t\tscreen = NSScreen.mainScreen().frame()\n\t\t\treturn {'width': int(screen.size.width), 'height': int(screen.size.height)}\n\t\texcept ImportError:\n\t\t\tprint('AppKit is not available. Make sure you are running this on macOS with pyobjc installed.')\n\t\texcept Exception as e:\n\t\t\tprint(f'Error retrieving macOS screen resolution: {e}')\n\t\treturn {'width': 2560, 'height': 1664}\n\n\telse:  # Windows & Linux\n\t\ttry:\n\t\t\tfrom screeninfo import get_monitors\n\n\t\t\tmonitors = get_monitors()\n\t\t\tif not monitors:\n\t\t\t\traise Exception('No monitors detected.')\n\t\t\tmonitor = monitors[0]\n\t\t\treturn {'width': monitor.width, 'height': monitor.height}\n\t\texcept ImportError:\n\t\t\tprint(\"screeninfo package not found. Install it using 'pip install screeninfo'.\")\n\t\texcept Exception as e:\n\t\t\tprint(f'Error retrieving screen resolution: {e}')\n\n\t\treturn {'width': 1920, 'height': 1080}"
+    },
+    {
+      "id": "E17",
+      "kind": "structural",
+      "ref": "browser_use/agent/service.py:92-211",
+      "text": "__init__ calls the changed _verify_llm_connection\n\tdef __init__(\n\t\tself,\n\t\ttask: str,\n\t\tllm: BaseChatModel,\n\t\t# Optional parameters\n\t\tbrowser: Browser | None = None,\n\t\tbrowser_context: BrowserContext | None = None,\n\t\tcontroller: Controller[Context] = Controller(),\n\t\t# Initial agent run parameters\n\t\tsensitive_data: Optional[Dict[str, str]] = None,\n\t\tinitial_actions: Optional[List[Dict[str, Dict[str, Any]]]] = None,\n\t\t# Cloud Callbacks\n\t\tregister_new_step_callback: Union[\n\t\t\tCallable[['BrowserState', 'AgentOutput', int], None],  # Sync callback\n\t\t\tCallable[['BrowserState', 'AgentOutput', int], Awaitable[None]],  # Async callback\n\t\t\tNone,\n\t\t] = None,\n\t\tregister_done_callback: Union[\n\t\t\tCallable[['AgentHistoryList'], Awaitable[None]],  # Async Callback\n\t\t\tCallable[['AgentHistoryList'], None],  # Sync Callback\n\t\t\tNone,\n\t\t] = None,\n\t\tregister_external_agent_status_raise_error_callback: Callable[[], Awaitable[bool]] | None = None,\n\t\t# Agent settings\n\t\tuse_vision: bool = True,\n\t\tuse_vision_for_planner: bool = False,\n\t\tsave_conversation_path: Optional[str] = None,\n\t\tsave_conversation_path_encoding: Optional[str] = 'utf-8',\n\t\tmax_failures: int = 3,\n\t\tretry_delay: int = 10,\n\t\toverride_system_message: Optional[str] = None,\n\t\textend_system_message: Optional[str] = None,\n\t\tmax_input_tokens: int = 128000,\n\t\tvalidate_output: bool = False,\n\t\tmessage_context: Optional[str] = None,\n\t\tgenerate_gif: bool | str = False,\n\t\tavailable_file_paths: Optional[list[str]] = None,\n\t\tinclude_attributes: list[str] = [\n\t\t\t'title',\n\t\t\t'type',\n\t\t\t'name',\n\t\t\t'role',\n\t\t\t'aria-label',\n\t\t\t'placeholder',\n\t\t\t'value',\n\t\t\t'alt',\n\t\t\t'aria-expanded',\n\t\t\t'data-date-format',\n\t\t],\n\t\tmax_actions_per_step: int = 10,\n\t\ttool_calling_method: Optional[ToolCallingMethod] = 'auto',\n\t\tpage_extraction_llm: Optional[BaseChatModel] = None,\n\t\tplanner_llm: Optional[BaseChatModel] = None,\n\t\tplanner_interval: int = 1,  # Run planner every N steps\n\t\tis_planner_reasoning: bool = False,\n\t\textend_planner_system_message: Optional[str] = None,\n\t\t# Inject state\n\t\tinjected_agent_state: Optional[AgentState] = None,\n\t\t#\n\t\tcontext: Context | None = None,\n\t\t# Memory settings\n\t\tenable_memory: bool = True,\n\t\tmemory_config: Optional[MemoryConfig] = None,\n\t):\n\t\tif page_extraction_llm is None:\n\t\t\tpage_extraction_llm = llm\n\n\t\t# Core components\n\t\tself.task = task\n\t\tself.llm = llm\n\t\tself.controller = controller\n\t\tself.sensitive_data = sensitive_data\n\n\t\tself.settings = AgentSettings(\n\t\t\tuse_vision=use_vision,\n\t\t\tuse_vision_for_planner=use_v\u2026"
+    },
+    {
+      "id": "E18",
+      "kind": "structural",
+      "ref": "browser_use/browser/browser.py:133-140",
+      "text": "__init__ calls the changed BrowserConfig\n\tdef __init__(\n\t\tself,\n\t\tconfig: BrowserConfig | None = None,\n\t):\n\t\tlogger.debug('\ud83c\udf0e  Initializing new browser')\n\t\tself.config = config or BrowserConfig()\n\t\tself.playwright: Playwright | None = None\n\t\tself.playwright_browser: PlaywrightBrowser | None = None"
+    },
+    {
+      "id": "E19",
+      "kind": "structural",
+      "ref": "eval/service.py:705-824",
+      "text": "run_task_with_semaphore calls the changed BrowserConfig\nasync def run_task_with_semaphore(\n\ttask: Task,\n\trun_id: str,\n\tconvex_url: str,\n\tsecret_key: str,\n\teval_model: BaseChatModel,\n\tllm: BaseChatModel,\n\tmax_steps_per_task: int,\n\theadless: bool,\n\tuse_vision: bool,\n\tsemaphore_runs: asyncio.Semaphore,  # Pass semaphore as argument\n) -> dict:\n\t\"\"\"Run a single task with semaphore, sequential execution, and robust error handling\"\"\"\n\t# Acquire semaphore before starting any task-specific logic\n\tasync with semaphore_runs:\n\t\t# --- Initialize State & Payload ---\n\t\ttask_folder = Path(f'saved_trajectories/{task.task_id}')\n\t\tresult_file = task_folder / 'result.json'\n\n\t\t# Flags to track progress and errors\n\t\texecution_needed = True\n\t\texecution_succeeded = False\n\t\tevaluation_needed = True\n\t\tevaluation_succeeded = True  # Default to True, set to False if eval is needed but fails\n\t\tlocal_processing_error = None\n\n\t\t# Initialize the payload with basic info and default failure/unevaluated states\n\t\tserver_payload = {\n\t\t\t'runId': run_id,\n\t\t\t'taskId': task.task_id,\n\t\t\t'task': task.confirmed_task,\n\t\t\t'actionHistory': [],\n\t\t\t'finalResultResponse': 'None',  # Default if execution doesn't happen or fails early\n\t\t\t'selfReportCompleted': False,\n\t\t\t'selfReportSuccess': None,\n\t\t\t'onlineMind2WebEvaluationJudgement': 'Not Attempted',\n\t\t\t'onlineMind2WebEvaluationError': None,\n\t\t\t'onlineMind2WebEvaluationSuccess': False,\n\t\t\t'onlineMind2WebEvaluationScore': 0.0,\n\t\t}\n\n\t\t# Initialize the return value for local processing status\n\t\tlocal_task_status = {'task_id': task.task_id, 'success': False, 'error': None}\n\n\t\t# --- Main Sequential Logic with Error Handling ---\n\t\ttry:\n\t\t\t# 1. Check for Existing Result\n\t\t\tif result_file.exists():\n\t\t\t\tlogger.info(f'Task {task.task_id}: Found existing result file.')\n\t\t\t\ttry:\n\t\t\t\t\twith anyio.open_file(result_file) as f:\n\t\t\t\t\t\texisting_result = json.loads(await f.read())\n\n\t\t\t\t\t# Populate payload from existing file\n\t\t\t\t\tserver_payload['actionHistory'] = existing_result.get('action_history', [])\n\t\t\t\t\tserver_payload['finalResultResponse'] = existing_result.get('final_result_response', 'None')\n\t\t\t\t\tserver_payload['selfReportCompleted'] = existing_result.get('self_report_completed', False)\n\t\t\t\t\tserver_payload['selfReportSuccess'] = existing_result.get('self_report_success', None)\n\n\t\t\t\t\t# Check if evaluation data is also present\n\t\t\t\t\tif existing_eval := existing_result.get('Online_Mind2Web_evaluation'):\n\t\t\t\t\t\tlogger.info(f'Task {task.task_id}: Found existing evaluation \u2026"
+    },
+    {
+      "id": "E20",
+      "kind": "test_execution",
+      "ref": "ci_suite",
+      "text": "unknown test execution unavailable: no runnable target-project environment found (uv project with no synced `.venv`; Sydes does not create or install environments)"
+    },
+    {
+      "id": "E21",
+      "kind": "gap",
+      "ref": "unresolved:CHROME_ARGS",
+      "text": "changed symbol CHROME_ARGS: no structural path to an entrypoint was established"
+    },
+    {
+      "id": "E22",
+      "kind": "gap",
+      "ref": "unresolved:CHROME_DEBUGGING_ARG",
+      "text": "changed symbol CHROME_DEBUGGING_ARG: no structural path to an entrypoint was established"
+    },
+    {
+      "id": "E23",
+      "kind": "change_analysis",
+      "ref": "summary",
+      "text": "Browser startup now supports a configurable Chrome remote-debugging port and applies it when probing, launching, and connecting to both user-provided and built-in browsers. User-provided Chrome is also launched with an executable-plus-argument process API. The agent and file-upload edits appear non-behavioral, while the new browser test documents the custom-port intent but does not fully isolate the HTTP checks."
+    },
+    {
+      "id": "E24",
+      "kind": "change_analysis",
+      "ref": "local_risk",
+      "text": "[inference, not verified] BrowserConfig explicitly accepts None for the debugging port, but setup paths pass the value to socket and URL operations as though it were a valid port. An explicit None can therefore fail browser startup instead of selecting the default or disabling debugging cleanly."
+    },
+    {
+      "id": "E25",
+      "kind": "change_analysis",
+      "ref": "local_risk",
+      "text": "[inference, not verified] Generated and caller-provided Chrome arguments are combined in an unordered set. If extra_browser_args contains a different remote-debugging-port option, Chrome can receive competing port arguments while this code still probes and connects to the configured port, plausibly causing launch or CDP connection failure depending on Chrome's argument resolution."
+    },
+    {
+      "id": "E26",
+      "kind": "change_analysis",
+      "ref": "local_risk",
+      "text": "[inference, not verified] The new test patches requests.get, while the implementation performs its endpoint probe through httpx.AsyncClient. The probe is therefore not isolated by this mock, making whether the subprocess-launch branch is exercised dependent on the test machine's localhost state."
+    },
+    {
+      "id": "E27",
+      "kind": "change_analysis",
+      "ref": "uncertainty",
+      "text": "The supplied code does not identify any HTTP route or endpoint that constructs or invokes the changed Browser code."
+    },
+    {
+      "id": "E28",
+      "kind": "change_analysis",
+      "ref": "uncertainty",
+      "text": "It is not shown which production callers select the user-provided setup path versus the built-in setup path, or whether they expose the new configuration value."
+    },
+    {
+      "id": "E29",
+      "kind": "change_analysis",
+      "ref": "uncertainty",
+      "text": "The configuration boundary through which chrome_remote_debugging_port reaches BrowserConfig is not present in the supplied context."
+    },
+    {
+      "id": "E30",
+      "kind": "change_analysis",
+      "ref": "uncertainty",
+      "text": "Actual effects depend on whether browser_binary_path or a non-default port is configured and whether the selected localhost port is already occupied when setup runs."
+    },
+    {
+      "id": "E31",
+      "kind": "change_analysis",
+      "ref": "uncertainty",
+      "text": "The diff cannot establish whether a listener discovered on the configured localhost port is a compatible Chrome CDP service rather than an unrelated process."
+    }
+  ],
+  "hypotheses": [
+    {
+      "id": "H1",
+      "claim": "BrowserConfig accepts chrome_remote_debugging_port=None, but both browser setup paths require a concrete port, so this accepted configuration can fail before browser launch instead of defaulting or disabling remote debugging.",
+      "why_suspected": "The new field is explicitly typed as int | None, while the user-provided path interpolates it into an HTTP URL and Chrome argument and the built-in path also passes it to socket.connect_ex; none of these paths handles None.",
+      "file": "browser_use/browser/browser.py",
+      "line": 109,
+      "severity": "P2",
+      "initial_evidence": [
+        "E7",
+        "E8",
+        "E9",
+        "E24"
+      ],
+      "questions_to_resolve": [
+        "Does BrowserConfig(chrome_remote_debugging_port=None) validate successfully?",
+        "What exception is raised by each setup path when the value is None, and is None intended to disable debugging or select the default?"
+      ]
+    },
+    {
+      "id": "H2",
+      "claim": "When extra_browser_args contains a different --remote-debugging-port value, the user-provided browser may launch on that competing port while the setup code only probes and connects to chrome_remote_debugging_port, causing startup failure.",
+      "why_suspected": "The generated port argument and caller-provided arguments are placed in an unordered set without removing conflicting remote-debugging-port options. Chrome can therefore receive two port flags in nondeterministic order, while all CDP probes remain fixed to the configured field.",
+      "file": "browser_use/browser/browser.py",
+      "line": 218,
+      "severity": "P2",
+      "initial_evidence": [
+        "E8",
+        "E23",
+        "E25"
+      ],
+      "questions_to_resolve": [
+        "Can existing callers supply remote-debugging-port through extra_browser_args?",
+        "Which duplicate flag Chrome honors, and can set iteration order place the caller-provided flag last?",
+        "Should the dedicated configuration field reject or override conflicting extra arguments?"
+      ]
+    },
+    {
+      "id": "H3",
+      "claim": "The new custom-port test does not isolate the implementation's initial HTTP probe, so it can skip the subprocess-launch assertion or fail depending on whether a real service is listening on localhost:9223.",
+      "why_suspected": "The test patches requests.get, but _setup_user_provided_browser performs its initial /json/version request with httpx.AsyncClient. A real Chrome endpoint on the selected port would take the reuse branch and never verify that the launch command contains the custom port.",
+      "file": "tests/test_browser.py",
+      "line": 179,
+      "severity": "P3",
+      "initial_evidence": [
+        "E8",
+        "E13",
+        "E26"
+      ],
+      "questions_to_resolve": [
+        "Does the test patch httpx.AsyncClient anywhere outside the supplied body?",
+        "Does the test pass without invoking dummy_create_subprocess_exec when localhost:9223 already hosts a CDP endpoint?"
+      ]
+    }
+  ],
+  "changed_ranges": {
+    "browser_use/agent/service.py": [
+      [
+        1225,
+        1225
+      ]
+    ],
+    "browser_use/browser/browser.py": [
+      [
+        24,
+        25
+      ],
+      [
+        82,
+        87
+      ],
+      [
+        111,
+        111
+      ],
+      [
+        201,
+        203
+      ],
+      [
+        205,
+        207
+      ],
+      [
+        210,
+        210
+      ],
+      [
+        218,
+        218
+      ],
+      [
+        220,
+        220
+      ],
+      [
+        229,
+        234
+      ],
+      [
+        236,
+        236
+      ],
+      [
+        242,
+        244
+      ],
+      [
+        255,
+        255
+      ],
+      [
+        277,
+        277
+      ],
+      [
+        288,
+        289
+      ],
+      [
+        291,
+        292
+      ]
+    ],
+    "browser_use/browser/chrome.py": [
+      [
+        97,
+        98
+      ],
+      [
+        132,
+        132
+      ]
+    ],
+    "examples/custom-functions/file_upload.py": [
+      [
+        73,
+        73
+      ]
+    ],
+    "tests/test_browser.py": [
+      [
+        4,
+        4
+      ],
+      [
+        160,
+        235
+      ]
+    ]
+  },
+  "finder_errors": [],
+  "finder_usage": {
+    "llm_calls": 1,
+    "prompt_tokens": 7936,
+    "completion_tokens": 3145,
+    "reasoning_tokens": 2560
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "instance_id": "browser-use__browser-use@0b21e50",
+  "reviewer": "sydes",
+  "boundary": "code_findings",
+  "status": "completed",
+  "duration_seconds": 168.8,
+  "review": {
+    "comments": [
+      {
+        "path": "browser_use/browser/browser.py",
+        "start_line": 109,
+        "end_line": 109,
+        "content": "For the built-in-browser path, BrowserConfig accepts an explicit chrome_remote_debugging_port=None, after which setup passes None as the socket port and raises TypeError before Playwright launches the\nThe new field is explicitly typed as int | None, so None is a valid configuration value. The built-in setup then interpolates that value into an argument and, more importantly, passes it directly as the port in socket.connect_ex(('localhost', self.config.chrome_remote_debugging_port)). Python's socket address requires an integer port; None raises TypeError at this call, which occurs before browser_class launch setup. The supplied evidence does not establish the exact behavior of the user-provided-browser path or whether None was intended to disable debugging, so the supported claim is limited to the built-in path.\nImpact: Caused by the change: This change introduces a nullable port configuration and changes built-in setup to consume that value. With an explicit None, setup reaches socket.connect_ex with ('localhost', None), causing TypeError before the later Playwright browser launch code can execute.",
+        "severity": "P2"
+      },
+      {
+        "path": "tests/test_browser.py",
+        "start_line": 179,
+        "end_line": 179,
+        "content": "When the unmocked HTTPX probe to localhost:9223 receives status 200, the new test bypasses dummy_create_subprocess_exec, so its remote-debugging-port assertion is not executed.\nThe test patches `requests.get` at line 180, while the implementation probes the endpoint with `httpx.AsyncClient`. The search in L6 finds no `AsyncClient` patch anywhere in tests/test_browser.py. If that HTTPX probe receives status 200, E8 shows that the implementation connects over CDP and returns immediately, before reaching `asyncio.create_subprocess_exec`. Because the test's launch-argument assertion exists only inside `dummy_create_subprocess_exec`, that assertion is skipped on this path. This confirms the assertion-skipping path, but not the broader suggestion that the test necessarily fails in other localhost states.\nImpact: Caused by the change: The newly added test mocks the wrong HTTP client: its `requests.get` patch cannot intercept the changed implementation's HTTPX request to the configured custom port. A real 200 response therefore takes the implementation's early-return reuse branch, which occurs before subprocess creation, leaving the test's only launch-argument assertion unexecuted.",
+        "severity": "P3"
+      }
+    ],
+    "summary": {
+      "input_tokens": 43117,
+      "output_tokens": 11087
+    }
+  }
+}

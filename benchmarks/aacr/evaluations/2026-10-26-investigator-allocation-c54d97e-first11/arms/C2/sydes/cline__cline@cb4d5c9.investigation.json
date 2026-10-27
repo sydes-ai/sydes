@@ -1,0 +1,596 @@
+{
+  "version": "sydes-investigation/1",
+  "packet": [
+    {
+      "id": "E1",
+      "kind": "diff",
+      "ref": ".changeset/hot-pens-own.md",
+      "chars": 256
+    },
+    {
+      "id": "E2",
+      "kind": "diff",
+      "ref": "src/api/providers/deepseek.ts",
+      "chars": 680
+    },
+    {
+      "id": "E3",
+      "kind": "diff",
+      "ref": "src/api/providers/openai.ts",
+      "chars": 1449
+    },
+    {
+      "id": "E4",
+      "kind": "changed_symbol",
+      "ref": "src/api/providers/deepseek.ts:23-75",
+      "chars": 434
+    },
+    {
+      "id": "E5",
+      "kind": "changed_symbol",
+      "ref": "src/api/providers/openai.ts:14-34",
+      "chars": 672
+    },
+    {
+      "id": "E6",
+      "kind": "changed_symbol",
+      "ref": "src/api/providers/openai.ts:37-81",
+      "chars": 449
+    },
+    {
+      "id": "E7",
+      "kind": "structural",
+      "ref": "src/api/providers/deepseek.ts:77-87",
+      "chars": 426
+    },
+    {
+      "id": "E8",
+      "kind": "structural",
+      "ref": "src/api/transform/openai-format.ts:4-123",
+      "chars": 2500
+    },
+    {
+      "id": "E9",
+      "kind": "test_execution",
+      "ref": "ci_suite",
+      "chars": 52
+    },
+    {
+      "id": "E10",
+      "kind": "gap",
+      "ref": "unresolved:constructor",
+      "chars": 79
+    },
+    {
+      "id": "E11",
+      "kind": "change_analysis",
+      "ref": "summary",
+      "chars": 268
+    },
+    {
+      "id": "E12",
+      "kind": "change_analysis",
+      "ref": "local_risk",
+      "chars": 372
+    },
+    {
+      "id": "E13",
+      "kind": "change_analysis",
+      "ref": "local_risk",
+      "chars": 292
+    },
+    {
+      "id": "E14",
+      "kind": "change_analysis",
+      "ref": "uncertainty",
+      "chars": 103
+    },
+    {
+      "id": "E15",
+      "kind": "change_analysis",
+      "ref": "uncertainty",
+      "chars": 182
+    },
+    {
+      "id": "E16",
+      "kind": "change_analysis",
+      "ref": "uncertainty",
+      "chars": 183
+    },
+    {
+      "id": "E17",
+      "kind": "change_analysis",
+      "ref": "uncertainty",
+      "chars": 177
+    },
+    {
+      "id": "E18",
+      "kind": "change_analysis",
+      "ref": "uncertainty",
+      "chars": 107
+    }
+  ],
+  "hypotheses": [
+    {
+      "id": "H1",
+      "claim": "An Azure endpoint URL containing \"deepseek\" is routed through the core OpenAI client instead of AzureOpenAI, so endpoints that require Azure-specific authentication, API-version, or request-path semantics will fail.",
+      "why_suspected": "The new \"deepseek\" condition precedes the existing \"azure.com\" condition and therefore wins when both match, despite the adjacent contract that Azure has a different API shape. The core-client branch also omits the Azure apiVersion configuration.",
+      "file": "src/api/providers/openai.ts",
+      "line": 17,
+      "severity": "P1",
+      "initial_evidence": [
+        "E3",
+        "E5",
+        "E11",
+        "E12",
+        "E16"
+      ],
+      "questions_to_resolve": [
+        "What exact wire URL, headers, and query parameters do OpenAI and AzureOpenAI produce for an Azure-hosted DeepSeek endpoint?",
+        "Do supported Azure DeepSeek base URLs require AzureOpenAI's api-version or Azure-specific routing/authentication semantics?"
+      ]
+    },
+    {
+      "id": "H2",
+      "claim": "DeepSeek R1 model identifiers are detected case-sensitively, so an Azure model or deployment identifier such as \"DeepSeek-R1\" leaves isDeepseekReasoner false and does not receive the newly intended reasoner-specific request handling.",
+      "why_suspected": "The added model check uses the lowercase literal \"deepseek-r1\" without normalizing modelId, while the constructor explicitly normalizes the base URL before matching. Azure-facing identifiers or user-defined deployment names are not shown to be normalized.",
+      "file": "src/api/providers/openai.ts",
+      "line": 39,
+      "severity": "P2",
+      "initial_evidence": [
+        "E1",
+        "E3",
+        "E6",
+        "E18"
+      ],
+      "questions_to_resolve": [
+        "Are openAiModelId values normalized to lowercase before reaching this handler?",
+        "What casing is used by supported Azure DeepSeek R1 model and deployment identifiers?"
+      ]
+    }
+  ],
+  "lookups": [
+    {
+      "n": 1,
+      "id": "L1",
+      "hypothesis": "H1",
+      "tool": "read_source",
+      "args": {
+        "path": "src/api/providers/openai.ts",
+        "start_line": 1,
+        "end_line": 220
+      },
+      "why": "Inspect the endpoint-selection logic and client construction around line 17 to determine whether DeepSeek Azure URLs are routed to OpenAI rather than AzureOpenAI and what options are passed.",
+      "provenance": "source_read",
+      "result_chars": 3210,
+      "result_excerpt": "1: import { Anthropic } from \"@anthropic-ai/sdk\"\n2: import OpenAI, { AzureOpenAI } from \"openai\"\n3: import { withRetry } from \"../retry\"\n4: import { ApiHandlerOptions, azureOpenAiDefaultApiVersion, ModelInfo, openAiModelInfoSaneDefaults } from \"../../shared/api\"\n5: import { ApiHandler } from \"../index\"\n6: import { convertToOpenAiMessages } from \"../transform/openai-format\"\n7: import { ApiStream } from \"../transform/stream\"\n8: import { convertToR1Format } from \"../transform/r1-format\"\n9: \n10: export class OpenAiHandler implements ApiHandler {\n11: \tprivate options: ApiHandlerOptions\n12: \tprivate"
+    },
+    {
+      "n": 2,
+      "id": "L2",
+      "hypothesis": "H1",
+      "tool": "tests_for",
+      "args": {
+        "term": "src/api/providers/openai.ts"
+      },
+      "why": "Determine whether tests capture the exact URL, headers, query parameters, and client selection for Azure-hosted DeepSeek endpoints.",
+      "provenance": "test_evidence",
+      "result_chars": 78,
+      "result_excerpt": "no test_mapping/test_execution evidence mentions 'src/api/providers/openai.ts'"
+    },
+    {
+      "n": 3,
+      "id": "L3",
+      "hypothesis": "H2",
+      "tool": "read_source",
+      "args": {
+        "path": "src/api/providers/openai.ts",
+        "start_line": 1,
+        "end_line": 100
+      },
+      "why": "Verify the DeepSeek detection logic and whether this handler normalizes openAiModelId before testing it.",
+      "provenance": "source_read",
+      "result_chars": 3210,
+      "result_excerpt": "1: import { Anthropic } from \"@anthropic-ai/sdk\"\n2: import OpenAI, { AzureOpenAI } from \"openai\"\n3: import { withRetry } from \"../retry\"\n4: import { ApiHandlerOptions, azureOpenAiDefaultApiVersion, ModelInfo, openAiModelInfoSaneDefaults } from \"../../shared/api\"\n5: import { ApiHandler } from \"../index\"\n6: import { convertToOpenAiMessages } from \"../transform/openai-format\"\n7: import { ApiStream } from \"../transform/stream\"\n8: import { convertToR1Format } from \"../transform/r1-format\"\n9: \n10: export class OpenAiHandler implements ApiHandler {\n11: \tprivate options: ApiHandlerOptions\n12: \tprivate"
+    },
+    {
+      "n": 4,
+      "id": "L4",
+      "hypothesis": "H2",
+      "tool": "search_text",
+      "args": {
+        "pattern": "openAiModelId",
+        "path_glob": "src/**/*"
+      },
+      "why": "Find all sources and transformations of openAiModelId to determine whether it is normalized to lowercase before OpenAiHandler receives it and whether Azure-facing defaults/examples preserve mixed-case deployment names.",
+      "provenance": "source_search",
+      "result_chars": 844,
+      "result_excerpt": "src/api/providers/openai.ts:38: const modelId = this.options.openAiModelId ?? \"\"\nsrc/api/providers/openai.ts:85: id: this.options.openAiModelId ?? \"\",\nsrc/core/webview/ClineProvider.ts:68: | \"openAiModelId\"\nsrc/core/webview/ClineProvider.ts:446: openAiModelId,\nsrc/core/webview/ClineProvider.ts:486: await this.updateGlobalState(\"openAiModelId\", openAiModelId)\nsrc/core/webview/ClineProvider.ts:566: await this.updateGlobalState(\"previousModeModelId\", apiConfiguration.openAiModelId)\nsrc/core/webview/ClineProvider.ts:598: await this.updateGlobalState(\"openAiModelId\", newModelId)\nsrc/core/webview/Cl"
+    },
+    {
+      "n": 5,
+      "id": "L5",
+      "hypothesis": "H1",
+      "tool": "search_text",
+      "args": {
+        "pattern": "deepseek|azureApiVersion|azureOpenAiDefaultApiVersion",
+        "path_glob": "**/*.{ts,tsx,js,json,md}"
+      },
+      "why": "Find supported Azure DeepSeek URL examples/configuration and API-version handling elsewhere in the repository, which can establish whether the DeepSeek exception is intentional and what endpoint shape users provide.",
+      "provenance": "source_search",
+      "result_chars": 4513,
+      "result_excerpt": ".changeset/stale-lizards-poke.md:5: qwen platform adds deepseek-r1/v3 support\nCHANGELOG.md:37: -   Improve support for DeepSeek-R1 (deepseek-reasoner) model for OpenRouter, OpenAI-compatible, and DeepSeek direct\nCHANGELOG.md:56: -   Add DeepSeek-R1 (deepseek-reasoner) model support with proper parameter handling (thanks @slavakurilyak!)\ndocs/getting-started-new-coders/README.md:61: -   `deepseek/deepseek-chat`: SUPER CHEAP, almost as good as 3.5 sonnet\nsrc/api/index.ts:13: import { DeepSeekHandler } from \"./providers/deepseek\"\nsrc/api/index.ts:51: case \"deepseek\":\nsrc/api/providers/deepseek.ts"
+    },
+    {
+      "n": 6,
+      "id": "L6",
+      "hypothesis": "H1",
+      "tool": "search_text",
+      "args": {
+        "pattern": "Azure OpenAI|azure.com|openAiBaseUrl|API Version",
+        "path_glob": "src/**/*.{ts,tsx}"
+      },
+      "why": "Find UI guidance and validation for the configured base URL/API version, especially whether Azure-hosted DeepSeek is presented as Azure OpenAI or as an OpenAI-compatible endpoint.",
+      "provenance": "source_search",
+      "result_chars": 1002,
+      "result_excerpt": "src/api/providers/openai.ts:17: if (this.options.openAiBaseUrl?.toLowerCase().includes(\"deepseek\")) {\nsrc/api/providers/openai.ts:19: baseURL: this.options.openAiBaseUrl,\nsrc/api/providers/openai.ts:22: } else if (this.options.openAiBaseUrl?.toLowerCase().includes(\"azure.com\")) {\nsrc/api/providers/openai.ts:24: baseURL: this.options.openAiBaseUrl,\nsrc/api/providers/openai.ts:30: baseURL: this.options.openAiBaseUrl,\nsrc/core/webview/ClineProvider.ts:67: | \"openAiBaseUrl\"\nsrc/core/webview/ClineProvider.ts:444: openAiBaseUrl,\nsrc/core/webview/ClineProvider.ts:484: await this.updateGlobalState(\"op"
+    },
+    {
+      "n": 7,
+      "id": "L7",
+      "hypothesis": "H1",
+      "tool": "search_text",
+      "args": {
+        "pattern": "\"openai\"\\s*:\\s*\"",
+        "path_glob": "{package.json,package-lock.json,pnpm-lock.yaml,yarn.lock}"
+      },
+      "why": "Identify the exact openai-node SDK version so its OpenAI versus AzureOpenAI URL, header, and api-version behavior can be established accurately.",
+      "provenance": "source_search",
+      "result_chars": 126,
+      "result_excerpt": "package-lock.json:39: \"openai\": \"^4.83.0\",\npackage-lock.json:11044: \"openai\": \"bin/cli\"\npackage.json:262: \"openai\": \"^4.83.0\","
+    },
+    {
+      "n": 8,
+      "id": "L8",
+      "hypothesis": "H1",
+      "tool": "search_text",
+      "args": {
+        "pattern": "class AzureOpenAI|api-version|api-key",
+        "path_glob": "node_modules/openai/**/*.{js,mjs,ts,d.ts}"
+      },
+      "why": "Establish the installed SDK's exact AzureOpenAI URL rewriting, api-version query parameter, and authentication headers versus the core OpenAI client.",
+      "provenance": "source_search",
+      "result_chars": 92,
+      "result_excerpt": "(no files match path_glob 'node_modules/openai/**/*.{js,mjs,ts,d.ts}'; nothing was searched)"
+    },
+    {
+      "n": 9,
+      "id": "L9",
+      "hypothesis": "H2",
+      "tool": "read_source",
+      "args": {
+        "path": "src/core/webview/ClineProvider.ts",
+        "start_line": 430,
+        "end_line": 500
+      },
+      "why": "Determine whether the UI-provided openAiModelId is normalized before being stored in ApiHandlerOptions and passed to OpenAiHandler.",
+      "provenance": "source_read",
+      "result_chars": 3312,
+      "result_excerpt": "430: \t\t\t\t\t\t\tconst {\n431: \t\t\t\t\t\t\t\tapiProvider,\n432: \t\t\t\t\t\t\t\tapiModelId,\n433: \t\t\t\t\t\t\t\tapiKey,\n434: \t\t\t\t\t\t\t\topenRouterApiKey,\n435: \t\t\t\t\t\t\t\tawsAccessKey,\n436: \t\t\t\t\t\t\t\tawsSecretKey,\n437: \t\t\t\t\t\t\t\tawsSessionToken,\n438: \t\t\t\t\t\t\t\tawsRegion,\n439: \t\t\t\t\t\t\t\tawsUseCrossRegionInference,\n440: \t\t\t\t\t\t\t\tawsProfile,\n441: \t\t\t\t\t\t\t\tawsUseProfile,\n442: \t\t\t\t\t\t\t\tvertexProjectId,\n443: \t\t\t\t\t\t\t\tvertexRegion,\n444: \t\t\t\t\t\t\t\topenAiBaseUrl,\n445: \t\t\t\t\t\t\t\topenAiApiKey,\n446: \t\t\t\t\t\t\t\topenAiModelId,\n447: \t\t\t\t\t\t\t\topenAiModelInfo,\n448: \t\t\t\t\t\t\t\tollamaModelId,\n449: \t\t\t\t\t\t\t\tollamaBaseUrl,\n450: \t\t\t\t\t\t\t\tlmStudioModelId,\n451: \t\t\t\t\t\t\t\tlmStud"
+    },
+    {
+      "n": 10,
+      "id": "L10",
+      "hypothesis": "H2",
+      "tool": "search_text",
+      "args": {
+        "pattern": "(?i)deepseek[-_/ ]?r1|deepseek-reasoner",
+        "path_glob": "**/*"
+      },
+      "why": "Determine the casing used in Azure-facing defaults, documentation, tests, or examples for DeepSeek R1 identifiers, and whether mixed-case `DeepSeek-R1` is a supported/expected form.",
+      "provenance": "source_search",
+      "result_chars": 1396,
+      "result_excerpt": ".changeset/stale-lizards-poke.md:5: qwen platform adds deepseek-r1/v3 support\nCHANGELOG.md:37: -   Improve support for DeepSeek-R1 (deepseek-reasoner) model for OpenRouter, OpenAI-compatible, and DeepSeek direct\nCHANGELOG.md:56: -   Add DeepSeek-R1 (deepseek-reasoner) model support with proper parameter handling (thanks @slavakurilyak!)\nsrc/api/providers/deepseek.ts:26: const isDeepseekReasoner = model.id.includes(\"deepseek-reasoner\") || model.id.includes(\"deepseek-r1\")\nsrc/api/providers/deepseek.ts:44: ...(model.id === \"deepseek-reasoner\" ? {} : { temperature: 0 }),\nsrc/api/providers/openai.t"
+    },
+    {
+      "n": 11,
+      "id": "L11",
+      "hypothesis": "H2",
+      "tool": "search_text",
+      "args": {
+        "pattern": "(?i)(azure.{0,120}deepseek|deepseek.{0,120}azure|DeepSeek-R1)",
+        "path_glob": "**/*.{ts,tsx,md,json,yml,yaml}"
+      },
+      "why": "Confirm whether repository documentation, configuration, or tests identify Azure DeepSeek R1 with the mixed-case canonical name `DeepSeek-R1`, which would directly trigger the case-sensitive detection failure.",
+      "provenance": "source_search",
+      "result_chars": 1126,
+      "result_excerpt": ".changeset/hot-pens-own.md:5: Fixed to be able to use DeepSeek in Azure.\n.changeset/stale-lizards-poke.md:5: qwen platform adds deepseek-r1/v3 support\nCHANGELOG.md:37: -   Improve support for DeepSeek-R1 (deepseek-reasoner) model for OpenRouter, OpenAI-compatible, and DeepSeek direct\nCHANGELOG.md:56: -   Add DeepSeek-R1 (deepseek-reasoner) model support with proper parameter handling (thanks @slavakurilyak!)\nsrc/api/providers/deepseek.ts:26: const isDeepseekReasoner = model.id.includes(\"deepseek-reasoner\") || model.id.includes(\"deepseek-r1\")\nsrc/api/providers/openai.ts:39: const isDeepseekReas"
+    },
+    {
+      "n": 12,
+      "id": "L12",
+      "hypothesis": "H2",
+      "tool": "read_source",
+      "args": {
+        "path": ".changeset/hot-pens-own.md",
+        "start_line": 1,
+        "end_line": 40
+      },
+      "why": "Determine whether the Azure DeepSeek fix documents the expected Azure model/deployment identifier casing, especially mixed-case `DeepSeek-R1`, to resolve the remaining casing question.",
+      "provenance": "source_read",
+      "result_chars": 86,
+      "result_excerpt": "1: ---\n2: \"claude-dev\": patch\n3: ---\n4: \n5: Fixed to be able to use DeepSeek in Azure."
+    }
+  ],
+  "outcomes": [
+    {
+      "hypothesis": "H1",
+      "lookups": [
+        "L1",
+        "L2",
+        "L5",
+        "L6",
+        "L7",
+        "L8"
+      ],
+      "status": "UNKNOWN",
+      "supported_claim": "The change routes any base URL containing \"deepseek\" through the core OpenAI client, including a URL that also contains \"azure.com\"; the evidence does not establish that supported Azure-hosted DeepSeek endpoints consequently fail.",
+      "reasoning": "L1 shows the new \"deepseek\" condition is evaluated before the Azure condition and constructs OpenAI, so the routing portion of the hypothesis is established. However, no supplied evidence shows the wire URL, headers, or query parameters produced by OpenAI versus AzureOpenAI 4.83.0, nor does it document that a supported Azure-hosted DeepSeek endpoint requires AzureOpenAI's api-version, authentication, or path behavior. E12 explicitly labels the failure risk as an unverified inference, E16 records the same uncertainty, L2 provides no relevant test execution, and L8 could not inspect the SDK implementation. Therefore the endpoint failure required to establish a defect cannot be confirmed or refuted.",
+      "defect_evidence": [],
+      "changed_evidence": [
+        {
+          "source": "L1",
+          "file": "src/api/providers/openai.ts",
+          "line": 17,
+          "quote": "\t\tif (this.options.openAiBaseUrl?.toLowerCase().includes(\"deepseek\")) {"
+        },
+        {
+          "source": "L1",
+          "file": "src/api/providers/openai.ts",
+          "line": 18,
+          "quote": "\t\t\tthis.client = new OpenAI({"
+        },
+        {
+          "source": "L1",
+          "file": "src/api/providers/openai.ts",
+          "line": 22,
+          "quote": "\t\t} else if (this.options.openAiBaseUrl?.toLowerCase().includes(\"azure.com\")) {"
+        }
+      ],
+      "causal_link": "The added first branch materially changes client selection: a base URL matching both \"deepseek\" and \"azure.com\" now instantiates OpenAI and cannot reach the later AzureOpenAI branch. Whether that changed selection produces an invalid request or authentication failure is not established by the supplied evidence.",
+      "refuting": [],
+      "missing": [
+        "The exact request URL, headers, and query parameters generated by OpenAI 4.83.0 for an Azure-hosted DeepSeek base URL.",
+        "The corresponding request generated by AzureOpenAI 4.83.0 for the same endpoint.",
+        "Documentation or observed request/response evidence showing whether supported Azure DeepSeek endpoints require an api-version query parameter, Azure-specific path construction, or Azure-specific authentication headers.",
+        "A test or execution result against an Azure-hosted DeepSeek endpoint demonstrating success or failure after the changed client selection."
+      ],
+      "verified_defect_evidence": [],
+      "verified_changed_evidence": [
+        {
+          "source": "L1",
+          "file": "src/api/providers/openai.ts",
+          "line": 17,
+          "quote": "\t\tif (this.options.openAiBaseUrl?.toLowerCase().includes(\"deepseek\")) {",
+          "verification": "citation confirmed near src/api/providers/openai.ts:17"
+        },
+        {
+          "source": "L1",
+          "file": "src/api/providers/openai.ts",
+          "line": 18,
+          "quote": "\t\t\tthis.client = new OpenAI({",
+          "verification": "citation confirmed near src/api/providers/openai.ts:18"
+        },
+        {
+          "source": "L1",
+          "file": "src/api/providers/openai.ts",
+          "line": 22,
+          "quote": "\t\t} else if (this.options.openAiBaseUrl?.toLowerCase().includes(\"azure.com\")) {",
+          "verification": "citation confirmed near src/api/providers/openai.ts:22"
+        }
+      ],
+      "rounds": [
+        {
+          "round": 1,
+          "lookups": [
+            "L1",
+            "L2"
+          ],
+          "status": "UNKNOWN",
+          "missing": [
+            "The exact wire URL, headers, and query parameters produced by OpenAI for an Azure-hosted DeepSeek base URL.",
+            "The corresponding wire request produced by AzureOpenAI for the same configuration.",
+            "Evidence that supported Azure-hosted DeepSeek endpoints require an api-version query parameter or other AzureOpenAI-specific routing/authentication semantics.",
+            "A test execution or observed response showing that the changed client selection causes a request failure; L2 reports no relevant test evidence."
+          ]
+        },
+        {
+          "round": 2,
+          "lookups": [
+            "L5",
+            "L6",
+            "L7",
+            "L8"
+          ],
+          "verified_again": true,
+          "new_nonempty_lookups": [
+            "L5",
+            "L6",
+            "L7"
+          ],
+          "status": "UNKNOWN",
+          "status_changed": false,
+          "missing": [
+            "The exact request URL, headers, and query parameters generated by OpenAI 4.83.0 for an Azure-hosted DeepSeek base URL.",
+            "The corresponding request generated by AzureOpenAI 4.83.0 for the same endpoint.",
+            "Documentation or observed request/response evidence showing whether supported Azure DeepSeek endpoints require an api-version query parameter, Azure-specific path construction, or Azure-specific authentication headers.",
+            "A test or execution result against an Azure-hosted DeepSeek endpoint demonstrating success or failure after the changed client selection."
+          ]
+        }
+      ]
+    },
+    {
+      "hypothesis": "H2",
+      "lookups": [
+        "L3",
+        "L4",
+        "L9",
+        "L10",
+        "L11",
+        "L12"
+      ],
+      "status": "UNKNOWN",
+      "supported_claim": "If OpenAiHandler.createMessage receives openAiModelId as \"DeepSeek-R1\", the new DeepSeek R1 check does not match it and convertToR1Format is not selected; however, the evidence does not establish that this mixed-case identifier reaches the handler on a supported Azure path.",
+      "reasoning": "The handler copies openAiModelId without local normalization and uses case-sensitive String.includes checks against lowercase literals. Thus \"DeepSeek-R1\" would leave isDeepseekReasoner false, and the reasoner-specific conversion guarded by that flag would not run. Storage also preserves the submitted openAiModelId as shown. However, E18 explicitly states that the source and normalization boundary are not shown, and no evidence establishes the casing of an actual supported Azure model/deployment identifier or proves that a mixed-case value reaches this handler without upstream normalization. Therefore the code behavior for a hypothetical input is established, but the claimed Azure defect is not.",
+      "defect_evidence": [
+        {
+          "source": "L3",
+          "file": "src/api/providers/openai.ts",
+          "line": 38,
+          "quote": "\t\tconst modelId = this.options.openAiModelId ?? \"\""
+        },
+        {
+          "source": "L3",
+          "file": "src/api/providers/openai.ts",
+          "line": 46,
+          "quote": "\t\tif (isDeepseekReasoner) {"
+        },
+        {
+          "source": "L3",
+          "file": "src/api/providers/openai.ts",
+          "line": 47,
+          "quote": "\t\t\topenAiMessages = convertToR1Format([{ role: \"user\", content: systemPrompt }, ...messages])"
+        },
+        {
+          "source": "L9",
+          "file": "src/core/webview/ClineProvider.ts",
+          "line": 486,
+          "quote": "\t\t\t\t\t\t\tawait this.updateGlobalState(\"openAiModelId\", openAiModelId)"
+        }
+      ],
+      "changed_evidence": [
+        {
+          "source": "L3",
+          "file": "src/api/providers/openai.ts",
+          "line": 39,
+          "quote": "\t\tconst isDeepseekReasoner = modelId.includes(\"deepseek-reasoner\") || modelId.includes(\"deepseek-r1\")"
+        }
+      ],
+      "causal_link": "The changed lowercase-only \"deepseek-r1\" includes check is case-sensitive, so a value exactly equal to \"DeepSeek-R1\" would not activate the newly added reasoner path. The evidence does not establish that such a value occurs on a supported Azure execution path.",
+      "refuting": [],
+      "missing": [
+        "Evidence showing whether openAiModelId is normalized before ApiHandlerOptions is constructed and passed to OpenAiHandler.",
+        "Evidence showing the casing of supported Azure DeepSeek R1 model identifiers or deployment identifiers.",
+        "Evidence that an Azure configuration using a mixed-case identifier such as \"DeepSeek-R1\" reaches OpenAiHandler.createMessage unchanged."
+      ],
+      "verified_defect_evidence": [
+        {
+          "source": "L3",
+          "file": "src/api/providers/openai.ts",
+          "line": 38,
+          "quote": "\t\tconst modelId = this.options.openAiModelId ?? \"\"",
+          "verification": "citation confirmed near src/api/providers/openai.ts:38"
+        },
+        {
+          "source": "L3",
+          "file": "src/api/providers/openai.ts",
+          "line": 46,
+          "quote": "\t\tif (isDeepseekReasoner) {",
+          "verification": "citation confirmed near src/api/providers/openai.ts:46"
+        },
+        {
+          "source": "L3",
+          "file": "src/api/providers/openai.ts",
+          "line": 47,
+          "quote": "\t\t\topenAiMessages = convertToR1Format([{ role: \"user\", content: systemPrompt }, ...messages])",
+          "verification": "citation confirmed near src/api/providers/openai.ts:47"
+        },
+        {
+          "source": "L9",
+          "file": "src/core/webview/ClineProvider.ts",
+          "line": 486,
+          "quote": "\t\t\t\t\t\t\tawait this.updateGlobalState(\"openAiModelId\", openAiModelId)",
+          "verification": "citation confirmed near src/core/webview/ClineProvider.ts:486"
+        }
+      ],
+      "verified_changed_evidence": [
+        {
+          "source": "L3",
+          "file": "src/api/providers/openai.ts",
+          "line": 39,
+          "quote": "\t\tconst isDeepseekReasoner = modelId.includes(\"deepseek-reasoner\") || modelId.includes(\"deepseek-r1\")",
+          "verification": "citation confirmed near src/api/providers/openai.ts:39"
+        }
+      ],
+      "rounds": [
+        {
+          "round": 1,
+          "lookups": [
+            "L3",
+            "L4"
+          ],
+          "status": "UNKNOWN",
+          "missing": [
+            "Evidence of the casing used by supported Azure DeepSeek R1 model or deployment identifiers.",
+            "Evidence showing whether openAiModelId is normalized, constrained, or canonicalized before ApiHandlerOptions reaches OpenAiHandler.",
+            "A supported execution path demonstrating that an identifier such as \"DeepSeek-R1\" reaches createMessage unchanged."
+          ]
+        },
+        {
+          "round": 2,
+          "lookups": [
+            "L9",
+            "L10",
+            "L11",
+            "L12"
+          ],
+          "verified_again": true,
+          "new_nonempty_lookups": [
+            "L9",
+            "L10",
+            "L11",
+            "L12"
+          ],
+          "status": "UNKNOWN",
+          "status_changed": false,
+          "missing": [
+            "Evidence showing whether openAiModelId is normalized before ApiHandlerOptions is constructed and passed to OpenAiHandler.",
+            "Evidence showing the casing of supported Azure DeepSeek R1 model identifiers or deployment identifiers.",
+            "Evidence that an Azure configuration using a mixed-case identifier such as \"DeepSeek-R1\" reaches OpenAiHandler.createMessage unchanged."
+          ]
+        }
+      ]
+    }
+  ],
+  "confirmed": [],
+  "refuted": [],
+  "unknown": [
+    "H1",
+    "H2"
+  ],
+  "findings": [],
+  "budget": {
+    "max_hypotheses": 5,
+    "max_lookups": 12,
+    "used_lookups": 12,
+    "max_lookups_per_hypothesis": 6,
+    "allocation": "two_round",
+    "round1_lookups": 2
+  },
+  "usage": {
+    "llm_calls": 16,
+    "by_stage": {
+      "investigator": 12,
+      "verifier": 4
+    },
+    "prompt_tokens": 42362,
+    "completion_tokens": 5218,
+    "reasoning_tokens": 2340,
+    "llm_seconds": 84.7
+  },
+  "errors": [],
+  "replay": {
+    "snapshot_version": "sydes-investigation-snapshot/1",
+    "allocation": "two_round"
+  }
+}

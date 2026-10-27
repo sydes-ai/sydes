@@ -1,0 +1,22 @@
+{
+  "instance_id": "facebook__react@be58f26",
+  "reviewer": "sydes",
+  "boundary": "code_findings",
+  "status": "completed",
+  "duration_seconds": 127.7,
+  "review": {
+    "comments": [
+      {
+        "path": "packages/react-dom/src/__tests__/ReactDOMForm-test.js",
+        "start_line": 1673,
+        "end_line": 1673,
+        "content": "When ReactDOMForm-test.js is run under the repository's Jest setup, the newly added focused test causes its ordinary sibling tests not to execute, so the full form regression file is not exercised.\nThe change adds `it.only` at line 1673 while the file contains ordinary sibling `it` cases. Repository evidence explicitly describes `.only` as the way to focus a test, and the Jest setup implements its focus helper with `test.only`. The ESLint protection against committed focused tests is disabled, so it does not reject this line before execution. Thus the added focus marker selects this test instead of the ordinary sibling cases.\nImpact: Caused by the change: The changed line introduces the focus marker `.only`. The repository's own test infrastructure uses `test.only` for focused execution, while neighboring form regressions remain ordinary `it` cases; therefore selecting the new focused case prevents those ordinary cases from running. The disabled `jest/no-focused-tests` rule does not block the committed marker.",
+        "severity": "P2"
+      }
+    ],
+    "summary": {
+      "input_tokens": 32823,
+      "output_tokens": 7748
+    }
+  }
+}

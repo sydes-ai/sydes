@@ -1,0 +1,85 @@
+{
+  "path_recovery": {
+    "status": "unresolved",
+    "paths": [
+      {
+        "entrypoint": "HTTP request to any route registered via App.GET/PUT/POST/DELETE/PATCH",
+        "target_node": "handler.ServeHTTP",
+        "status": "unresolved",
+        "root_boundary_status": "candidate_boundary",
+        "nodes": [
+          {
+            "symbol": "App.GET/PUT/POST/DELETE/PATCH",
+            "file": "pkg/gofr/gofr.go",
+            "qualified_name": "gofr.(*App).GET/PUT/POST/DELETE/PATCH"
+          }
+        ],
+        "edges": [],
+        "unresolved_suffix": [
+          {
+            "from": {
+              "symbol": "App.GET/PUT/POST/DELETE/PATCH",
+              "file": "pkg/gofr/gofr.go",
+              "qualified_name": "gofr.(*App).GET/PUT/POST/DELETE/PATCH"
+            },
+            "to": {
+              "symbol": "App.add",
+              "file": "pkg/gofr/gofr.go",
+              "qualified_name": "gofr.(*App).add"
+            },
+            "relationship": "no relationship found",
+            "rejection_reason": "no evidence is located in either entity's own declared file ('pkg/gofr/gofr.go' or 'pkg/gofr/gofr.go') -- possible wrong-file/wrong-module substitution"
+          },
+          {
+            "from": {
+              "symbol": "App.add",
+              "file": "pkg/gofr/gofr.go",
+              "qualified_name": "gofr.(*App).add"
+            },
+            "to": {
+              "symbol": "httpServer",
+              "file": "pkg/gofr/http_server.go",
+              "qualified_name": "gofr.httpServer"
+            },
+            "relationship": "App.add accesses the App's *httpServer field and registers the route handler on its router.",
+            "rejection_reason": null
+          },
+          {
+            "from": {
+              "symbol": "httpServer",
+              "file": "pkg/gofr/gofr.go",
+              "qualified_name": "gofr.httpServer"
+            },
+            "to": {
+              "symbol": "handler.ServeHTTP",
+              "file": "pkg/gofr/handler.go",
+              "qualified_name": "gofr.handler.ServeHTTP"
+            },
+            "relationship": "no relationship found",
+            "rejection_reason": "no evidence is located in either entity's own declared file ('pkg/gofr/gofr.go' or 'pkg/gofr/handler.go') -- possible wrong-file/wrong-module substitution"
+          }
+        ]
+      }
+    ],
+    "corrected_first_pass_claims": [],
+    "unresolved": []
+  },
+  "test_recovery": {
+    "status": "unresolved",
+    "tests": [
+      {
+        "file": "pkg/gofr/http/responder_test.go",
+        "test": "TestResponder",
+        "covers": "Directly constructs a Responder and exercises Respond response serialization, including structured response data and metadata.",
+        "target": {
+          "symbol": "Responder.Respond",
+          "file": "pkg/gofr/http/responder.go",
+          "qualified_name": null
+        },
+        "evidence": [],
+        "status": "rejected",
+        "rejection_reason": "no evidence cited at all"
+      }
+    ]
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "instance_id": "browser-use__browser-use@0b21e50",
+  "reviewer": "sydes",
+  "boundary": "code_findings",
+  "status": "completed",
+  "duration_seconds": 376.5,
+  "review": {
+    "comments": [],
+    "summary": {
+      "input_tokens": 113050,
+      "output_tokens": 22293
+    }
+  }
+}

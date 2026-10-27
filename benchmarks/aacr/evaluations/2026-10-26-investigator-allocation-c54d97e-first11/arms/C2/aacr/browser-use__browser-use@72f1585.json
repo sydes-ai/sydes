@@ -1,0 +1,22 @@
+{
+  "instance_id": "browser-use__browser-use@72f1585",
+  "reviewer": "sydes",
+  "boundary": "code_findings",
+  "status": "completed",
+  "duration_seconds": 93.5,
+  "review": {
+    "comments": [
+      {
+        "path": "browser_use/llm/google/chat.py",
+        "start_line": 202,
+        "end_line": 202,
+        "content": "In ChatGoogle.ainvoke, any non-None thinking_budget\u2014including explicitly supplied 0 or positive values\u2014is ignored when constructing the Google request and is sent as thinking_budget=-1.\nChatGoogle exposes thinking_budget as an integer-or-None setting, but ainvoke checks only whether it is non-None and then assigns the constant -1 rather than the supplied value. The resulting config is passed directly to generate_content. Thus the explicit value cannot reach the provider on this path. The evidence does not establish which repository callers use positive values or the provider-side behavioral difference between -1, 0, and positive values, but those facts are unnecessary to establish the serialization defect.\nImpact: Caused by the change: The changed assignment replaced {'thinking_budget': self.thinking_budget} with {'thinking_budget': -1}. Consequently, whenever self.thinking_budget is non-None, its actual value is discarded, the constant -1 is placed into config, and that config is supplied to the Google generate_content call.",
+        "severity": "P2"
+      }
+    ],
+    "summary": {
+      "input_tokens": 51289,
+      "output_tokens": 5669
+    }
+  }
+}

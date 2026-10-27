@@ -1,0 +1,62 @@
+{
+  "code_findings": [
+    {
+      "id": "investigator-H1",
+      "severity": "P2",
+      "title": "On the ChatGoogle.ainvoke path, any explicitly assigned non-None thinking_budget, including 0 or a positive integer, is ignored when building the request config and is replaced with -1.",
+      "file": "browser_use/llm/google/chat.py",
+      "line": 202,
+      "repo": null,
+      "explanation": "ChatGoogle exposes thinking_budget as an int-or-None field. ainvoke checks only whether that field is non-None, then unconditionally constructs thinking_config with -1 and passes the resulting config to generate_content. The diff shows this line previously used self.thinking_budget and was changed to the constant -1. Thus the changed code directly causes explicit non-None values not to be honored. Repository evidence does not identify external callers or establish Google's semantics for these values, so the supported claim is limited to request serialization rather than downstream provider behavior.",
+      "impact": "Caused by the change: The change replaced `{'thinking_budget': self.thinking_budget}` with `{'thinking_budget': -1}`. Consequently, once the non-None guard succeeds, the caller-supplied value cannot reach the generated request config; the constant -1 is sent instead.",
+      "suggested_fix": null,
+      "source": "investigator",
+      "evidence": [
+        {
+          "file": "browser_use/llm/google/chat.py",
+          "symbol": null,
+          "label": "verified_quote:78",
+          "snippet": "thinking_budget: int | None = 0"
+        },
+        {
+          "file": "browser_use/llm/google/chat.py",
+          "symbol": null,
+          "label": "verified_quote:201",
+          "snippet": "if self.thinking_budget is not None:"
+        },
+        {
+          "file": "browser_use/llm/google/chat.py",
+          "symbol": null,
+          "label": "verified_quote:202",
+          "snippet": "thinking_config_dict: types.ThinkingConfigDict = {'thinking_budget': -1}"
+        },
+        {
+          "file": "browser_use/llm/google/chat.py",
+          "symbol": null,
+          "label": "verified_quote:202",
+          "snippet": "thinking_config_dict: types.ThinkingConfigDict = {'thinking_budget': -1}"
+        }
+      ]
+    }
+  ],
+  "code_review_status": "completed",
+  "run_metrics": {
+    "llm_totals": {
+      "calls": 16,
+      "input_tokens": 43600,
+      "output_tokens": 5117,
+      "errors": 0
+    },
+    "llm_by_purpose": {
+      "investigator": {
+        "calls": 12
+      },
+      "verifier": {
+        "calls": 4
+      }
+    }
+  },
+  "diagnostics": [
+    "investigator: hypotheses=4 lookups=12/12 confirmed=1 refuted=0 unknown=3 findings=1 llm_calls=16 errors=0"
+  ]
+}

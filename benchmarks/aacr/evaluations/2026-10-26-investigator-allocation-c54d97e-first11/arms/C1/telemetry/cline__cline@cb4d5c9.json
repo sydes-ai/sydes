@@ -1,0 +1,56 @@
+{
+  "case_id": "cline__cline-1808",
+  "instance_id": "cline__cline@cb4d5c9",
+  "language": "TypeScript",
+  "status": "completed",
+  "wall_seconds": 97.2,
+  "review_base": "283d7d6928755ce5f62827e25c437a7a77964549",
+  "review_base_info": {
+    "rule": "merge base (newest committer date, then smallest id)",
+    "merge_bases": [
+      "283d7d6928755ce5f62827e25c437a7a77964549"
+    ]
+  },
+  "code_review_status": "completed",
+  "code_findings": 0,
+  "not_submitted": {
+    "local_risks": 0,
+    "affected_flows": 0
+  },
+  "llm_totals": {
+    "calls": 16,
+    "input_tokens": 45451,
+    "output_tokens": 5596,
+    "errors": 0
+  },
+  "llm_calls_by_purpose": {
+    "investigator": 12,
+    "verifier": 4
+  },
+  "cbm": null,
+  "sydes_wall_seconds": null,
+  "verdict": null,
+  "invalid_reasons": [],
+  "replay": {
+    "source_run": "alloc-A1-snapshot-c54d97e-first11-2026-10-26",
+    "allocation": "two_round"
+  },
+  "investigation": {
+    "hypotheses": 2,
+    "lookups": 12,
+    "confirmed": 0,
+    "refuted": 0,
+    "unknown": 2,
+    "usage": {
+      "llm_calls": 16,
+      "by_stage": {
+        "investigator": 12,
+        "verifier": 4
+      },
+      "prompt_tokens": 45451,
+      "completion_tokens": 5596,
+      "reasoning_tokens": 2762,
+      "llm_seconds": 89.9
+    }
+  }
+}

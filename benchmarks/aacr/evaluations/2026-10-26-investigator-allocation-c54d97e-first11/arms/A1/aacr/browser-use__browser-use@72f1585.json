@@ -1,0 +1,22 @@
+{
+  "instance_id": "browser-use__browser-use@72f1585",
+  "reviewer": "sydes",
+  "boundary": "code_findings",
+  "status": "completed",
+  "duration_seconds": 239.2,
+  "review": {
+    "comments": [
+      {
+        "path": "browser_use/llm/google/chat.py",
+        "start_line": 202,
+        "end_line": 202,
+        "content": "In ChatGoogle.ainvoke, any non-None thinking_budget supplied on the instance\u2014including 0 or a positive integer\u2014is discarded and the request config instead contains thinking_budget=-1.\nChatGoogle exposes thinking_budget as an int-or-None field. ainvoke checks only whether that field is non-None, but then assigns the constant -1 rather than the field's value, and passes the resulting config to generate_content. The diff directly changed this assignment from self.thinking_budget to -1, so the loss of explicitly supplied values is introduced by this change. Evidence of particular callers or Google's interpretation of -1 is unnecessary for the narrower confirmed defect that the supplied value is not serialized.\nImpact: Caused by the change: The change replaces the previous changed-line expression {'thinking_budget': self.thinking_budget} with {'thinking_budget': -1}. Consequently, whenever self.thinking_budget is non-None, ainvoke now sends the constant -1 instead of the caller-supplied value.",
+        "severity": "P2"
+      }
+    ],
+    "summary": {
+      "input_tokens": 122599,
+      "output_tokens": 13306
+    }
+  }
+}

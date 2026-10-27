@@ -1,0 +1,22 @@
+{
+  "instance_id": "dbeaver__dbeaver@ed40132",
+  "reviewer": "sydes",
+  "boundary": "code_findings",
+  "status": "completed",
+  "duration_seconds": 112.1,
+  "review": {
+    "comments": [
+      {
+        "path": "plugins/org.jkiss.dbeaver.model/src/org/jkiss/dbeaver/model/struct/DBSObjectFilter.java",
+        "start_line": 153,
+        "end_line": 153,
+        "content": "A pre-change binary of the separate `org.jkiss.dbeaver.erd.model` plugin containing `DiagramObjectCollector.collectTables` is binary-incompatible with the changed `DBSObjectFilter`; if that call path\nThe diff replaces the public one-argument method with a varargs method. Although source calls with one `String` still compile, `String...` has the JVM descriptor `String[]`, not `String`; it does not preserve the old method descriptor. E15 shows a caller in another plugin making the one-argument call, and L2 shows that the containing package is exported. A binary of that caller compiled before the change references `matches(Ljava/lang/String;)Z`, while the changed class supplies `matches([Ljava/lang/String;)Z`.\nImpact: Caused by the change: The changed declaration removes the `matches(String)` JVM method and introduces `matches(String[])`. Therefore an unchanged, previously compiled cross-plugin invocation targeting the former descriptor cannot resolve against the new class and can throw `NoSuchMethodError` when executed.",
+        "severity": "P1"
+      }
+    ],
+    "summary": {
+      "input_tokens": 19753,
+      "output_tokens": 7025
+    }
+  }
+}

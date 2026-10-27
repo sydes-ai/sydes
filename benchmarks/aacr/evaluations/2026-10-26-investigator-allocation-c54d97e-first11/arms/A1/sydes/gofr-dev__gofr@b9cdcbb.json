@@ -1,0 +1,1343 @@
+{
+  "version": "v3",
+  "kind": "sydes_change_verification",
+  "generated_at": "2026-10-27T00:40:32.735315+00:00",
+  "change": {
+    "base": "567a9ca6e318ed76523533cdfc47c6199f1e5ac6",
+    "head": "b9cdcbb2b9fc78499d15d51ffbb7c861592b0efe",
+    "merge_base": "567a9ca6e318ed76523533cdfc47c6199f1e5ac6",
+    "repos": [
+      {
+        "name": "app",
+        "root": "/Users/ksnaik/.cache/sydes-aacr/repos/gofr-dev__gofr"
+      }
+    ],
+    "includes_working_tree": false,
+    "files": [
+      {
+        "repo": "app",
+        "path": "docs/advanced-guide/setting-custom-response-headers/page.md",
+        "old_path": null,
+        "change_type": "modified",
+        "role": "docs_candidate",
+        "added_lines": 95,
+        "removed_lines": 33,
+        "hunks": [
+          {
+            "start_line": 1,
+            "end_line": 1
+          },
+          {
+            "start_line": 3,
+            "end_line": 3
+          },
+          {
+            "start_line": 5,
+            "end_line": 5
+          },
+          {
+            "start_line": 7,
+            "end_line": 10
+          },
+          {
+            "start_line": 12,
+            "end_line": 13
+          },
+          {
+            "start_line": 15,
+            "end_line": 41
+          },
+          {
+            "start_line": 47,
+            "end_line": 50
+          },
+          {
+            "start_line": 54,
+            "end_line": 54
+          },
+          {
+            "start_line": 56,
+            "end_line": 56
+          },
+          {
+            "start_line": 58,
+            "end_line": 58
+          },
+          {
+            "start_line": 62,
+            "end_line": 85
+          },
+          {
+            "start_line": 89,
+            "end_line": 116
+          }
+        ],
+        "symbols": [],
+        "binary": false
+      },
+      {
+        "repo": "app",
+        "path": "pkg/gofr/handler.go",
+        "old_path": null,
+        "change_type": "modified",
+        "role": "source_route_candidate",
+        "added_lines": 0,
+        "removed_lines": 2,
+        "hunks": [
+          {
+            "start_line": 101,
+            "end_line": 101
+          }
+        ],
+        "symbols": [
+          "app:pkg/gofr/handler.go:handler.ServeHTTP"
+        ],
+        "binary": false
+      },
+      {
+        "repo": "app",
+        "path": "pkg/gofr/http/responder.go",
+        "old_path": null,
+        "change_type": "modified",
+        "role": "source_route_candidate",
+        "added_lines": 5,
+        "removed_lines": 2,
+        "hunks": [
+          {
+            "start_line": 31,
+            "end_line": 32
+          },
+          {
+            "start_line": 96,
+            "end_line": 98
+          }
+        ],
+        "symbols": [
+          "app:pkg/gofr/http/responder.go:Responder.Respond"
+        ],
+        "binary": false
+      },
+      {
+        "repo": "app",
+        "path": "pkg/gofr/http/responder_test.go",
+        "old_path": null,
+        "change_type": "modified",
+        "role": "test_usage_candidate",
+        "added_lines": 60,
+        "removed_lines": 13,
+        "hunks": [
+          {
+            "start_line": 9,
+            "end_line": 10
+          },
+          {
+            "start_line": 12,
+            "end_line": 12
+          },
+          {
+            "start_line": 15,
+            "end_line": 15
+          },
+          {
+            "start_line": 17,
+            "end_line": 20
+          },
+          {
+            "start_line": 22,
+            "end_line": 60
+          },
+          {
+            "start_line": 64,
+            "end_line": 67
+          },
+          {
+            "start_line": 68,
+            "end_line": 68
+          },
+          {
+            "start_line": 70,
+            "end_line": 79
+          }
+        ],
+        "symbols": [
+          "app:pkg/gofr/http/responder_test.go:TestResponder"
+        ],
+        "binary": false
+      },
+      {
+        "repo": "app",
+        "path": "pkg/gofr/http/response/response.go",
+        "old_path": null,
+        "change_type": "modified",
+        "role": "source_route_candidate",
+        "added_lines": 3,
+        "removed_lines": 2,
+        "hunks": [
+          {
+            "start_line": 8,
+            "end_line": 10
+          }
+        ],
+        "symbols": [],
+        "binary": false
+      }
+    ],
+    "symbols": [
+      {
+        "id": "app:pkg/gofr/handler.go:handler.ServeHTTP",
+        "repo": "app",
+        "file": "pkg/gofr/handler.go",
+        "name": "ServeHTTP",
+        "qualified_name": "handler.ServeHTTP",
+        "cbm_qualified_name": "Users-ksnaik-.cache-sydes-aacr-repos-gofr-dev__gofr.pkg.gofr.ServeHTTP",
+        "kind": "class_method",
+        "language": "go",
+        "start_line": 55,
+        "end_line": 106,
+        "change_type": "modified",
+        "changed_lines": 1,
+        "decorators": []
+      },
+      {
+        "id": "app:pkg/gofr/http/responder.go:Responder.Respond",
+        "repo": "app",
+        "file": "pkg/gofr/http/responder.go",
+        "name": "Respond",
+        "qualified_name": "Responder.Respond",
+        "cbm_qualified_name": "Users-ksnaik-.cache-sydes-aacr-repos-gofr-dev__gofr.pkg.gofr.http.Respond",
+        "kind": "class_method",
+        "language": "go",
+        "start_line": 24,
+        "end_line": 54,
+        "change_type": "modified",
+        "changed_lines": 2,
+        "decorators": []
+      },
+      {
+        "id": "app:pkg/gofr/http/responder_test.go:TestResponder",
+        "repo": "app",
+        "file": "pkg/gofr/http/responder_test.go",
+        "name": "TestResponder",
+        "qualified_name": "TestResponder",
+        "cbm_qualified_name": "Users-ksnaik-.cache-sydes-aacr-repos-gofr-dev__gofr.pkg.gofr.http.TestResponder",
+        "kind": "function",
+        "language": "go",
+        "start_line": 15,
+        "end_line": 81,
+        "change_type": "modified",
+        "changed_lines": 59,
+        "decorators": []
+      }
+    ],
+    "notes": []
+  },
+  "summary": {
+    "risk": "MEDIUM",
+    "verdict": "VERIFICATION INCOMPLETE",
+    "headline": "3 changed symbol(s); no route flow resolved to them.",
+    "counts": {
+      "changed_files": 5,
+      "changed_source_files": 3,
+      "changed_test_files": 1,
+      "changed_symbols": 3,
+      "affected_flows": 0,
+      "flows_partially_analyzed": 0,
+      "code_findings": 1,
+      "obligations": 0,
+      "obligations_introduced_by_change": 0,
+      "obligations_passed": 0,
+      "obligations_failed": 0,
+      "obligations_unverified": 0,
+      "obligations_unknown": 0,
+      "mapped_tests": 0,
+      "supporting_tests": 0,
+      "tests_exercising_flows": 0,
+      "tests_supporting_behavior": 0,
+      "tests_verifying_behavior": 0,
+      "changed_test_cases": 1,
+      "tests_executed": 0,
+      "verification_gaps": 0,
+      "runtime_dependencies": 4,
+      "cross_repo_impacts": 0,
+      "impacts_proven": 0,
+      "impacts_inferred": 2,
+      "impacts_not_modeled": 2,
+      "unresolved_changed_symbols": 2
+    },
+    "risk_reasons": [
+      "change could not be tied to any verifiable behavior"
+    ]
+  },
+  "code_review_status": "completed",
+  "code_findings": [
+    {
+      "id": "investigator-H1",
+      "severity": "P2",
+      "title": "For a handler returning a concrete response.Response with nonempty Data and nil Metadata, this change serializes the response with \"metadata\":null, while the updated documentation specifies that the m",
+      "file": "pkg/gofr/http/responder.go",
+      "line": 32,
+      "repo": null,
+      "explanation": "The changed handler no longer replaces response.Response with its Data, so the concrete response reaches the responder. The new responder branch copies the nil map Metadata into the internal response.Metadata interface field. Because that interface contains a typed nil map, its `omitempty` tag does not omit the field; the added test records the resulting `\"metadata\":null`. The updated documentation explicitly says a response without metadata includes only the data field.",
+      "impact": "Caused by the change: Deleting `result = resp.Data` preserves the returned response.Response through the handler pipeline. The newly added responder case then assigns its nil `map[string]any` Metadata to an interface-typed field; that typed-nil interface is serialized as JSON null rather than removed by `omitempty`, producing the test's `\"metadata\":null` and contradicting the newly documented omission contract.",
+      "suggested_fix": null,
+      "source": "investigator",
+      "evidence": [
+        {
+          "file": "pkg/gofr/http/responder_test.go",
+          "symbol": null,
+          "label": "verified_quote:59",
+          "snippet": "expectedBody: []byte(`{\"metadata\":null,\"data\":\"Hello World from new Server\"}`),"
+        },
+        {
+          "file": "docs/advanced-guide/setting-custom-response-headers/page.md",
+          "symbol": null,
+          "label": "verified_quote:106",
+          "snippet": "If no metadata is provided, the response only includes the data field:"
+        },
+        {
+          "file": "docs/advanced-guide/setting-custom-response-headers/page.md",
+          "symbol": null,
+          "label": "verified_quote:108",
+          "snippet": "```json\n    {\n        \"data\": {\n            \"message\": \"Hello, World!\"\n        }\n    }\n   ```"
+        },
+        {
+          "file": "pkg/gofr/http/responder.go",
+          "symbol": null,
+          "label": "verified_quote:32",
+          "snippet": "\t\tresp = response{Data: v.Data, Metadata: v.Metadata, Error: errorObj}"
+        }
+      ]
+    }
+  ],
+  "accepted_impacts": [
+    {
+      "id": "impact:app:HTTP rendering of raw, structured, and file results",
+      "label": "HTTP rendering of raw, structured, and file results",
+      "repo": "app",
+      "kind": "unknown",
+      "status": "inferred",
+      "changed_symbols": [
+        "(whole change)"
+      ],
+      "route_method": null,
+      "route_path": null,
+      "llm_confidence": 0.7,
+      "llm_reason": "Existing endpoints may produce different response bodies, metadata/error envelopes, status handling, or file Content-Type headers because Respond dispatches rendering according to Raw, Response, and File result types.",
+      "llm_inference_type": "semantic_pr_wide_theme",
+      "llm_uncertainty": "The preview does not show the prior implementation or map result types to specific routes, so the exact externally visible differences remain unclear.",
+      "corroborated": false,
+      "behavior_label": "HTTP rendering of raw, structured, and file results",
+      "verification_model_status": "unsupported_or_partial",
+      "provenance": "structural"
+    },
+    {
+      "id": "impact:app:custom headers on HTTP handler responses",
+      "label": "custom headers on HTTP handler responses",
+      "repo": "app",
+      "kind": "unknown",
+      "status": "inferred",
+      "changed_symbols": [
+        "(whole change)"
+      ],
+      "route_method": null,
+      "route_path": null,
+      "llm_confidence": 0.84,
+      "llm_reason": "HTTP endpoints whose handlers return a Response value may now emit its custom headers because ServeHTTP recognizes that result type and applies those headers to the response writer.",
+      "llm_inference_type": "semantic_pr_wide_theme",
+      "llm_uncertainty": "The available context does not identify which listed routes return response.Response values or which custom headers they set.",
+      "corroborated": false,
+      "behavior_label": "custom headers on HTTP handler responses",
+      "verification_model_status": "unsupported_or_partial",
+      "provenance": "structural"
+    }
+  ],
+  "pr_semantic_analysis": {
+    "origin": "llm_hypothesis",
+    "change_summary": "HTTP handlers returning response.Response now preserve that value through the handler pipeline so the responder can serialize both its data and metadata, while custom headers continue to be applied. The resulting JSON includes a metadata property when populated, but currently emits metadata:null when Metadata is unset, contrary to the updated documentation's omission example.",
+    "behavior_changes": [
+      {
+        "description": "A response.Response returned by a handler is now serialized as an HTTP envelope containing its Data and Metadata, rather than having only its Data forwarded for serialization. This makes caller-supplied metadata observable in the JSON response while retaining custom-header handling.",
+        "changed_symbols": [
+          "handler.ServeHTTP",
+          "Responder.Respond",
+          "response.Response"
+        ],
+        "evidence": [
+          "ServeHTTP still recognizes response.Response and applies its custom headers.",
+          "Responder.Respond now has a dedicated response.Response branch that copies Data and Metadata into the serialized response envelope.",
+          "The public Response type now exposes a Metadata map."
+        ],
+        "confidence": 0.98,
+        "citations": [
+          {
+            "file": "pkg/gofr/handler.go",
+            "line": 100,
+            "quoted_text": "\tif resp, ok := result.(response.Response); ok {"
+          },
+          {
+            "file": "pkg/gofr/handler.go",
+            "line": 101,
+            "quoted_text": "\t\tresp.SetCustomHeaders(w)"
+          },
+          {
+            "file": "pkg/gofr/http/responder.go",
+            "line": 31,
+            "quoted_text": "\tcase resTypes.Response:"
+          },
+          {
+            "file": "pkg/gofr/http/responder.go",
+            "line": 32,
+            "quoted_text": "\t\tresp = response{Data: v.Data, Metadata: v.Metadata, Error: errorObj}"
+          },
+          {
+            "file": "pkg/gofr/http/response/response.go",
+            "line": 9,
+            "quoted_text": "\tMetadata map[string]any    `json:\"metadata,omitempty\"`"
+          }
+        ],
+        "citations_verified": 5,
+        "citation_notes": [
+          "citation confirmed near pkg/gofr/handler.go:100",
+          "citation confirmed near pkg/gofr/handler.go:101",
+          "citation confirmed near pkg/gofr/http/responder.go:31",
+          "citation confirmed near pkg/gofr/http/responder.go:32",
+          "citation confirmed near pkg/gofr/http/response/response.go:9"
+        ]
+      },
+      {
+        "description": "When Responder.Respond receives a response.Response with no Metadata value, its JSON body includes \"metadata\":null rather than omitting the property.",
+        "changed_symbols": [
+          "Responder.Respond",
+          "response.Response",
+          "TestResponder"
+        ],
+        "evidence": [
+          "The new responder test explicitly expects metadata:null for a response.Response without metadata.",
+          "The responder transfers the typed Metadata map into an interface-valued serialization field."
+        ],
+        "confidence": 0.99,
+        "citations": [
+          {
+            "file": "pkg/gofr/http/responder.go",
+            "line": 32,
+            "quoted_text": "\t\tresp = response{Data: v.Data, Metadata: v.Metadata, Error: errorObj}"
+          },
+          {
+            "file": "pkg/gofr/http/responder.go",
+            "line": 96,
+            "quoted_text": "\tMetadata interface{} `json:\"metadata,omitempty\"`"
+          },
+          {
+            "file": "pkg/gofr/http/responder_test.go",
+            "line": 59,
+            "quoted_text": "\t\t\texpectedBody: []byte(`{\"metadata\":null,\"data\":\"Hello World from new Server\"}`),"
+          }
+        ],
+        "citations_verified": 3,
+        "citation_notes": [
+          "citation confirmed near pkg/gofr/http/responder.go:32",
+          "citation confirmed near pkg/gofr/http/responder.go:96",
+          "citation confirmed near pkg/gofr/http/responder_test.go:59"
+        ]
+      }
+    ],
+    "important_symbols": [
+      {
+        "repo": "app",
+        "file": "pkg/gofr/handler.go",
+        "symbol": "handler.ServeHTTP",
+        "reason": "Controls whether the public response.Response wrapper survives the handler stage and still applies its custom headers."
+      },
+      {
+        "repo": "app",
+        "file": "pkg/gofr/http/responder.go",
+        "symbol": "Responder.Respond",
+        "reason": "Defines the observable HTTP serialization behavior for response.Response, including propagation of metadata and errors."
+      },
+      {
+        "repo": "app",
+        "file": "pkg/gofr/http/response/response.go",
+        "symbol": "Response",
+        "reason": "Adds the public Metadata field that handlers can populate and establishes its intended JSON-facing API."
+      },
+      {
+        "repo": "app",
+        "file": "pkg/gofr/http/responder_test.go",
+        "symbol": "TestResponder",
+        "reason": "Records the expected response bodies, notably including metadata:null when metadata is unset."
+      }
+    ],
+    "investigation_hints": [
+      {
+        "description": "Trace registered handlers and other call sites that return response.Response values to determine which HTTP APIs acquire the metadata-capable envelope behavior.",
+        "related_symbols": [
+          "handler.ServeHTTP",
+          "response.Response"
+        ],
+        "concepts": [
+          "handler return types",
+          "route registration",
+          "response construction"
+        ],
+        "likely_boundary_types": [
+          "api",
+          "callable"
+        ]
+      },
+      {
+        "description": "Inspect the complete response-writing path for status selection, error serialization, custom headers, and pointer-versus-value response handling.",
+        "related_symbols": [
+          "handler.ServeHTTP",
+          "Responder.Respond",
+          "response.Response.SetCustomHeaders"
+        ],
+        "concepts": [
+          "HTTP response lifecycle",
+          "error envelopes",
+          "custom headers",
+          "type assertions"
+        ],
+        "likely_boundary_types": [
+          "api",
+          "callable"
+        ]
+      },
+      {
+        "description": "Assess API consumers and schema contracts for compatibility with the new metadata property, especially the distinction between an absent property and a null value.",
+        "related_symbols": [
+          "Responder.Respond",
+          "response.Response"
+        ],
+        "concepts": [
+          "JSON schema compatibility",
+          "optional fields",
+          "client contracts"
+        ],
+        "likely_boundary_types": [
+          "api",
+          "external"
+        ]
+      }
+    ],
+    "likely_boundary_types": [
+      "api",
+      "callable",
+      "external"
+    ],
+    "local_risks": [
+      {
+        "description": "The implementation and test emit metadata:null when no metadata is supplied, while the updated documentation says an omitted metadata value produces a body containing only data. Clients or schemas that distinguish an absent optional property from null may therefore observe behavior inconsistent with the documented contract.",
+        "severity": "P2",
+        "citations": [
+          {
+            "file": "pkg/gofr/http/responder_test.go",
+            "line": 59,
+            "quoted_text": "\t\t\texpectedBody: []byte(`{\"metadata\":null,\"data\":\"Hello World from new Server\"}`),"
+          },
+          {
+            "file": "docs/advanced-guide/setting-custom-response-headers/page.md",
+            "line": 30,
+            "quoted_text": "If metadata is omitted, the response defaults to:"
+          },
+          {
+            "file": "pkg/gofr/http/responder.go",
+            "line": 96,
+            "quoted_text": "\tMetadata interface{} `json:\"metadata,omitempty\"`"
+          }
+        ],
+        "citations_verified": 3,
+        "citation_notes": [
+          "citation confirmed near pkg/gofr/http/responder_test.go:59",
+          "citation confirmed near docs/advanced-guide/setting-custom-response-headers/page.md:30",
+          "citation confirmed near pkg/gofr/http/responder.go:96"
+        ]
+      }
+    ],
+    "uncertainties": [
+      "The supplied context does not identify which registered HTTP routes, if any, return response.Response and therefore expose the changed JSON shape.",
+      "It is not established which production handlers or non-route callers reach Responder.Respond with a response.Response value rather than another supported response type.",
+      "The diff does not establish whether real handler executions populate Metadata; populated metadata depends on the response values constructed at runtime.",
+      "The supplied files do not identify external clients, schemas, or middleware that depend on metadata being absent, null, or populated.",
+      "The wider context is needed to determine whether pointer values such as *response.Response are supported elsewhere or bypass both the custom-header and metadata-specific type assertions shown here."
+    ],
+    "uncertainty_items": [
+      {
+        "kind": "route_identity",
+        "text": "The supplied context does not identify which registered HTTP routes, if any, return response.Response and therefore expose the changed JSON shape.",
+        "symbols": [
+          "handler.ServeHTTP",
+          "response.Response"
+        ],
+        "resolved_by": null,
+        "established_context": null,
+        "scoped_text": null
+      },
+      {
+        "kind": "caller_reachability",
+        "text": "It is not established which production handlers or non-route callers reach Responder.Respond with a response.Response value rather than another supported response type.",
+        "symbols": [
+          "Responder.Respond",
+          "response.Response"
+        ],
+        "resolved_by": null,
+        "established_context": null,
+        "scoped_text": null
+      },
+      {
+        "kind": "runtime_condition",
+        "text": "The diff does not establish whether real handler executions populate Metadata; populated metadata depends on the response values constructed at runtime.",
+        "symbols": [
+          "response.Response",
+          "Responder.Respond"
+        ],
+        "resolved_by": null,
+        "established_context": null,
+        "scoped_text": null
+      },
+      {
+        "kind": "boundary_identity",
+        "text": "The supplied files do not identify external clients, schemas, or middleware that depend on metadata being absent, null, or populated.",
+        "symbols": [
+          "Responder.Respond",
+          "response.Response"
+        ],
+        "resolved_by": null,
+        "established_context": null,
+        "scoped_text": null
+      },
+      {
+        "kind": "other",
+        "text": "The wider context is needed to determine whether pointer values such as *response.Response are supported elsewhere or bypass both the custom-header and metadata-specific type assertions shown here.",
+        "symbols": [
+          "handler.ServeHTTP",
+          "Responder.Respond",
+          "response.Response"
+        ],
+        "resolved_by": null,
+        "established_context": null,
+        "scoped_text": null
+      }
+    ],
+    "verification_state": "verified",
+    "is_indeterminate": true,
+    "indeterminate_reason": "insufficient_repository_evidence",
+    "indeterminate_detail": "The serialization mechanism is directly shown, but the supplied context does not establish that any production route or caller returns response.Response, nor whether deployed responses populate Metadata. Consequently, real-user exposure cannot be determined from this diff alone."
+  },
+  "affected_boundaries": [
+    {
+      "id": "boundary:inferred:api:app:handler.ServeHTTP:0",
+      "kind": "api",
+      "subtype": "http",
+      "repo": "app",
+      "file": "pkg/gofr/handler.go",
+      "symbol": "handler.ServeHTTP",
+      "label": "HTTP handler response serialization",
+      "changed_symbols": [
+        "handler.ServeHTTP",
+        "Responder.Respond"
+      ],
+      "evidence": [
+        "Changed production symbol handler.ServeHTTP in pkg/gofr/handler.go.",
+        "Changed production symbol Responder.Respond in pkg/gofr/http/responder.go.",
+        "Established call edge: ServeHTTP calls Respond in pkg/gofr/handler.go at line 55.",
+        "Established call edges: Respond calls WriteHeader and Write in pkg/gofr/http/responder.go at line 24.",
+        "The accepted impact identifies HTTP rendering of raw, structured, and file results."
+      ],
+      "distance": 0,
+      "evidence_strength": "medium",
+      "status": "inferred",
+      "reason": "HTTP requests cross into handler.ServeHTTP, whose established call to Responder.Respond carries handler results into the HTTP response serialization surface changed by this work.",
+      "uncertainty": "No concrete registered route, method, or path is supplied, and it is not established which production routes return response.Response or populate Metadata.",
+      "llm_confidence": 0.94
+    }
+  ],
+  "composed_dispatch_edges": [],
+  "run_metrics": {
+    "llm_by_purpose": {
+      "pr_semantic_analysis": {
+        "calls": 1,
+        "errors": 0,
+        "input_tokens": 5116,
+        "output_tokens": 3742,
+        "reasoning_tokens": 2287,
+        "models": [
+          "gpt-5.6-sol"
+        ]
+      },
+      "route_discovery": {
+        "calls": 1,
+        "errors": 0,
+        "input_tokens": 4287,
+        "output_tokens": 486,
+        "reasoning_tokens": 431,
+        "models": [
+          "gpt-5.6-sol"
+        ]
+      },
+      "impact_guide": {
+        "calls": 6,
+        "errors": 0,
+        "input_tokens": 18416,
+        "output_tokens": 1037,
+        "reasoning_tokens": 500,
+        "models": [
+          "gpt-5.6-sol"
+        ]
+      },
+      "boundary_reasoning": {
+        "calls": 1,
+        "errors": 0,
+        "input_tokens": 2515,
+        "output_tokens": 450,
+        "reasoning_tokens": 218,
+        "models": [
+          "gpt-5.6-sol"
+        ]
+      },
+      "investigator": {
+        "calls": 6,
+        "errors": 0,
+        "input_tokens": 15024,
+        "output_tokens": 3431,
+        "reasoning_tokens": 2450,
+        "models": [
+          "gpt-5.6-sol"
+        ]
+      },
+      "ai_recovery": {
+        "calls": 27,
+        "errors": 0,
+        "input_tokens": 71546,
+        "output_tokens": 2067,
+        "reasoning_tokens": 298,
+        "models": [
+          "gpt-5.6-sol"
+        ]
+      }
+    },
+    "llm_totals": {
+      "calls": 42,
+      "errors": 0,
+      "input_tokens": 116904,
+      "output_tokens": 11213,
+      "reasoning_tokens": 6184
+    },
+    "cbm": {
+      "calls": 46,
+      "errors": 1,
+      "by_operation": {
+        "index_repository": 3,
+        "query_graph": 16,
+        "search_graph": 25,
+        "get_graph_schema": 1,
+        "trace_path": 1
+      },
+      "enrichment_requests": 3
+    },
+    "wall_seconds": 218.7,
+    "tests": {
+      "environments": [],
+      "mapped_executions": 0,
+      "mapped_outcomes": {},
+      "ci_suite": {
+        "status": "unknown",
+        "blocker": "collection_error",
+        "passed": null,
+        "failed": null
+      }
+    }
+  },
+  "framework_boundary_candidates": [],
+  "affected_flows": [],
+  "unresolved_changed_symbols": 2,
+  "unresolved_changed_symbol_names": [
+    "Respond",
+    "ServeHTTP"
+  ],
+  "analysis_status": "partial",
+  "analysis_notes": [
+    "Changed source file `pkg/gofr/http/response/response.go` yielded no symbols: file could not be parsed into symbols. Downstream effects of this file are not established.",
+    "Route composition is unresolved in app; some routes may be missing.",
+    "Structural exploration was bounded for this change (usage hop 2 filled a full page); boundaries beyond the explored neighborhood are not established either way.",
+    "2 changed symbol(s) have no established impact path to any entrypoint (an AI-inferred candidate may still exist for one — see AFFECTED BEHAVIOR — but that is not the same as resolved impact coverage).",
+    "No discovered route declaration reaches the changed symbols."
+  ],
+  "test_executions": [],
+  "ci_suite": {
+    "command": [
+      "go",
+      "test"
+    ],
+    "source": "detected:go_test:.",
+    "working_dir": ".",
+    "framework": "go_test",
+    "status": "unknown",
+    "blocker": "collection_error",
+    "reason": "The runner exited with code 1 without a usable result",
+    "exit_code": 1,
+    "duration_ms": 38,
+    "tests_passed": null,
+    "tests_failed": null,
+    "summary_line": null,
+    "failed_test_ids": [],
+    "stdout_excerpt": "FAIL\t. [setup failed]",
+    "stderr_excerpt": "# .\nno Go files in /Users/ksnaik/.cache/sydes-aacr/repos/gofr-dev__gofr",
+    "output_truncated": false,
+    "evidence": [
+      {
+        "file": "detected:go_test:.",
+        "symbol": null,
+        "label": "ci_test_command",
+        "snippet": "go test"
+      }
+    ]
+  },
+  "verification_gaps": [],
+  "runtime_dependencies": [
+    {
+      "id": "runtime:database:mysql",
+      "name": "MySQL",
+      "kind": "database",
+      "repo": "app",
+      "required_for_flow_ids": [],
+      "detected_from": [
+        {
+          "file": ".github/workflows/go.yml",
+          "symbol": "mysql:8.2.0",
+          "label": "container_image",
+          "snippet": "image: mysql:8.2.0"
+        },
+        {
+          "file": "examples/http-server/docker/docker-compose.yaml",
+          "symbol": "mysql:8.0.30",
+          "label": "container_image",
+          "snippet": "image: mysql:8.0.30"
+        },
+        {
+          "file": "examples/http-server/configs/.env",
+          "symbol": "DB_HOST",
+          "label": "env_var",
+          "snippet": "DB_HOST=localhost"
+        },
+        {
+          "file": "examples/http-server/configs/.env",
+          "symbol": "DB_NAME",
+          "label": "env_var",
+          "snippet": "DB_NAME=test"
+        },
+        {
+          "file": "examples/http-server/configs/.env",
+          "symbol": "DB_PORT",
+          "label": "env_var",
+          "snippet": "DB_PORT=2001"
+        },
+        {
+          "file": "examples/using-add-rest-handlers/configs/.env",
+          "symbol": "DB_HOST",
+          "label": "env_var",
+          "snippet": "DB_HOST=localhost"
+        }
+      ],
+      "scope": "repository"
+    },
+    {
+      "id": "runtime:queue:kafka",
+      "name": "Kafka",
+      "kind": "queue",
+      "repo": "app",
+      "required_for_flow_ids": [],
+      "detected_from": [
+        {
+          "file": ".github/workflows/go.yml",
+          "symbol": "bitnami/kafka:3.4",
+          "label": "container_image",
+          "snippet": "image: bitnami/kafka:3.4"
+        }
+      ],
+      "scope": "repository"
+    },
+    {
+      "id": "runtime:http_service:tracer-service",
+      "name": "Tracer service",
+      "kind": "http_service",
+      "repo": "app",
+      "required_for_flow_ids": [],
+      "detected_from": [
+        {
+          "file": "examples/using-add-rest-handlers/configs/.env",
+          "symbol": "TRACER_URL",
+          "label": "env_var",
+          "snippet": "TRACER_URL=http://localhost:2005/api/v2/spans"
+        },
+        {
+          "file": "examples/using-cron-jobs/configs/.env",
+          "symbol": "TRACER_URL",
+          "label": "env_var",
+          "snippet": "TRACER_URL=http://localhost:2005/api/v2/spans"
+        },
+        {
+          "file": "examples/using-migrations/configs/.env",
+          "symbol": "TRACER_URL",
+          "label": "env_var",
+          "snippet": "TRACER_URL=http://localhost:2005/api/v2/spans"
+        }
+      ],
+      "scope": "repository"
+    },
+    {
+      "id": "runtime:cache:redis",
+      "name": "Redis",
+      "kind": "cache",
+      "repo": "app",
+      "required_for_flow_ids": [],
+      "detected_from": [
+        {
+          "file": ".github/workflows/go.yml",
+          "symbol": "redis:7.0.5",
+          "label": "container_image",
+          "snippet": "image: redis:7.0.5"
+        },
+        {
+          "file": "examples/http-server-using-redis/configs/.env",
+          "symbol": "REDIS_HOST",
+          "label": "env_var",
+          "snippet": "REDIS_HOST=localhost"
+        },
+        {
+          "file": "examples/http-server-using-redis/configs/.env",
+          "symbol": "REDIS_PORT",
+          "label": "env_var",
+          "snippet": "REDIS_PORT=2002"
+        },
+        {
+          "file": "examples/http-server/configs/.env",
+          "symbol": "REDIS_HOST",
+          "label": "env_var",
+          "snippet": "REDIS_HOST=localhost"
+        },
+        {
+          "file": "examples/http-server/configs/.env",
+          "symbol": "REDIS_PORT",
+          "label": "env_var",
+          "snippet": "REDIS_PORT=2002"
+        },
+        {
+          "file": "examples/http-server/docker/docker-compose.yaml",
+          "symbol": "redis:7.0.5",
+          "label": "container_image",
+          "snippet": "image: redis:7.0.5"
+        }
+      ],
+      "scope": "repository"
+    }
+  ],
+  "cross_repo_impacts": [],
+  "notes": [
+    "test_execution=whole_suite_fallback reason=no_mapped_tests",
+    "AI recovery (experimental, provenance=ai_recovery, run-local, not merged into structural results): path recovery could not establish a source-backed path beyond the first pass; test recovery recovered no verified tests.",
+    "Saved change verification artifact: /Users/ksnaik/.sydes/workspaces/cfacbaa62acc1325/artifacts/20261027T004411Z-f0501235/change_verification.json"
+  ],
+  "diagnostics": [
+    "code_intelligence_effective_backend=cbm selected_by=default",
+    "code_intelligence_backend=cbm transport=persistent_mcp_stdio cbm_server_version=0.11.0 cbm_executable=/Users/ksnaik/.cache/uv/archive-v0/fIq-hElUYs477A4qj4uzs/bin/codebase-memory-mcp",
+    "cbm_session_start_ms=1389.8 cbm_calls=31 cbm_mean_call_ms=136.5",
+    "cbm_index_ms=3326.3 cbm_query_ms=931.2 sydes_route_semantics_ms=829.8 total_ms=6481.0",
+    "cbm_supplied=symbols,spans,imports,exports,call_edges,usage_edges,entrypoints  sydes_semantics=route_index,route_graph,repo_map",
+    "route_derived_entrypoints_added=16",
+    "cbm_gap: route composition is computed by Sydes, not CBM: CBM reports uncomposed route paths and models no persistence sinks",
+    "cbm_gap: app: route composition is unresolved for some containers; route-derived entrypoint paths from this repo may be incomplete",
+    "cbm_gap: CALLS/USAGE edges deferred: they are fetched as a bounded neighborhood around the changed symbols instead of a repository-wide sweep",
+    "app: cbm_index_mode retried fast->full (1 changed file(s) under an excluded directory; see trace for detail)",
+    "handler_symbol_index: exports=10707, files_indexed=429, imports=414, symbols=11360",
+    "pr_semantic_analysis_prompt_chars=19226",
+    "reverse_reach_candidate_files=8",
+    "app: deterministic_routes_found=16, deterministic_frameworks=express,express_mount_graph",
+    "app: discovery_coverage=moderate score=0.7",
+    "app: discovery_coverage_reasons=deterministic route extraction produced grounded routes; route graph composition produced mounted routes; some mount edges could not be resolved; route composition is unresolved: 7 of 7 route containers have no resolvable mount or declared prefix, so route paths may be incomplete",
+    "app: route_graph_containers=11, route_graph_declarations=16, route_graph_mount_edges=3, route_graph_composed_routes=16, route_graph_unresolved_mounts=3",
+    "app: deterministic_routes=16, llm_routes=0, merged_routes=16, rejected_routes=0, final_routes=16",
+    "app: merged_llm_routes=0",
+    "graph_slice_seeds: changed=3 routes=0 dropped_auxiliary=0 total=3",
+    "graph_slice: used=True seeds=3 canonical_seeds=3 unresolved_seeds=0 unresolved_changed=0 unresolved_auxiliary=0 graph_calls=4 nodes=400 call_edges=466 usage_edges=215 truncated=True fell_back=False",
+    "impact_interpreter: affected_entrypoints=2, ambiguous_edges=0, boundary_budget_exhausted=False, boundary_emitted=0, boundary_expansions=17, boundary_frontier_considered=17, boundary_rejected_weak_evidence=0, call_edges=466, changed_symbols=2, evidence_confirmed=0, guide_actions={'infer_impact': 3, 'stop_unresolved': 2, 'inspect_symbol': 1}, guide_budget_exhausted=False, guide_calls=6, guide_error_details=[], guide_errors=0, guide_latency_ms=21527.265668148175, guide_no_progress=0, guide_triggered=True, http_entrypoints=0, known_entrypoints=16, llm_candidates=2, llm_candidates_accepted=2, llm_candidates_corroborated=0, llm_candidates_missing_reason=0, llm_candidates_self_referential=0, llm_candidates_uncorroborated=2, llm_candidates_ungrounded=0, llm_candidates_whole_change_unanchored=0, llm_new_entrypoints=2, llm_no_candidate_turns=2, unresolved_after=2, unresolved_before=2, unresolved_symbols=2, usage_edges=215",
+    "repo_profile: reused persisted profile",
+    "boundary_reasoning: candidates=4 inferred=1",
+    "app: test_files_found=142",
+    "app: test_cases_found=821",
+    "changed_test_cases_found: ['pkg/gofr/http/responder_test.go::TestResponder']",
+    "test_frameworks_detected=go_test",
+    "ci_suite=unknown exit=1 source=detected:go_test:.",
+    "structural_enrichment: triggered=[route_container_registration: 2 unresolved changed symbol(s)] cbm_requests=3 (relations:2,schema:1) cache_hits=(none) errors=0 truncated=0 families=[CALLS,USAGE] candidates=0 unresolved=0",
+    "code_review_context_added: pkg/gofr/http/response/response.go:SetCustomHeaders -- ServeHTTP calls SetCustomHeaders at pkg/gofr/handler.go:101 (a changed line)",
+    "code_review_context_added: pkg/gofr/migration/interface.go:Set -- Respond calls Set at pkg/gofr/http/responder.go:34 (2 line(s) from a changed line)",
+    "code_review_context_added: pkg/gofr/responder.go:Respond -- ServeHTTP calls Respond at pkg/gofr/handler.go:105 (4 line(s) from a changed line)",
+    "code_review_context_added: pkg/gofr/datasource/opentsdb/interface.go:Write -- Respond calls Write at pkg/gofr/http/responder.go:37 (5 line(s) from a changed line)",
+    "code_review_context_added: pkg/gofr/http/responder.go:getStatusCode -- Respond calls getStatusCode at pkg/gofr/http/responder.go:25 (6 line(s) from a changed line)",
+    "code_review_context_added: pkg/gofr/metrics/handler.go:systemMetricsHandler -- systemMetricsHandler calls the changed ServeHTTP",
+    "code_review_context_related=6",
+    "code_review_questions=9",
+    "investigator: hypotheses=1 lookups=4/12 confirmed=1 refuted=0 unknown=0 findings=1 llm_calls=6 errors=0",
+    "investigation_artifact=/Users/ksnaik/StudioProjects/sydes/benchmarks/aacr/results/alloc-A1-snapshot-c54d97e-first11-2026-10-26/sydes/gofr-dev__gofr@b9cdcbb.investigation.json",
+    "run_metrics: wall_seconds=218.7 llm_calls=42 (ai_recovery:27,boundary_reasoning:1,impact_guide:6,investigator:6,pr_semantic_analysis:1,route_discovery:1) llm_errors=0 input_tokens=116904 output_tokens=11213 estimated_cost_usd=unavailable (set SYDES_LLM_PRICE_PER_MTOK) cbm_requests=46 cbm_enrichment_requests=3 test_executions=0 test_outcomes={}"
+  ],
+  "behavioral": null,
+  "known_routes": [
+    {
+      "method": "GET",
+      "path": "/employee",
+      "handler": "GetHandler",
+      "file": "examples/using-migrations/main.go",
+      "repo": "app",
+      "service": null,
+      "evidence": [
+        {
+          "file": "examples/using-migrations/main.go",
+          "symbol": "GetHandler",
+          "label": "route_declaration",
+          "snippet": "a.GET(\"/employee\", GetHandler)"
+        }
+      ],
+      "confidence": 1.0,
+      "status": "deterministic_composed",
+      "kind": "http",
+      "impact_status": null
+    },
+    {
+      "method": "GET",
+      "path": "/error",
+      "handler": "ErrorHandler",
+      "file": "examples/http-server/main.go",
+      "repo": "app",
+      "service": null,
+      "evidence": [
+        {
+          "file": "examples/http-server/main.go",
+          "symbol": "ErrorHandler",
+          "label": "route_declaration",
+          "snippet": "a.GET(\"/error\", ErrorHandler)"
+        }
+      ],
+      "confidence": 1.0,
+      "status": "deterministic_composed",
+      "kind": "http",
+      "impact_status": null
+    },
+    {
+      "method": "GET",
+      "path": "/fact",
+      "handler": "Handler",
+      "file": "examples/using-http-service/main.go",
+      "repo": "app",
+      "service": null,
+      "evidence": [
+        {
+          "file": "examples/using-http-service/main.go",
+          "symbol": "Handler",
+          "label": "route_declaration",
+          "snippet": "a.GET(\"/fact\", Handler)"
+        }
+      ],
+      "confidence": 1.0,
+      "status": "deterministic_composed",
+      "kind": "http",
+      "impact_status": null
+    },
+    {
+      "method": "GET",
+      "path": "/hello",
+      "handler": "HelloHandler",
+      "file": "examples/http-server/main.go",
+      "repo": "app",
+      "service": null,
+      "evidence": [
+        {
+          "file": "examples/http-server/main.go",
+          "symbol": "HelloHandler",
+          "label": "route_declaration",
+          "snippet": "a.GET(\"/hello\", HelloHandler)"
+        }
+      ],
+      "confidence": 1.0,
+      "status": "deterministic_composed",
+      "kind": "http",
+      "impact_status": null
+    },
+    {
+      "method": "GET",
+      "path": "/mysql",
+      "handler": "MysqlHandler",
+      "file": "examples/http-server/main.go",
+      "repo": "app",
+      "service": null,
+      "evidence": [
+        {
+          "file": "examples/http-server/main.go",
+          "symbol": "MysqlHandler",
+          "label": "route_declaration",
+          "snippet": "a.GET(\"/mysql\", MysqlHandler)"
+        }
+      ],
+      "confidence": 1.0,
+      "status": "deterministic_composed",
+      "kind": "http",
+      "impact_status": null
+    },
+    {
+      "method": "GET",
+      "path": "/redis",
+      "handler": "RedisHandler",
+      "file": "examples/http-server/main.go",
+      "repo": "app",
+      "service": null,
+      "evidence": [
+        {
+          "file": "examples/http-server/main.go",
+          "symbol": "RedisHandler",
+          "label": "route_declaration",
+          "snippet": "a.GET(\"/redis\", RedisHandler)"
+        }
+      ],
+      "confidence": 1.0,
+      "status": "deterministic_composed",
+      "kind": "http",
+      "impact_status": null
+    },
+    {
+      "method": "GET",
+      "path": "/redis-pipeline",
+      "handler": "RedisPipelineHandler",
+      "file": "examples/http-server-using-redis/main.go",
+      "repo": "app",
+      "service": null,
+      "evidence": [
+        {
+          "file": "examples/http-server-using-redis/main.go",
+          "symbol": "RedisPipelineHandler",
+          "label": "app.GET(\"/redis-pipeline\", RedisPipelineHandler)",
+          "snippet": "app.GET(\"/redis-pipeline\", RedisPipelineHandler)"
+        },
+        {
+          "file": "examples/http-server-using-redis/main.go",
+          "symbol": "RedisPipelineHandler",
+          "label": "route_declaration",
+          "snippet": "app.GET(\"/redis-pipeline\", RedisPipelineHandler)"
+        }
+      ],
+      "confidence": 1.0,
+      "status": "deterministic",
+      "kind": "http",
+      "impact_status": null
+    },
+    {
+      "method": "GET",
+      "path": "/redis/{key}",
+      "handler": "RedisGetHandler",
+      "file": "examples/http-server-using-redis/main.go",
+      "repo": "app",
+      "service": null,
+      "evidence": [
+        {
+          "file": "examples/http-server-using-redis/main.go",
+          "symbol": "RedisGetHandler",
+          "label": "app.GET(\"/redis/{key}\", RedisGetHandler)",
+          "snippet": "app.GET(\"/redis/{key}\", RedisGetHandler)"
+        },
+        {
+          "file": "examples/http-server-using-redis/main.go",
+          "symbol": "RedisGetHandler",
+          "label": "route_declaration",
+          "snippet": "app.GET(\"/redis/{key}\", RedisGetHandler)"
+        }
+      ],
+      "confidence": 1.0,
+      "status": "deterministic",
+      "kind": "http",
+      "impact_status": null
+    },
+    {
+      "method": "GET",
+      "path": "/trace",
+      "handler": "TraceHandler",
+      "file": "examples/http-server/main.go",
+      "repo": "app",
+      "service": null,
+      "evidence": [
+        {
+          "file": "examples/http-server/main.go",
+          "symbol": "TraceHandler",
+          "label": "route_declaration",
+          "snippet": "a.GET(\"/trace\", TraceHandler)"
+        }
+      ],
+      "confidence": 1.0,
+      "status": "deterministic_composed",
+      "kind": "http",
+      "impact_status": null
+    },
+    {
+      "method": "POST",
+      "path": "/employee",
+      "handler": "PostHandler",
+      "file": "examples/using-migrations/main.go",
+      "repo": "app",
+      "service": null,
+      "evidence": [
+        {
+          "file": "examples/using-migrations/main.go",
+          "symbol": "PostHandler",
+          "label": "route_declaration",
+          "snippet": "a.POST(\"/employee\", PostHandler)"
+        }
+      ],
+      "confidence": 1.0,
+      "status": "deterministic_composed",
+      "kind": "http",
+      "impact_status": null
+    },
+    {
+      "method": "POST",
+      "path": "/publish-order",
+      "handler": "order",
+      "file": "examples/using-publisher/main.go",
+      "repo": "app",
+      "service": null,
+      "evidence": [
+        {
+          "file": "examples/using-publisher/main.go",
+          "symbol": "order",
+          "label": "app.POST(\"/publish-order\", order)",
+          "snippet": "app.POST(\"/publish-order\", order)"
+        },
+        {
+          "file": "examples/using-publisher/main.go",
+          "symbol": "order",
+          "label": "route_declaration",
+          "snippet": "app.POST(\"/publish-order\", order)"
+        }
+      ],
+      "confidence": 1.0,
+      "status": "deterministic",
+      "kind": "http",
+      "impact_status": null
+    },
+    {
+      "method": "POST",
+      "path": "/publish-product",
+      "handler": "product",
+      "file": "examples/using-publisher/main.go",
+      "repo": "app",
+      "service": null,
+      "evidence": [
+        {
+          "file": "examples/using-publisher/main.go",
+          "symbol": "product",
+          "label": "app.POST(\"/publish-product\", product)",
+          "snippet": "app.POST(\"/publish-product\", product)"
+        },
+        {
+          "file": "examples/using-publisher/main.go",
+          "symbol": "product",
+          "label": "route_declaration",
+          "snippet": "app.POST(\"/publish-product\", product)"
+        }
+      ],
+      "confidence": 1.0,
+      "status": "deterministic",
+      "kind": "http",
+      "impact_status": null
+    },
+    {
+      "method": "POST",
+      "path": "/redis",
+      "handler": "RedisSetHandler",
+      "file": "examples/http-server-using-redis/main.go",
+      "repo": "app",
+      "service": null,
+      "evidence": [
+        {
+          "file": "examples/http-server-using-redis/main.go",
+          "symbol": "RedisSetHandler",
+          "label": "app.POST(\"/redis\", RedisSetHandler)",
+          "snippet": "app.POST(\"/redis\", RedisSetHandler)"
+        },
+        {
+          "file": "examples/http-server-using-redis/main.go",
+          "symbol": "RedisSetHandler",
+          "label": "route_declaration",
+          "snippet": "app.POST(\"/redis\", RedisSetHandler)"
+        }
+      ],
+      "confidence": 1.0,
+      "status": "deterministic",
+      "kind": "http",
+      "impact_status": null
+    },
+    {
+      "method": "POST",
+      "path": "/return",
+      "handler": "ReturnHandler",
+      "file": "examples/using-custom-metrics/main.go",
+      "repo": "app",
+      "service": null,
+      "evidence": [
+        {
+          "file": "examples/using-custom-metrics/main.go",
+          "symbol": "ReturnHandler",
+          "label": "route_declaration",
+          "snippet": "a.POST(\"/return\", ReturnHandler)"
+        }
+      ],
+      "confidence": 1.0,
+      "status": "deterministic_composed",
+      "kind": "http",
+      "impact_status": null
+    },
+    {
+      "method": "POST",
+      "path": "/transaction",
+      "handler": "TransactionHandler",
+      "file": "examples/using-custom-metrics/main.go",
+      "repo": "app",
+      "service": null,
+      "evidence": [
+        {
+          "file": "examples/using-custom-metrics/main.go",
+          "symbol": "TransactionHandler",
+          "label": "route_declaration",
+          "snippet": "a.POST(\"/transaction\", TransactionHandler)"
+        }
+      ],
+      "confidence": 1.0,
+      "status": "deterministic_composed",
+      "kind": "http",
+      "impact_status": null
+    },
+    {
+      "method": "POST",
+      "path": "/upload",
+      "handler": "UploadHandler",
+      "file": "examples/using-file-bind/main.go",
+      "repo": "app",
+      "service": null,
+      "evidence": [
+        {
+          "file": "examples/using-file-bind/main.go",
+          "symbol": "UploadHandler",
+          "label": "app.POST(\"/upload\", UploadHandler)",
+          "snippet": "app.POST(\"/upload\", UploadHandler)"
+        },
+        {
+          "file": "examples/using-file-bind/main.go",
+          "symbol": "UploadHandler",
+          "label": "route_declaration",
+          "snippet": "app.POST(\"/upload\", UploadHandler)"
+        }
+      ],
+      "confidence": 1.0,
+      "status": "deterministic",
+      "kind": "http",
+      "impact_status": null
+    }
+  ],
+  "unattached_evidence": []
+}

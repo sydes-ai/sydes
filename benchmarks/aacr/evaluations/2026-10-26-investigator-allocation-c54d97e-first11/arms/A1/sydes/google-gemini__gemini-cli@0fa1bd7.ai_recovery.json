@@ -1,0 +1,159 @@
+{
+  "path_recovery": {
+    "status": "established",
+    "paths": [
+      {
+        "entrypoint": "gemini CLI invocation",
+        "target_node": "saveSettings",
+        "status": "established",
+        "root_boundary_status": "candidate_boundary",
+        "nodes": [
+          {
+            "symbol": "index",
+            "file": "packages/cli/index.ts",
+            "qualified_name": "packages.cli.index"
+          },
+          {
+            "symbol": "main",
+            "file": "packages/cli/src/gemini.tsx",
+            "qualified_name": "packages.cli.src.gemini.main"
+          },
+          {
+            "symbol": "LoadedSettings.setValue",
+            "file": "packages/cli/src/config/settings.ts",
+            "qualified_name": "packages.cli.src.config.settings.LoadedSettings.setValue"
+          },
+          {
+            "symbol": "saveSettings",
+            "file": "packages/cli/src/config/settings.ts",
+            "qualified_name": "packages.cli.src.config.settings.saveSettings"
+          }
+        ],
+        "edges": [
+          {
+            "from": {
+              "symbol": "index",
+              "file": "packages/cli/index.ts",
+              "qualified_name": "packages.cli.index"
+            },
+            "to": {
+              "symbol": "main",
+              "file": "packages/cli/src/gemini.tsx",
+              "qualified_name": "packages.cli.src.gemini.main"
+            },
+            "relationship": "The CLI entrypoint imports main from packages/cli/src/gemini.tsx (via its emitted .js module path) and invokes it, attaching top-level error handling to the returned promise.",
+            "evidence": [
+              {
+                "file": "packages/cli/index.ts",
+                "line_start": 9,
+                "line_end": 14,
+                "fact": "The entrypoint imports main from './src/gemini.js' and directly calls main()."
+              }
+            ],
+            "status": "established",
+            "provenance": "ai_recovery",
+            "rejection_reason": null,
+            "from_decomposition": false
+          },
+          {
+            "from": {
+              "symbol": "main",
+              "file": "packages/cli/src/gemini.tsx",
+              "qualified_name": "packages.cli.src.gemini.main"
+            },
+            "to": {
+              "symbol": "LoadedSettings.setValue",
+              "file": "packages/cli/src/config/settings.ts",
+              "qualified_name": "packages.cli.src.config.settings.LoadedSettings.setValue"
+            },
+            "relationship": "main calls setValue directly (code graph CALLS edge)",
+            "evidence": [
+              {
+                "file": "packages/cli/src/gemini.tsx",
+                "line_start": 275,
+                "line_end": 275,
+                "fact": "main calls setValue at this line"
+              }
+            ],
+            "status": "established",
+            "provenance": "explicit_relation",
+            "rejection_reason": null,
+            "from_decomposition": false
+          },
+          {
+            "from": {
+              "symbol": "LoadedSettings.setValue",
+              "file": "packages/cli/src/config/settings.ts",
+              "qualified_name": "packages.cli.src.config.settings.LoadedSettings.setValue"
+            },
+            "to": {
+              "symbol": "saveSettings",
+              "file": "packages/cli/src/config/settings.ts",
+              "qualified_name": "packages.cli.src.config.settings.saveSettings"
+            },
+            "relationship": "setValue calls saveSettings directly (code graph CALLS edge)",
+            "evidence": [
+              {
+                "file": "packages/cli/src/config/settings.ts",
+                "line_start": 422,
+                "line_end": 422,
+                "fact": "setValue calls saveSettings at this line"
+              }
+            ],
+            "status": "established",
+            "provenance": "explicit_relation",
+            "rejection_reason": null,
+            "from_decomposition": false
+          }
+        ],
+        "unresolved_suffix": []
+      }
+    ],
+    "corrected_first_pass_claims": [],
+    "unresolved": []
+  },
+  "test_recovery": {
+    "status": "unresolved",
+    "tests": [
+      {
+        "file": "packages/cli/src/utils/commentJson.test.ts",
+        "test": "updateSettingsFilePreservingFormat test suite",
+        "covers": "Directly calls the changed JSON settings updater and verifies preservation of comments, formatting, and environment-variable placeholders while applying updates.",
+        "target": {
+          "symbol": "updateSettingsFilePreservingFormat",
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "qualified_name": null
+        },
+        "evidence": [],
+        "status": "rejected",
+        "rejection_reason": "no evidence cited at all"
+      },
+      {
+        "file": "packages/cli/src/utils/commentJson.test.ts",
+        "test": "prototype-polluting key update cases",
+        "covers": "Directly exercises updates containing special keys such as __proto__, constructor, and prototype.",
+        "target": {
+          "symbol": "applyUpdates",
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "qualified_name": null
+        },
+        "evidence": [],
+        "status": "rejected",
+        "rejection_reason": "no evidence cited at all"
+      },
+      {
+        "file": "packages/cli/src/utils/commentJson.test.ts",
+        "test": "environment-variable placeholder restoration cases",
+        "covers": "Exercises recursive restoration of environment-variable references in nested settings values.",
+        "target": {
+          "symbol": "restoreEnvVarsRecursive",
+          "file": "packages/cli/src/utils/commentJson.ts",
+          "qualified_name": null
+        },
+        "evidence": [],
+        "status": "rejected",
+        "rejection_reason": "no evidence cited at all"
+      }
+    ]
+  }
+}

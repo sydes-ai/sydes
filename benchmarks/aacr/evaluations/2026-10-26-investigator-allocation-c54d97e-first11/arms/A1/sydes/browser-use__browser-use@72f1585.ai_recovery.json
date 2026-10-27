@@ -1,0 +1,175 @@
+{
+  "path_recovery": {
+    "status": "partial",
+    "paths": [
+      {
+        "entrypoint": "CLI invocation using a Google/Gemini model",
+        "target_node": "ChatGoogle.ainvoke",
+        "status": "partial",
+        "root_boundary_status": "candidate_boundary",
+        "nodes": [
+          {
+            "symbol": "CLI command",
+            "file": "browser_use/cli.py",
+            "qualified_name": null
+          },
+          {
+            "symbol": "Agent.run",
+            "file": "browser_use/agent/service.py",
+            "qualified_name": "Agent.run"
+          },
+          {
+            "symbol": "Agent.step",
+            "file": "browser_use/agent/service.py",
+            "qualified_name": null
+          }
+        ],
+        "edges": [
+          {
+            "from": {
+              "symbol": "CLI command",
+              "file": "browser_use/cli.py",
+              "qualified_name": "run_prompt_mode"
+            },
+            "to": {
+              "symbol": "Agent.run",
+              "file": "browser_use/agent/service.py",
+              "qualified_name": "Agent.run"
+            },
+            "relationship": "The CLI one-shot prompt handler constructs the imported browser_use.Agent and directly awaits its run method.",
+            "evidence": [
+              {
+                "file": "browser_use/cli.py",
+                "line_start": 30,
+                "line_end": 30,
+                "fact": "The CLI imports Agent from the browser_use package."
+              },
+              {
+                "file": "browser_use/cli.py",
+                "line_start": 1403,
+                "line_end": 1412,
+                "fact": "The CLI constructs an Agent for the prompt with the selected LLM and browser session, then directly executes `await agent.run()`."
+              }
+            ],
+            "status": "established",
+            "provenance": "ai_recovery",
+            "rejection_reason": null,
+            "from_decomposition": false
+          },
+          {
+            "from": {
+              "symbol": "Agent.run",
+              "file": "browser_use/agent/service.py",
+              "qualified_name": null
+            },
+            "to": {
+              "symbol": "Agent.step",
+              "file": "browser_use/agent/service.py",
+              "qualified_name": null
+            },
+            "relationship": "run calls step directly (code graph CALLS edge)",
+            "evidence": [
+              {
+                "file": "browser_use/agent/service.py",
+                "line_start": 1481,
+                "line_end": 1481,
+                "fact": "run calls step at this line"
+              }
+            ],
+            "status": "established",
+            "provenance": "explicit_relation",
+            "rejection_reason": null,
+            "from_decomposition": false
+          }
+        ],
+        "unresolved_suffix": [
+          {
+            "from": {
+              "symbol": "Agent.step",
+              "file": "browser_use/agent/service.py",
+              "qualified_name": "Agent.step"
+            },
+            "to": {
+              "symbol": "ChatGoogle.ainvoke",
+              "file": "browser_use/llm/google/chat.py",
+              "qualified_name": "browser_use.llm.google.chat.ChatGoogle.ainvoke"
+            },
+            "relationship": "Agent.step reaches the configured agent LLM invocation, but the available evidence does not establish that the configured runtime instance is specifically ChatGoogle; therefore the connection to this exact ChatGoogle.ainvoke entity is unproven.",
+            "rejection_reason": "no evidence is located in either entity's own declared file ('browser_use/agent/service.py' or 'browser_use/llm/google/chat.py') -- possible wrong-file/wrong-module substitution"
+          }
+        ]
+      }
+    ],
+    "corrected_first_pass_claims": [],
+    "unresolved": []
+  },
+  "test_recovery": {
+    "status": "established",
+    "tests": [
+      {
+        "file": "browser_use/llm/tests/test_chat_models.py",
+        "test": "Google/Gemini unstructured chat invocation test (lines 125-126)",
+        "covers": "Constructs ChatGoogle and directly invokes ainvoke for a text response.",
+        "target": {
+          "symbol": "ChatGoogle.ainvoke",
+          "file": "browser_use/llm/google/chat.py",
+          "qualified_name": null
+        },
+        "evidence": [],
+        "status": "rejected",
+        "rejection_reason": "no evidence cited at all"
+      },
+      {
+        "file": "browser_use/llm/tests/test_chat_models.py",
+        "test": "Google/Gemini structured chat invocation test (lines 139-140)",
+        "covers": "Constructs ChatGoogle and directly invokes ainvoke with a Pydantic output format.",
+        "target": {
+          "symbol": "ChatGoogle.ainvoke",
+          "file": "browser_use/llm/google/chat.py",
+          "qualified_name": null
+        },
+        "evidence": [],
+        "status": "rejected",
+        "rejection_reason": "no evidence cited at all"
+      },
+      {
+        "file": "browser_use/llm/tests/test_gemini_image.py",
+        "test": "Gemini image invocation test (lines 55-80)",
+        "covers": "The test constructs ChatGoogle with a Gemini model and directly awaits its ainvoke method with messages containing a base64 image content part.",
+        "target": {
+          "symbol": "ChatGoogle.ainvoke",
+          "file": "browser_use/llm/google/chat.py",
+          "qualified_name": null
+        },
+        "evidence": [
+          {
+            "file": "browser_use/llm/tests/test_gemini_image.py",
+            "line_start": 8,
+            "line_end": 8,
+            "fact": "The test imports ChatGoogle specifically from browser_use.llm.google.chat."
+          },
+          {
+            "file": "browser_use/llm/tests/test_gemini_image.py",
+            "line_start": 55,
+            "line_end": 55,
+            "fact": "The test constructs a ChatGoogle instance."
+          },
+          {
+            "file": "browser_use/llm/tests/test_gemini_image.py",
+            "line_start": 61,
+            "line_end": 69,
+            "fact": "The messages passed by the test include a UserMessage with ContentPartImageParam containing the generated image data URL."
+          },
+          {
+            "file": "browser_use/llm/tests/test_gemini_image.py",
+            "line_start": 78,
+            "line_end": 80,
+            "fact": "The test directly awaits llm.ainvoke(messages), invoking ChatGoogle.ainvoke with the image-bearing messages."
+          }
+        ],
+        "status": "accepted",
+        "rejection_reason": null
+      }
+    ]
+  }
+}

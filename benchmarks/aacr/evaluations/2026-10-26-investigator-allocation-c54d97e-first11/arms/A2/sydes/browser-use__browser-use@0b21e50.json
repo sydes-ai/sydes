@@ -1,0 +1,100 @@
+{
+  "code_findings": [
+    {
+      "id": "investigator-H1",
+      "severity": "P2",
+      "title": "When neither cdp_url nor wss_url bypasses local setup, BrowserConfig accepts an explicit chrome_remote_debugging_port=None, but the user-provided-browser path raises httpx.InvalidURL while processing ",
+      "file": "browser_use/browser/browser.py",
+      "line": 109,
+      "repo": null,
+      "explanation": "The nullable annotation permits explicit None and there is no validator or normalization before either setup path. In the user-provided path, None is interpolated as the nonnumeric URL port \"None\" in the first HTTPX request; HTTPX raises InvalidURL, which is not handled by the subsequent except httpx.RequestError, before create_subprocess_exec at line 229. In the built-in path, the code passes None directly as the AF_INET port to socket.connect_ex, causing TypeError before browser_class.launch at line 311. Thus the newly accepted value fails rather than selecting the documented default. The evidence does not establish whether disabling remote debugging was intended.",
+      "impact": "Caused by the change: This change introduces a nullable port field and replaces the previous fixed debugging port with that field in URL, launch-argument, and socket operations. Therefore an explicit None, newly accepted by BrowserConfig, reaches APIs requiring a concrete numeric port and aborts both local setup branches before their respective Chrome launch calls.",
+      "suggested_fix": null,
+      "source": "investigator",
+      "evidence": [
+        {
+          "file": "browser_use/browser/browser.py",
+          "symbol": null,
+          "label": "verified_quote:111",
+          "snippet": "\tchrome_remote_debugging_port: int | None = CHROME_DEBUG_PORT"
+        },
+        {
+          "file": "browser_use/browser/browser.py",
+          "symbol": null,
+          "label": "verified_quote:202",
+          "snippet": "\t\t\t\t\tf'http://localhost:{self.config.chrome_remote_debugging_port}/json/version', timeout=2"
+        },
+        {
+          "file": "browser_use/browser/browser.py",
+          "symbol": null,
+          "label": "verified_quote:214",
+          "snippet": "\t\texcept httpx.RequestError:"
+        },
+        {
+          "file": "browser_use/browser/browser.py",
+          "symbol": null,
+          "label": "verified_quote:111",
+          "snippet": "\tchrome_remote_debugging_port: int | None = CHROME_DEBUG_PORT"
+        }
+      ]
+    },
+    {
+      "id": "investigator-H3",
+      "severity": "P3",
+      "title": "The added test\u2019s own mocks do not isolate the initial HTTP probe. If the httpx probe of localhost:9223 returns status 200, the implementation returns a DummyBrowser before invoking dummy_create_subpro",
+      "file": "tests/test_browser.py",
+      "line": 179,
+      "repo": null,
+      "explanation": "The test patches requests.get, but the implementation probes the endpoint with httpx.AsyncClient. The search of tests/test_browser.py finds no AsyncClient patch. On a 200 response, _setup_user_provided_browser connects through the test\u2019s DummyChromium, which returns DummyBrowser, and immediately returns before asyncio.create_subprocess_exec. Therefore the assertion inside dummy_create_subprocess_exec is not guaranteed to run. The supplied evidence does not establish the broader suggestion that the test will fail for any particular localhost service state.",
+      "impact": "Caused by the change: The newly added test patches requests.get rather than the httpx.AsyncClient used by the changed custom-port probe. Consequently, a real status-200 response from localhost:9223 takes the reuse branch and returns the mocked DummyBrowser before the subprocess call at browser.py:229, bypassing the new test\u2019s launch-argument assertion.",
+      "suggested_fix": null,
+      "source": "investigator",
+      "evidence": [
+        {
+          "file": "browser_use/browser/browser.py",
+          "symbol": null,
+          "label": "verified_quote:200",
+          "snippet": "\t\t\tasync with httpx.AsyncClient() as client:"
+        },
+        {
+          "file": "browser_use/browser/browser.py",
+          "symbol": null,
+          "label": "verified_quote:204",
+          "snippet": "\t\t\t\tif response.status_code == 200:"
+        },
+        {
+          "file": "browser_use/browser/browser.py",
+          "symbol": null,
+          "label": "verified_quote:213",
+          "snippet": "\t\t\t\t\treturn browser"
+        },
+        {
+          "file": "tests/test_browser.py",
+          "symbol": null,
+          "label": "verified_quote:180",
+          "snippet": "\tmonkeypatch.setattr(requests, 'get', dummy_get)"
+        }
+      ]
+    }
+  ],
+  "code_review_status": "completed",
+  "run_metrics": {
+    "llm_totals": {
+      "calls": 15,
+      "input_tokens": 39468,
+      "output_tokens": 10138,
+      "errors": 0
+    },
+    "llm_by_purpose": {
+      "investigator": {
+        "calls": 12
+      },
+      "verifier": {
+        "calls": 3
+      }
+    }
+  },
+  "diagnostics": [
+    "investigator: hypotheses=3 lookups=12/12 confirmed=2 refuted=0 unknown=1 findings=2 llm_calls=15 errors=0"
+  ]
+}
