@@ -188,3 +188,13 @@ The allocation experiment showed that verdicts flip on the same hypothesis even 
 - No merge, no release, no change to production defaults.
 - No AACR references reach Sydes, and adjudication is not fed back.
 - The prompt paragraph is not edited after the first run.
+
+## Screening stage (added 2026-10-27, before any scored result)
+
+The first attempt at the six arms produced no verdicts. Every Verifier call failed with OpenAI 429 "no credits remaining", so nothing was scored and nothing was seen. Since then, evaluations follow a staged protocol: deterministic tests, then a cheap screen, then frontier replay confirmation, then the full first-11. The arms therefore run first as a **screen**.
+
+- **Screening model:** `openai:gpt-5.2` for the Verifier, set with `aacr.py verifier-replay --model` and recorded as `replay.model_override` in each run's `run.json`. The judge stays `gpt-5.2`, as before.
+- **Unchanged:** E0 inputs, prompts, arms, metrics and the decision rule. Control and treatment both run on the screening model, so the comparison is still paired.
+- **Scope of a screen GO:** it shows only that strictness helps a `gpt-5.2` Verifier. It does not trigger the end-to-end run. The next stage would be a frontier replay of the six arms on `gpt-5.6-sol`, only after an explicit cost check and approval.
+- **Screen NO-GO or STOP:** this ends the experiment at the screen.
+- **Estimated cost of the screen:** 6 arms × 33 Verifier calls is about 1.0M input and 0.1–0.2M output tokens. The judge adds about 7k input per arm. This is under $5 at gpt-5.2 list prices.

@@ -90,7 +90,7 @@ def test_variance_treats_one_place_as_one_finding_whatever_the_wording() -> None
                       {"path": "x.py", "start_line": None, "content": "writer not closed on abort"})
 
 
-@pytest.mark.parametrize("mode", ["allocation", "freeze", "verifier"])
+@pytest.mark.parametrize("mode", ["allocation", "freeze", "verifier", "screen"])
 def test_replay_reads_only_the_case_file_the_source_run_and_its_own_outputs(
         tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mode: str) -> None:
     cases = tmp_path / "cases.json"
@@ -136,8 +136,9 @@ def test_replay_reads_only_the_case_file_the_source_run_and_its_own_outputs(
 
     monkeypatch.setattr(builtins, "open", recording(real_open))
     monkeypatch.setattr(io, "open", recording(real_io_open))
-    if mode == "verifier":
-        aacr.replay(cases, "rep", "src", "sequential", "HEAD", verifier_prompt="strict")
+    if mode in ("verifier", "screen"):
+        aacr.replay(cases, "rep", "src", "sequential", "HEAD", verifier_prompt="strict",
+                    model="openai:screen-model" if mode == "screen" else None)
     else:
         aacr.replay(cases, "rep", "src", "two_round", "HEAD", freeze_verifier_input=mode == "freeze")
 
@@ -145,7 +146,11 @@ def test_replay_reads_only_the_case_file_the_source_run_and_its_own_outputs(
     for path in reads:
         assert path == str(cases) or path.startswith(allowed), f"replay read {path}"
     command = commands[0]
-    if mode == "verifier":
+    run_json = json.loads((results / "rep" / "run.json").read_text())
+    model = "openai:screen-model" if mode == "screen" else aacr.CONFIG["sydes"]["model"]
+    assert command[command.index("--model") + 1] == model and run_json["sydes"]["model"] == model
+    assert ("model_override" in run_json["replay"]) == (mode == "screen")
+    if mode in ("verifier", "screen"):
         assert "sydes.verify.verifier_replay" in command and command[command.index("--prompt") + 1] == "strict"
         assert command[command.index("--inputs") + 1].endswith("src/sydes/o__r@abcdef1.verifier-input.json")
         assert "--allocation" not in command
@@ -155,3 +160,9 @@ def test_replay_reads_only_the_case_file_the_source_run_and_its_own_outputs(
         if mode == "freeze":
             assert command[command.index("--verifier-input-out") + 1].endswith("rep/sydes/o__r@abcdef1.verifier-input.json")
     assert (results / "rep" / "aacr" / "o__r@abcdef1.json").exists()
+
+
+def test_a_model_override_is_only_for_a_verifier_only_replay(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    with pytest.raises(SystemExit, match="Verifier-only"):
+        aacr.replay(tmp_path / "cases.json", "rep", "src", "two_round", "HEAD", model="openai:screen-model")

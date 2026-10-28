@@ -222,7 +222,7 @@ def review(cases_file: Path, run: str, only: list[str] | None = None, sydes_ref:
 
 def replay(cases_file: Path, run: str, source_run: str, allocation: str, sydes_ref: str,
            only: list[str] | None = None, *, freeze_verifier_input: bool = False,
-           verifier_prompt: str | None = None) -> None:
+           verifier_prompt: str | None = None, model: str | None = None) -> None:
     """Allocation experiment: the Investigator -> Verifier again, under `allocation`, on the
     packet + hypotheses snapshot a `review --sydes-arg=--investigator-snapshot` run wrote.
     Same checkout, same model, same output layout, so `eval` and `summarize` run unchanged.
@@ -230,9 +230,13 @@ def replay(cases_file: Path, run: str, source_run: str, allocation: str, sydes_r
 
     Verifier-strictness experiment: with `freeze_verifier_input`, each case also writes
     `<id>.verifier-input.json`. With `verifier_prompt`, the source is such a freeze run and
-    only the Verifier runs again (`sydes.verify.verifier_replay`), under that prompt."""
+    only the Verifier runs again (`sydes.verify.verifier_replay`), under that prompt -- and,
+    with `model`, on that model instead of the configured one (a screening run)."""
     verifier_only = verifier_prompt is not None
-    experiment = ({"source_run": source_run, "verifier_prompt": verifier_prompt} if verifier_only else
+    if model and not verifier_only:
+        raise SystemExit("a model override is only for a Verifier-only replay")
+    experiment = ({"source_run": source_run, "verifier_prompt": verifier_prompt,
+                   **({"model_override": model} if model else {})} if verifier_only else
                   {"source_run": source_run, "allocation": allocation,
                    **({"freeze_verifier_input": True} if freeze_verifier_input else {})})
     if not os.environ.get("OPENAI_API_KEY"):
@@ -242,6 +246,8 @@ def replay(cases_file: Path, run: str, source_run: str, allocation: str, sydes_r
     for sub in ("sydes", "aacr", "telemetry", "logs"):
         (out / sub).mkdir(parents=True, exist_ok=True)
     s = dict(CONFIG["sydes"])
+    if model:
+        s["model"] = model
     s["package"], s["git_commit"] = sydes_build(sydes_ref)
     s["git_ref"] = sydes_ref
     (out / "run.json").write_text(json.dumps({
@@ -545,6 +551,7 @@ def main() -> None:
     vr.add_argument("--prompt", choices=["control", "strict"], required=True)
     vr.add_argument("--sydes-ref", required=True)
     vr.add_argument("--only", nargs="*")
+    vr.add_argument("--model", help="screening model for the Verifier (default: the configured Sydes model)")
     v = sub.add_parser("validate")
     v.add_argument("--cases", type=Path, required=True)
     v.add_argument("--run")
@@ -560,7 +567,7 @@ def main() -> None:
                freeze_verifier_input=args.freeze_verifier_input)
     elif args.stage == "verifier-replay":
         replay(args.cases, args.run, args.source_run, "sequential", args.sydes_ref, args.only,
-               verifier_prompt=args.prompt)
+               verifier_prompt=args.prompt, model=args.model)
     elif args.stage == "eval":
         evaluate(args.cases, args.run, args.rounds)
     elif args.stage == "validate":
